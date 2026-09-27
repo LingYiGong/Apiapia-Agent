@@ -131,22 +131,53 @@ class MemoryService:
         result = memory.add(data, user_id=user_id, metadata=metadata or {})
         return result if isinstance(result, list) else [result]
 
+    @staticmethod
+    def _extract_results_list(raw: Any) -> List[Dict[str, Any]]:
+        """Normalize Mem0 response which can be a dict {'results': [...]} or a list."""
+        if not raw:
+            return []
+        if isinstance(raw, list):
+            items = []
+            for entry in raw:
+                if isinstance(entry, dict) and "results" in entry and isinstance(entry["results"], list):
+                    items.extend(entry["results"])
+                elif isinstance(entry, dict) and "memories" in entry and isinstance(entry["memories"], list):
+                    items.extend(entry["memories"])
+                elif isinstance(entry, dict):
+                    items.append(entry)
+            return items
+        if isinstance(raw, dict):
+            if "results" in raw and isinstance(raw["results"], list):
+                return raw["results"]
+            if "memories" in raw and isinstance(raw["memories"], list):
+                return raw["memories"]
+            if "id" in raw or "memory" in raw or "text" in raw:
+                return [raw]
+        return []
+
     def search_memory(self, user_id: str, query: str, limit: int = 5) -> List[Dict[str, Any]]:
-        """Search relevant memories for a verified user_id using Mem0 2.2.1 filters."""
+        """Search relevant memories for a verified user_id."""
         if not query or not query.strip():
             return []
         memory = self._ensure_memory()
         if not memory:
             return []
         try:
-            # In Mem0 2.2.1 OSS, search() requires filters={'user_id': ...}
-            results = memory.search(query=query, filters={"user_id": user_id}, limit=limit)
-            return results if isinstance(results, list) else []
+            # Primary: Mem0 OSS pgvector search uses user_id
+            results = memory.search(query=query, user_id=user_id, limit=limit)
+            items = self._extract_results_list(results)
+            if not items:
+                # Secondary fallback: try filters={'user_id': ...}
+                results_fallback = memory.search(query=query, filters={"user_id": user_id}, limit=limit)
+                items = self._extract_results_list(results_fallback)
+            logger.info("Search memory for user %s (query: '%s') found %d items: %s", user_id, query, len(items), items)
+            return items
         except Exception as e:
             try:
-                # Fallback attempt
-                results = memory.search(query=query, user_id=user_id, limit=limit)
-                return results if isinstance(results, list) else []
+                results = memory.search(query=query, filters={"user_id": user_id}, limit=limit)
+                items = self._extract_results_list(results)
+                logger.info("Search memory fallback for user %s (query: '%s') found %d items", user_id, query, len(items))
+                return items
             except Exception as inner_e:
                 logger.warning("Error searching memory for user %s: %s", user_id, str(inner_e))
                 return []
@@ -157,13 +188,19 @@ class MemoryService:
         if not memory:
             return []
         try:
-            # In Mem0 2.2.1, try filters={'user_id': ...} first
-            results = memory.get_all(filters={"user_id": user_id})
-            return results if isinstance(results, list) else []
+            raw = memory.get_all(user_id=user_id)
+            items = self._extract_results_list(raw)
+            if not items:
+                raw2 = memory.get_all(filters={"user_id": user_id})
+                items = self._extract_results_list(raw2)
+            logger.info("Listed %d memories for user %s", len(items), user_id)
+            return items
         except Exception:
             try:
-                results = memory.get_all(user_id=user_id)
-                return results if isinstance(results, list) else []
+                raw = memory.get_all(filters={"user_id": user_id})
+                items = self._extract_results_list(raw)
+                logger.info("Listed %d memories for user %s (fallback)", len(items), user_id)
+                return items
             except Exception as e:
                 logger.warning("Error listing memories for user %s: %s", user_id, str(e))
                 return []
@@ -176,10 +213,13 @@ class MemoryService:
         try:
             item = memory.get(memory_id)
             if item:
+                if isinstance(item, dict) and "results" in item and isinstance(item["results"], list) and item["results"]:
+                    item = item["results"][0]
                 # Ensure user_id isolation
-                if item.get("user_id") and item.get("user_id") != user_id:
-                    return None
-                return item
+                if isinstance(item, dict):
+                    if item.get("user_id") and item.get("user_id") != user_id:
+                        return None
+                    return item
             return None
         except Exception as e:
             logger.warning("Error getting memory %s: %s", memory_id, str(e))

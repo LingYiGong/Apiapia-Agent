@@ -217,13 +217,14 @@ export default function MemoryPage() {
             </div>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
-              {memories.map((item) => {
+              {memories.map((item, idx) => {
                 const text = item.memory || (item as any).text || JSON.stringify(item);
+                const itemId = item.id ? String(item.id) : (item as any).hash ? String((item as any).hash) : `mem-${idx}`;
                 const isEditing = editingItem?.id === item.id;
 
                 return (
                   <div
-                    key={item.id}
+                    key={itemId}
                     className="flex flex-col justify-between rounded-2xl border border-slate-800 bg-slate-900/70 p-4 shadow-sm hover:border-slate-700 transition-all"
                   >
                     {isEditing ? (
@@ -255,7 +256,7 @@ export default function MemoryPage() {
                       <>
                         <p className="text-xs text-slate-200 leading-relaxed break-words">{text}</p>
                         <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between">
-                          <span className="text-[10px] text-slate-500">ID: {item.id.slice(0, 8)}...</span>
+                          <span className="text-[10px] text-slate-500">ID: {itemId.slice(0, 8)}...</span>
                           <div className="flex items-center gap-1">
                             <button
                               onClick={() => {

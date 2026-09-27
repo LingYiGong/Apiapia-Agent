@@ -16,6 +16,7 @@ def retrieve_relevant_memories(user_id: str, query: str, limit: int = 5) -> Tupl
     if not query or not query.strip():
         return [], ""
 
+    logger.info("Searching relevant memories for user %s (query: '%s')", user_id, query)
     try:
         memories = memory_service.search_memory(user_id=user_id, query=query, limit=limit)
     except Exception as e:
@@ -23,6 +24,7 @@ def retrieve_relevant_memories(user_id: str, query: str, limit: int = 5) -> Tupl
         return [], ""
 
     if not memories:
+        logger.info("No memories matched query '%s' for user %s", query, user_id)
         return [], ""
 
     extracted_lines = []
@@ -33,11 +35,16 @@ def retrieve_relevant_memories(user_id: str, query: str, limit: int = 5) -> Tupl
         text = item.get("memory") or item.get("text") or str(item)
         if text and text.strip():
             extracted_lines.append(f"- {text.strip()}")
-            clean_memories.append(item)
+            clean_memories.append({
+                "id": str(item.get("id") or ""),
+                "memory": text.strip(),
+                "score": float(item["score"]) if item.get("score") is not None else None
+            })
 
     if not extracted_lines:
         return [], ""
 
+    logger.info("Successfully recalled %d relevant memories for query '%s'", len(clean_memories), query)
     bullet_points = "\n".join(extracted_lines)
 
     # Formatted untrusted reference block with explicit guardrail framing

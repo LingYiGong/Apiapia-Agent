@@ -133,7 +133,7 @@ async def chat_stream(
                 "model": model_to_use,
                 "retrieved_memories": retrieved_memories
             }
-            yield f"data: {json.dumps(meta_chunk, ensure_ascii=False)}\n\n"
+            yield f"data: {json.dumps(meta_chunk, ensure_ascii=False, default=str)}\n\n"
 
             # Obtain LLM Provider inside stream so configuration errors are also returned to chat window
             provider = get_llm_provider(

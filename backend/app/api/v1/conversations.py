@@ -13,6 +13,8 @@ from app.schemas.conversation import (
     MessageResponse
 )
 from app.api.v1.deps import get_current_user
+from app.services.memory.retrieval import retrieve_relevant_memories
+from app.services.memory.service import memory_service
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
 
@@ -131,3 +133,69 @@ async def list_messages(
     )
     result = await db.execute(msg_stmt)
     return result.scalars().all()
+
+
+@router.get("/{conversation_id}/memories", response_model=List[dict])
+async def get_conversation_memories(
+    conversation_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Retrieve memories associated with or relevant to this conversation."""
+    conv_stmt = select(Conversation).where(
+        Conversation.id == conversation_id,
+        Conversation.user_id == current_user.id
+    )
+    conv = (await db.execute(conv_stmt)).scalar_one_or_none()
+    if not conv:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+
+    recalled_memories = []
+    existing_ids = set()
+
+    # 1. First check if any memory was directly extracted from this conversation (metadata.conversation_id)
+    try:
+        all_user_mems = memory_service.list_memories(user_id=current_user.id)
+        for mem in all_user_mems:
+            meta = mem.get("metadata") or {}
+            if isinstance(meta, dict) and meta.get("conversation_id") == conversation_id:
+                mem_id = mem.get("id")
+                if mem_id and mem_id not in existing_ids:
+                    recalled_memories.append({
+                        "id": str(mem_id),
+                        "memory": mem.get("memory") or mem.get("text") or str(mem),
+                        "score": None
+                    })
+                    existing_ids.add(mem_id)
+    except Exception:
+        pass
+
+    # 2. Then retrieve memories relevant to the latest user message in this conversation
+    msg_stmt = (
+        select(Message)
+        .where(
+            Message.conversation_id == conversation_id,
+            Message.role == "user"
+        )
+        .order_by(Message.created_at.desc())
+        .limit(1)
+    )
+    last_user_msg = (await db.execute(msg_stmt)).scalar_one_or_none()
+
+    if last_user_msg and last_user_msg.content.strip():
+        try:
+            semantic_mems, _ = retrieve_relevant_memories(
+                user_id=current_user.id,
+                query=last_user_msg.content,
+                limit=5
+            )
+            for sm in semantic_mems:
+                sm_id = sm.get("id")
+                if sm_id and sm_id not in existing_ids:
+                    recalled_memories.append(sm)
+                    existing_ids.add(sm_id)
+        except Exception:
+            pass
+
+    return recalled_memories
+

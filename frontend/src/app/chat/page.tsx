@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { apiRequest, streamChatResponse } from "@/lib/api";
@@ -16,6 +16,7 @@ export default function ChatPage() {
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const activeIdRef = useRef<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [availableModels, setAvailableModels] = useState<ModelCatalogItem[]>([
     { id: "gpt-4o-mini", name: "GPT-4o Mini", provider: "openai", description: "高效轻量" },
@@ -38,11 +39,11 @@ export default function ChatPage() {
   }, [user, loading, router]);
 
   // Load conversations & settings
-  const loadConversations = async () => {
+  const loadConversations = async (autoSelectFirst = false) => {
     try {
       const list = await apiRequest<Conversation[]>("/conversations");
       setConversations(list);
-      if (list.length > 0 && !activeId) {
+      if (autoSelectFirst && list.length > 0 && !activeIdRef.current) {
         selectConversation(list[0].id);
       }
     } catch (err) {
@@ -85,25 +86,35 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (user) {
-      loadConversations();
+      loadConversations(true);
       loadConfiguredModels();
     }
   }, [user]);
 
   const selectConversation = async (id: string) => {
     setActiveId(id);
+    activeIdRef.current = id;
     setStreamingContent("");
     setRetrievedMemories([]);
     try {
-      const msgs = await apiRequest<Message[]>(`/conversations/${id}/messages`);
-      setMessages(msgs);
+      const [msgs, mems] = await Promise.all([
+        apiRequest<Message[]>(`/conversations/${id}/messages`),
+        apiRequest<any[]>(`/conversations/${id}/memories`).catch(() => []),
+      ]);
+      if (activeIdRef.current === id) {
+        setMessages(msgs || []);
+        if (mems && mems.length > 0) {
+          setRetrievedMemories(mems);
+        }
+      }
     } catch (err) {
-      console.error("Failed to load messages:", err);
+      console.error("Failed to load conversation details:", err);
     }
   };
 
   const handleNewChat = () => {
     setActiveId(null);
+    activeIdRef.current = null;
     setMessages([]);
     setStreamingContent("");
     setRetrievedMemories([]);
@@ -148,11 +159,12 @@ export default function ChatPage() {
       },
       {
         onMeta: (meta) => {
-          if (!activeId && meta.conversation_id) {
+          if (meta.conversation_id) {
             setActiveId(meta.conversation_id);
-            loadConversations();
+            activeIdRef.current = meta.conversation_id;
+            loadConversations(false);
           }
-          if (meta.retrieved_memories) {
+          if (meta.retrieved_memories && meta.retrieved_memories.length > 0) {
             setRetrievedMemories(meta.retrieved_memories);
           }
         },
@@ -176,7 +188,7 @@ export default function ChatPage() {
             { role: "assistant", content: accumulatedContent, model: currentModel },
           ]);
           setStreamingContent("");
-          loadConversations();
+          loadConversations(false);
         },
       }
     );

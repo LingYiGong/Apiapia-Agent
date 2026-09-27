@@ -1,5 +1,6 @@
 import os
 import logging
+from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 from app.core.config import settings
 from app.services.memory.models import MemoryItem
@@ -73,15 +74,41 @@ class MemoryService:
         if embed_base_url:
             embed_config["openai_base_url"] = embed_base_url
 
+        # Dynamically extract postgres connection parameters from MEM0_DATABASE_URL or DATABASE_URL
+        db_user = settings.POSTGRES_USER
+        db_password = settings.POSTGRES_PASSWORD
+        db_host = settings.POSTGRES_HOST
+        db_port = settings.POSTGRES_PORT
+        db_name = settings.POSTGRES_DB
+
+        url_to_parse = settings.MEM0_DATABASE_URL or settings.DATABASE_URL
+        if url_to_parse:
+            try:
+                from urllib.parse import urlsplit, unquote
+                clean_url = url_to_parse.replace("postgresql+asyncpg://", "postgresql://")
+                parsed = urlsplit(clean_url)
+                if parsed.username:
+                    db_user = unquote(parsed.username)
+                if parsed.password:
+                    db_password = unquote(parsed.password)
+                if parsed.hostname:
+                    db_host = parsed.hostname
+                if parsed.port:
+                    db_port = parsed.port
+                if parsed.path and len(parsed.path) > 1:
+                    db_name = parsed.path.lstrip("/")
+            except Exception as e:
+                logger.warning("Failed to parse database URL for Mem0: %s", str(e))
+
         config = {
             "vector_store": {
                 "provider": "pgvector",
                 "config": {
-                    "dbname": settings.POSTGRES_DB,
-                    "user": settings.POSTGRES_USER,
-                    "password": settings.POSTGRES_PASSWORD,
-                    "host": settings.POSTGRES_HOST,
-                    "port": settings.POSTGRES_PORT,
+                    "dbname": db_name,
+                    "user": db_user,
+                    "password": db_password,
+                    "host": db_host,
+                    "port": db_port,
                     "collection_name": "mem0_memories",
                 }
             },
@@ -128,7 +155,10 @@ class MemoryService:
         if not memory:
             return []
         logger.info("Adding memory for user %s with model %s", user_id, memory_model or "default")
-        result = memory.add(data, user_id=user_id, metadata=metadata or {})
+        meta = (metadata or {}).copy()
+        if "created_at" not in meta:
+            meta["created_at"] = datetime.now(timezone.utc).isoformat()
+        result = memory.add(data, user_id=user_id, metadata=meta)
         return result if isinstance(result, list) else [result]
 
     @staticmethod
@@ -170,20 +200,55 @@ class MemoryService:
                 # Secondary fallback: try filters={'user_id': ...}
                 results_fallback = memory.search(query=query, filters={"user_id": user_id}, limit=limit)
                 items = self._extract_results_list(results_fallback)
+            items = [self._normalize_memory_item(i) for i in items]
             logger.info("Search memory for user %s (query: '%s') found %d items: %s", user_id, query, len(items), items)
             return items
         except Exception as e:
             try:
                 results = memory.search(query=query, filters={"user_id": user_id}, limit=limit)
-                items = self._extract_results_list(results)
+                items = [self._normalize_memory_item(i) for i in self._extract_results_list(results)]
                 logger.info("Search memory fallback for user %s (query: '%s') found %d items", user_id, query, len(items))
                 return items
             except Exception as inner_e:
                 logger.warning("Error searching memory for user %s: %s", user_id, str(inner_e))
                 return []
 
+    @staticmethod
+    def _normalize_memory_item(item: Dict[str, Any]) -> Dict[str, Any]:
+        """Normalize created_at timestamp from top-level or metadata."""
+        if not isinstance(item, dict):
+            return item
+        item_copy = dict(item)
+        created_at = item_copy.get("created_at")
+        metadata = item_copy.get("metadata")
+        if isinstance(metadata, str):
+            try:
+                import json
+                metadata = json.loads(metadata)
+                item_copy["metadata"] = metadata
+            except Exception:
+                metadata = {}
+        if not created_at and isinstance(metadata, dict):
+            created_at = metadata.get("created_at") or metadata.get("timestamp")
+        if not created_at:
+            created_at = item_copy.get("updated_at")
+        if created_at:
+            item_copy["created_at"] = str(created_at)
+        return item_copy
+
+    @classmethod
+    def _normalize_and_sort_memories(cls, items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Normalize created_at timestamp and sort descending (newest first)."""
+        normalized = [cls._normalize_memory_item(i) for i in items if isinstance(i, dict)]
+
+        def sort_key(entry: Dict[str, Any]) -> str:
+            # Descending order by created_at / updated_at
+            return str(entry.get("created_at") or entry.get("updated_at") or "")
+
+        return sorted(normalized, key=sort_key, reverse=True)
+
     def list_memories(self, user_id: str) -> List[Dict[str, Any]]:
-        """Retrieve all memories belonging to a verified user_id."""
+        """Retrieve all memories belonging to a verified user_id, sorted descending by created_at."""
         memory = self._ensure_memory()
         if not memory:
             return []
@@ -194,13 +259,13 @@ class MemoryService:
                 raw2 = memory.get_all(filters={"user_id": user_id})
                 items = self._extract_results_list(raw2)
             logger.info("Listed %d memories for user %s", len(items), user_id)
-            return items
+            return self._normalize_and_sort_memories(items)
         except Exception:
             try:
                 raw = memory.get_all(filters={"user_id": user_id})
                 items = self._extract_results_list(raw)
                 logger.info("Listed %d memories for user %s (fallback)", len(items), user_id)
-                return items
+                return self._normalize_and_sort_memories(items)
             except Exception as e:
                 logger.warning("Error listing memories for user %s: %s", user_id, str(e))
                 return []

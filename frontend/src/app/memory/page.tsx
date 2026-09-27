@@ -16,7 +16,26 @@ import {
   Check,
   X,
   Sparkles,
+  Clock,
 } from "lucide-react";
+
+function formatFullDateTime(val?: string): string {
+  if (!val) return "";
+  try {
+    const d = new Date(val);
+    if (isNaN(d.getTime())) return String(val);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const year = d.getFullYear();
+    const month = pad(d.getMonth() + 1);
+    const day = pad(d.getDate());
+    const hours = pad(d.getHours());
+    const minutes = pad(d.getMinutes());
+    const seconds = pad(d.getSeconds());
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+  } catch {
+    return String(val);
+  }
+}
 
 export default function MemoryPage() {
   const { user, loading } = useAuth();
@@ -33,6 +52,14 @@ export default function MemoryPage() {
 
   const [editingItem, setEditingItem] = useState<MemoryItem | null>(null);
   const [editText, setEditText] = useState("");
+
+  const sortedMemories = React.useMemo(() => {
+    return [...memories].sort((a, b) => {
+      const timeA = new Date(a.created_at || (a as any).metadata?.created_at || a.updated_at || (a as any).metadata?.timestamp || 0).getTime();
+      const timeB = new Date(b.created_at || (b as any).metadata?.created_at || b.updated_at || (b as any).metadata?.timestamp || 0).getTime();
+      return timeB - timeA;
+    });
+  }, [memories]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -130,10 +157,11 @@ export default function MemoryPage() {
   if (loading || !user) return null;
 
   return (
-    <div className="flex flex-col min-h-dvh bg-slate-50 dark:bg-slate-950 transition-colors">
+    <div className="flex flex-col h-dvh overflow-hidden bg-slate-50 dark:bg-slate-950 transition-colors">
       <Navbar />
 
-      <main className="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-6 md:p-8 pb-24 md:pb-8">
+      <div className="flex-1 overflow-y-auto">
+        <main className="max-w-5xl w-full mx-auto p-4 sm:p-6 md:p-8 pb-24 md:pb-8">
         {/* Header Banner */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-200 dark:border-slate-800">
           <div className="min-w-0 flex-1">
@@ -205,7 +233,7 @@ export default function MemoryPage() {
             <div className="flex justify-center py-16">
               <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
             </div>
-          ) : memories.length === 0 ? (
+          ) : sortedMemories.length === 0 ? (
             <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/30 p-12 text-center shadow-sm">
               <Sparkles className="h-10 w-10 text-indigo-500/50 dark:text-indigo-400/40 mx-auto mb-3" />
               <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-300">
@@ -216,68 +244,90 @@ export default function MemoryPage() {
               </p>
             </div>
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2">
-              {memories.map((item, idx) => {
+            <div className="flex flex-col gap-3">
+              {sortedMemories.map((item, idx) => {
                 const text = item.memory || (item as any).text || JSON.stringify(item);
                 const itemId = item.id ? String(item.id) : (item as any).hash ? String((item as any).hash) : `mem-${idx}`;
                 const isEditing = editingItem?.id === item.id;
+                const createdAt = item.created_at || (item as any).metadata?.created_at || item.updated_at || (item as any).metadata?.timestamp;
+                const formattedTime = formatFullDateTime(createdAt);
 
                 return (
                   <div
                     key={itemId}
-                    className="flex flex-col justify-between rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/70 p-4 shadow-sm hover:border-slate-300 dark:hover:border-slate-700 transition-all"
+                    className="group rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-4 sm:p-5 shadow-xs hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-sm transition-all"
                   >
                     {isEditing ? (
                       <div className="space-y-3">
                         <textarea
-                          rows={3}
+                          rows={4}
                           value={editText}
                           onChange={(e) => setEditText(e.target.value)}
-                          className="w-full rounded-xl border border-indigo-500 bg-slate-50 dark:bg-slate-950 p-2.5 text-xs text-slate-900 dark:text-white focus:outline-none"
+                          className="w-full rounded-xl border border-indigo-500 bg-slate-50 dark:bg-slate-950 p-3 text-sm text-slate-900 dark:text-white focus:outline-none leading-relaxed"
                         />
                         <div className="flex justify-end gap-2">
                           <button
                             onClick={() => setEditingItem(null)}
-                            className="p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs flex items-center gap-1"
+                            className="px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs flex items-center gap-1.5 transition-colors"
                           >
                             <X className="h-3.5 w-3.5" />
                             <span>取消</span>
                           </button>
                           <button
                             onClick={handleSaveEdit}
-                            className="p-1.5 rounded-lg bg-indigo-600 text-white text-xs flex items-center gap-1 hover:bg-indigo-500 shadow-sm"
+                            className="px-3.5 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-medium flex items-center gap-1.5 hover:bg-indigo-500 shadow-sm transition-colors"
                           >
                             <Check className="h-3.5 w-3.5" />
-                            <span>保存</span>
+                            <span>保存修改</span>
                           </button>
                         </div>
                       </div>
                     ) : (
-                      <>
-                        <p className="text-xs text-slate-700 dark:text-slate-200 leading-relaxed break-words">{text}</p>
-                        <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
-                          <span className="text-[10px] text-slate-400 dark:text-slate-500">ID: {itemId.slice(0, 8)}...</span>
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => {
-                                setEditingItem(item);
-                                setEditText(text);
-                              }}
-                              title="编辑修正记忆"
-                              className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                            >
-                              <Edit3 className="h-3.5 w-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(item.id)}
-                              title="删除记忆"
-                              className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          {/* Metadata row */}
+                          <div className="flex flex-wrap items-center gap-2 mb-2 text-[11px] text-slate-400 dark:text-slate-500">
+                            <span className="font-mono text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                              #{idx + 1}
+                            </span>
+                            {formattedTime && (
+                              <span className="flex items-center gap-1 font-mono text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800/80">
+                                <Clock className="h-3 w-3 shrink-0 text-slate-400 dark:text-slate-500" />
+                                <span>{formattedTime}</span>
+                              </span>
+                            )}
+                            <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500 hidden md:inline">
+                              ID: {itemId.slice(0, 12)}...
+                            </span>
                           </div>
+
+                          {/* Full memory content */}
+                          <p className="text-sm text-slate-800 dark:text-slate-200 leading-relaxed break-words whitespace-pre-wrap select-text">
+                            {text}
+                          </p>
                         </div>
-                      </>
+
+                        {/* Actions */}
+                        <div className="flex items-center gap-1 shrink-0 self-end sm:self-start pt-1 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-slate-800/60 w-full sm:w-auto justify-end">
+                          <button
+                            onClick={() => {
+                              setEditingItem(item);
+                              setEditText(text);
+                            }}
+                            title="编辑修正记忆"
+                            className="p-1.5 sm:p-2 rounded-lg text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                          >
+                            <Edit3 className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(item.id)}
+                            title="删除记忆"
+                            className="p-1.5 sm:p-2 rounded-lg text-slate-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
                     )}
                   </div>
                 );
@@ -286,6 +336,7 @@ export default function MemoryPage() {
           )}
         </div>
       </main>
+      </div>
 
       {/* Add Memory Modal */}
       {showAddModal && (

@@ -113,7 +113,7 @@ def get_period_filter_datetime(period: str, tz_offset_minutes: int = 0) -> Optio
 
 @router.get("/my")
 async def get_my_usage_stats(
-    period: str = Query("all", regex="^(all|today|month|year)$"),
+    period: str = Query("all", pattern="^(all|today|month|year)$"),
     tz_offset: int = Query(0, description="Client timezone offset in minutes"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -284,7 +284,7 @@ async def get_my_usage_stats(
 
 @router.get("/admin/overview")
 async def get_admin_overview_stats(
-    period: str = Query("all", regex="^(all|today|month|year)$"),
+    period: str = Query("all", pattern="^(all|today|month|year)$"),
     tz_offset: int = Query(0, description="Client timezone offset in minutes"),
     admin_user: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db)

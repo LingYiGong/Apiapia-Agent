@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { AuthProvider } from "@/lib/auth";
 import { ThemeProvider } from "@/lib/theme";
 import { UpdatePrompt } from "@/components/common/UpdatePrompt";
+import { CapacitorInit } from "@/components/common/CapacitorInit";
 import "./globals.css";
 
 export const viewport: Viewport = {
@@ -64,6 +65,7 @@ export default function RootLayout({
       <body className="min-h-dvh bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors duration-200">
         <ThemeProvider>
           <AuthProvider>
+            <CapacitorInit />
             <UpdatePrompt />
             {children}
           </AuthProvider>

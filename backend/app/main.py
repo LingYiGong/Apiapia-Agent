@@ -28,7 +28,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    version="2.1.0",
+    version="2.2.0",
     description="Personal AI Assistant API with Decoupled LLMs and Mem0 OSS Long-term Memory",
     lifespan=lifespan
 )
@@ -47,7 +47,7 @@ app.add_middleware(
 async def root():
     return {
         "name": settings.PROJECT_NAME,
-        "version": "2.1.0",
+        "version": "2.2.0",
         "status": "online",
         "mem0_version": settings.MEM0_VERSION
     }

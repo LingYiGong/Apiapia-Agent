@@ -29,9 +29,20 @@ services:
         condition: service_healthy
     ports:
       - "8000:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/api/health || exit 1"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+      start_period: 3s
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://postgres:postgres@postgres:5432/personal_ai}
-      MEM0_DATABASE_URL: ${MEM0_DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/personal_ai}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-personal_ai}
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-personal_ai}}
+      MEM0_DATABASE_URL: ${MEM0_DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-personal_ai}}
       SECRET_KEY: ${SECRET_KEY:-change-this-to-a-super-secret-jwt-key-min-32-chars-long}
       API_KEY_ENCRYPTION_KEY: ${API_KEY_ENCRYPTION_KEY:-dGhpc2lzYTMyeWVhcnNvbGRzZWNyZXRrZXkxMjM0NTY=}
       MEM0_VERSION: ${MEM0_VERSION:-2.2.1}
@@ -63,7 +74,8 @@ services:
     container_name: personal_ai_frontend
     restart: unless-stopped
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     ports:
       - "3000:3000"
     environment:

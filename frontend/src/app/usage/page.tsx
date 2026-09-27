@@ -183,10 +183,11 @@ export default function UsagePage() {
   const currentPeriodName = periodLabels[period];
 
   return (
-    <div className="flex flex-col min-h-dvh bg-slate-50 dark:bg-slate-950 transition-colors">
+    <div className="flex flex-col h-dvh overflow-hidden bg-slate-50 dark:bg-slate-950 transition-colors">
       <Navbar />
 
-      <main className="flex-1 max-w-6xl w-full mx-auto p-3 sm:p-4 md:p-8 space-y-4 sm:space-y-6 pb-24 md:pb-8">
+      <div className="flex-1 overflow-y-auto">
+        <main className="max-w-6xl w-full mx-auto p-3 sm:p-4 md:p-8 space-y-4 sm:space-y-6 pb-24 md:pb-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-200 dark:border-slate-800">
           <div>
@@ -965,6 +966,7 @@ export default function UsagePage() {
           </div>
         )}
       </main>
+      </div>
     </div>
   );
 }

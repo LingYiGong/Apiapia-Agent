@@ -119,7 +119,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         }`}
       >
         {/* Mobile Header with App Switcher & Close button */}
-        <div className="p-3 border-b border-slate-200 dark:border-slate-800 flex flex-col gap-2">
+        <div className="p-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:pt-3 border-b border-slate-200 dark:border-slate-800 flex flex-col gap-2">
           <div className="flex items-center justify-between md:hidden pb-1 border-b border-slate-200 dark:border-slate-800/80">
             <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
               历史对话与导航

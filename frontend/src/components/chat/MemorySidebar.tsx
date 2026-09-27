@@ -1,7 +1,7 @@
 "use client";
 
-import React from "react";
-import { Brain, Sparkles, AlertCircle, X } from "lucide-react";
+import React, { useMemo } from "react";
+import { Brain, Sparkles, AlertCircle, X, Clock } from "lucide-react";
 import Link from "next/link";
 
 interface MemorySidebarProps {
@@ -12,6 +12,24 @@ interface MemorySidebarProps {
   onClose?: () => void;
 }
 
+function formatFullDateTime(val?: string): string {
+  if (!val) return "";
+  try {
+    const d = new Date(val);
+    if (isNaN(d.getTime())) return String(val);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const year = d.getFullYear();
+    const month = pad(d.getMonth() + 1);
+    const day = pad(d.getDate());
+    const hours = pad(d.getHours());
+    const minutes = pad(d.getMinutes());
+    const seconds = pad(d.getSeconds());
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+  } catch {
+    return String(val);
+  }
+}
+
 export const MemorySidebar: React.FC<MemorySidebarProps> = ({
   memories,
   memoryEnabled,
@@ -19,6 +37,13 @@ export const MemorySidebar: React.FC<MemorySidebarProps> = ({
   isOpen = false,
   onClose,
 }) => {
+  const sortedMemories = useMemo(() => {
+    return [...memories].sort((a, b) => {
+      const timeA = new Date(a.created_at || a.metadata?.created_at || a.updated_at || a.metadata?.timestamp || 0).getTime();
+      const timeB = new Date(b.created_at || b.metadata?.created_at || b.updated_at || b.metadata?.timestamp || 0).getTime();
+      return timeB - timeA;
+    });
+  }, [memories]);
   return (
     <>
       {/* Mobile/Tablet Backdrop Overlay */}
@@ -36,7 +61,7 @@ export const MemorySidebar: React.FC<MemorySidebarProps> = ({
           isOpen ? "translate-x-0 flex" : "translate-x-full lg:translate-x-0 hidden lg:flex"
         }`}
       >
-        <div className="p-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+        <div className="p-3 pt-[max(0.75rem,env(safe-area-inset-top))] lg:pt-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Brain className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
             <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
@@ -83,7 +108,7 @@ export const MemorySidebar: React.FC<MemorySidebarProps> = ({
                 本次对话将不会召回或写入 Mem0 记忆库
               </p>
             </div>
-          ) : memories.length === 0 ? (
+          ) : sortedMemories.length === 0 ? (
             <div className="rounded-xl border border-slate-200 dark:border-slate-800/80 bg-white/80 dark:bg-slate-900/40 p-4 text-center shadow-sm">
               <Sparkles className="h-5 w-5 text-indigo-500 dark:text-indigo-400/60 mx-auto mb-2" />
               <p className="text-xs text-slate-700 dark:text-slate-300 font-medium">暂无关联记忆召回</p>
@@ -97,14 +122,23 @@ export const MemorySidebar: React.FC<MemorySidebarProps> = ({
                 <AlertCircle className="h-3.5 w-3.5 shrink-0" />
                 <span>以下为本次回复参考的背景事实：</span>
               </div>
-              {memories.map((m, idx) => {
+              {sortedMemories.map((m, idx) => {
                 const text = m.memory || m.text || JSON.stringify(m);
+                const createdAt = m.created_at || m.metadata?.created_at || m.updated_at || m.metadata?.timestamp;
+                const formattedTime = formatFullDateTime(createdAt);
+
                 return (
                   <div
                     key={m.id || idx}
                     className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-3 text-xs text-slate-700 dark:text-slate-200 shadow-sm leading-relaxed"
                   >
-                    <p>{text}</p>
+                    <p className="break-words">{text}</p>
+                    {formattedTime && (
+                      <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800/60 flex items-center gap-1 text-[10px] text-slate-400 dark:text-slate-500 font-mono">
+                        <Clock className="h-3 w-3 shrink-0" />
+                        <span>{formattedTime}</span>
+                      </div>
+                    )}
                   </div>
                 );
               })}

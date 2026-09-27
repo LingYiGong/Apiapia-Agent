@@ -157,10 +157,11 @@ export default function SettingsPage() {
   if (loading || !user) return null;
 
   return (
-    <div className="flex flex-col min-h-dvh bg-slate-50 dark:bg-slate-950 transition-colors">
+    <div className="flex flex-col h-dvh overflow-hidden bg-slate-50 dark:bg-slate-950 transition-colors">
       <Navbar />
 
-      <main className="flex-1 max-w-4xl w-full mx-auto p-4 sm:p-6 md:p-8 space-y-6 sm:space-y-8 pb-24 md:pb-8">
+      <div className="flex-1 overflow-y-auto">
+        <main className="max-w-4xl w-full mx-auto p-4 sm:p-6 md:p-8 space-y-6 sm:space-y-8 pb-24 md:pb-8">
         <div className="flex items-center justify-between pb-6 border-b border-slate-200 dark:border-slate-800">
           <div>
             <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-semibold mb-1">
@@ -491,6 +492,7 @@ export default function SettingsPage() {
           </div>
         </div>
       </main>
+      </div>
 
       {/* Add Custom Model Config Modal */}
       {showAddConfig && (

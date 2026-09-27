@@ -579,7 +579,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   return (
     <div className="flex-1 flex flex-col h-full bg-white dark:bg-slate-950 relative overflow-hidden transition-colors min-w-0 max-w-full">
       {/* Top Bar with Searchable Model Picker & Mobile/Tablet Controls */}
-      <div className="min-h-12 border-b border-slate-200/80 dark:border-slate-800/80 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md px-2.5 sm:px-4 flex items-center justify-between z-20 gap-1.5 sm:gap-2 flex-nowrap min-w-0 pt-[env(safe-area-inset-top)] transition-colors">
+      <div className="border-b border-slate-200/80 dark:border-slate-800/80 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md px-2.5 sm:px-4 flex items-center justify-between z-20 gap-1.5 sm:gap-2 flex-nowrap min-w-0 pt-[max(0.65rem,env(safe-area-inset-top))] pb-2 md:pb-2 md:pt-2 min-h-[calc(3.25rem+env(safe-area-inset-top,0px))] md:min-h-12 transition-colors">
         <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 shrink" ref={dropdownRef}>
           {/* Mobile Sidebar Toggle Button */}
           {onToggleSidebar && (
@@ -641,7 +641,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
           {/* Searchable Dropdown Modal/Panel - Mobile Full Screen/Centered */}
           {modelDropdownOpen && (
-            <div className="fixed inset-x-3 top-14 sm:absolute sm:inset-x-auto sm:left-0 sm:top-10 sm:mt-1 sm:w-96 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/95 shadow-2xl backdrop-blur-md p-3 z-50 flex flex-col max-h-[75vh]">
+            <div className="fixed inset-x-3 top-[calc(3.5rem+env(safe-area-inset-top,0px))] sm:absolute sm:inset-x-auto sm:left-0 sm:top-10 sm:mt-1 sm:w-96 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/95 shadow-2xl backdrop-blur-md p-3 z-50 flex flex-col max-h-[75vh]">
               {/* Search Box */}
               <div className="relative mb-2.5">
                 <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />

@@ -1,7 +1,6 @@
 export function getApiBase(): string {
-  // If explicitly configured in build/env with a non-localhost URL, use it
   const envUrl = process.env.NEXT_PUBLIC_API_URL;
-  if (envUrl && !envUrl.includes("localhost:8000")) {
+  if (envUrl) {
     return envUrl;
   }
   // In the browser, always use the relative path proxy '/api/backend'
@@ -96,6 +95,7 @@ export async function streamChatResponse(
       conversation_id: string;
       model?: string;
       duration_ms?: number;
+      thinking_duration_ms?: number;
       prompt_tokens?: number;
       completion_tokens?: number;
       total_tokens?: number;

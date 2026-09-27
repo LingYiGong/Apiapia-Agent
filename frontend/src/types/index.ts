@@ -29,6 +29,7 @@ export interface Message {
   prompt_tokens?: number;
   completion_tokens?: number;
   duration_ms?: number;
+  thinking_duration_ms?: number;
   created_at?: string;
 }
 

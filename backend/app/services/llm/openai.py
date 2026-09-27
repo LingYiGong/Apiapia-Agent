@@ -39,6 +39,7 @@ class OpenAIProvider(LLMProvider):
             response = await self.client.chat.completions.create(**create_kwargs)
 
         if stream:
+            in_thinking = False
             async for chunk in response:
                 if hasattr(chunk, "usage") and chunk.usage:
                     self.last_usage = {
@@ -46,8 +47,27 @@ class OpenAIProvider(LLMProvider):
                         "completion_tokens": getattr(chunk.usage, "completion_tokens", 0) or 0,
                         "total_tokens": getattr(chunk.usage, "total_tokens", 0) or 0,
                     }
-                if chunk.choices and chunk.choices[0].delta.content is not None:
-                    yield chunk.choices[0].delta.content
+                if chunk.choices:
+                    delta = chunk.choices[0].delta
+                    # Capture reasoning tokens (DeepSeek R1, o1, o3, OpenRouter)
+                    reasoning = getattr(delta, "reasoning_content", None) or getattr(delta, "reasoning", None)
+                    if not reasoning and hasattr(delta, "model_extra") and isinstance(delta.model_extra, dict):
+                        reasoning = delta.model_extra.get("reasoning_content") or delta.model_extra.get("reasoning")
+
+                    if reasoning:
+                        if not in_thinking:
+                            in_thinking = True
+                            yield "<think>\n"
+                        yield reasoning
+
+                    if delta.content:
+                        if in_thinking:
+                            in_thinking = False
+                            yield "\n</think>\n\n"
+                        yield delta.content
+
+            if in_thinking:
+                yield "\n</think>\n\n"
         else:
             if hasattr(response, "usage") and response.usage:
                 self.last_usage = {

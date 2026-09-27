@@ -143,6 +143,7 @@ async def chat_stream(
     async def sse_event_stream() -> AsyncGenerator[str, None]:
         full_assistant_reply = []
         start_time = time.time()
+        first_token_time = None
         provider = None
 
         try:
@@ -171,6 +172,8 @@ async def chat_stream(
                 stream=True,
                 temperature=temperature
             ):
+                if first_token_time is None:
+                    first_token_time = time.time()
                 full_assistant_reply.append(token)
                 delta_payload = {
                     "type": "content",
@@ -209,6 +212,7 @@ async def chat_stream(
 
         # 9. Calculate latency, reply time and accurate token stats
         duration_ms = max(20, int((time.time() - start_time) * 1000))
+        thinking_duration_ms = max(0, int((first_token_time - start_time) * 1000)) if first_token_time else duration_ms
         reply_created_at = datetime.now(timezone.utc)
         assistant_content = "".join(full_assistant_reply)
 
@@ -232,6 +236,7 @@ async def chat_stream(
             "conversation_id": conv_id,
             "model": model_to_use,
             "duration_ms": duration_ms,
+            "thinking_duration_ms": thinking_duration_ms,
             "prompt_tokens": prompt_tokens,
             "completion_tokens": completion_tokens,
             "total_tokens": total_tokens,
@@ -264,9 +269,17 @@ async def chat_stream(
 
             # Schedule Mem0 extraction in non-blocking background executor
             if use_memory:
+                # Strip reasoning thoughts (<think>...</think>) so scratchpad does not pollute user memory
+                clean_assistant = assistant_content
+                if "<think>" in clean_assistant:
+                    import re
+                    clean_assistant = re.sub(r"<think>[\s\S]*?</think>", "", clean_assistant).strip()
+                    if not clean_assistant:
+                        clean_assistant = assistant_content[:2000]
+
                 conversation_pair = [
                     {"role": "user", "content": chat_req.message},
-                    {"role": "assistant", "content": assistant_content}
+                    {"role": "assistant", "content": clean_assistant}
                 ]
                 memory_model_to_use = getattr(user_settings, "memory_model", None) or "openai/gpt-4o-mini"
                 await schedule_memory_extraction(

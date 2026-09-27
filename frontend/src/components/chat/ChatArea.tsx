@@ -34,6 +34,82 @@ function formatTime(isoStr?: string) {
   }
 }
 
+function renderMessageBody(content: string, isStreaming = false) {
+  if (!content) return null;
+
+  if (content.includes("<think>")) {
+    const thinkEndIndex = content.lastIndexOf("</think>");
+    let thought = "";
+    let mainContent = "";
+
+    if (thinkEndIndex !== -1) {
+      // Collect all think sections cleanly even if fragmented
+      const thinkMatches = Array.from(content.matchAll(/<think>([\s\S]*?)<\/think>/gi));
+      if (thinkMatches.length > 0) {
+        thought = thinkMatches.map((m) => m[1].trim()).filter(Boolean).join(" ");
+        mainContent = content.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+      } else {
+        thought = content.substring(content.indexOf("<think>") + 7, thinkEndIndex).trim();
+        mainContent = content.substring(thinkEndIndex + 8).trim();
+      }
+    } else {
+      // Currently in-stream thinking (unclosed <think>)
+      thought = content.substring(content.indexOf("<think>") + 7).trim();
+      mainContent = "";
+    }
+
+    return (
+      <div className="space-y-2.5">
+        {thought && (
+          <details
+            className="rounded-xl border border-indigo-100 dark:border-indigo-900/60 bg-indigo-50/50 dark:bg-indigo-950/30 p-2.5 text-xs group transition-all"
+            open={isStreaming && !mainContent}
+          >
+            <summary className="cursor-pointer select-none font-medium text-indigo-700 dark:text-indigo-300 flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <Brain className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400 animate-pulse" />
+                <span>思考过程</span>
+              </span>
+              <span className="text-[10px] text-slate-400 group-open:rotate-180 transition-transform">
+                ▼
+              </span>
+            </summary>
+            <div className="mt-2 pl-2.5 border-l-2 border-indigo-400 dark:border-indigo-600 text-xs text-slate-600 dark:text-slate-400 whitespace-pre-wrap font-mono max-h-72 overflow-y-auto leading-relaxed">
+              {thought}
+            </div>
+          </details>
+        )}
+        {mainContent ? (
+          <div className="prose dark:prose-invert prose-sm max-w-none break-words text-slate-800 dark:text-slate-200 overflow-x-auto">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {mainContent}
+            </ReactMarkdown>
+            {isStreaming && (
+              <span className="inline-block w-1.5 h-3.5 ml-0.5 bg-indigo-600 dark:bg-indigo-400 animate-pulse align-middle" />
+            )}
+          </div>
+        ) : isStreaming ? (
+          <div className="text-xs text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5 pt-1 font-mono">
+            <Sparkles className="h-3.5 w-3.5 animate-spin" />
+            <span>正在组织语言回答...</span>
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
+  return (
+    <div className="prose dark:prose-invert prose-sm max-w-none break-words text-slate-800 dark:text-slate-200 overflow-x-auto">
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+        {content}
+      </ReactMarkdown>
+      {isStreaming && (
+        <span className="inline-block w-1.5 h-3.5 ml-0.5 bg-indigo-600 dark:bg-indigo-400 animate-pulse align-middle" />
+      )}
+    </div>
+  );
+}
+
 interface ChatAreaProps {
   messages: Message[];
   currentModel: string;
@@ -42,6 +118,9 @@ interface ChatAreaProps {
   onSendMessage: (message: string) => void;
   isStreaming: boolean;
   streamingContent: string;
+  thinkingDuration?: number | null;
+  elapsedTime?: number;
+  isWaitingForFirstToken?: boolean;
   onRefreshModels?: () => void;
   isRefreshingModels?: boolean;
   onToggleSidebar?: () => void;
@@ -58,6 +137,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   onSendMessage,
   isStreaming,
   streamingContent,
+  thinkingDuration,
+  elapsedTime = 0,
+  isWaitingForFirstToken = false,
   onRefreshModels,
   isRefreshingModels = false,
   onToggleSidebar,
@@ -71,16 +153,50 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   const [selectedProviderFilter, setSelectedProviderFilter] = useState<string>("all");
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const isAtBottomRef = useRef(true);
+  const [showScrollBottomBtn, setShowScrollBottomBtn] = useState(false);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  // Monitor user scrolling to detect if user has scrolled away from the bottom
+  const handleScroll = () => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    const threshold = 120; // distance from bottom in px considered "at bottom"
+    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    const atBottom = distanceFromBottom <= threshold;
+    isAtBottomRef.current = atBottom;
+    setShowScrollBottomBtn(!atBottom);
   };
 
+  const scrollToBottom = (force = false, smooth = true) => {
+    // If not forced and user has scrolled up to read history, DO NOT pull them down!
+    if (!force && !isAtBottomRef.current) return;
+    const container = scrollContainerRef.current;
+    if (container) {
+      if (smooth) {
+        container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+      } else {
+        container.scrollTop = container.scrollHeight;
+      }
+    } else {
+      messagesEndRef.current?.scrollIntoView({ behavior: smooth ? "smooth" : "auto" });
+    }
+  };
+
+  // When new tokens stream in, ONLY scroll if user is already at the bottom!
+  // If user scrolled up to read earlier history, keep their scroll position completely undisturbed!
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, streamingContent]);
+    if (isAtBottomRef.current) {
+      scrollToBottom(false, false);
+    }
+  }, [streamingContent]);
+
+  // When a new message is added or conversation switched, scroll to bottom
+  useEffect(() => {
+    scrollToBottom(true, true);
+  }, [messages.length]);
 
   // Click outside to close model dropdown
   useEffect(() => {
@@ -106,11 +222,16 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
   const handleSend = () => {
     if (!input.trim() || isStreaming) return;
+    isAtBottomRef.current = true;
+    setShowScrollBottomBtn(false);
     onSendMessage(input.trim());
     setInput("");
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
     }
+    setTimeout(() => {
+      scrollToBottom(true, true);
+    }, 50);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -360,7 +481,11 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       </div>
 
       {/* Messages Scroll Area */}
-      <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-5">
+      <div
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-5 relative"
+      >
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center px-4 py-8">
             <div className="flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 mb-3 sm:mb-4 shadow-inner">
@@ -433,11 +558,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                         </div>
                       </div>
                     ) : (
-                      <div className="prose dark:prose-invert prose-sm max-w-none break-words text-slate-800 dark:text-slate-200 overflow-x-auto">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                          {msg.content}
-                        </ReactMarkdown>
-                      </div>
+                      renderMessageBody(msg.content, false)
                     )}
                   </div>
 
@@ -458,10 +579,17 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                         </span>
                       )}
 
+                      {typeof msg.thinking_duration_ms === "number" && msg.thinking_duration_ms > 0 && (
+                        <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium" title="思考耗时（到首字时间）">
+                          <Clock className="h-3 w-3 text-emerald-500" />
+                          <span>思考 {(msg.thinking_duration_ms / 1000).toFixed(1)}s</span>
+                        </span>
+                      )}
+
                       {typeof msg.duration_ms === "number" && msg.duration_ms > 0 && (
-                        <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 font-medium" title="生成耗时">
+                        <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 font-medium" title="总生成耗时">
                           <Zap className="h-3 w-3 text-amber-500" />
-                          <span>{(msg.duration_ms / 1000).toFixed(2)}s</span>
+                          <span>总用时 {(msg.duration_ms / 1000).toFixed(2)}s</span>
                         </span>
                       )}
 
@@ -490,22 +618,80 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-xl flex items-center justify-center shrink-0 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm">
               <Bot className="h-4 w-4 animate-pulse" />
             </div>
-            <div className="rounded-2xl px-3.5 sm:px-4 py-2.5 sm:py-3 text-sm leading-relaxed bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 shadow-sm max-w-[94%]">
-              <div className="prose dark:prose-invert prose-sm max-w-none break-words text-slate-800 dark:text-slate-200 overflow-x-auto">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {streamingContent || "..."}
-                </ReactMarkdown>
-              </div>
-              <div className="mt-2 pt-1.5 border-t border-slate-200 dark:border-slate-800/80 flex items-center gap-1.5 text-[10px] text-indigo-600 dark:text-indigo-400 font-mono">
-                <Cpu className="h-3 w-3 animate-spin" />
-                <span>正在使用 {currentModel} 思考生成中...</span>
-              </div>
+            <div className="rounded-2xl px-3.5 sm:px-4 py-2.5 sm:py-3 text-sm leading-relaxed bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 shadow-sm max-w-[94%] min-w-[270px] sm:min-w-[340px]">
+              {isWaitingForFirstToken || !streamingContent ? (
+                /* Stage 1: Waiting / Thinking Live Timer Box */
+                <div className="space-y-2 py-1">
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-7 w-7 rounded-lg bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-sm shrink-0">
+                      <Sparkles className="h-3.5 w-3.5 animate-spin" style={{ animationDuration: "3s" }} />
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                        正在深入思考中
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 font-bold border border-indigo-200/60 dark:border-indigo-800/60 shadow-xs">
+                        <Clock className="h-3 w-3 animate-spin" style={{ animationDuration: "5s" }} />
+                        已等待 {(elapsedTime || 0).toFixed(1)}s
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-normal pl-9">
+                    正在分析问题并组织逻辑，准备逐字为你呈现回答...
+                  </p>
+                </div>
+              ) : (
+                /* Stage 2: Streaming Typewriter Output */
+                <div>
+                  {thinkingDuration !== null && thinkingDuration !== undefined && (
+                    <div className="flex items-center gap-1.5 mb-2.5 pb-1.5 border-b border-slate-200/70 dark:border-slate-800/80 text-[11px] font-mono">
+                      <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-200/50 dark:border-emerald-800/50">
+                        <Clock className="h-3 w-3" />
+                        思考耗时 {thinkingDuration.toFixed(1)}s
+                      </span>
+                      <span className="text-[10px] text-slate-400">· 逐字回复中</span>
+                    </div>
+                  )}
+
+                  {renderMessageBody(streamingContent, true)}
+
+                  <div className="mt-2.5 pt-1.5 border-t border-slate-200 dark:border-slate-800/80 flex items-center justify-between gap-1.5 text-[10px] text-indigo-600 dark:text-indigo-400 font-mono">
+                    <div className="flex items-center gap-1.5">
+                      <Cpu className="h-3 w-3 animate-spin" />
+                      <span>{currentModel}</span>
+                    </div>
+                    <div className="flex items-center gap-1 text-slate-400 font-mono">
+                      <Clock className="h-3 w-3" />
+                      <span>总耗时 {(elapsedTime || 0).toFixed(1)}s</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
 
         <div ref={messagesEndRef} />
       </div>
+
+      {/* Floating Scroll-to-Bottom Button */}
+      {showScrollBottomBtn && (
+        <div className="absolute bottom-16 sm:bottom-20 right-4 sm:right-8 z-30 pointer-events-auto">
+          <button
+            type="button"
+            onClick={() => {
+              isAtBottomRef.current = true;
+              setShowScrollBottomBtn(false);
+              scrollToBottom(true, true);
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 border border-slate-200 dark:border-slate-700 shadow-lg hover:bg-slate-50 dark:hover:bg-slate-700/80 text-xs font-medium transition-all"
+            title="滚动回最新内容"
+          >
+            <ChevronDown className="h-3.5 w-3.5" />
+            <span>回到最新</span>
+          </button>
+        </div>
+      )}
 
       {/* Input Box Area with safe area bottom */}
       <div className="p-2 sm:p-4 border-t border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/60 backdrop-blur transition-colors safe-pb">

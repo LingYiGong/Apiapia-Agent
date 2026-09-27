@@ -31,6 +31,27 @@ export default function ChatPage() {
 
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
+  const [isWaitingForFirstToken, setIsWaitingForFirstToken] = useState(false);
+  const [thinkingDuration, setThinkingDuration] = useState<number | null>(null);
+  const [elapsedTime, setElapsedTime] = useState(0);
+
+  // Typewriter & Live Timer Refs
+  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const typewriterIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const startTimeRef = useRef<number>(0);
+  const firstTokenTimeRef = useRef<number | null>(null);
+  const targetContentRef = useRef<string>("");
+  const displayedContentRef = useRef<string>("");
+  const isStreamCompletedRef = useRef<boolean>(false);
+  const doneMetaRef = useRef<any>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+      if (typewriterIntervalRef.current) clearInterval(typewriterIntervalRef.current);
+    };
+  }, []);
+
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isMemoryOpen, setIsMemoryOpen] = useState(false);
 
@@ -149,7 +170,57 @@ export default function ChatPage() {
     }
   };
 
+  const finalizeAssistantMessage = () => {
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+    if (typewriterIntervalRef.current) {
+      clearInterval(typewriterIntervalRef.current);
+      typewriterIntervalRef.current = null;
+    }
+
+    const doneMeta = doneMetaRef.current;
+    const finalContent = targetContentRef.current || displayedContentRef.current;
+
+    // Accurate thinking duration in milliseconds
+    const finalThinkingMs =
+      firstTokenTimeRef.current && startTimeRef.current
+        ? Math.max(0, firstTokenTimeRef.current - startTimeRef.current)
+        : doneMeta?.thinking_duration_ms || 0;
+
+    const totalDurationMs =
+      doneMeta?.duration_ms ||
+      (startTimeRef.current ? Math.max(20, Date.now() - startTimeRef.current) : 0);
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        role: "assistant",
+        content: finalContent,
+        model: doneMeta?.model || currentModel,
+        duration_ms: totalDurationMs,
+        thinking_duration_ms: finalThinkingMs,
+        prompt_tokens: doneMeta?.prompt_tokens,
+        completion_tokens: doneMeta?.completion_tokens,
+        token_usage: doneMeta?.total_tokens,
+        created_at: doneMeta?.created_at || new Date().toISOString(),
+      },
+    ]);
+
+    setIsStreaming(false);
+    setIsWaitingForFirstToken(false);
+    setStreamingContent("");
+    targetContentRef.current = "";
+    displayedContentRef.current = "";
+    loadConversations(false);
+  };
+
   const handleSendMessage = async (text: string) => {
+    // Clear any previous running intervals
+    if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+    if (typewriterIntervalRef.current) clearInterval(typewriterIntervalRef.current);
+
     // Add user message to UI immediately
     const userMsg: Message = {
       role: "user",
@@ -158,62 +229,114 @@ export default function ChatPage() {
       created_at: new Date().toISOString(),
     };
     setMessages((prev) => [...prev, userMsg]);
+
+    // Reset states
     setIsStreaming(true);
+    setIsWaitingForFirstToken(true);
     setStreamingContent("");
+    setThinkingDuration(null);
+    setElapsedTime(0);
 
-    let accumulatedContent = "";
+    startTimeRef.current = Date.now();
+    firstTokenTimeRef.current = null;
+    targetContentRef.current = "";
+    displayedContentRef.current = "";
+    isStreamCompletedRef.current = false;
+    doneMetaRef.current = null;
 
-    await streamChatResponse(
-      {
-        conversation_id: activeId || undefined,
-        message: text,
-        model: currentModel,
-        memory_enabled: memoryEnabled,
-      },
-      {
-        onMeta: (meta) => {
-          if (meta.conversation_id) {
-            setActiveId(meta.conversation_id);
-            activeIdRef.current = meta.conversation_id;
-            loadConversations(false);
-          }
-          if (meta.retrieved_memories && meta.retrieved_memories.length > 0) {
-            setRetrievedMemories(meta.retrieved_memories);
-          }
-        },
-        onToken: (token) => {
-          accumulatedContent += token;
-          setStreamingContent(accumulatedContent);
-        },
-        onError: (err) => {
-          console.error("Stream error:", err);
-          setIsStreaming(false);
-          // Return FULL detailed backend error directly to chat window
-          setMessages((prev) => [
-            ...prev,
-            { role: "assistant", content: err || "❌ 后端未知错误，请检查服务器日志" },
-          ]);
-        },
-        onDone: (doneMeta) => {
-          setIsStreaming(false);
-          setMessages((prev) => [
-            ...prev,
-            {
-              role: "assistant",
-              content: accumulatedContent,
-              model: doneMeta?.model || currentModel,
-              duration_ms: doneMeta?.duration_ms,
-              prompt_tokens: doneMeta?.prompt_tokens,
-              completion_tokens: doneMeta?.completion_tokens,
-              token_usage: doneMeta?.total_tokens,
-              created_at: doneMeta?.created_at || new Date().toISOString(),
-            },
-          ]);
-          setStreamingContent("");
-          loadConversations(false);
-        },
+    // Live waiting & duration timer (every 80ms)
+    timerIntervalRef.current = setInterval(() => {
+      const elapsed = (Date.now() - startTimeRef.current) / 1000;
+      setElapsedTime(elapsed);
+    }, 80);
+
+    // Smooth Typewriter animation loop (types out tokens character-by-character)
+    typewriterIntervalRef.current = setInterval(() => {
+      const target = targetContentRef.current;
+      const current = displayedContentRef.current;
+      const remaining = target.length - current.length;
+
+      if (remaining > 0) {
+        // Adaptive step size: smooth 1-by-1 typing when close, accelerates smoothly if buffer grows
+        let step = 1;
+        if (remaining > 60) {
+          step = Math.min(remaining, Math.ceil(remaining / 6));
+        } else if (remaining > 25) {
+          step = 3;
+        } else if (remaining > 8) {
+          step = 2;
+        }
+
+        const nextContent = target.slice(0, current.length + step);
+        displayedContentRef.current = nextContent;
+        setStreamingContent(nextContent);
+      } else if (isStreamCompletedRef.current) {
+        // Stream completed and all buffered characters have typed out!
+        finalizeAssistantMessage();
       }
-    );
+    }, 20);
+
+    try {
+      await streamChatResponse(
+        {
+          conversation_id: activeId || undefined,
+          message: text,
+          model: currentModel,
+          memory_enabled: memoryEnabled,
+        },
+        {
+          onMeta: (meta) => {
+            if (meta.conversation_id) {
+              setActiveId(meta.conversation_id);
+              activeIdRef.current = meta.conversation_id;
+              loadConversations(false);
+            }
+            if (meta.retrieved_memories && meta.retrieved_memories.length > 0) {
+              setRetrievedMemories(meta.retrieved_memories);
+            }
+          },
+          onToken: (token) => {
+            // Record Time to First Token (TTFT) when first chunk arrives
+            if (firstTokenTimeRef.current === null) {
+              firstTokenTimeRef.current = Date.now();
+              setIsWaitingForFirstToken(false);
+              const thinkSecs = (firstTokenTimeRef.current - startTimeRef.current) / 1000;
+              setThinkingDuration(thinkSecs);
+            }
+            targetContentRef.current += token;
+          },
+          onError: (err) => {
+            console.error("Stream error:", err);
+            if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+            if (typewriterIntervalRef.current) clearInterval(typewriterIntervalRef.current);
+            setIsStreaming(false);
+            setIsWaitingForFirstToken(false);
+            setMessages((prev) => [
+              ...prev,
+              { role: "assistant", content: err || "❌ 后端未知错误，请检查服务器日志" },
+            ]);
+          },
+          onDone: (doneMeta) => {
+            isStreamCompletedRef.current = true;
+            doneMetaRef.current = doneMeta;
+
+            // If typewriter has already caught up, finalize immediately
+            if (targetContentRef.current.length === displayedContentRef.current.length) {
+              finalizeAssistantMessage();
+            }
+          },
+        }
+      );
+    } catch (err: any) {
+      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+      if (typewriterIntervalRef.current) clearInterval(typewriterIntervalRef.current);
+      setIsStreaming(false);
+      setIsWaitingForFirstToken(false);
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: `❌ 网络连接失败: ${err?.message || err}` },
+      ]);
+    }
   };
 
   if (loading || !user) {
@@ -246,6 +369,9 @@ export default function ChatPage() {
           onSendMessage={handleSendMessage}
           isStreaming={isStreaming}
           streamingContent={streamingContent}
+          thinkingDuration={thinkingDuration}
+          elapsedTime={elapsedTime}
+          isWaitingForFirstToken={isWaitingForFirstToken}
           onRefreshModels={loadConfiguredModels}
           isRefreshingModels={isRefreshingModels}
           onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}

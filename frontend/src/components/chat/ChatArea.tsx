@@ -129,24 +129,24 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   const activeModelObj = availableModels.find((m) => m.id === currentModel);
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-slate-950 relative overflow-hidden">
+    <div className="flex-1 flex flex-col h-full bg-white dark:bg-slate-950 relative overflow-hidden transition-colors">
       {/* Top Bar with Searchable Model Picker */}
-      <div className="h-12 border-b border-slate-800 bg-slate-900/50 px-4 flex items-center justify-between z-20">
+      <div className="h-12 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/50 px-4 flex items-center justify-between z-20">
         <div className="flex items-center gap-2 relative" ref={dropdownRef}>
-          <span className="text-xs text-slate-400 font-medium">当前模型：</span>
+          <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">当前模型：</span>
 
           {/* Trigger Button */}
           <button
             type="button"
             onClick={() => setModelDropdownOpen(!modelDropdownOpen)}
-            className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800/90 px-3 py-1.5 text-xs text-white hover:border-indigo-500/80 transition-all shadow-sm max-w-xs md:max-w-md truncate"
+            className="flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/90 px-3 py-1.5 text-xs text-slate-800 dark:text-white hover:border-indigo-500/80 transition-all shadow-sm max-w-xs md:max-w-md truncate"
           >
-            <Cpu className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
+            <Cpu className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
             <span className="truncate font-medium">
               {activeModelObj ? activeModelObj.name : currentModel || "请选择模型"}
             </span>
             {activeModelObj?.provider && (
-              <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-indigo-950/80 text-indigo-300 border border-indigo-800/50 shrink-0">
+              <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/50 shrink-0">
                 {activeModelObj.provider}
               </span>
             )}
@@ -160,16 +160,16 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               onClick={onRefreshModels}
               disabled={isRefreshingModels}
               title="根据后端填写的 API Key 自动更新/检测已支持的模型列表"
-              className="flex items-center gap-1.5 text-xs text-indigo-300 hover:text-white bg-indigo-950/40 hover:bg-indigo-900/50 border border-indigo-800/50 px-2.5 py-1.5 rounded-xl transition-all disabled:opacity-50"
+              className="flex items-center gap-1.5 text-xs text-indigo-600 dark:text-indigo-300 hover:text-indigo-700 dark:hover:text-white bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 border border-indigo-200 dark:border-indigo-800/50 px-2.5 py-1.5 rounded-xl transition-all disabled:opacity-50"
             >
-              <RotateCw className={`h-3.5 w-3.5 ${isRefreshingModels ? "animate-spin text-indigo-400" : ""}`} />
+              <RotateCw className={`h-3.5 w-3.5 ${isRefreshingModels ? "animate-spin text-indigo-600 dark:text-indigo-400" : ""}`} />
               <span className="hidden sm:inline">更新模型</span>
             </button>
           )}
 
           {/* Searchable Dropdown Modal/Panel */}
           {modelDropdownOpen && (
-            <div className="absolute left-0 top-10 mt-1 w-80 sm:w-96 rounded-2xl border border-slate-800 bg-slate-900/95 shadow-2xl backdrop-blur-md p-3 z-50 flex flex-col max-h-[75vh]">
+            <div className="absolute left-0 top-10 mt-1 w-80 sm:w-96 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/95 shadow-2xl backdrop-blur-md p-3 z-50 flex flex-col max-h-[75vh]">
               {/* Search Box */}
               <div className="relative mb-2.5">
                 <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
@@ -179,20 +179,20 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                   value={modelSearch}
                   onChange={(e) => setModelSearch(e.target.value)}
                   autoFocus
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 py-1.5 pl-8 pr-3 text-xs text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 py-1.5 pl-8 pr-3 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
                 />
               </div>
 
               {/* Provider Filter Badges */}
               {distinctProviders.length > 1 && (
-                <div className="flex items-center gap-1 flex-wrap mb-2.5 pb-2 border-b border-slate-800/80">
+                <div className="flex items-center gap-1 flex-wrap mb-2.5 pb-2 border-b border-slate-200 dark:border-slate-800/80">
                   <button
                     type="button"
                     onClick={() => setSelectedProviderFilter("all")}
                     className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-colors ${
                       selectedProviderFilter === "all"
                         ? "bg-indigo-600 text-white"
-                        : "bg-slate-800 text-slate-400 hover:text-white"
+                        : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                     }`}
                   >
                     全部 ({availableModels.length})
@@ -205,7 +205,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                       className={`px-2 py-0.5 rounded-md text-[10px] font-medium uppercase font-mono transition-colors ${
                         selectedProviderFilter === p
                           ? "bg-indigo-600 text-white"
-                          : "bg-slate-800 text-slate-400 hover:text-white"
+                          : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                       }`}
                     >
                       {p}
@@ -221,7 +221,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                     {availableModels.length === 0 ? (
                       <div className="space-y-2 p-2">
                         <AlertTriangle className="h-6 w-6 text-amber-500/80 mx-auto" />
-                        <p className="text-slate-300 font-medium">未检测到已填写 Key 的模型</p>
+                        <p className="text-slate-800 dark:text-slate-300 font-medium">未检测到已填写 Key 的模型</p>
                         <p className="text-[11px] text-slate-500 leading-relaxed">
                           请在后端 .env 或设置页面配置 API Key，然后点击上方“更新模型”。
                         </p>
@@ -242,33 +242,33 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                         }}
                         className={`group flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-all ${
                           isSelected
-                            ? "bg-indigo-600/20 border border-indigo-500/40 text-white"
-                            : "hover:bg-slate-800/60 text-slate-300 border border-transparent"
+                            ? "bg-indigo-50 dark:bg-indigo-600/20 border border-indigo-200 dark:border-indigo-500/40 text-indigo-950 dark:text-white"
+                            : "hover:bg-slate-100 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-300 border border-transparent"
                         }`}
                       >
                         <div className="min-w-0 flex-1 pr-2">
                           <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-semibold truncate group-hover:text-indigo-300">
+                            <span className="text-xs font-semibold truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-300">
                               {m.name}
                             </span>
                             {m.provider && (
-                              <span className="text-[9px] uppercase font-mono px-1 rounded bg-slate-800 text-slate-400 border border-slate-700/60 shrink-0">
+                              <span className="text-[9px] uppercase font-mono px-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700/60 shrink-0">
                                 {m.provider}
                               </span>
                             )}
                           </div>
-                          <p className="text-[10px] text-slate-500 font-mono truncate mt-0.5">
+                          <p className="text-[10px] text-slate-400 dark:text-slate-500 font-mono truncate mt-0.5">
                             {m.id}
                           </p>
                           {m.description && (
-                            <p className="text-[10px] text-slate-400 line-clamp-1 mt-0.5">
+                            <p className="text-[10px] text-slate-500 dark:text-slate-400 line-clamp-1 mt-0.5">
                               {m.description}
                             </p>
                           )}
                         </div>
 
                         {isSelected && (
-                          <Check className="h-4 w-4 text-indigo-400 shrink-0" />
+                          <Check className="h-4 w-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
                         )}
                       </div>
                     );
@@ -284,11 +284,11 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-6">
         {messages.length === 0 && !streamingContent && (
           <div className="flex flex-col items-center justify-center h-full text-center max-w-md mx-auto pt-16">
-            <div className="h-14 w-14 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 mb-4 shadow-lg shadow-indigo-600/10">
+            <div className="h-14 w-14 rounded-2xl bg-indigo-50 dark:bg-indigo-600/20 border border-indigo-200 dark:border-indigo-500/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 mb-4 shadow-lg shadow-indigo-600/10">
               <Sparkles className="h-7 w-7" />
             </div>
-            <h2 className="text-lg font-bold text-white mb-2">欢迎使用私人 AI 助理</h2>
-            <p className="text-xs text-slate-400 leading-relaxed">
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-2">欢迎使用私人 AI 助理</h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
               这里拥有完全独立的长期记忆存储与多模型切换支持。输入关于你的偏好、生活或项目背景，AI 会在后续所有对话中主动召回并保持连贯。
             </p>
           </div>
@@ -302,25 +302,25 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               className={`flex gap-3 max-w-3xl ${isUser ? "ml-auto flex-row-reverse" : "mr-auto"}`}
             >
               <div
-                className={`h-8 w-8 rounded-xl flex items-center justify-center shrink-0 text-white ${
-                  isUser ? "bg-indigo-600" : "bg-slate-800 border border-slate-700"
+                className={`h-8 w-8 rounded-xl flex items-center justify-center shrink-0 ${
+                  isUser ? "bg-indigo-600 text-white" : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm"
                 }`}
               >
-                {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4 text-indigo-400" />}
+                {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
               </div>
 
               <div
                 className={`rounded-2xl px-4 py-3 text-sm leading-relaxed max-w-full ${
                   isUser
                     ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/10"
-                    : "bg-slate-900 border border-slate-800 text-slate-200"
+                    : "bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 shadow-sm"
                 }`}
               >
                 {isUser ? (
                   <>
                     <p className="whitespace-pre-wrap">{msg.content}</p>
                     {msg.created_at && (
-                      <div className="flex items-center gap-1 justify-end text-[10px] text-indigo-200/80 mt-1.5 font-mono">
+                      <div className="flex items-center gap-1 justify-end text-[10px] text-indigo-100 mt-1.5 font-mono">
                         <Clock className="h-3 w-3" />
                         <span>{formatTime(msg.created_at)}</span>
                       </div>
@@ -328,42 +328,42 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                   </>
                 ) : (
                   <>
-                    <div className="prose prose-invert prose-sm max-w-none break-words">
+                    <div className="prose dark:prose-invert prose-sm max-w-none break-words text-slate-800 dark:text-slate-200">
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>
                         {msg.content}
                       </ReactMarkdown>
                     </div>
 
                     {/* Metadata Footer: Time, Model, Latency, Tokens */}
-                    <div className="mt-3 pt-2 border-t border-slate-800/80 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] text-slate-400 font-mono">
+                    <div className="mt-3 pt-2 border-t border-slate-200 dark:border-slate-800/80 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] text-slate-500 dark:text-slate-400 font-mono">
                       {msg.created_at && (
-                        <span className="flex items-center gap-1 text-slate-400" title="回复时间">
-                          <Clock className="h-3 w-3 text-slate-500" />
+                        <span className="flex items-center gap-1 text-slate-500 dark:text-slate-400" title="回复时间">
+                          <Clock className="h-3 w-3 text-slate-400 dark:text-slate-500" />
                           <span>{formatTime(msg.created_at)}</span>
                         </span>
                       )}
 
                       {msg.model && (
-                        <span className="flex items-center gap-1 bg-slate-800/90 text-indigo-300 px-1.5 py-0.5 rounded text-[10px] border border-slate-700/60 font-mono" title="回复模型">
-                          <Cpu className="h-3 w-3 text-indigo-400" />
+                        <span className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800/90 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded text-[10px] border border-slate-200 dark:border-slate-700/60 font-mono" title="回复模型">
+                          <Cpu className="h-3 w-3 text-indigo-600 dark:text-indigo-400" />
                           <span>{msg.model}</span>
                         </span>
                       )}
 
                       {typeof msg.duration_ms === "number" && msg.duration_ms > 0 && (
-                        <span className="flex items-center gap-1 text-amber-400/90 font-medium" title="生成耗时">
-                          <Zap className="h-3 w-3 text-amber-400" />
+                        <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 font-medium" title="生成耗时">
+                          <Zap className="h-3 w-3 text-amber-500" />
                           <span>{(msg.duration_ms / 1000).toFixed(2)}s</span>
                         </span>
                       )}
 
                       {(msg.prompt_tokens || msg.completion_tokens || msg.token_usage) ? (
-                        <span className="flex items-center gap-1 text-slate-400 text-[10px]" title="Token 消耗">
-                          <span className="text-slate-500">Tokens:</span>
-                          <span className="text-slate-300 font-medium">
+                        <span className="flex items-center gap-1 text-slate-500 dark:text-slate-400 text-[10px]" title="Token 消耗">
+                          <span className="text-slate-400 dark:text-slate-500">Tokens:</span>
+                          <span className="text-slate-700 dark:text-slate-300 font-medium">
                             {msg.token_usage || (msg.prompt_tokens || 0) + (msg.completion_tokens || 0)}
                           </span>
-                          <span className="text-slate-500">
+                          <span className="text-slate-400 dark:text-slate-500">
                             (入 {msg.prompt_tokens || 0} / 出 {msg.completion_tokens || 0})
                           </span>
                         </span>
@@ -379,16 +379,16 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         {/* Current Streaming Message */}
         {isStreaming && (
           <div className="flex gap-3 max-w-3xl mr-auto">
-            <div className="h-8 w-8 rounded-xl flex items-center justify-center shrink-0 bg-slate-800 border border-slate-700 text-white">
-              <Bot className="h-4 w-4 text-indigo-400 animate-pulse" />
+            <div className="h-8 w-8 rounded-xl flex items-center justify-center shrink-0 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm">
+              <Bot className="h-4 w-4 animate-pulse" />
             </div>
-            <div className="rounded-2xl px-4 py-3 text-sm leading-relaxed bg-slate-900 border border-slate-800 text-slate-200">
-              <div className="prose prose-invert prose-sm max-w-none break-words">
+            <div className="rounded-2xl px-4 py-3 text-sm leading-relaxed bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 shadow-sm">
+              <div className="prose dark:prose-invert prose-sm max-w-none break-words text-slate-800 dark:text-slate-200">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
                   {streamingContent || "..."}
                 </ReactMarkdown>
               </div>
-              <div className="mt-2.5 pt-1.5 border-t border-slate-800/80 flex items-center gap-2 text-[10px] text-indigo-400 font-mono">
+              <div className="mt-2.5 pt-1.5 border-t border-slate-200 dark:border-slate-800/80 flex items-center gap-2 text-[10px] text-indigo-600 dark:text-indigo-400 font-mono">
                 <Cpu className="h-3 w-3 animate-spin" />
                 <span>正在使用 {currentModel} 思考生成中...</span>
               </div>
@@ -400,8 +400,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       </div>
 
       {/* Input Box Area */}
-      <div className="p-4 border-t border-slate-800 bg-slate-900/60 backdrop-blur">
-        <div className="max-w-3xl mx-auto relative flex items-end rounded-2xl border border-slate-700/80 bg-slate-950 p-2 focus-within:border-indigo-500 shadow-lg">
+      <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/60 backdrop-blur transition-colors">
+        <div className="max-w-3xl mx-auto relative flex items-end rounded-2xl border border-slate-300 dark:border-slate-700/80 bg-slate-50 dark:bg-slate-950 p-2 focus-within:border-indigo-500 shadow-sm">
           <textarea
             ref={textareaRef}
             rows={1}
@@ -409,7 +409,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             placeholder="输入消息... (Enter 发送，Shift + Enter 换行)"
-            className="w-full resize-none bg-transparent px-3 py-1.5 text-sm text-white placeholder-slate-500 focus:outline-none max-h-44"
+            className="w-full resize-none bg-transparent px-3 py-1.5 text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none max-h-44"
           />
           <button
             onClick={handleSend}

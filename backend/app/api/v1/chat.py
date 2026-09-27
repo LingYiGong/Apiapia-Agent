@@ -2,7 +2,7 @@ import json
 import logging
 import time
 from datetime import datetime, timezone
-from typing import AsyncGenerator
+from typing import AsyncGenerator, List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,9 +16,11 @@ from app.api.v1.deps import get_current_user
 from app.services.llm.factory import get_llm_provider
 from app.services.memory.retrieval import retrieve_relevant_memories
 from app.services.memory.extraction import schedule_memory_extraction
+from app.services.document_parser import parse_attachment
 from app.core.security import decrypt_api_key
 
 router = APIRouter(prefix="/chat", tags=["chat"])
+
 logger = logging.getLogger("chat_api")
 
 
@@ -56,11 +58,16 @@ async def chat_stream(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Conversation not found or access denied"
             )
+        if chat_req.model and chat_req.model != conversation.model:
+            conversation.model = chat_req.model
         conversation.updated_at = datetime.now(timezone.utc)
         await db.commit()
     else:
         # Create new conversation with title generated from user input
-        conv_title = (chat_req.message[:30] + "...") if len(chat_req.message) > 30 else chat_req.message
+        first_input = chat_req.message.strip() if chat_req.message else ""
+        if not first_input and chat_req.attachments:
+            first_input = f"分析: {chat_req.attachments[0].name}"
+        conv_title = (first_input[:30] + "...") if len(first_input) > 30 else first_input
         conversation = Conversation(
             user_id=user_id,
             title=conv_title.strip() or "新建对话",
@@ -81,17 +88,43 @@ async def chat_stream(
     temperature = chat_req.temperature if chat_req.temperature is not None else (user_settings.temperature if user_settings else 0.7)
     use_memory = chat_req.memory_enabled if chat_req.memory_enabled is not None else (user_settings.memory_enabled if user_settings else True)
 
-    # 3. Retrieve relevant long-term memories if enabled
+    # 3. Parse Attachments (Images & Documents/PDFs)
+    parsed_images = []
+    parsed_docs = []
+    if chat_req.attachments:
+        for att in chat_req.attachments:
+            parsed = parse_attachment(att.name, att.mime_type or "", att.data_url)
+            if parsed["type"] == "image":
+                parsed_images.append(parsed)
+            else:
+                parsed_docs.append(parsed)
+
+    # Assemble prompt text for LLM (including extracted document text)
+    user_text_parts = []
+    if chat_req.message and chat_req.message.strip():
+        user_text_parts.append(chat_req.message.strip())
+
+    if parsed_docs:
+        for doc in parsed_docs:
+            user_text_parts.append(
+                f"\n\n--- 📎 用户附带文件: {doc['name']} ---\n{doc['extracted_text']}\n--- 结束文件: {doc['name']} ---"
+            )
+
+    full_user_text = "\n".join(user_text_parts) if user_text_parts else (chat_req.message or "")
+
+    # 4. Retrieve relevant long-term memories if enabled
     retrieved_memories = []
     memory_context_str = ""
     if use_memory:
-        retrieved_memories, memory_context_str = retrieve_relevant_memories(
-            user_id=user_id,
-            query=chat_req.message,
-            limit=5
-        )
+        mem_query = chat_req.message.strip() if chat_req.message else (parsed_docs[0]['name'] if parsed_docs else "")
+        if mem_query:
+            retrieved_memories, memory_context_str = retrieve_relevant_memories(
+                user_id=user_id,
+                query=mem_query,
+                limit=5
+            )
 
-    # 4. Fetch recent conversation messages
+    # 5. Fetch recent conversation messages
     msg_stmt = (
         select(Message)
         .where(Message.conversation_id == conv_id)
@@ -101,30 +134,56 @@ async def chat_stream(
     recent_msgs = (await db.execute(msg_stmt)).scalars().all()
     recent_msgs.reverse()  # chronological order
 
-    # 5. Assemble messages payload for LLM Adapter
+    # 6. Assemble messages payload for LLM Adapter
     messages_payload = []
     # Combine system prompt with untrusted memory context
     combined_system_content = system_prompt + memory_context_str
     messages_payload.append({"role": "system", "content": combined_system_content})
 
     for msg in recent_msgs:
-        messages_payload.append({"role": msg.role, "content": msg.content})
+        cleaned_content = msg.content
+        if "data:image/" in cleaned_content:
+            import re
+            cleaned_content = re.sub(r"!\[([^\]]*)\]\(data:image\/[^;]+;base64,[^)]+\)", r"[附图: \1]", cleaned_content)
+        messages_payload.append({"role": msg.role, "content": cleaned_content})
 
-    messages_payload.append({"role": "user", "content": chat_req.message})
+    if parsed_images:
+        user_content: List[Dict[str, Any]] = [
+            {"type": "text", "text": full_user_text or "请分析此图片。"}
+        ]
+        for img in parsed_images:
+            user_content.append({
+                "type": "image_url",
+                "image_url": {"url": img["data_url"]}
+            })
+        messages_payload.append({"role": "user", "content": user_content})
+    else:
+        messages_payload.append({"role": "user", "content": full_user_text})
 
-    # 6. Save current user message to DB
+    # 7. Save current user message to DB
     user_created_at = datetime.now(timezone.utc)
-    user_tokens = estimate_token_count(chat_req.message)
+    user_tokens = estimate_token_count(full_user_text) + len(parsed_images) * 800
+
+    saved_content_parts = []
+    if chat_req.message and chat_req.message.strip():
+        saved_content_parts.append(chat_req.message.strip())
+    for doc in parsed_docs:
+        saved_content_parts.append(f"📄 **[附件文件: {doc['name']}]**")
+    for img in parsed_images:
+        saved_content_parts.append(f"![{img['name']}]({img['data_url']})")
+    saved_user_content = "\n\n".join(saved_content_parts) if saved_content_parts else (chat_req.message or "附件")
+
     user_msg_record = Message(
         conversation_id=conv_id,
         role="user",
-        content=chat_req.message,
+        content=saved_user_content,
         model=model_to_use,
         prompt_tokens=user_tokens,
         created_at=user_created_at
     )
     db.add(user_msg_record)
     await db.commit()
+
 
     # 7. Check if user configured custom API key for this model/provider
     custom_key = None
@@ -277,8 +336,11 @@ async def chat_stream(
                     if not clean_assistant:
                         clean_assistant = assistant_content[:2000]
 
+                user_content_for_memory = chat_req.message.strip() if chat_req.message else (
+                    f"用户上传文件: {parsed_docs[0]['name']}" if parsed_docs else "用户上传了图片进行分析"
+                )
                 conversation_pair = [
-                    {"role": "user", "content": chat_req.message},
+                    {"role": "user", "content": user_content_for_memory},
                     {"role": "assistant", "content": clean_assistant}
                 ]
                 memory_model_to_use = getattr(user_settings, "memory_model", None) or "openai/gpt-4o-mini"

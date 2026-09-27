@@ -2,6 +2,13 @@ from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 
 
+class AttachmentPayload(BaseModel):
+    name: str
+    type: str  # "image" or "document"
+    mime_type: Optional[str] = "application/octet-stream"
+    data_url: str  # base64 data url: "data:...;base64,..."
+
+
 class ChatRequest(BaseModel):
     conversation_id: Optional[str] = None
     message: str
@@ -10,6 +17,7 @@ class ChatRequest(BaseModel):
     stream: bool = True
     temperature: Optional[float] = None
     memory_enabled: Optional[bool] = True
+    attachments: Optional[List[AttachmentPayload]] = []
 
 
 class ChatStreamChunk(BaseModel):

@@ -12,19 +12,32 @@ class GeminiProvider(LLMProvider):
             raise ValueError("Gemini API Key is not configured. Please set it in Settings or .env.")
         self.base_url = "https://generativelanguage.googleapis.com/v1beta"
 
-    def _convert_messages(self, messages: List[Dict[str, str]]):
+    def _convert_messages(self, messages: List[Dict[str, Any]]):
         system_instruction = None
         contents = []
 
         for msg in messages:
             role = msg.get("role")
-            text = msg.get("content", "")
+            raw_content = msg.get("content", "")
             if role == "system":
-                system_instruction = {"parts": [{"text": text}]}
+                system_instruction = {"parts": [{"text": str(raw_content)}]}
             elif role == "user":
-                contents.append({"role": "user", "parts": [{"text": text}]})
+                if isinstance(raw_content, list):
+                    parts = []
+                    for item in raw_content:
+                        if item.get("type") == "text":
+                            parts.append({"text": item.get("text", "")})
+                        elif item.get("type") == "image_url":
+                            url = item.get("image_url", {}).get("url", "")
+                            if "data:" in url and ";base64," in url:
+                                mime, b64 = url.split(";base64,")
+                                mime = mime.replace("data:", "")
+                                parts.append({"inline_data": {"mime_type": mime, "data": b64}})
+                    contents.append({"role": "user", "parts": parts})
+                else:
+                    contents.append({"role": "user", "parts": [{"text": str(raw_content)}]})
             elif role == "assistant":
-                contents.append({"role": "model", "parts": [{"text": text}]})
+                contents.append({"role": "model", "parts": [{"text": str(raw_content)}]})
         return system_instruction, contents
 
     async def chat(

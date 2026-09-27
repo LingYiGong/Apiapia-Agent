@@ -19,11 +19,21 @@ export interface Conversation {
   updated_at: string;
 }
 
+export interface AttachmentItem {
+  id: string;
+  name: string;
+  size: number;
+  type: "image" | "document";
+  mime_type: string;
+  data_url: string;
+}
+
 export interface Message {
   id?: string;
   conversation_id?: string;
   role: "system" | "user" | "assistant" | "tool";
   content: string;
+  attachments?: AttachmentItem[];
   model?: string;
   token_usage?: number;
   prompt_tokens?: number;
@@ -59,6 +69,7 @@ export interface ModelCatalogItem {
   provider: string;
   description: string;
   is_free?: boolean;
+  is_multimodal?: boolean;
 }
 
 export interface ModelConfig {

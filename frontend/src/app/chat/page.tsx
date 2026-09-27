@@ -8,7 +8,7 @@ import { Navbar } from "@/components/layout/Navbar";
 import { Sidebar } from "@/components/chat/Sidebar";
 import { ChatArea } from "@/components/chat/ChatArea";
 import { MemorySidebar } from "@/components/chat/MemorySidebar";
-import { Conversation, Message, ModelCatalogItem } from "@/types";
+import { Conversation, Message, ModelCatalogItem, AttachmentItem } from "@/types";
 
 export default function ChatPage() {
   const { user, loading } = useAuth();
@@ -61,13 +61,36 @@ export default function ChatPage() {
     }
   }, [user, loading, router]);
 
+  const handleModelChange = async (newModel: string) => {
+    setCurrentModel(newModel);
+    try {
+      localStorage.setItem("personal_ai_preferred_model", newModel);
+    } catch (e) {}
+
+    // If currently inside an active conversation, update it in DB and local state
+    if (activeIdRef.current) {
+      const convId = activeIdRef.current;
+      setConversations((prev) =>
+        prev.map((c) => (c.id === convId ? { ...c, model: newModel } : c))
+      );
+      try {
+        await apiRequest(`/conversations/${convId}`, {
+          method: "PATCH",
+          body: JSON.stringify({ model: newModel }),
+        });
+      } catch (err) {
+        console.error("Failed to update conversation model in DB:", err);
+      }
+    }
+  };
+
   // Load conversations & settings
   const loadConversations = async (autoSelectFirst = false) => {
     try {
       const list = await apiRequest<Conversation[]>("/conversations");
       setConversations(list);
       if (autoSelectFirst && list.length > 0 && !activeIdRef.current) {
-        selectConversation(list[0].id);
+        selectConversation(list[0].id, list);
       }
     } catch (err) {
       console.error("Failed to load conversations:", err);
@@ -90,10 +113,20 @@ export default function ChatPage() {
 
       // Choose an active model
       if (models.length > 0) {
-        // If current model is not in configured list, pick the first one or settings default
-        if (!models.some((m) => m.id === currentModel)) {
-          const preferred = models.find((m) => m.id === settings?.default_model);
-          setCurrentModel(preferred ? preferred.id : models[0].id);
+        const savedPref = typeof window !== "undefined" ? localStorage.getItem("personal_ai_preferred_model") : null;
+        if (!activeIdRef.current) {
+          if (savedPref && models.some((m) => m.id === savedPref)) {
+            setCurrentModel(savedPref);
+          } else if (settings?.default_model && models.some((m) => m.id === settings.default_model)) {
+            setCurrentModel(settings.default_model);
+          } else if (!models.some((m) => m.id === currentModel)) {
+            setCurrentModel(models[0].id);
+          }
+        } else {
+          if (!models.some((m) => m.id === currentModel)) {
+            const preferred = models.find((m) => m.id === settings?.default_model) || models[0];
+            setCurrentModel(preferred.id);
+          }
         }
       }
 
@@ -114,11 +147,18 @@ export default function ChatPage() {
     }
   }, [user]);
 
-  const selectConversation = async (id: string) => {
+  const selectConversation = async (id: string, customList?: Conversation[]) => {
     setActiveId(id);
     activeIdRef.current = id;
     setStreamingContent("");
     setRetrievedMemories([]);
+
+    // Restore this conversation's saved model if present
+    const targetConv = (customList || conversations).find((c) => c.id === id);
+    if (targetConv?.model) {
+      setCurrentModel(targetConv.model);
+    }
+
     try {
       const [msgs, mems] = await Promise.all([
         apiRequest<Message[]>(`/conversations/${id}/messages`),
@@ -141,6 +181,12 @@ export default function ChatPage() {
     setMessages([]);
     setStreamingContent("");
     setRetrievedMemories([]);
+    try {
+      const savedPref = localStorage.getItem("personal_ai_preferred_model");
+      if (savedPref && availableModels.some((m) => m.id === savedPref)) {
+        setCurrentModel(savedPref);
+      }
+    } catch (e) {}
   };
 
   const handleDeleteConversation = async (id: string) => {
@@ -216,7 +262,7 @@ export default function ChatPage() {
     loadConversations(false);
   };
 
-  const handleSendMessage = async (text: string) => {
+  const handleSendMessage = async (text: string, attachments?: AttachmentItem[]) => {
     // Clear any previous running intervals
     if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     if (typewriterIntervalRef.current) clearInterval(typewriterIntervalRef.current);
@@ -225,6 +271,7 @@ export default function ChatPage() {
     const userMsg: Message = {
       role: "user",
       content: text,
+      attachments: attachments && attachments.length > 0 ? attachments : undefined,
       model: currentModel,
       created_at: new Date().toISOString(),
     };
@@ -283,6 +330,7 @@ export default function ChatPage() {
           message: text,
           model: currentModel,
           memory_enabled: memoryEnabled,
+          attachments: attachments && attachments.length > 0 ? attachments : undefined,
         },
         {
           onMeta: (meta) => {
@@ -364,7 +412,7 @@ export default function ChatPage() {
         <ChatArea
           messages={messages}
           currentModel={currentModel}
-          onModelChange={setCurrentModel}
+          onModelChange={handleModelChange}
           availableModels={availableModels}
           onSendMessage={handleSendMessage}
           isStreaming={isStreaming}

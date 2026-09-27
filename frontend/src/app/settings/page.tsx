@@ -8,7 +8,8 @@ import { Navbar } from "@/components/layout/Navbar";
 import { ModelCatalogItem, ModelConfig } from "@/types";
 import { useTheme } from "@/lib/theme";
 import { ModelSelect } from "@/components/common/ModelSelect";
-import { Settings, Save, ShieldCheck, Key, Plus, Trash2, Cpu, Globe, Search, Sparkles, X, Sun, Moon, Monitor } from "lucide-react";
+import { CURRENT_VERSION, triggerManualUpdateCheck } from "@/lib/version";
+import { Settings, Save, ShieldCheck, Key, Plus, Trash2, Cpu, Globe, Search, Sparkles, X, Sun, Moon, Monitor, RefreshCw, Info } from "lucide-react";
 
 export default function SettingsPage() {
   const { user, loading } = useAuth();
@@ -444,6 +445,49 @@ export default function SettingsPage() {
                 </div>
               ))
             )}
+          </div>
+        </div>
+
+        {/* System Version & Update Check Card */}
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 p-6 space-y-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="h-9 w-9 rounded-xl bg-indigo-50 dark:bg-indigo-600/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20">
+                <Info className="h-4.5 w-4.5" />
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">系统版本与更新</h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  每次进入应用自动校验最新版本，确保获取最新模型支持与功能特性。
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={triggerManualUpdateCheck}
+              className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-md shadow-indigo-600/20 hover:bg-indigo-500 active:scale-[0.98] transition-all"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              <span>检查更新</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+            <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60">
+              <span className="text-[11px] text-slate-400 dark:text-slate-500 block mb-0.5">当前软件版本</span>
+              <span className="text-sm font-bold font-mono text-slate-900 dark:text-white">v{CURRENT_VERSION}</span>
+            </div>
+            <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60">
+              <span className="text-[11px] text-slate-400 dark:text-slate-500 block mb-0.5">客户端架构</span>
+              <span className="text-sm font-semibold text-slate-900 dark:text-white">Next.js 14 Web App</span>
+            </div>
+            <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60">
+              <span className="text-[11px] text-slate-400 dark:text-slate-500 block mb-0.5">更新检测策略</span>
+              <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                <ShieldCheck className="h-3.5 w-3.5" /> 每次进入自动检查
+              </span>
+            </div>
           </div>
         </div>
       </main>

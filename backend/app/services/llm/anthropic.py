@@ -12,16 +12,36 @@ class AnthropicProvider(LLMProvider):
             raise ValueError("Anthropic API Key is not configured. Please set it in Settings or .env.")
         self.client = AsyncAnthropic(api_key=self.api_key, base_url=self.base_url)
 
-    def _prepare_messages(self, messages: List[Dict[str, str]]):
+    def _prepare_messages(self, messages: List[Dict[str, Any]]):
         system_content = ""
         clean_messages = []
         for msg in messages:
             role = msg.get("role")
             content = msg.get("content", "")
             if role == "system":
-                system_content += f"\n{content}"
+                system_content += f"\n{str(content)}"
             elif role in ["user", "assistant"]:
-                clean_messages.append({"role": role, "content": content})
+                if isinstance(content, list):
+                    clean_parts = []
+                    for item in content:
+                        if item.get("type") == "text":
+                            clean_parts.append({"type": "text", "text": item.get("text", "")})
+                        elif item.get("type") == "image_url":
+                            url = item.get("image_url", {}).get("url", "")
+                            if "data:" in url and ";base64," in url:
+                                mime, b64 = url.split(";base64,")
+                                mime = mime.replace("data:", "")
+                                clean_parts.append({
+                                    "type": "image",
+                                    "source": {
+                                        "type": "base64",
+                                        "media_type": mime,
+                                        "data": b64
+                                    }
+                                })
+                    clean_messages.append({"role": role, "content": clean_parts})
+                else:
+                    clean_messages.append({"role": role, "content": str(content)})
         return system_content.strip(), clean_messages
 
     async def chat(

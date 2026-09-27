@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { Conversation } from "@/types";
 import { apiRequest } from "@/lib/api";
+import { CURRENT_VERSION, triggerManualUpdateCheck } from "@/lib/version";
 import {
   Plus,
   MessageSquare,
@@ -233,8 +234,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
         </div>
 
-        {/* Bottom Trash & Archive Recovery Entrance */}
-        <div className="p-2 border-t border-slate-200 dark:border-slate-800 safe-pb">
+        {/* Bottom Trash & Archive Recovery Entrance and Version info */}
+        <div className="p-2 border-t border-slate-200 dark:border-slate-800 safe-pb space-y-1">
           <button
             type="button"
             onClick={handleOpenTrash}
@@ -248,6 +249,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
               找回
             </span>
           </button>
+
+          <div className="flex items-center justify-between px-3 py-1 text-[11px] text-slate-400 dark:text-slate-500 select-none">
+            <span className="font-mono">v{CURRENT_VERSION}</span>
+            <button
+              type="button"
+              onClick={triggerManualUpdateCheck}
+              className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline hover:opacity-80 transition-opacity font-medium cursor-pointer"
+            >
+              检查更新
+            </button>
+          </div>
         </div>
       </aside>
 

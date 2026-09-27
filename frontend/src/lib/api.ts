@@ -75,6 +75,8 @@ export async function apiRequest<T = any>(
   return response.json();
 }
 
+import { AttachmentItem } from "../types";
+
 /**
  * Handle Server-Sent Events (SSE) streaming for chat
  */
@@ -86,6 +88,7 @@ export async function streamChatResponse(
     provider?: string;
     temperature?: number;
     memory_enabled?: boolean;
+    attachments?: AttachmentItem[];
   },
   callbacks: {
     onMeta?: (meta: { conversation_id: string; model: string; retrieved_memories: any[] }) => void;

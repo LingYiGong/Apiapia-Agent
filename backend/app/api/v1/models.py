@@ -14,18 +14,18 @@ router = APIRouter(prefix="/models", tags=["models"])
 
 # Built-in default model choices available to everyone (free models first)
 DEFAULT_AVAILABLE_MODELS = [
-    {"id": "deepseek/deepseek-r1:free", "name": "DeepSeek R1 (Free)", "provider": "openrouter", "description": "深度思维推理模型，完全免费", "is_free": True},
-    {"id": "meta-llama/llama-3.3-70b-instruct:free", "name": "Llama 3.3 70B (Free)", "provider": "openrouter", "description": "Meta 旗舰开源大模型，完全免费", "is_free": True},
-    {"id": "google/gemini-2.0-flash-exp:free", "name": "Gemini 2.0 Flash (Free)", "provider": "openrouter", "description": "谷歌新一代多模态极速模型，完全免费", "is_free": True},
-    {"id": "qwen/qwen-2.5-coder-32b-instruct:free", "name": "Qwen 2.5 Coder 32B (Free)", "provider": "openrouter", "description": "通义千问代码专精模型，完全免费", "is_free": True},
-    {"id": "llama3:latest", "name": "Ollama Llama 3 (Local)", "provider": "ollama", "description": "本地隐私大模型，无需费用", "is_free": True},
-    {"id": "gpt-4o-mini", "name": "GPT-4o Mini", "provider": "openai", "description": "高效轻量，高性价比"},
-    {"id": "gpt-4o", "name": "GPT-4o", "provider": "openai", "description": "OpenAI 旗舰全能模型"},
-    {"id": "claude-3-5-sonnet-20240620", "name": "Claude 3.5 Sonnet", "provider": "anthropic", "description": "强大代码与推理能力"},
-    {"id": "gemini-1.5-flash", "name": "Gemini 1.5 Flash", "provider": "gemini", "description": "极速响应轻量模型"},
-    {"id": "anthropic/claude-3.5-sonnet", "name": "Claude 3.5 Sonnet (OpenRouter)", "provider": "openrouter", "description": "通过 OpenRouter 聚合访问"},
-    {"id": "deepseek/deepseek-chat", "name": "DeepSeek V3 (OpenRouter)", "provider": "openrouter", "description": "高智商性价比之选"},
-    {"id": "meta-llama/llama-3.1-70b-instruct", "name": "Llama 3.1 70B (OpenRouter)", "provider": "openrouter", "description": "开源旗舰顶尖性能"}
+    {"id": "deepseek/deepseek-r1:free", "name": "DeepSeek R1 (Free)", "provider": "openrouter", "description": "深度思维推理模型，完全免费", "is_free": True, "is_multimodal": False},
+    {"id": "meta-llama/llama-3.3-70b-instruct:free", "name": "Llama 3.3 70B (Free)", "provider": "openrouter", "description": "Meta 旗舰开源大模型，完全免费", "is_free": True, "is_multimodal": False},
+    {"id": "google/gemini-2.0-flash-exp:free", "name": "Gemini 2.0 Flash (Free)", "provider": "openrouter", "description": "谷歌新一代多模态极速模型，完全免费", "is_free": True, "is_multimodal": True},
+    {"id": "qwen/qwen-2.5-coder-32b-instruct:free", "name": "Qwen 2.5 Coder 32B (Free)", "provider": "openrouter", "description": "通义千问代码专精模型，完全免费", "is_free": True, "is_multimodal": False},
+    {"id": "llama3:latest", "name": "Ollama Llama 3 (Local)", "provider": "ollama", "description": "本地隐私大模型，无需费用", "is_free": True, "is_multimodal": False},
+    {"id": "gpt-4o-mini", "name": "GPT-4o Mini", "provider": "openai", "description": "高效轻量，高性价比多模态", "is_multimodal": True},
+    {"id": "gpt-4o", "name": "GPT-4o", "provider": "openai", "description": "OpenAI 旗舰全能多模态模型", "is_multimodal": True},
+    {"id": "claude-3-5-sonnet-20240620", "name": "Claude 3.5 Sonnet", "provider": "anthropic", "description": "强大代码与多模态视觉能力", "is_multimodal": True},
+    {"id": "gemini-1.5-flash", "name": "Gemini 1.5 Flash", "provider": "gemini", "description": "极速响应多模态模型", "is_multimodal": True},
+    {"id": "anthropic/claude-3.5-sonnet", "name": "Claude 3.5 Sonnet (OpenRouter)", "provider": "openrouter", "description": "通过 OpenRouter 聚合访问", "is_multimodal": True},
+    {"id": "deepseek/deepseek-chat", "name": "DeepSeek V3 (OpenRouter)", "provider": "openrouter", "description": "高智商性价比之选", "is_multimodal": False},
+    {"id": "meta-llama/llama-3.1-70b-instruct", "name": "Llama 3.1 70B (OpenRouter)", "provider": "openrouter", "description": "开源旗舰顶尖性能", "is_multimodal": False}
 ]
 
 
@@ -74,6 +74,10 @@ async def list_openrouter_models(q: str = ""):
                                     and item.get("pricing", {}).get("prompt") in ("0", 0, "0.0")
                                     and item.get("pricing", {}).get("completion") in ("0", 0, "0.0")
                                 )
+                            ),
+                            "is_multimodal": (
+                                "image" in str(item.get("architecture", {}))
+                                or any(k in (item.get("id") or "").lower() for k in ["vision", "-vl", "4o", "gemini", "claude-3", "pixtral", "llava", "minicpm-v"])
                             )
                         }
                         for item in data

@@ -19,6 +19,31 @@ export function isFreeModel(m: ModelCatalogItem): boolean {
   );
 }
 
+export function isMultimodalModel(m: ModelCatalogItem): boolean {
+  if (m.is_multimodal !== undefined) return m.is_multimodal;
+  const id = (m.id || "").toLowerCase();
+  const name = (m.name || "").toLowerCase();
+  const desc = (m.description || "").toLowerCase();
+
+  return (
+    id.includes("vision") ||
+    id.includes("-vl") ||
+    id.includes("_vl") ||
+    id.includes("vl-") ||
+    id.includes("multimodal") ||
+    id.includes("4o") ||
+    id.includes("gemini") ||
+    id.includes("claude-3") ||
+    id.includes("pixtral") ||
+    id.includes("llava") ||
+    id.includes("minicpm-v") ||
+    name.includes("vision") ||
+    name.includes("多模态") ||
+    desc.includes("多模态") ||
+    desc.includes("视觉")
+  );
+}
+
 interface ModelSelectProps {
   value: string;
   onChange: (modelId: string) => void;
@@ -91,6 +116,7 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
     const matchesProvider =
       providerFilter === "all" ||
       (providerFilter === "free" && isFreeModel(m)) ||
+      (providerFilter === "multimodal" && isMultimodalModel(m)) ||
       (m.provider && m.provider.toLowerCase() === providerFilter.toLowerCase());
 
     return matchesSearch && matchesProvider;
@@ -125,6 +151,11 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
               {selectedModel && isFreeModel(selectedModel) && (
                 <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shrink-0">
                   免费
+                </span>
+              )}
+              {selectedModel && isMultimodalModel(selectedModel) && (
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/30 shrink-0">
+                  多模态
                 </span>
               )}
               {selectedModel?.provider && (
@@ -198,6 +229,20 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
                 </button>
               )}
 
+              {models.some(isMultimodalModel) && (
+                <button
+                  type="button"
+                  onClick={() => setProviderFilter("multimodal")}
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold transition-colors ${
+                    providerFilter === "multimodal"
+                      ? "bg-violet-600 text-white shadow-xs"
+                      : "bg-violet-50 dark:bg-violet-950/40 text-violet-600 dark:text-violet-400 hover:bg-violet-100 dark:hover:bg-violet-900/50 border border-violet-200 dark:border-violet-800/50"
+                  }`}
+                >
+                  多模态 ({models.filter(isMultimodalModel).length})
+                </button>
+              )}
+
               {distinctProviders.map((p) => (
                 <button
                   key={p}
@@ -235,6 +280,7 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
               sorted.map((m) => {
                 const isSelected = m.id === value;
                 const free = isFreeModel(m);
+                const isMM = isMultimodalModel(m);
                 return (
                   <div
                     key={m.id}
@@ -256,6 +302,11 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
                         {free && (
                           <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shrink-0">
                             免费
+                          </span>
+                        )}
+                        {isMM && (
+                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/30 shrink-0">
+                            多模态
                           </span>
                         )}
                         {m.provider && (

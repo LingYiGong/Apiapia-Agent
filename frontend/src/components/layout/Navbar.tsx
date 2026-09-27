@@ -47,7 +47,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   return (
     <>
       {/* Top Navigation Header - flex-nowrap to prevent text/buttons dropping down on iPad */}
-      <header className="h-14 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/90 backdrop-blur px-3 sm:px-4 flex items-center justify-between shrink-0 z-30 transition-colors flex-nowrap min-w-0">
+      <header className={`border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/90 backdrop-blur px-3 sm:px-4 items-center justify-between shrink-0 z-30 transition-colors flex-nowrap min-w-0 ${isChatPage ? "hidden md:flex h-14" : "flex h-14"}`}>
         <div className="flex items-center gap-2 md:gap-3 lg:gap-6 min-w-0 shrink">
           <Link href="/chat" className="flex items-center gap-2 font-bold tracking-wide shrink-0">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white shadow-md shadow-indigo-600/30 shrink-0">

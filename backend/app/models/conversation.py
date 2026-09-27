@@ -34,6 +34,7 @@ class Message(Base):
     prompt_tokens = Column(Integer, nullable=True, default=0)
     completion_tokens = Column(Integer, nullable=True, default=0)
     duration_ms = Column(Integer, nullable=True, default=0)
+    search_results = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
     # Relationships

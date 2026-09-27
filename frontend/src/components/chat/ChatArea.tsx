@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Message, ModelCatalogItem, AttachmentItem } from "@/types";
+import { Message, ModelCatalogItem, AttachmentItem, SearchResultItem } from "@/types";
 import { isFreeModel, isMultimodalModel } from "@/components/common/ModelSelect";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
 import {
@@ -29,7 +29,23 @@ import {
   ZoomIn,
   Download,
   Copy,
+  Globe,
+  ExternalLink,
 } from "lucide-react";
+
+function parseSearchResults(raw: any): SearchResultItem[] {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
 
 function formatTime(isoStr?: string) {
   if (!isoStr) return "";
@@ -347,6 +363,14 @@ interface ChatAreaProps {
   onToggleMemory?: () => void;
   memoriesCount?: number;
   onNewChat?: () => void;
+  webSearchMode?: "auto" | "on" | "off";
+  onToggleWebSearchMode?: () => void;
+  searchStatus?: {
+    state: "idle" | "searching" | "done";
+    query?: string;
+    count?: number;
+  };
+  streamingSearchResults?: SearchResultItem[] | null;
 }
 
 export const ChatArea: React.FC<ChatAreaProps> = ({
@@ -366,6 +390,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   onToggleMemory,
   memoriesCount = 0,
   onNewChat,
+  webSearchMode = "auto",
+  onToggleWebSearchMode,
+  searchStatus = { state: "idle" },
+  streamingSearchResults = null,
 }) => {
   const [input, setInput] = useState("");
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
@@ -959,7 +987,62 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                         </div>
                       </div>
                     ) : (
-                      renderMessageBody(msg.content, false, (src, alt) => setPreviewImage({ src, alt }))
+                      <>
+                        {(() => {
+                          const searchResults = parseSearchResults(msg.search_results);
+                          if (searchResults.length === 0) return null;
+                          return (
+                            <div className="mb-2.5">
+                              <details className="group rounded-xl border border-sky-200/80 dark:border-sky-900/60 bg-sky-50/50 dark:bg-sky-950/20 text-xs overflow-hidden transition-all">
+                                <summary className="cursor-pointer select-none font-medium text-sky-700 dark:text-sky-300 flex items-center justify-between p-2 sm:p-2.5 hover:bg-sky-100/50 dark:hover:bg-sky-900/30 transition-colors">
+                                  <span className="flex items-center gap-1.5">
+                                    <Globe className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400 shrink-0" />
+                                    <span>参考了 {searchResults.length} 个网页来源</span>
+                                  </span>
+                                  <span className="text-[10px] text-slate-400 group-open:rotate-180 transition-transform">
+                                    ▼
+                                  </span>
+                                </summary>
+                                <div className="p-2 sm:p-2.5 pt-1 grid grid-cols-1 sm:grid-cols-2 gap-1.5 border-t border-sky-100/80 dark:border-sky-900/40">
+                                  {searchResults.map((item, sIdx) => (
+                                    <a
+                                      key={sIdx}
+                                      href={item.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="group/card flex flex-col p-2 rounded-lg bg-white/90 dark:bg-slate-900/90 border border-slate-200/70 dark:border-slate-800 hover:border-sky-400 dark:hover:border-sky-500 hover:shadow-xs transition-all text-left"
+                                      title={item.title}
+                                    >
+                                      <div className="flex items-center gap-1 text-[11px] font-medium text-slate-800 dark:text-slate-200 group-hover/card:text-sky-600 dark:group-hover/card:text-sky-400">
+                                        <span className="shrink-0 w-3.5 h-3.5 rounded-full bg-sky-100 dark:bg-sky-900/70 text-sky-600 dark:text-sky-300 text-[9px] flex items-center justify-center font-bold">
+                                          {sIdx + 1}
+                                        </span>
+                                        <span className="truncate">{item.title}</span>
+                                        <ExternalLink className="h-3 w-3 shrink-0 opacity-0 group-hover/card:opacity-100 transition-opacity ml-auto text-sky-500" />
+                                      </div>
+                                      {item.snippet && (
+                                        <p className="text-[10px] text-slate-500 dark:text-slate-400 line-clamp-2 mt-1 leading-snug break-words">
+                                          {item.snippet}
+                                        </p>
+                                      )}
+                                      <span className="text-[9px] text-slate-400 dark:text-slate-500 truncate mt-1 font-mono">
+                                        {(() => {
+                                          try {
+                                            return new URL(item.url).hostname.replace(/^www\./, "");
+                                          } catch {
+                                            return item.url;
+                                          }
+                                        })()}
+                                      </span>
+                                    </a>
+                                  ))}
+                                </div>
+                              </details>
+                            </div>
+                          );
+                        })()}
+                        {renderMessageBody(msg.content, false, (src, alt) => setPreviewImage({ src, alt }))}
+                      </>
                     )}
                   </div>
 
@@ -1039,21 +1122,43 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               {isWaitingForFirstToken || !streamingContent ? (
                 /* Stage 1: Waiting / Thinking Live Timer Box */
                 <div className="space-y-1.5 py-0.5">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <div className="h-6 w-6 rounded-lg bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-xs shrink-0">
-                      <Sparkles className="h-3 w-3 animate-spin" style={{ animationDuration: "3s" }} />
+                  {searchStatus?.state === "searching" ? (
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <div className="h-6 w-6 rounded-lg bg-gradient-to-tr from-sky-600 to-indigo-500 flex items-center justify-center text-white shadow-xs shrink-0">
+                          <Globe className="h-3.5 w-3.5 animate-spin" style={{ animationDuration: "3s" }} />
+                        </div>
+                        <span className="text-xs font-semibold text-sky-700 dark:text-sky-300">
+                          正在全网检索最新信息
+                        </span>
+                        <span className="inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded-full bg-sky-100 dark:bg-sky-900/60 text-sky-700 dark:text-sky-300 font-bold border border-sky-200/60 dark:border-sky-800/60 shadow-xs">
+                          <Clock className="h-3 w-3 animate-spin" style={{ animationDuration: "5s" }} />
+                          已耗时 {(elapsedTime || 0).toFixed(1)}s
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-normal pl-8 font-mono">
+                        检索词：&ldquo;{searchStatus.query}&rdquo;
+                      </p>
                     </div>
-                    <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
-                      正在深入思考中
-                    </span>
-                    <span className="inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 font-bold border border-indigo-200/60 dark:border-indigo-800/60 shadow-xs">
-                      <Clock className="h-3 w-3 animate-spin" style={{ animationDuration: "5s" }} />
-                      已等待 {(elapsedTime || 0).toFixed(1)}s
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-normal pl-8">
-                    正在分析问题并组织逻辑，准备逐字为你呈现回答...
-                  </p>
+                  ) : (
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <div className="h-6 w-6 rounded-lg bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-xs shrink-0">
+                          <Sparkles className="h-3 w-3 animate-spin" style={{ animationDuration: "3s" }} />
+                        </div>
+                        <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                          正在深入思考中
+                        </span>
+                        <span className="inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 font-bold border border-indigo-200/60 dark:border-indigo-800/60 shadow-xs">
+                          <Clock className="h-3 w-3 animate-spin" style={{ animationDuration: "5s" }} />
+                          已等待 {(elapsedTime || 0).toFixed(1)}s
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-normal pl-8">
+                        正在分析问题并组织逻辑，准备逐字为你呈现回答...
+                      </p>
+                    </div>
+                  )}
                 </div>
               ) : (
                 /* Stage 2: Streaming Typewriter Output */
@@ -1065,6 +1170,57 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                         思考耗时 {thinkingDuration.toFixed(1)}s
                       </span>
                       <span className="text-[10px] text-slate-400">· 逐字回复中</span>
+                    </div>
+                  )}
+
+                  {/* Realtime reference sources during streaming */}
+                  {streamingSearchResults && streamingSearchResults.length > 0 && (
+                    <div className="mb-2.5">
+                      <details className="group rounded-xl border border-sky-200/80 dark:border-sky-900/60 bg-sky-50/50 dark:bg-sky-950/20 text-xs overflow-hidden transition-all">
+                        <summary className="cursor-pointer select-none font-medium text-sky-700 dark:text-sky-300 flex items-center justify-between p-2 sm:p-2.5 hover:bg-sky-100/50 dark:hover:bg-sky-900/30 transition-colors">
+                          <span className="flex items-center gap-1.5">
+                            <Globe className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400 shrink-0" />
+                            <span>参考了 {streamingSearchResults.length} 个网页来源</span>
+                          </span>
+                          <span className="text-[10px] text-slate-400 group-open:rotate-180 transition-transform">
+                            ▼
+                          </span>
+                        </summary>
+                        <div className="p-2 sm:p-2.5 pt-1 grid grid-cols-1 sm:grid-cols-2 gap-1.5 border-t border-sky-100/80 dark:border-sky-900/40">
+                          {streamingSearchResults.map((item, sIdx) => (
+                            <a
+                              key={sIdx}
+                              href={item.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="group/card flex flex-col p-2 rounded-lg bg-white/90 dark:bg-slate-900/90 border border-slate-200/70 dark:border-slate-800 hover:border-sky-400 dark:hover:border-sky-500 hover:shadow-xs transition-all text-left"
+                              title={item.title}
+                            >
+                              <div className="flex items-center gap-1 text-[11px] font-medium text-slate-800 dark:text-slate-200 group-hover/card:text-sky-600 dark:group-hover/card:text-sky-400">
+                                <span className="shrink-0 w-3.5 h-3.5 rounded-full bg-sky-100 dark:bg-sky-900/70 text-sky-600 dark:text-sky-300 text-[9px] flex items-center justify-center font-bold">
+                                  {sIdx + 1}
+                                </span>
+                                <span className="truncate">{item.title}</span>
+                                <ExternalLink className="h-3 w-3 shrink-0 opacity-0 group-hover/card:opacity-100 transition-opacity ml-auto text-sky-500" />
+                              </div>
+                              {item.snippet && (
+                                <p className="text-[10px] text-slate-500 dark:text-slate-400 line-clamp-2 mt-1 leading-snug break-words">
+                                  {item.snippet}
+                                </p>
+                              )}
+                              <span className="text-[9px] text-slate-400 dark:text-slate-500 truncate mt-1 font-mono">
+                                {(() => {
+                                  try {
+                                    return new URL(item.url).hostname.replace(/^www\./, "");
+                                  } catch {
+                                    return item.url;
+                                  }
+                                })()}
+                              </span>
+                            </a>
+                          ))}
+                        </div>
+                      </details>
                     </div>
                   )}
 
@@ -1190,6 +1346,40 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             >
               <Paperclip className="h-4 w-4" />
             </button>
+            {onToggleWebSearchMode && (
+              <button
+                type="button"
+                onClick={onToggleWebSearchMode}
+                disabled={isStreaming}
+                title={
+                  webSearchMode === "auto"
+                    ? "联网检索: 自动智能 (系统根据问题自动决定是否检索)"
+                    : webSearchMode === "on"
+                    ? "联网检索: 强制开启 (每次提问均搜索最新网络)"
+                    : "联网检索: 已关闭 (仅使用模型自身知识)"
+                }
+                className={`flex items-center gap-1 h-9 px-2 sm:px-2.5 rounded-full border text-xs font-medium transition-all shrink-0 mb-0.5 select-none disabled:opacity-40 ${
+                  webSearchMode === "on"
+                    ? "bg-sky-100 dark:bg-sky-950/70 border-sky-300 dark:border-sky-800 text-sky-700 dark:text-sky-300 shadow-xs"
+                    : webSearchMode === "auto"
+                    ? "bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-sky-400 hover:text-sky-600 dark:hover:text-sky-400"
+                    : "bg-transparent border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800/50"
+                }`}
+              >
+                <Globe
+                  className={`h-3.5 w-3.5 ${
+                    webSearchMode === "on"
+                      ? "text-sky-600 dark:text-sky-400"
+                      : webSearchMode === "auto"
+                      ? "text-indigo-600 dark:text-indigo-400"
+                      : "text-slate-400"
+                  }`}
+                />
+                <span className="hidden sm:inline font-mono text-[11px]">
+                  {webSearchMode === "auto" ? "联网:自动" : webSearchMode === "on" ? "联网:开启" : "联网:关闭"}
+                </span>
+              </button>
+            )}
             <textarea
               ref={textareaRef}
               rows={1}

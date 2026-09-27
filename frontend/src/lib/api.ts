@@ -75,7 +75,7 @@ export async function apiRequest<T = any>(
   return response.json();
 }
 
-import { AttachmentItem } from "../types";
+import { AttachmentItem, SearchResultItem } from "../types";
 
 /**
  * Handle Server-Sent Events (SSE) streaming for chat
@@ -88,10 +88,13 @@ export async function streamChatResponse(
     provider?: string;
     temperature?: number;
     memory_enabled?: boolean;
+    web_search_mode?: "auto" | "on" | "off";
     attachments?: AttachmentItem[];
   },
   callbacks: {
     onMeta?: (meta: { conversation_id: string; model: string; retrieved_memories: any[] }) => void;
+    onSearchStart?: (data: { query: string }) => void;
+    onSearchResults?: (data: { query: string; results: SearchResultItem[] }) => void;
     onToken?: (token: string) => void;
     onError?: (error: string) => void;
     onDone?: (doneMeta: {
@@ -103,6 +106,7 @@ export async function streamChatResponse(
       completion_tokens?: number;
       total_tokens?: number;
       created_at?: string;
+      search_results?: SearchResultItem[];
     }) => void;
   }
 ) {
@@ -151,6 +155,10 @@ export async function streamChatResponse(
         const parsed = JSON.parse(dataStr);
         if (parsed.type === "meta") {
           callbacks.onMeta?.(parsed);
+        } else if (parsed.type === "search_start") {
+          callbacks.onSearchStart?.(parsed);
+        } else if (parsed.type === "search_results") {
+          callbacks.onSearchResults?.(parsed);
         } else if (parsed.type === "content") {
           callbacks.onToken?.(parsed.delta);
         } else if (parsed.type === "done") {

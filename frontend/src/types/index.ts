@@ -28,12 +28,19 @@ export interface AttachmentItem {
   data_url: string;
 }
 
+export interface SearchResultItem {
+  title: string;
+  url: string;
+  snippet: string;
+}
+
 export interface Message {
   id?: string;
   conversation_id?: string;
   role: "system" | "user" | "assistant" | "tool";
   content: string;
   attachments?: AttachmentItem[];
+  search_results?: SearchResultItem[] | string;
   model?: string;
   token_usage?: number;
   prompt_tokens?: number;

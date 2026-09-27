@@ -20,6 +20,7 @@ class MessageResponse(MessageBase):
     prompt_tokens: Optional[int] = 0
     completion_tokens: Optional[int] = 0
     duration_ms: Optional[int] = 0
+    search_results: Optional[str] = None
     created_at: datetime
 
     class Config:

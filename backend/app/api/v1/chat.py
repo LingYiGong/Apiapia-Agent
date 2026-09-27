@@ -16,7 +16,8 @@ from app.api.v1.deps import get_current_user
 from app.services.llm.factory import get_llm_provider
 from app.services.memory.retrieval import retrieve_relevant_memories
 from app.services.memory.extraction import schedule_memory_extraction
-from app.services.document_parser import parse_attachment
+from app.services.document_parser import parse_attachment, fetch_and_parse_url, extract_urls
+from app.services.search import web_search_service, should_search_web
 from app.core.security import decrypt_api_key
 
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -99,6 +100,20 @@ async def chat_stream(
             else:
                 parsed_docs.append(parsed)
 
+    # 3.1 Automatically detect and download remote files/URLs in message
+    if chat_req.message:
+        detected_urls = extract_urls(chat_req.message)
+        for u in detected_urls[:3]:
+            try:
+                parsed_res = await fetch_and_parse_url(u)
+                if parsed_res:
+                    if parsed_res["type"] == "image":
+                        parsed_images.append(parsed_res)
+                    else:
+                        parsed_docs.append(parsed_res)
+            except Exception as e:
+                logger.warning("Failed to auto-fetch remote file from URL %s: %s", u, e)
+
     # Assemble prompt text for LLM (including extracted document text)
     user_text_parts = []
     if chat_req.message and chat_req.message.strip():
@@ -107,7 +122,7 @@ async def chat_stream(
     if parsed_docs:
         for doc in parsed_docs:
             user_text_parts.append(
-                f"\n\n--- 📎 用户附带文件: {doc['name']} ---\n{doc['extracted_text']}\n--- 结束文件: {doc['name']} ---"
+                f"\n\n--- 📎 用户附带/引用文件: {doc['name']} ---\n{doc['extracted_text']}\n--- 结束文件: {doc['name']} ---"
             )
 
     full_user_text = "\n".join(user_text_parts) if user_text_parts else (chat_req.message or "")
@@ -116,7 +131,9 @@ async def chat_stream(
     retrieved_memories = []
     memory_context_str = ""
     if use_memory:
-        mem_query = chat_req.message.strip() if chat_req.message else (parsed_docs[0]['name'] if parsed_docs else "")
+        import re
+        clean_mem_msg = re.sub(r"https?://[^\s<>\"'()]+", "", chat_req.message or "").strip()
+        mem_query = clean_mem_msg if clean_mem_msg else (parsed_docs[0]['name'] if parsed_docs else "")
         if mem_query:
             retrieved_memories, memory_context_str = retrieve_relevant_memories(
                 user_id=user_id,
@@ -136,8 +153,13 @@ async def chat_stream(
 
     # 6. Assemble messages payload for LLM Adapter
     messages_payload = []
-    # Combine system prompt with untrusted memory context
-    combined_system_content = system_prompt + memory_context_str
+    search_instruction = (
+        "\n\n【实时网络检索能力】"
+        "\n你具备自动联网检索互联网最新信息的能力。"
+        "\n如果系统已在下方提供【实时网络检索最新参考资料】，请优先参考该实时网页信息准确作答，并在陈述事实时自然引用来源链接或序号；"
+        "\n若当前未提供搜索结果但回答需要最新时效性事实，你可在回答开头以 `[SEARCH: 搜索关键词]` 告知系统检索。"
+    )
+    combined_system_content = system_prompt + memory_context_str + search_instruction
     messages_payload.append({"role": "system", "content": combined_system_content})
 
     for msg in recent_msgs:
@@ -205,13 +227,44 @@ async def chat_stream(
         first_token_time = None
         provider = None
 
+        search_results = []
+        search_mode = chat_req.web_search_mode or "auto"
+        need_search, search_query = should_search_web(chat_req.message, mode=search_mode)
+
         try:
+            # Check and execute automatic search before streaming LLM tokens
+            if need_search and search_query:
+                logger.info("Executing web search for query: '%s' (mode=%s)", search_query, search_mode)
+                yield f"data: {json.dumps({'type': 'search_start', 'query': search_query}, ensure_ascii=False)}\n\n"
+                try:
+                    search_results = await web_search_service.search(search_query, max_results=5)
+                except Exception as se:
+                    logger.warning("Web search service failed for '%s': %s", search_query, str(se))
+                    search_results = []
+
+                yield f"data: {json.dumps({'type': 'search_results', 'query': search_query, 'results': search_results}, ensure_ascii=False)}\n\n"
+
+                if search_results:
+                    search_lines = [
+                        f"\n\n【🌐 实时网络检索最新参考资料 (搜索词: {search_query})】",
+                        "系统已自动联网检索到以下最新网页内容，请参考这些实时资料全面、准确、客观地回答用户，并在涉及具体事实时引用参考来源（例如 [1]、[2]）：",
+                    ]
+                    for idx, r in enumerate(search_results, 1):
+                        search_lines.append(f"[{idx}] 《{r['title']}》\n    网址: {r['url']}\n    内容摘要: {r['snippet']}")
+                    search_context_str = "\n".join(search_lines)
+
+                    if messages_payload and messages_payload[0].get("role") == "system":
+                        messages_payload[0]["content"] += search_context_str
+                    else:
+                        messages_payload.insert(0, {"role": "system", "content": search_context_str})
+
             # First send metadata chunk containing conversation_id and retrieved memories
             meta_chunk = {
                 "type": "meta",
                 "conversation_id": conv_id,
                 "model": model_to_use,
                 "retrieved_memories": retrieved_memories,
+                "search_results": search_results if search_results else None,
                 "created_at": user_created_at.isoformat()
             }
             yield f"data: {json.dumps(meta_chunk, ensure_ascii=False, default=str)}\n\n"
@@ -299,7 +352,8 @@ async def chat_stream(
             "prompt_tokens": prompt_tokens,
             "completion_tokens": completion_tokens,
             "total_tokens": total_tokens,
-            "created_at": reply_created_at.isoformat()
+            "created_at": reply_created_at.isoformat(),
+            "search_results": search_results if search_results else None
         }
         yield f"data: {json.dumps(done_payload, ensure_ascii=False)}\n\n"
 
@@ -321,6 +375,7 @@ async def chat_stream(
                     prompt_tokens=prompt_tokens,
                     completion_tokens=completion_tokens,
                     duration_ms=duration_ms,
+                    search_results=json.dumps(search_results, ensure_ascii=False) if search_results else None,
                     created_at=reply_created_at
                 )
                 save_db.add(assistant_msg_record)

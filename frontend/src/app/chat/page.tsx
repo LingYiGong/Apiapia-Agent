@@ -8,7 +8,7 @@ import { Navbar } from "@/components/layout/Navbar";
 import { Sidebar } from "@/components/chat/Sidebar";
 import { ChatArea } from "@/components/chat/ChatArea";
 import { MemorySidebar } from "@/components/chat/MemorySidebar";
-import { Conversation, Message, ModelCatalogItem, AttachmentItem } from "@/types";
+import { Conversation, Message, ModelCatalogItem, AttachmentItem, SearchResultItem } from "@/types";
 
 export default function ChatPage() {
   const { user, loading } = useAuth();
@@ -28,6 +28,33 @@ export default function ChatPage() {
   const [currentModel, setCurrentModel] = useState("gpt-4o-mini");
   const [memoryEnabled, setMemoryEnabled] = useState(true);
   const [retrievedMemories, setRetrievedMemories] = useState<any[]>([]);
+
+  // Web search state: "auto" (default, smart auto-trigger) | "on" (force on) | "off" (disabled)
+  const [webSearchMode, setWebSearchMode] = useState<"auto" | "on" | "off">(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("personal_ai_web_search_mode") as "auto" | "on" | "off" | null;
+      if (saved && ["auto", "on", "off"].includes(saved)) return saved;
+    }
+    return "auto";
+  });
+
+  const handleToggleWebSearchMode = () => {
+    setWebSearchMode((prev) => {
+      const next = prev === "auto" ? "on" : prev === "on" ? "off" : "auto";
+      try {
+        localStorage.setItem("personal_ai_web_search_mode", next);
+      } catch (e) {}
+      return next;
+    });
+  };
+
+  const [searchStatus, setSearchStatus] = useState<{
+    state: "idle" | "searching" | "done";
+    query?: string;
+    count?: number;
+  }>({ state: "idle" });
+  const [streamingSearchResults, setStreamingSearchResults] = useState<SearchResultItem[] | null>(null);
+  const currentSearchResultsRef = useRef<SearchResultItem[] | null>(null);
 
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
@@ -239,6 +266,8 @@ export default function ChatPage() {
       doneMeta?.duration_ms ||
       (startTimeRef.current ? Math.max(20, Date.now() - startTimeRef.current) : 0);
 
+    const searchResults = currentSearchResultsRef.current || doneMeta?.search_results;
+
     setMessages((prev) => [
       ...prev,
       {
@@ -250,6 +279,7 @@ export default function ChatPage() {
         prompt_tokens: doneMeta?.prompt_tokens,
         completion_tokens: doneMeta?.completion_tokens,
         token_usage: doneMeta?.total_tokens,
+        search_results: searchResults && searchResults.length > 0 ? searchResults : undefined,
         created_at: doneMeta?.created_at || new Date().toISOString(),
       },
     ]);
@@ -257,6 +287,9 @@ export default function ChatPage() {
     setIsStreaming(false);
     setIsWaitingForFirstToken(false);
     setStreamingContent("");
+    setSearchStatus({ state: "idle" });
+    setStreamingSearchResults(null);
+    currentSearchResultsRef.current = null;
     targetContentRef.current = "";
     displayedContentRef.current = "";
     loadConversations(false);
@@ -283,6 +316,9 @@ export default function ChatPage() {
     setStreamingContent("");
     setThinkingDuration(null);
     setElapsedTime(0);
+    setSearchStatus({ state: "idle" });
+    setStreamingSearchResults(null);
+    currentSearchResultsRef.current = null;
 
     startTimeRef.current = Date.now();
     firstTokenTimeRef.current = null;
@@ -330,6 +366,7 @@ export default function ChatPage() {
           message: text,
           model: currentModel,
           memory_enabled: memoryEnabled,
+          web_search_mode: webSearchMode,
           attachments: attachments && attachments.length > 0 ? attachments : undefined,
         },
         {
@@ -342,6 +379,18 @@ export default function ChatPage() {
             if (meta.retrieved_memories && meta.retrieved_memories.length > 0) {
               setRetrievedMemories(meta.retrieved_memories);
             }
+          },
+          onSearchStart: (data) => {
+            setSearchStatus({ state: "searching", query: data.query });
+          },
+          onSearchResults: (data) => {
+            currentSearchResultsRef.current = data.results;
+            setStreamingSearchResults(data.results);
+            setSearchStatus({
+              state: "done",
+              query: data.query,
+              count: data.results?.length || 0,
+            });
           },
           onToken: (token) => {
             // Record Time to First Token (TTFT) when first chunk arrives
@@ -359,6 +408,7 @@ export default function ChatPage() {
             if (typewriterIntervalRef.current) clearInterval(typewriterIntervalRef.current);
             setIsStreaming(false);
             setIsWaitingForFirstToken(false);
+            setSearchStatus({ state: "idle" });
             setMessages((prev) => [
               ...prev,
               { role: "assistant", content: err || "❌ 后端未知错误，请检查服务器日志" },
@@ -367,6 +417,10 @@ export default function ChatPage() {
           onDone: (doneMeta) => {
             isStreamCompletedRef.current = true;
             doneMetaRef.current = doneMeta;
+            if (doneMeta.search_results && doneMeta.search_results.length > 0) {
+              currentSearchResultsRef.current = doneMeta.search_results;
+              setStreamingSearchResults(doneMeta.search_results);
+            }
 
             // If typewriter has already caught up, finalize immediately
             if (targetContentRef.current.length === displayedContentRef.current.length) {
@@ -380,6 +434,7 @@ export default function ChatPage() {
       if (typewriterIntervalRef.current) clearInterval(typewriterIntervalRef.current);
       setIsStreaming(false);
       setIsWaitingForFirstToken(false);
+      setSearchStatus({ state: "idle" });
       setMessages((prev) => [
         ...prev,
         { role: "assistant", content: `❌ 网络连接失败: ${err?.message || err}` },
@@ -426,6 +481,10 @@ export default function ChatPage() {
           onToggleMemory={() => setIsMemoryOpen((prev) => !prev)}
           memoriesCount={retrievedMemories.length}
           onNewChat={handleNewChat}
+          webSearchMode={webSearchMode}
+          onToggleWebSearchMode={handleToggleWebSearchMode}
+          searchStatus={searchStatus}
+          streamingSearchResults={streamingSearchResults}
         />
         <MemorySidebar
           memories={retrievedMemories}

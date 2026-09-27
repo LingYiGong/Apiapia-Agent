@@ -21,6 +21,10 @@ export interface Message {
   role: "system" | "user" | "assistant" | "tool";
   content: string;
   model?: string;
+  token_usage?: number;
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  duration_ms?: number;
   created_at?: string;
 }
 

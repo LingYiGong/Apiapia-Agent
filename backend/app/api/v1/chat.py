@@ -1,5 +1,7 @@
 import json
 import logging
+import time
+from datetime import datetime, timezone
 from typing import AsyncGenerator
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
@@ -18,6 +20,15 @@ from app.core.security import decrypt_api_key
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 logger = logging.getLogger("chat_api")
+
+
+def estimate_token_count(text: str) -> int:
+    """Accurately estimate token count for multi-lingual text (Chinese + English)."""
+    if not text:
+        return 0
+    zh_chars = sum(1 for c in text if '\u4e00' <= c <= '\u9fff')
+    other_chars = len(text) - zh_chars
+    return max(1, int(zh_chars * 1.3 + other_chars / 4))
 
 
 @router.post("")
@@ -44,6 +55,8 @@ async def chat_stream(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Conversation not found or access denied"
             )
+        conversation.updated_at = datetime.now(timezone.utc)
+        await db.commit()
     else:
         # Create new conversation with title generated from user input
         conv_title = (chat_req.message[:30] + "...") if len(chat_req.message) > 30 else chat_req.message
@@ -99,11 +112,15 @@ async def chat_stream(
     messages_payload.append({"role": "user", "content": chat_req.message})
 
     # 6. Save current user message to DB
+    user_created_at = datetime.now(timezone.utc)
+    user_tokens = estimate_token_count(chat_req.message)
     user_msg_record = Message(
         conversation_id=conv_id,
         role="user",
         content=chat_req.message,
-        model=model_to_use
+        model=model_to_use,
+        prompt_tokens=user_tokens,
+        created_at=user_created_at
     )
     db.add(user_msg_record)
     await db.commit()
@@ -124,6 +141,8 @@ async def chat_stream(
     # 8. SSE Streaming generator with FULL error capture
     async def sse_event_stream() -> AsyncGenerator[str, None]:
         full_assistant_reply = []
+        start_time = time.time()
+        provider = None
 
         try:
             # First send metadata chunk containing conversation_id and retrieved memories
@@ -131,7 +150,8 @@ async def chat_stream(
                 "type": "meta",
                 "conversation_id": conv_id,
                 "model": model_to_use,
-                "retrieved_memories": retrieved_memories
+                "retrieved_memories": retrieved_memories,
+                "created_at": user_created_at.isoformat()
             }
             yield f"data: {json.dumps(meta_chunk, ensure_ascii=False, default=str)}\n\n"
 
@@ -157,9 +177,6 @@ async def chat_stream(
                     "delta": token
                 }
                 yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
-
-            # Signal completion
-            yield f"data: {json.dumps({'type': 'done', 'conversation_id': conv_id})}\n\n"
 
         except Exception as e:
             # EXTRACT ALL BACKEND ERROR DETAILS
@@ -189,15 +206,57 @@ async def chat_stream(
             yield f"data: {json.dumps(error_payload, ensure_ascii=False)}\n\n"
             return
 
-        # 10. Persist assistant reply to DB & trigger background memory extraction
+        # 9. Calculate latency, reply time and accurate token stats
+        duration_ms = max(20, int((time.time() - start_time) * 1000))
+        reply_created_at = datetime.now(timezone.utc)
         assistant_content = "".join(full_assistant_reply)
+
+        usage = getattr(provider, "last_usage", None) or {}
+        prompt_tokens = usage.get("prompt_tokens")
+        completion_tokens = usage.get("completion_tokens")
+
+        # Fallback estimation if provider stream didn't include usage
+        if not prompt_tokens:
+            prompt_text = " ".join([m.get("content", "") for m in messages_payload])
+            prompt_tokens = estimate_token_count(prompt_text)
+
+        if not completion_tokens:
+            completion_tokens = estimate_token_count(assistant_content)
+
+        total_tokens = prompt_tokens + completion_tokens
+
+        # Signal completion with complete metadata
+        done_payload = {
+            "type": "done",
+            "conversation_id": conv_id,
+            "model": model_to_use,
+            "duration_ms": duration_ms,
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "total_tokens": total_tokens,
+            "created_at": reply_created_at.isoformat()
+        }
+        yield f"data: {json.dumps(done_payload, ensure_ascii=False)}\n\n"
+
+        # 10. Persist assistant reply to DB & trigger background memory extraction
         if assistant_content.strip():
             async with AsyncSessionLocal() as save_db:
+                # Update conversation updated_at so latest chat is at the top
+                c_stmt = select(Conversation).where(Conversation.id == conv_id)
+                c_rec = (await save_db.execute(c_stmt)).scalar_one_or_none()
+                if c_rec:
+                    c_rec.updated_at = reply_created_at
+
                 assistant_msg_record = Message(
                     conversation_id=conv_id,
                     role="assistant",
                     content=assistant_content,
-                    model=model_to_use
+                    model=model_to_use,
+                    token_usage=total_tokens,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    duration_ms=duration_ms,
+                    created_at=reply_created_at
                 )
                 save_db.add(assistant_msg_record)
                 await save_db.commit()

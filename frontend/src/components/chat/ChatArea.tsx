@@ -15,7 +15,20 @@ import {
   Cpu,
   Check,
   AlertTriangle,
+  Clock,
+  Zap,
 } from "lucide-react";
+
+function formatTime(isoStr?: string) {
+  if (!isoStr) return "";
+  try {
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) return "";
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  } catch {
+    return "";
+  }
+}
 
 interface ChatAreaProps {
   messages: Message[];
@@ -297,20 +310,66 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               </div>
 
               <div
-                className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                className={`rounded-2xl px-4 py-3 text-sm leading-relaxed max-w-full ${
                   isUser
                     ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/10"
                     : "bg-slate-900 border border-slate-800 text-slate-200"
                 }`}
               >
                 {isUser ? (
-                  <p className="whitespace-pre-wrap">{msg.content}</p>
+                  <>
+                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                    {msg.created_at && (
+                      <div className="flex items-center gap-1 justify-end text-[10px] text-indigo-200/80 mt-1.5 font-mono">
+                        <Clock className="h-3 w-3" />
+                        <span>{formatTime(msg.created_at)}</span>
+                      </div>
+                    )}
+                  </>
                 ) : (
-                  <div className="prose prose-invert prose-sm max-w-none break-words">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {msg.content}
-                    </ReactMarkdown>
-                  </div>
+                  <>
+                    <div className="prose prose-invert prose-sm max-w-none break-words">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {msg.content}
+                      </ReactMarkdown>
+                    </div>
+
+                    {/* Metadata Footer: Time, Model, Latency, Tokens */}
+                    <div className="mt-3 pt-2 border-t border-slate-800/80 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] text-slate-400 font-mono">
+                      {msg.created_at && (
+                        <span className="flex items-center gap-1 text-slate-400" title="回复时间">
+                          <Clock className="h-3 w-3 text-slate-500" />
+                          <span>{formatTime(msg.created_at)}</span>
+                        </span>
+                      )}
+
+                      {msg.model && (
+                        <span className="flex items-center gap-1 bg-slate-800/90 text-indigo-300 px-1.5 py-0.5 rounded text-[10px] border border-slate-700/60 font-mono" title="回复模型">
+                          <Cpu className="h-3 w-3 text-indigo-400" />
+                          <span>{msg.model}</span>
+                        </span>
+                      )}
+
+                      {typeof msg.duration_ms === "number" && msg.duration_ms > 0 && (
+                        <span className="flex items-center gap-1 text-amber-400/90 font-medium" title="生成耗时">
+                          <Zap className="h-3 w-3 text-amber-400" />
+                          <span>{(msg.duration_ms / 1000).toFixed(2)}s</span>
+                        </span>
+                      )}
+
+                      {(msg.prompt_tokens || msg.completion_tokens || msg.token_usage) ? (
+                        <span className="flex items-center gap-1 text-slate-400 text-[10px]" title="Token 消耗">
+                          <span className="text-slate-500">Tokens:</span>
+                          <span className="text-slate-300 font-medium">
+                            {msg.token_usage || (msg.prompt_tokens || 0) + (msg.completion_tokens || 0)}
+                          </span>
+                          <span className="text-slate-500">
+                            (入 {msg.prompt_tokens || 0} / 出 {msg.completion_tokens || 0})
+                          </span>
+                        </span>
+                      ) : null}
+                    </div>
+                  </>
                 )}
               </div>
             </div>
@@ -328,6 +387,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
                   {streamingContent || "..."}
                 </ReactMarkdown>
+              </div>
+              <div className="mt-2.5 pt-1.5 border-t border-slate-800/80 flex items-center gap-2 text-[10px] text-indigo-400 font-mono">
+                <Cpu className="h-3 w-3 animate-spin" />
+                <span>正在使用 {currentModel} 思考生成中...</span>
               </div>
             </div>
           </div>

@@ -17,6 +17,9 @@ class MessageResponse(MessageBase):
     id: str
     conversation_id: str
     token_usage: Optional[int] = 0
+    prompt_tokens: Optional[int] = 0
+    completion_tokens: Optional[int] = 0
+    duration_ms: Optional[int] = 0
     created_at: datetime
 
     class Config:

@@ -143,6 +143,7 @@ export default function ChatPage() {
       role: "user",
       content: text,
       model: currentModel,
+      created_at: new Date().toISOString(),
     };
     setMessages((prev) => [...prev, userMsg]);
     setIsStreaming(true);
@@ -181,11 +182,20 @@ export default function ChatPage() {
             { role: "assistant", content: err || "❌ 后端未知错误，请检查服务器日志" },
           ]);
         },
-        onDone: (convId) => {
+        onDone: (doneMeta) => {
           setIsStreaming(false);
           setMessages((prev) => [
             ...prev,
-            { role: "assistant", content: accumulatedContent, model: currentModel },
+            {
+              role: "assistant",
+              content: accumulatedContent,
+              model: doneMeta?.model || currentModel,
+              duration_ms: doneMeta?.duration_ms,
+              prompt_tokens: doneMeta?.prompt_tokens,
+              completion_tokens: doneMeta?.completion_tokens,
+              token_usage: doneMeta?.total_tokens,
+              created_at: doneMeta?.created_at || new Date().toISOString(),
+            },
           ]);
           setStreamingContent("");
           loadConversations(false);

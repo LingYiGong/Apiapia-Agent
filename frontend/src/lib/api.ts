@@ -92,7 +92,15 @@ export async function streamChatResponse(
     onMeta?: (meta: { conversation_id: string; model: string; retrieved_memories: any[] }) => void;
     onToken?: (token: string) => void;
     onError?: (error: string) => void;
-    onDone?: (conversation_id: string) => void;
+    onDone?: (doneMeta: {
+      conversation_id: string;
+      model?: string;
+      duration_ms?: number;
+      prompt_tokens?: number;
+      completion_tokens?: number;
+      total_tokens?: number;
+      created_at?: string;
+    }) => void;
   }
 ) {
   const token = getToken();
@@ -143,7 +151,7 @@ export async function streamChatResponse(
         } else if (parsed.type === "content") {
           callbacks.onToken?.(parsed.delta);
         } else if (parsed.type === "done") {
-          callbacks.onDone?.(parsed.conversation_id);
+          callbacks.onDone?.(parsed);
         } else if (parsed.type === "error") {
           callbacks.onError?.(parsed.error);
         }

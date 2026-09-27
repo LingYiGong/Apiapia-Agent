@@ -29,6 +29,9 @@ class Message(Base):
     content = Column(Text, nullable=False)
     model = Column(String(100), nullable=True)
     token_usage = Column(Integer, nullable=True, default=0)
+    prompt_tokens = Column(Integer, nullable=True, default=0)
+    completion_tokens = Column(Integer, nullable=True, default=0)
+    duration_ms = Column(Integer, nullable=True, default=0)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
     # Relationships

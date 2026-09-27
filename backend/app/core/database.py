@@ -32,8 +32,22 @@ async def get_db():
 
 async def init_db():
     """Initialize PostgreSQL extensions and database tables."""
+    # Explicitly import all models so Base.metadata knows about them
+    import app.models  # noqa: F401
+
     async with engine.begin() as conn:
         # Enable pgvector extension
         await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
-        # Create all defined SQLAlchemy tables
+        # Create all defined SQLAlchemy tables (users, conversations, messages, settings, etc.)
         await conn.run_sync(Base.metadata.create_all)
+        # Safely ensure new metric columns exist on messages table
+        await conn.execute(text("""
+            DO $$ 
+            BEGIN 
+                IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'messages') THEN
+                    ALTER TABLE messages ADD COLUMN IF NOT EXISTS prompt_tokens integer DEFAULT 0;
+                    ALTER TABLE messages ADD COLUMN IF NOT EXISTS completion_tokens integer DEFAULT 0;
+                    ALTER TABLE messages ADD COLUMN IF NOT EXISTS duration_ms integer DEFAULT 0;
+                END IF;
+            END $$;
+        """))

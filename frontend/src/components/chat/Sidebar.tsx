@@ -12,6 +12,23 @@ interface SidebarProps {
   onDelete: (id: string) => void;
 }
 
+function formatFullDateTime(isoStr?: string) {
+  if (!isoStr) return "";
+  try {
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) return "";
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    const hours = String(d.getHours()).padStart(2, "0");
+    const minutes = String(d.getMinutes()).padStart(2, "0");
+    const seconds = String(d.getSeconds()).padStart(2, "0");
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+  } catch {
+    return "";
+  }
+}
+
 export const Sidebar: React.FC<SidebarProps> = ({
   conversations,
   activeId,
@@ -21,7 +38,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const [search, setSearch] = useState("");
 
-  const filtered = conversations.filter((c) =>
+  const sorted = [...conversations].sort((a, b) => {
+    const timeA = new Date(a.updated_at || a.created_at || 0).getTime();
+    const timeB = new Date(b.updated_at || b.created_at || 0).getTime();
+    return timeB - timeA;
+  });
+
+  const filtered = sorted.filter((c) =>
     (c.title || "").toLowerCase().includes(search.toLowerCase())
   );
 
@@ -56,19 +79,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
         ) : (
           filtered.map((c) => {
             const isSelected = c.id === activeId;
+            const timeDisplay = formatFullDateTime(c.updated_at || c.created_at);
             return (
               <div
                 key={c.id}
                 onClick={() => onSelect(c.id)}
-                className={`group flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl cursor-pointer text-xs transition-all ${
+                className={`group flex items-start justify-between gap-2 px-3 py-2.5 rounded-xl cursor-pointer text-xs transition-all ${
                   isSelected
                     ? "bg-slate-800 text-white font-medium shadow-sm border border-slate-700/60"
                     : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
                 }`}
               >
-                <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                  <MessageSquare className={`h-4 w-4 shrink-0 ${isSelected ? "text-indigo-400" : "text-slate-500"}`} />
-                  <span className="truncate">{c.title || "新建对话"}</span>
+                <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                  <MessageSquare className={`h-4 w-4 shrink-0 mt-0.5 ${isSelected ? "text-indigo-400" : "text-slate-500"}`} />
+                  <div className="flex flex-col min-w-0 flex-1">
+                    <span className="truncate leading-snug">{c.title || "新建对话"}</span>
+                    {timeDisplay && (
+                      <span className="text-[10px] text-slate-500 font-mono mt-0.5 select-none">
+                        {timeDisplay}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <button
                   type="button"
@@ -77,7 +108,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     onDelete(c.id);
                   }}
                   title="删除对话"
-                  className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-slate-700 text-slate-500 hover:text-red-400 transition-all shrink-0"
+                  className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-slate-700 text-slate-500 hover:text-red-400 transition-all shrink-0 mt-0.5"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>

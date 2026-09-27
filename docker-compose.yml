@@ -1,0 +1,76 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: personal_ai_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-personal_ai}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-personal_ai}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: personal_ai_backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://postgres:postgres@postgres:5432/personal_ai}
+      MEM0_DATABASE_URL: ${MEM0_DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/personal_ai}
+      SECRET_KEY: ${SECRET_KEY:-change-this-to-a-super-secret-jwt-key-min-32-chars-long}
+      API_KEY_ENCRYPTION_KEY: ${API_KEY_ENCRYPTION_KEY:-dGhpc2lzYTMyeWVhcnNvbGRzZWNyZXRrZXkxMjM0NTY=}
+      MEM0_VERSION: ${MEM0_VERSION:-2.2.1}
+      MEM0_LLM_PROVIDER: ${MEM0_LLM_PROVIDER:-openai}
+      MEM0_EMBEDDER_PROVIDER: ${MEM0_EMBEDDER_PROVIDER:-openai}
+      MEM0_DATA_DIR: /app/data/mem0
+      DEFAULT_MODEL: ${DEFAULT_MODEL:-gpt-4o-mini}
+      DEFAULT_PROVIDER: ${DEFAULT_PROVIDER:-openai}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_BASE_URL: ${ANTHROPIC_BASE_URL:-https://api.anthropic.com}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+    volumes:
+      - mem0_data:/app/data/mem0
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
+    container_name: personal_ai_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+    environment:
+      INTERNAL_API_URL: http://backend:8000/api
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
+      PORT: 3000
+
+volumes:
+  postgres_data:
+    driver: local
+  mem0_data:
+    driver: local

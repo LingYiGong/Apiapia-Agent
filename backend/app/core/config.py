@@ -1,0 +1,71 @@
+import os
+from pydantic_settings import BaseSettings
+from pydantic import Field
+from typing import Optional
+
+
+class Settings(BaseSettings):
+    PROJECT_NAME: str = "Personal AI Assistant"
+    API_V1_STR: str = "/api"
+
+    # PostgreSQL Database
+    POSTGRES_USER: str = "postgres"
+    POSTGRES_PASSWORD: str = "postgres"
+    POSTGRES_DB: str = "personal_ai"
+    POSTGRES_HOST: str = "postgres"
+    POSTGRES_PORT: int = 5432
+
+    DATABASE_URL: str = Field(
+        default="postgresql+asyncpg://postgres:postgres@postgres:5432/personal_ai",
+        description="Async SQLAlchemy database URL"
+    )
+    MEM0_DATABASE_URL: str = Field(
+        default="postgresql://postgres:postgres@postgres:5432/personal_ai",
+        description="Sync PostgreSQL URL for Mem0 pgvector"
+    )
+
+    # JWT & Auth
+    SECRET_KEY: str = Field(
+        default="change-this-to-a-super-secret-jwt-key-min-32-chars-long",
+        description="Secret key for JWT token encode/decode"
+    )
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
+
+    # Symmetric Key for encrypting API Keys stored in DB
+    API_KEY_ENCRYPTION_KEY: str = Field(
+        default="dGhpc2lzYTMyeWVhcnNvbGRzZWNyZXRrZXkxMjM0NTY=",
+        description="Fernet 32-byte urlsafe-base64 key for encrypting stored provider keys"
+    )
+
+    # Mem0 OSS
+    MEM0_VERSION: str = "2.2.1"
+    MEM0_LLM_PROVIDER: str = "openai"
+    MEM0_EMBEDDER_PROVIDER: str = "openai"
+    MEM0_DATA_DIR: str = "/app/data/mem0"
+
+    # LLMs
+    DEFAULT_MODEL: str = "gpt-4o-mini"
+    DEFAULT_PROVIDER: str = "openai"
+
+    OPENAI_API_KEY: Optional[str] = None
+    OPENAI_BASE_URL: str = "https://api.openai.com/v1"
+
+    # OpenRouter (aggregates Claude, GPT, Llama, DeepSeek, Gemini, etc.)
+    OPENROUTER_API_KEY: Optional[str] = None
+    OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
+
+    ANTHROPIC_API_KEY: Optional[str] = None
+    ANTHROPIC_BASE_URL: str = "https://api.anthropic.com"
+
+    GEMINI_API_KEY: Optional[str] = None
+
+    OLLAMA_BASE_URL: str = "http://host.docker.internal:11434"
+
+    class Config:
+        case_sensitive = True
+        env_file = ".env"
+        extra = "ignore"
+
+
+settings = Settings()

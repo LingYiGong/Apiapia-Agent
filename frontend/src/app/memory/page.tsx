@@ -130,37 +130,37 @@ export default function MemoryPage() {
   if (loading || !user) return null;
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors">
+    <div className="flex flex-col min-h-dvh bg-slate-50 dark:bg-slate-950 transition-colors">
       <Navbar />
 
-      <main className="flex-1 max-w-5xl w-full mx-auto p-6 md:p-8">
+      <main className="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-6 md:p-8 pb-24 md:pb-8">
         {/* Header Banner */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-200 dark:border-slate-800">
-          <div>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-200 dark:border-slate-800">
+          <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-semibold mb-1">
-              <Brain className="h-5 w-5" />
+              <Brain className="h-5 w-5 shrink-0" />
               <span>Mem0 长期记忆管理</span>
             </div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">AI 记住的事实与偏好</h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">AI 记住的事实与偏好</h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-2xl">
               所有记忆均独立持久化保存在本地 pgvector 中，你可在此随时审查、修正或删除。
             </p>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5 shrink-0">
             <button
               onClick={() => setShowAddModal(true)}
-              className="flex items-center gap-2 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 active:scale-95 transition-all"
+              className="flex items-center gap-2 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 active:scale-95 transition-all whitespace-nowrap"
             >
-              <Plus className="h-4 w-4" />
+              <Plus className="h-4 w-4 shrink-0" />
               <span>手动新增记忆</span>
             </button>
             <button
               onClick={handleExport}
               title="导出所有记忆数据 (JSON)"
-              className="flex items-center gap-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-all shadow-xs"
+              className="flex items-center gap-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-all shadow-xs whitespace-nowrap"
             >
-              <Download className="h-4 w-4" />
+              <Download className="h-4 w-4 shrink-0" />
               <span>导出 JSON</span>
             </button>
           </div>
@@ -175,7 +175,7 @@ export default function MemoryPage() {
               placeholder="搜索长期记忆（如：笔记本、编程、生活习惯）..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-900/90 py-2.5 pl-10 pr-4 text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:border-indigo-500 focus:outline-none shadow-xs"
+              className="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-900/90 py-2.5 pl-10 pr-4 text-base sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:border-indigo-500 focus:outline-none shadow-xs"
             />
           </div>
           <button

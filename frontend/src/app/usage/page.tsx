@@ -183,37 +183,37 @@ export default function UsagePage() {
   const currentPeriodName = periodLabels[period];
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors">
+    <div className="flex flex-col min-h-dvh bg-slate-50 dark:bg-slate-950 transition-colors">
       <Navbar />
 
-      <main className="flex-1 max-w-6xl w-full mx-auto p-4 md:p-8 space-y-6">
+      <main className="flex-1 max-w-6xl w-full mx-auto p-3 sm:p-4 md:p-8 space-y-4 sm:space-y-6 pb-24 md:pb-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-200 dark:border-slate-800">
           <div>
-            <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-semibold mb-1">
-              <BarChart3 className="h-5 w-5" />
+            <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-semibold mb-1 flex-wrap">
+              <BarChart3 className="h-5 w-5 shrink-0" />
               <span>{isSuperuser ? "全局监控与用量统计" : "个人用量与 Token 统计"}</span>
               {isSuperuser && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30 shrink-0">
                   超级管理员控制台
                 </span>
               )}
             </div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
               {isSuperuser ? "平台用量与多用户成本核算" : "我的 API 消耗总览"}
             </h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-2xl">
               {isSuperuser
                 ? "统计所有注册用户的 Token 消耗、调用轮次与模型定价折算费用，支持时间区间筛选与账号权限管控。"
                 : "查看你在本平台产生的全部对话轮次、输入/输出 Token 消耗及模型调用明细。"}
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={() => fetchStats()}
               disabled={isLoading}
-              className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-3 py-2 rounded-xl transition-all shadow-xs disabled:opacity-50"
+              className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-3 py-2 rounded-xl transition-all shadow-xs disabled:opacity-50 shrink-0 whitespace-nowrap"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin text-indigo-600" : ""}`} />
               <span>刷新数据</span>
@@ -223,8 +223,8 @@ export default function UsagePage() {
 
         {/* Time Period Filter Selector */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-2.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 shadow-xs">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 pl-2 mr-1">
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 shrink-0">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 pl-2 mr-1 shrink-0 whitespace-nowrap">
               统计范围：
             </span>
             {[
@@ -240,20 +240,20 @@ export default function UsagePage() {
                   key={item.id}
                   type="button"
                   onClick={() => handlePeriodChange(item.id as PeriodType)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold shrink-0 whitespace-nowrap transition-all ${
                     isSelected
                       ? "bg-indigo-600 text-white shadow-sm ring-1 ring-indigo-500"
                       : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800"
                   }`}
                 >
-                  <Icon className="h-3.5 w-3.5" />
+                  <Icon className="h-3.5 w-3.5 shrink-0" />
                   <span>{item.label}</span>
                 </button>
               );
             })}
           </div>
 
-          <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono pr-2">
+          <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono pr-2 shrink-0 whitespace-nowrap">
             {period === "today" && "⚡ 今日 00:00 至今"}
             {period === "month" && "📅 本月 1 日 00:00 至今"}
             {period === "year" && "📆 本年 1 月 1 日至今"}
@@ -263,27 +263,27 @@ export default function UsagePage() {
 
         {/* Tab Toggle for Super Admin */}
         {isSuperuser && (
-          <div className="flex gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
+          <div className="flex flex-wrap sm:flex-nowrap gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
             <button
               onClick={() => setActiveTab("overview")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+              className={`flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
                 activeTab === "overview"
                   ? "bg-indigo-600 text-white shadow-sm"
                   : "text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-900"
               }`}
             >
-              <Users className="h-4 w-4" />
+              <Users className="h-4 w-4 shrink-0" />
               <span>全盘多用户监控 ({adminStats?.total_users || 0} 人)</span>
             </button>
             <button
               onClick={() => setActiveTab("my")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+              className={`flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
                 activeTab === "my"
                   ? "bg-indigo-600 text-white shadow-sm"
                   : "text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-900"
               }`}
             >
-              <UserCheck className="h-4 w-4" />
+              <UserCheck className="h-4 w-4 shrink-0" />
               <span>我的个人消耗 ({user.username})</span>
             </button>
           </div>
@@ -293,7 +293,7 @@ export default function UsagePage() {
         {isSuperuser && activeTab === "overview" && adminStats && (
           <div className="space-y-6">
             {/* KPI Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
               {/* Card 1: Users */}
               <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 shadow-xs space-y-2">
                 <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
@@ -569,7 +569,7 @@ export default function UsagePage() {
         {((!isSuperuser) || activeTab === "my") && myStats && (
           <div className="space-y-6">
             {/* KPI Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
               <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 shadow-xs space-y-2">
                 <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
                   <span className="text-xs font-medium">对话轮次 ({currentPeriodName})</span>

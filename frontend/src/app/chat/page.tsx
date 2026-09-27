@@ -31,6 +31,8 @@ export default function ChatPage() {
 
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isMemoryOpen, setIsMemoryOpen] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -219,9 +221,13 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden">
-      <Navbar />
-      <div className="flex flex-1 overflow-hidden">
+    <div className="flex flex-col h-dvh overflow-hidden">
+      <Navbar
+        onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
+        onToggleMemory={() => setIsMemoryOpen((prev) => !prev)}
+        hasMemories={retrievedMemories.length > 0}
+      />
+      <div className="flex flex-1 overflow-hidden relative">
         <Sidebar
           conversations={conversations}
           activeId={activeId}
@@ -229,6 +235,8 @@ export default function ChatPage() {
           onNewChat={handleNewChat}
           onDelete={handleDeleteConversation}
           onRestore={handleRestoreConversation}
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
         />
         <ChatArea
           messages={messages}
@@ -240,11 +248,17 @@ export default function ChatPage() {
           streamingContent={streamingContent}
           onRefreshModels={loadConfiguredModels}
           isRefreshingModels={isRefreshingModels}
+          onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
+          onToggleMemory={() => setIsMemoryOpen((prev) => !prev)}
+          memoriesCount={retrievedMemories.length}
+          onNewChat={handleNewChat}
         />
         <MemorySidebar
           memories={retrievedMemories}
           memoryEnabled={memoryEnabled}
           onToggleMemory={() => setMemoryEnabled(!memoryEnabled)}
+          isOpen={isMemoryOpen}
+          onClose={() => setIsMemoryOpen(false)}
         />
       </div>
     </div>

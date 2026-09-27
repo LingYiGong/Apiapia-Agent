@@ -1,9 +1,21 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import { Conversation } from "@/types";
 import { apiRequest } from "@/lib/api";
-import { Plus, MessageSquare, Trash2, Search, Archive, RotateCcw, X, Clock } from "lucide-react";
+import {
+  Plus,
+  MessageSquare,
+  Trash2,
+  Search,
+  Archive,
+  RotateCcw,
+  X,
+  Brain,
+  Settings,
+  BarChart3,
+} from "lucide-react";
 
 interface SidebarProps {
   conversations: Conversation[];
@@ -12,6 +24,8 @@ interface SidebarProps {
   onNewChat: () => void;
   onDelete: (id: string) => void;
   onRestore?: (id: string) => void;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
 function formatFullDateTime(isoStr?: string) {
@@ -38,6 +52,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onNewChat,
   onDelete,
   onRestore,
+  isOpen = false,
+  onClose,
 }) => {
   const [search, setSearch] = useState("");
   const [showTrash, setShowTrash] = useState(false);
@@ -74,12 +90,78 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   };
 
+  const handleSelectConv = (id: string) => {
+    onSelect(id);
+    onClose?.();
+  };
+
+  const handleNewChatClick = () => {
+    onNewChat();
+    onClose?.();
+  };
+
   return (
     <>
-      <aside className="w-64 border-r border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/50 flex flex-col h-full shrink-0 transition-colors">
+      {/* Mobile Backdrop Overlay */}
+      {isOpen && (
+        <div
+          onClick={onClose}
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-xs md:hidden transition-opacity"
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Sidebar Drawer Container */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 w-[84vw] max-w-xs md:static md:w-56 lg:w-64 md:z-auto border-r border-slate-200 dark:border-slate-800 bg-slate-50/95 dark:bg-slate-900/95 md:bg-slate-50/80 md:dark:bg-slate-900/50 flex flex-col h-full shrink-0 transition-transform duration-200 shadow-2xl md:shadow-none ${
+          isOpen ? "translate-x-0 flex" : "-translate-x-full md:translate-x-0 hidden md:flex"
+        }`}
+      >
+        {/* Mobile Header with App Switcher & Close button */}
         <div className="p-3 border-b border-slate-200 dark:border-slate-800 flex flex-col gap-2">
+          <div className="flex items-center justify-between md:hidden pb-1 border-b border-slate-200 dark:border-slate-800/80">
+            <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+              历史对话与导航
+            </span>
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          {/* Quick Page Jump for Mobile */}
+          <div className="grid grid-cols-3 gap-1 md:hidden pb-2 border-b border-slate-200 dark:border-slate-800/60">
+            <Link
+              href="/memory"
+              onClick={onClose}
+              className="flex flex-col items-center py-1.5 px-1 rounded-lg text-[10px] font-medium text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-colors"
+            >
+              <Brain className="h-4 w-4 mb-0.5 text-indigo-500" />
+              <span>长期记忆</span>
+            </Link>
+            <Link
+              href="/usage"
+              onClick={onClose}
+              className="flex flex-col items-center py-1.5 px-1 rounded-lg text-[10px] font-medium text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-colors"
+            >
+              <BarChart3 className="h-4 w-4 mb-0.5 text-indigo-500" />
+              <span>用量统计</span>
+            </Link>
+            <Link
+              href="/settings"
+              onClick={onClose}
+              className="flex flex-col items-center py-1.5 px-1 rounded-lg text-[10px] font-medium text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-colors"
+            >
+              <Settings className="h-4 w-4 mb-0.5 text-indigo-500" />
+              <span>系统设置</span>
+            </Link>
+          </div>
+
           <button
-            onClick={onNewChat}
+            onClick={handleNewChatClick}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-md shadow-indigo-600/20 hover:bg-indigo-500 active:scale-[0.98] transition-all"
           >
             <Plus className="h-4 w-4" />
@@ -110,7 +192,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               return (
                 <div
                   key={c.id}
-                  onClick={() => onSelect(c.id)}
+                  onClick={() => handleSelectConv(c.id)}
                   className={`group flex items-start justify-between gap-2 px-3 py-2.5 rounded-xl cursor-pointer text-xs transition-all ${
                     isSelected
                       ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium shadow-sm border border-slate-200 dark:border-slate-700/60"
@@ -118,7 +200,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   }`}
                 >
                   <div className="flex items-start gap-2.5 min-w-0 flex-1">
-                    <MessageSquare className={`h-4 w-4 shrink-0 mt-0.5 ${isSelected ? "text-indigo-600 dark:text-indigo-400" : "text-slate-400 dark:text-slate-500"}`} />
+                    <MessageSquare
+                      className={`h-4 w-4 shrink-0 mt-0.5 ${
+                        isSelected
+                          ? "text-indigo-600 dark:text-indigo-400"
+                          : "text-slate-400 dark:text-slate-500"
+                      }`}
+                    />
                     <div className="flex flex-col min-w-0 flex-1">
                       <span className="truncate leading-snug">{c.title || "新建对话"}</span>
                       {timeDisplay && (
@@ -135,7 +223,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       onDelete(c.id);
                     }}
                     title="删除对话 (放入回收站，可随时找回)"
-                    className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 transition-all shrink-0 mt-0.5"
+                    className="opacity-70 md:opacity-0 md:group-hover:opacity-100 p-1.5 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 transition-all shrink-0 mt-0.5"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
@@ -146,7 +234,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Bottom Trash & Archive Recovery Entrance */}
-        <div className="p-2 border-t border-slate-200 dark:border-slate-800">
+        <div className="p-2 border-t border-slate-200 dark:border-slate-800 safe-pb">
           <button
             type="button"
             onClick={handleOpenTrash}
@@ -165,12 +253,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Trash Recovery Modal */}
       {showTrash && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 dark:bg-black/70 backdrop-blur-sm p-4">
-          <div className="w-full max-w-lg rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl p-6 flex flex-col max-h-[80vh]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 dark:bg-black/70 backdrop-blur-sm p-3 sm:p-4">
+          <div className="w-full max-w-lg rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl p-4 sm:p-6 flex flex-col max-h-[85vh]">
             <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
               <div className="flex items-center gap-2">
                 <Archive className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-                <h3 className="text-base font-bold text-slate-900 dark:text-white">对话回收站与历史恢复</h3>
+                <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
+                  对话回收站与历史恢复
+                </h3>
               </div>
               <button
                 type="button"
@@ -198,13 +288,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 trashList.map((c) => (
                   <div
                     key={c.id}
-                    className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60"
+                    className="flex items-center justify-between p-2.5 sm:p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 gap-2"
                   >
-                    <div className="min-w-0 flex-1 pr-3">
+                    <div className="min-w-0 flex-1 pr-2">
                       <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">
                         {c.title || "未命名对话"}
                       </p>
-                      <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5 font-mono">
+                      <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5 font-mono flex-wrap">
                         <span>模型: {c.model}</span>
                         {c.deleted_at && <span>删除于: {formatFullDateTime(c.deleted_at)}</span>}
                       </div>

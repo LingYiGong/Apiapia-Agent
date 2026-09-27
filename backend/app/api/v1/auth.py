@@ -24,11 +24,23 @@ async def register(user_in: UserCreate, db: AsyncSession = Depends(get_db)):
             detail="Username or email already registered"
         )
 
+    from sqlalchemy import func
+    user_count_stmt = select(func.count(User.id))
+    user_count = (await db.execute(user_count_stmt)).scalar() or 0
+    is_first_user = (user_count == 0)
+
+    is_admin = is_first_user or bool(
+        (settings.ADMIN_EMAIL and user_in.email.lower() == settings.ADMIN_EMAIL.lower()) or
+        (settings.ADMIN_USERNAME and user_in.username.lower() == settings.ADMIN_USERNAME.lower())
+    )
+
     # Create new user
     user = User(
         username=user_in.username,
         email=user_in.email,
-        password_hash=get_password_hash(user_in.password)
+        password_hash=get_password_hash(user_in.password),
+        is_superuser=is_admin,
+        is_active=True
     )
     db.add(user)
     await db.flush()  # to get user.id
@@ -65,6 +77,12 @@ async def login(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username/email or password"
+        )
+
+    if hasattr(user, "is_active") and not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="该账号已被管理员停用，请联系管理员"
         )
 
     token = create_access_token(subject=user.id)

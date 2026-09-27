@@ -47,7 +47,8 @@ async def chat_stream(
     if chat_req.conversation_id:
         stmt = select(Conversation).where(
             Conversation.id == chat_req.conversation_id,
-            Conversation.user_id == user_id
+            Conversation.user_id == user_id,
+            Conversation.is_deleted == False
         )
         conversation = (await db.execute(stmt)).scalar_one_or_none()
         if not conversation:

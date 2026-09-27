@@ -40,7 +40,7 @@ async def init_db():
         await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
         # Create all defined SQLAlchemy tables (users, conversations, messages, settings, etc.)
         await conn.run_sync(Base.metadata.create_all)
-        # Safely ensure new metric columns exist on messages table
+        # Safely ensure new metric columns exist on messages table and users table
         await conn.execute(text("""
             DO $$ 
             BEGIN 
@@ -48,6 +48,29 @@ async def init_db():
                     ALTER TABLE messages ADD COLUMN IF NOT EXISTS prompt_tokens integer DEFAULT 0;
                     ALTER TABLE messages ADD COLUMN IF NOT EXISTS completion_tokens integer DEFAULT 0;
                     ALTER TABLE messages ADD COLUMN IF NOT EXISTS duration_ms integer DEFAULT 0;
+                END IF;
+
+                IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'users') THEN
+                    ALTER TABLE users ADD COLUMN IF NOT EXISTS is_superuser boolean DEFAULT false;
+                    ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true;
+                END IF;
+
+                IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'conversations') THEN
+                    ALTER TABLE conversations ADD COLUMN IF NOT EXISTS is_deleted boolean DEFAULT false;
+                    ALTER TABLE conversations ADD COLUMN IF NOT EXISTS deleted_at timestamp with time zone;
+                END IF;
+            END $$;
+        """))
+
+        # Automatically promote the first user to superuser if no superuser exists yet
+        await conn.execute(text("""
+            DO $$
+            BEGIN
+                IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'users') THEN
+                    IF NOT EXISTS (SELECT 1 FROM users WHERE is_superuser = true) THEN
+                        UPDATE users SET is_superuser = true 
+                        WHERE id = (SELECT id FROM users ORDER BY created_at ASC LIMIT 1);
+                    END IF;
                 END IF;
             END $$;
         """))

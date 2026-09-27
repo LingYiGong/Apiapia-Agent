@@ -2,6 +2,8 @@ export interface User {
   id: string;
   username: string;
   email: string;
+  is_superuser?: boolean;
+  is_active?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -11,6 +13,8 @@ export interface Conversation {
   user_id: string;
   title: string;
   model: string;
+  is_deleted?: boolean;
+  deleted_at?: string;
   created_at: string;
   updated_at: string;
 }
@@ -65,4 +69,72 @@ export interface ModelConfig {
   base_url?: string;
   enabled: boolean;
   created_at: string;
+}
+
+export interface ModelUsageItem {
+  model: string;
+  calls: number;
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+  cost_usd: number;
+  cost_cny: number;
+  is_free: boolean;
+}
+
+export interface DailyUsageItem {
+  date: string;
+  calls: number;
+  tokens: number;
+  cost_usd: number;
+  cost_cny: number;
+}
+
+export interface MyUsageStats {
+  period?: string;
+  user_id: string;
+  username: string;
+  is_superuser: boolean;
+  total_conversations: number;
+  total_messages: number;
+  total_tokens: number;
+  prompt_tokens: number;
+  completion_tokens: number;
+  estimated_cost_usd: number;
+  estimated_cost_cny: number;
+  model_breakdown: ModelUsageItem[];
+  daily_trend: DailyUsageItem[];
+}
+
+export interface AdminUserUsageItem {
+  user_id: string;
+  username: string;
+  email: string;
+  is_superuser: boolean;
+  is_active: boolean;
+  created_at: string;
+  conversations_count: number;
+  messages_count: number;
+  total_tokens: number;
+  prompt_tokens: number;
+  completion_tokens: number;
+  estimated_cost_usd: number;
+  estimated_cost_cny: number;
+  top_model: string;
+}
+
+export interface AdminOverviewStats {
+  period?: string;
+  total_users: number;
+  active_users: number;
+  total_conversations: number;
+  total_messages: number;
+  total_tokens: number;
+  total_prompt_tokens: number;
+  total_completion_tokens: number;
+  total_cost_usd: number;
+  total_cost_cny: number;
+  users: AdminUserUsageItem[];
+  model_breakdown: ModelUsageItem[];
+  daily_trend: DailyUsageItem[];
 }

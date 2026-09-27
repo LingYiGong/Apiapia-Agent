@@ -38,6 +38,10 @@ class Settings(BaseSettings):
         description="Fernet 32-byte urlsafe-base64 key for encrypting stored provider keys"
     )
 
+    # Super Admin Configuration
+    ADMIN_EMAIL: Optional[str] = None
+    ADMIN_USERNAME: Optional[str] = None
+
     # Mem0 OSS
     MEM0_VERSION: str = "2.2.1"
     MEM0_LLM_PROVIDER: str = "openai"

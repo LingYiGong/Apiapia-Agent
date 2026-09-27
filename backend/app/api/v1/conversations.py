@@ -21,12 +21,17 @@ router = APIRouter(prefix="/conversations", tags=["conversations"])
 
 @router.get("", response_model=List[ConversationResponse])
 async def list_conversations(
+    include_deleted: bool = False,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
+    where_clauses = [Conversation.user_id == current_user.id]
+    if not include_deleted:
+        where_clauses.append(Conversation.is_deleted == False)
+
     stmt = (
         select(Conversation)
-        .where(Conversation.user_id == current_user.id)
+        .where(*where_clauses)
         .order_by(Conversation.updated_at.desc())
     )
     result = await db.execute(stmt)
@@ -58,7 +63,8 @@ async def get_conversation(
 ):
     stmt = select(Conversation).where(
         Conversation.id == conversation_id,
-        Conversation.user_id == current_user.id
+        Conversation.user_id == current_user.id,
+        Conversation.is_deleted == False
     )
     conv = (await db.execute(stmt)).scalar_one_or_none()
     if not conv:
@@ -75,7 +81,8 @@ async def update_conversation(
 ):
     stmt = select(Conversation).where(
         Conversation.id == conversation_id,
-        Conversation.user_id == current_user.id
+        Conversation.user_id == current_user.id,
+        Conversation.is_deleted == False
     )
     conv = (await db.execute(stmt)).scalar_one_or_none()
     if not conv:
@@ -98,6 +105,32 @@ async def delete_conversation(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
+    """
+    CRITICAL: Perform SOFT DELETE instead of physical purge.
+    Preserves all messages, token counts, and audit logs while hiding it from user's active list.
+    """
+    stmt = select(Conversation).where(
+        Conversation.id == conversation_id,
+        Conversation.user_id == current_user.id,
+        Conversation.is_deleted == False
+    )
+    conv = (await db.execute(stmt)).scalar_one_or_none()
+    if not conv:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+
+    conv.is_deleted = True
+    conv.deleted_at = datetime.now(timezone.utc)
+    await db.commit()
+    return None
+
+
+@router.post("/{conversation_id}/restore", response_model=ConversationResponse)
+async def restore_conversation(
+    conversation_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Restore a previously soft-deleted conversation."""
     stmt = select(Conversation).where(
         Conversation.id == conversation_id,
         Conversation.user_id == current_user.id
@@ -106,9 +139,12 @@ async def delete_conversation(
     if not conv:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
 
-    await db.delete(conv)
+    conv.is_deleted = False
+    conv.deleted_at = None
+    conv.updated_at = datetime.now(timezone.utc)
     await db.commit()
-    return None
+    await db.refresh(conv)
+    return conv
 
 
 @router.get("/{conversation_id}/messages", response_model=List[MessageResponse])

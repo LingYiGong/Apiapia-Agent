@@ -137,6 +137,16 @@ export default function ChatPage() {
     }
   };
 
+  const handleRestoreConversation = async (id: string) => {
+    try {
+      await apiRequest(`/conversations/${id}/restore`, { method: "POST" });
+      await loadConversations(false);
+      selectConversation(id);
+    } catch (err) {
+      console.error("Failed to restore conversation:", err);
+    }
+  };
+
   const handleSendMessage = async (text: string) => {
     // Add user message to UI immediately
     const userMsg: Message = {
@@ -218,6 +228,7 @@ export default function ChatPage() {
           onSelect={selectConversation}
           onNewChat={handleNewChat}
           onDelete={handleDeleteConversation}
+          onRestore={handleRestoreConversation}
         />
         <ChatArea
           messages={messages}

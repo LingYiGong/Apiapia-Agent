@@ -43,6 +43,8 @@ class ConversationUpdate(BaseModel):
 class ConversationResponse(ConversationBase):
     id: str
     user_id: str
+    is_deleted: Optional[bool] = False
+    deleted_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
 

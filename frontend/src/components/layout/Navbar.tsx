@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
-import { Bot, MessageSquare, Brain, Settings, LogOut, User as UserIcon } from "lucide-react";
+import { Bot, MessageSquare, Brain, Settings, LogOut, User as UserIcon, BarChart3, ShieldCheck } from "lucide-react";
 
 export const Navbar: React.FC = () => {
   const pathname = usePathname();
@@ -14,6 +14,12 @@ export const Navbar: React.FC = () => {
   const navItems = [
     { href: "/chat", label: "对话", icon: MessageSquare },
     { href: "/memory", label: "长期记忆", icon: Brain },
+    {
+      href: "/usage",
+      label: user?.is_superuser ? "后台与用量" : "用量统计",
+      icon: user?.is_superuser ? ShieldCheck : BarChart3,
+      badge: user?.is_superuser ? "管理" : undefined,
+    },
     { href: "/settings", label: "设置", icon: Settings },
   ];
 
@@ -56,9 +62,14 @@ export const Navbar: React.FC = () => {
 
         {user && (
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800/80 px-2.5 py-1 rounded-full border border-slate-200 dark:border-slate-700/60">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800/80 px-2.5 py-1 rounded-full border border-slate-200 dark:border-slate-700/60">
               <UserIcon className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
               <span>{user.username}</span>
+              {user.is_superuser && (
+                <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                  超管
+                </span>
+              )}
             </div>
             <button
               onClick={logout}

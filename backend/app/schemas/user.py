@@ -18,6 +18,8 @@ class UserResponse(BaseModel):
     id: str
     username: str
     email: EmailStr
+    is_superuser: bool = False
+    is_active: bool = True
     created_at: datetime
     updated_at: datetime
 

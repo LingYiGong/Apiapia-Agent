@@ -7,6 +7,7 @@ import { apiRequest } from "@/lib/api";
 import { Navbar } from "@/components/layout/Navbar";
 import { ModelCatalogItem, ModelConfig } from "@/types";
 import { useTheme } from "@/lib/theme";
+import { ModelSelect } from "@/components/common/ModelSelect";
 import { Settings, Save, ShieldCheck, Key, Plus, Trash2, Cpu, Globe, Search, Sparkles, X, Sun, Moon, Monitor } from "lucide-react";
 
 export default function SettingsPage() {
@@ -231,22 +232,19 @@ export default function SettingsPage() {
             </div>
 
             {/* Default Model */}
-            <div>
-              <label htmlFor="default-model-select" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
                 默认大模型 (Default Model)
               </label>
-              <select
-                id="default-model-select"
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                新对话启动时默认使用的大模型，支持实时搜索与免费模型置顶展示。
+              </p>
+              <ModelSelect
                 value={defaultModel}
-                onChange={(e) => setDefaultModel(e.target.value)}
-                className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 p-2.5 text-xs text-slate-900 dark:text-white focus:border-indigo-500 focus:outline-none"
-              >
-                {availableModels.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name} ({m.provider}) - {m.description}
-                  </option>
-                ))}
-              </select>
+                onChange={(mId) => setDefaultModel(mId)}
+                models={availableModels}
+                placeholder="请选择默认大模型"
+              />
             </div>
 
             {/* System Prompt */}

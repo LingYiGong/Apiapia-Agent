@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Message, ModelCatalogItem } from "@/types";
+import { isFreeModel } from "@/components/common/ModelSelect";
 import {
   Send,
   Bot,
@@ -107,7 +108,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     e.target.style.height = `${Math.min(e.target.scrollHeight, 180)}px`;
   };
 
-  // Filter models by search query and provider
+  // Filter models by search query and provider/free filter
   const filteredModels = availableModels.filter((m) => {
     const matchesSearch =
       m.id.toLowerCase().includes(modelSearch.toLowerCase()) ||
@@ -116,9 +117,19 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
     const matchesProvider =
       selectedProviderFilter === "all" ||
+      (selectedProviderFilter === "free" && isFreeModel(m)) ||
       (m.provider && m.provider.toLowerCase() === selectedProviderFilter.toLowerCase());
 
     return matchesSearch && matchesProvider;
+  });
+
+  // Prioritize free models first, then preserve relative order
+  const sortedModels = [...filteredModels].sort((a, b) => {
+    const aFree = isFreeModel(a);
+    const bFree = isFreeModel(b);
+    if (aFree && !bFree) return -1;
+    if (!aFree && bFree) return 1;
+    return 0;
   });
 
   // Extract distinct providers for filter tags
@@ -145,6 +156,11 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             <span className="truncate font-medium">
               {activeModelObj ? activeModelObj.name : currentModel || "请选择模型"}
             </span>
+            {activeModelObj && isFreeModel(activeModelObj) && (
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shrink-0">
+                免费
+              </span>
+            )}
             {activeModelObj?.provider && (
               <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/50 shrink-0">
                 {activeModelObj.provider}
@@ -175,7 +191,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="搜索模型（如：claude, deepseek, gpt...）"
+                  placeholder="搜索模型（如：free, deepseek, gpt...）"
                   value={modelSearch}
                   onChange={(e) => setModelSearch(e.target.value)}
                   autoFocus
@@ -183,8 +199,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 />
               </div>
 
-              {/* Provider Filter Badges */}
-              {distinctProviders.length > 1 && (
+              {/* Provider & Free Filter Badges */}
+              {(distinctProviders.length > 1 || availableModels.some(isFreeModel)) && (
                 <div className="flex items-center gap-1 flex-wrap mb-2.5 pb-2 border-b border-slate-200 dark:border-slate-800/80">
                   <button
                     type="button"
@@ -197,6 +213,20 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                   >
                     全部 ({availableModels.length})
                   </button>
+                  {availableModels.some(isFreeModel) && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedProviderFilter("free")}
+                      className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold transition-colors ${
+                        selectedProviderFilter === "free"
+                          ? "bg-emerald-600 text-white shadow-xs"
+                          : "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 border border-emerald-200 dark:border-emerald-800/50"
+                      }`}
+                    >
+                      <Zap className="h-3 w-3" />
+                      免费 ({availableModels.filter(isFreeModel).length})
+                    </button>
+                  )}
                   {distinctProviders.map((p) => (
                     <button
                       key={p}
@@ -216,7 +246,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
               {/* Model Items List */}
               <div className="overflow-y-auto flex-1 space-y-1 pr-1">
-                {filteredModels.length === 0 ? (
+                {sortedModels.length === 0 ? (
                   <div className="py-6 text-center text-xs text-slate-500">
                     {availableModels.length === 0 ? (
                       <div className="space-y-2 p-2">
@@ -231,8 +261,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                     )}
                   </div>
                 ) : (
-                  filteredModels.map((m) => {
+                  sortedModels.map((m) => {
                     const isSelected = m.id === currentModel;
+                    const free = isFreeModel(m);
                     return (
                       <div
                         key={m.id}
@@ -247,10 +278,15 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                         }`}
                       >
                         <div className="min-w-0 flex-1 pr-2">
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="text-xs font-semibold truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-300">
                               {m.name}
                             </span>
+                            {free && (
+                              <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shrink-0">
+                                免费
+                              </span>
+                            )}
                             {m.provider && (
                               <span className="text-[9px] uppercase font-mono px-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700/60 shrink-0">
                                 {m.provider}

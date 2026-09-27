@@ -20,9 +20,9 @@ export const ThemeToggle: React.FC = () => {
   }, []);
 
   const options: { value: Theme; label: string; icon: React.FC<{ className?: string }> }[] = [
+    { value: "system", label: "跟随系统", icon: Monitor },
     { value: "light", label: "浅色模式", icon: Sun },
     { value: "dark", label: "深色模式", icon: Moon },
-    { value: "system", label: "跟随系统", icon: Monitor },
   ];
 
   return (

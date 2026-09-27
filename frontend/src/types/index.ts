@@ -53,6 +53,7 @@ export interface ModelCatalogItem {
   name: string;
   provider: string;
   description: string;
+  is_free?: boolean;
 }
 
 export interface ModelConfig {

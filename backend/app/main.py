@@ -13,6 +13,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger("personal_ai")
 
+# Filter out repetitive health check access logs to prevent console log flooding
+class HealthCheckFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        return "/api/health" not in record.getMessage()
+
+logging.getLogger("uvicorn.access").addFilter(HealthCheckFilter())
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

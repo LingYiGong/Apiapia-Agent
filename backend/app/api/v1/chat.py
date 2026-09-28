@@ -152,14 +152,18 @@ async def chat_stream(
     recent_msgs.reverse()  # chronological order
 
     # 6. Assemble messages payload for LLM Adapter
-    messages_payload = []
     search_instruction = (
         "\n\n【实时网络检索能力】"
         "\n你具备自动联网检索互联网最新信息的能力。"
         "\n如果系统已在下方提供【实时网络检索最新参考资料】，请优先参考该实时网页信息准确作答，并在陈述事实时自然引用来源链接或序号；"
         "\n若当前未提供搜索结果但回答需要最新时效性事实，你可在回答开头以 `[SEARCH: 搜索关键词]` 告知系统检索。"
     )
-    combined_system_content = system_prompt + memory_context_str + search_instruction
+    format_instruction = (
+        "\n\n【排版规范】"
+        "\n1. 严禁在 Markdown 表格中输出 `<br>`、`<br/>` 等 HTML 标签。"
+        "\n2. 输出表格时，单元格文字保持精炼高可读，切忌冗长句子。若单元格内需列举多项内容，请直接在同一行使用顿号、分号或序号（如 ① ②）简练列出，使表格横向排版整洁紧凑。"
+    )
+    combined_system_content = system_prompt + memory_context_str + search_instruction + format_instruction
     messages_payload.append({"role": "system", "content": combined_system_content})
 
     for msg in recent_msgs:

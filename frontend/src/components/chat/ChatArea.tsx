@@ -58,6 +58,31 @@ function formatTime(isoStr?: string) {
   }
 }
 
+function renderWithBreaks(node: React.ReactNode): React.ReactNode {
+  if (typeof node === "string") {
+    if (!/<\s*br\s*\/?>|&lt;\s*br\s*\/?&gt;/i.test(node)) return node;
+    const parts = node.split(/(<\s*br\s*\/?>|&lt;\s*br\s*\/?&gt;)/gi);
+    return parts.map((part, index) => {
+      if (/^(<\s*br\s*\/?>|&lt;\s*br\s*\/?&gt;)$/i.test(part)) {
+        return <br key={index} />;
+      }
+      return part;
+    });
+  }
+  if (Array.isArray(node)) {
+    return node.map((child, idx) => (
+      <React.Fragment key={idx}>{renderWithBreaks(child)}</React.Fragment>
+    ));
+  }
+  if (React.isValidElement(node) && (node.props as any)?.children) {
+    return React.cloneElement(node, {
+      ...(node.props as any),
+      children: renderWithBreaks((node.props as any).children),
+    });
+  }
+  return node;
+}
+
 const markdownComponents = {
   img: ({ node, ...props }: any) => (
     <img
@@ -74,8 +99,10 @@ const markdownComponents = {
       className="text-indigo-600 dark:text-indigo-400 underline hover:text-indigo-500 font-medium break-all [overflow-wrap:anywhere]"
     />
   ),
-  p: ({ node, ...props }: any) => (
-    <p {...props} className="break-words [overflow-wrap:anywhere] leading-[1.65] my-2 text-[15px] sm:text-sm text-slate-800 dark:text-slate-200" />
+  p: ({ node, children, ...props }: any) => (
+    <p {...props} className="break-words [overflow-wrap:anywhere] leading-[1.65] my-2 text-[15px] sm:text-sm text-slate-800 dark:text-slate-200">
+      {renderWithBreaks(children)}
+    </p>
   ),
   h1: ({ node, ...props }: any) => (
     <h1 {...props} className="text-base sm:text-lg font-bold mt-4 mb-2 text-slate-900 dark:text-white" />
@@ -94,11 +121,15 @@ const markdownComponents = {
   thead: ({ node, ...props }: any) => (
     <thead {...props} className="bg-slate-100/90 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300" />
   ),
-  th: ({ node, ...props }: any) => (
-    <th {...props} className="px-3 py-2 font-semibold text-left border-b border-slate-200 dark:border-slate-800 whitespace-nowrap" />
+  th: ({ node, children, ...props }: any) => (
+    <th {...props} className="px-3.5 py-2.5 font-semibold text-left border-b border-slate-200 dark:border-slate-800 whitespace-nowrap bg-slate-100/90 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300">
+      {renderWithBreaks(children)}
+    </th>
   ),
-  td: ({ node, ...props }: any) => (
-    <td {...props} className="px-3 py-2 border-b border-slate-100 dark:border-slate-800/60 break-words [overflow-wrap:anywhere]" />
+  td: ({ node, children, ...props }: any) => (
+    <td {...props} className="px-3.5 py-2.5 border-b border-slate-100 dark:border-slate-800/60 whitespace-nowrap text-slate-800 dark:text-slate-200 align-top">
+      {renderWithBreaks(children)}
+    </td>
   ),
   pre: ({ node, ...props }: any) => (
     <pre
@@ -130,8 +161,10 @@ const markdownComponents = {
   ol: ({ node, ...props }: any) => (
     <ol {...props} className="list-decimal list-outside pl-4 sm:pl-5 my-1.5 space-y-1 break-words [overflow-wrap:anywhere]" />
   ),
-  li: ({ node, ...props }: any) => (
-    <li {...props} className="break-words [overflow-wrap:anywhere] leading-[1.6] my-1 text-[15px] sm:text-sm text-slate-800 dark:text-slate-200" />
+  li: ({ node, children, ...props }: any) => (
+    <li {...props} className="break-words [overflow-wrap:anywhere] leading-[1.6] my-1 text-[15px] sm:text-sm text-slate-800 dark:text-slate-200">
+      {renderWithBreaks(children)}
+    </li>
   ),
   blockquote: ({ node, ...props }: any) => (
     <blockquote {...props} className="border-l-3 border-indigo-500 pl-3 py-1 my-2 text-slate-600 dark:text-slate-400 italic break-words [overflow-wrap:anywhere]" />

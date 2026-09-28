@@ -31,10 +31,10 @@ services:
       - "8000:8000"
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/api/health || exit 1"]
-      interval: 3s
+      interval: 15s
       timeout: 3s
-      retries: 10
-      start_period: 3s
+      retries: 5
+      start_period: 5s
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}

@@ -152,6 +152,7 @@ async def chat_stream(
     recent_msgs.reverse()  # chronological order
 
     # 6. Assemble messages payload for LLM Adapter
+    messages_payload = []
     search_instruction = (
         "\n\n【实时网络检索能力】"
         "\n你具备自动联网检索互联网最新信息的能力。"

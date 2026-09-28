@@ -33,8 +33,16 @@ export const UpdatePrompt: React.FC = () => {
     const result = await checkAppUpdate();
 
     if (result.hasUpdate && result.info) {
-      const dismissed = sessionStorage.getItem("personal_ai_dismissed_version");
-      if (isManual || dismissed !== result.latestVersion) {
+      let isIgnored = false;
+      try {
+        const dismissed = sessionStorage.getItem("personal_ai_dismissed_version");
+        const updated = localStorage.getItem("personal_ai_updated_version");
+        if (dismissed === result.latestVersion || updated === result.latestVersion) {
+          isIgnored = true;
+        }
+      } catch {}
+
+      if (isManual || !isIgnored) {
         setUpdateInfo(result.info);
         setShowModal(true);
       }
@@ -67,12 +75,20 @@ export const UpdatePrompt: React.FC = () => {
 
   const handleUpdateNow = async () => {
     setIsUpdating(true);
+    if (updateInfo) {
+      try {
+        localStorage.setItem("personal_ai_updated_version", updateInfo.version);
+        sessionStorage.setItem("personal_ai_dismissed_version", updateInfo.version);
+      } catch {}
+    }
     await performAppUpdate();
   };
 
   const handleDismiss = () => {
     if (updateInfo) {
-      sessionStorage.setItem("personal_ai_dismissed_version", updateInfo.version);
+      try {
+        sessionStorage.setItem("personal_ai_dismissed_version", updateInfo.version);
+      } catch {}
     }
     setShowModal(false);
   };

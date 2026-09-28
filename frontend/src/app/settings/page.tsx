@@ -5,11 +5,11 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { apiRequest } from "@/lib/api";
 import { Navbar } from "@/components/layout/Navbar";
-import { ModelCatalogItem, ModelConfig } from "@/types";
+import { ModelCatalogItem } from "@/types";
 import { useTheme } from "@/lib/theme";
 import { ModelSelect } from "@/components/common/ModelSelect";
 import { CURRENT_VERSION, triggerManualUpdateCheck } from "@/lib/version";
-import { Settings, Save, ShieldCheck, Key, Plus, Trash2, Cpu, Globe, Search, Sparkles, X, Sun, Moon, Monitor, RefreshCw, Info } from "lucide-react";
+import { Settings, Save, ShieldCheck, Sparkles, Sun, Moon, Monitor, RefreshCw, Info, CheckCircle2, X } from "lucide-react";
 
 export default function SettingsPage() {
   const { user, loading } = useAuth();
@@ -23,44 +23,44 @@ export default function SettingsPage() {
   const [temperature, setTemperature] = useState(0.7);
   const [memoryEnabled, setMemoryEnabled] = useState(true);
 
-  // Model Configs State
+  // Model Catalog State
   const [availableModels, setAvailableModels] = useState<ModelCatalogItem[]>([]);
-  const [customConfigs, setCustomConfigs] = useState<ModelConfig[]>([]);
-
-  // Add Model Config Modal State
-  const [showAddConfig, setShowAddConfig] = useState(false);
-  const [newProvider, setNewProvider] = useState("openai");
-  const [newModel, setNewModel] = useState("gpt-4o");
-  const [newApiKey, setNewApiKey] = useState("");
-  const [newBaseUrl, setNewBaseUrl] = useState("");
-
-  // OpenRouter live models browser
-  const [showOpenRouterModal, setShowOpenRouterModal] = useState(false);
-  const [openRouterModels, setOpenRouterModels] = useState<any[]>([]);
-  const [orSearch, setOrSearch] = useState("");
-  const [loadingOrModels, setLoadingOrModels] = useState(false);
+  const [syncingModels, setSyncingModels] = useState(false);
+  const [syncResultModal, setSyncResultModal] = useState<{
+    isOpen: boolean;
+    newCount: number;
+    newModels: ModelCatalogItem[];
+    message: string;
+  } | null>(null);
 
   const [savingSettings, setSavingSettings] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  const fetchOpenRouterModels = async (query = "") => {
-    setLoadingOrModels(true);
+  const handleSyncModels = async () => {
+    setSyncingModels(true);
     try {
-      const res = await apiRequest<any[]>(`/models/openrouter?q=${encodeURIComponent(query)}`);
-      setOpenRouterModels(res || []);
-    } catch (err) {
-      console.error("Failed to fetch openrouter models:", err);
-    } finally {
-      setLoadingOrModels(false);
-    }
-  };
+      const res = await apiRequest<{
+        success: boolean;
+        new_count: number;
+        new_models: ModelCatalogItem[];
+        total: number;
+        message: string;
+      }>("/models/sync", { method: "POST" });
 
-  const handleSelectFromOpenRouter = (item: any) => {
-    setNewProvider("openrouter");
-    setNewModel(item.id);
-    setNewBaseUrl("https://openrouter.ai/api/v1");
-    setShowOpenRouterModal(false);
-    setShowAddConfig(true);
+      const modelsRes = await apiRequest<{ models: ModelCatalogItem[] }>("/models/configured");
+      if (modelsRes?.models) setAvailableModels(modelsRes.models);
+
+      setSyncResultModal({
+        isOpen: true,
+        newCount: res.new_count || 0,
+        newModels: res.new_models || [],
+        message: res.message || "同步完成",
+      });
+    } catch (err: any) {
+      alert(err.message || "同步模型失败，请检查后台 .env 是否配置了有效 API 密钥");
+    } finally {
+      setSyncingModels(false);
+    }
   };
 
   useEffect(() => {
@@ -71,10 +71,9 @@ export default function SettingsPage() {
 
   const fetchSettingsAndConfigs = async () => {
     try {
-      const [settingsRes, modelsRes, configsRes] = await Promise.all([
+      const [settingsRes, modelsRes] = await Promise.all([
         apiRequest<any>("/settings"),
         apiRequest<{ models: ModelCatalogItem[] }>("/models/configured"),
-        apiRequest<ModelConfig[]>("/models"),
       ]);
 
       if (settingsRes) {
@@ -85,7 +84,6 @@ export default function SettingsPage() {
         setMemoryEnabled(settingsRes.memory_enabled ?? true);
       }
       if (modelsRes?.models) setAvailableModels(modelsRes.models);
-      if (configsRes) setCustomConfigs(configsRes);
     } catch (err) {
       console.error("Failed to load settings:", err);
     }
@@ -112,45 +110,15 @@ export default function SettingsPage() {
           memory_enabled: memoryEnabled,
         }),
       });
+      try {
+        localStorage.setItem("personal_ai_preferred_model", defaultModel);
+      } catch (e) {}
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err: any) {
       alert(err.message || "保存设置失败");
     } finally {
       setSavingSettings(false);
-    }
-  };
-
-  const handleAddCustomModel = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      await apiRequest("/models", {
-        method: "POST",
-        body: JSON.stringify({
-          provider: newProvider,
-          model: newModel,
-          api_key: newApiKey.trim() || undefined,
-          base_url: newBaseUrl.trim() || undefined,
-          enabled: true,
-        }),
-      });
-      setShowAddConfig(false);
-      setNewApiKey("");
-      setNewBaseUrl("");
-      const configs = await apiRequest<ModelConfig[]>("/models");
-      setCustomConfigs(configs);
-    } catch (err: any) {
-      alert(err.message || "添加自定义模型配置失败");
-    }
-  };
-
-  const handleDeleteConfig = async (id: string) => {
-    if (!confirm("确定要删除该模型配置吗？")) return;
-    try {
-      await apiRequest(`/models/${id}`, { method: "DELETE" });
-      setCustomConfigs((prev) => prev.filter((c) => c.id !== id));
-    } catch (err: any) {
-      alert(err.message || "删除配置失败");
     }
   };
 
@@ -234,13 +202,27 @@ export default function SettingsPage() {
             </div>
 
             {/* Default Model */}
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                默认大模型 (Default Model)
-              </label>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                新对话启动时默认使用的大模型，支持实时搜索与免费模型置顶展示。
-              </p>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    默认大模型 (Default Model)
+                  </label>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                    新对话启动时默认使用的大模型（当前共有 {availableModels.length} 个可用模型）。
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleSyncModels}
+                  disabled={syncingModels}
+                  title="向提供商 API (Gemini/OpenAI/OpenRouter/Ollama) 请求最新模型"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-xs font-semibold shadow-xs disabled:opacity-50 transition-all cursor-pointer"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${syncingModels ? "animate-spin" : ""}`} />
+                  <span>{syncingModels ? "正在请求提供商..." : "同步最新模型"}</span>
+                </button>
+              </div>
               <ModelSelect
                 value={defaultModel}
                 onChange={(mId) => setDefaultModel(mId)}
@@ -373,82 +355,6 @@ export default function SettingsPage() {
           </div>
         </form>
 
-        {/* Custom Model Configurations (API Keys encrypted on backend) */}
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 p-6 space-y-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">自定义模型与 API 凭证</h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                密钥仅在后端使用对称加密安全存储，前端绝不保存或显示明文。
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowOpenRouterModal(true);
-                  fetchOpenRouterModels();
-                }}
-                className="flex items-center gap-1.5 rounded-xl border border-indigo-200 dark:border-indigo-500/40 bg-indigo-50 dark:bg-indigo-600/20 px-3 py-1.5 text-xs font-semibold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-600/30 transition-all shadow-sm"
-              >
-                <Globe className="h-3.5 w-3.5" />
-                <span>从 OpenRouter 库选择模型</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowAddConfig(true)}
-                className="flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/80 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all shadow-sm"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                <span>手动添加模型</span>
-              </button>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            {customConfigs.length === 0 ? (
-              <div className="rounded-xl border border-slate-200 dark:border-slate-800/60 bg-slate-50 dark:bg-slate-950/40 p-5 text-center text-xs text-slate-500">
-                暂未配置个人私有 API 凭证，系统将默认采用后端 .env 中设置的全局环境变量。
-              </div>
-            ) : (
-              customConfigs.map((cfg) => (
-                <div
-                  key={cfg.id}
-                  className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 text-xs shadow-sm"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-lg bg-indigo-50 dark:bg-indigo-600/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20">
-                      <Cpu className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-slate-900 dark:text-white">{cfg.model}</p>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 capitalize">
-                        厂商: {cfg.provider} {cfg.base_url && `| 地址: ${cfg.base_url}`}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    {cfg.has_api_key && (
-                      <span className="flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/40 px-2 py-0.5 rounded-md font-medium">
-                        <Key className="h-3 w-3" />
-                        <span>已配置秘钥</span>
-                      </span>
-                    )}
-                    <button
-                      onClick={() => handleDeleteConfig(cfg.id)}
-                      className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-colors"
-                      title="删除该配置"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
         {/* System Version & Update Check Card */}
         <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 p-6 space-y-4 shadow-sm">
           <div className="flex items-center justify-between">
@@ -494,213 +400,90 @@ export default function SettingsPage() {
       </main>
       </div>
 
-      {/* Add Custom Model Config Modal */}
-      {showAddConfig && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 dark:bg-black/70 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl">
-            <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1.5">添加模型 API 凭证</h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
-              密钥将在后端加密入库，调用该模型时优先使用此凭证。
-            </p>
-            <form onSubmit={handleAddCustomModel} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">供应商</label>
-                <select
-                  value={newProvider}
-                  onChange={(e) => {
-                    const p = e.target.value;
-                    setNewProvider(p);
-                    if (p === "openrouter") {
-                      setNewModel("anthropic/claude-3.5-sonnet");
-                      setNewBaseUrl("https://openrouter.ai/api/v1");
-                    } else if (p === "openai") {
-                      setNewModel("gpt-4o");
-                      setNewBaseUrl("https://api.openai.com/v1");
-                    } else if (p === "anthropic") {
-                      setNewModel("claude-3-5-sonnet-20240620");
-                      setNewBaseUrl("");
-                    } else if (p === "gemini") {
-                      setNewModel("gemini-1.5-pro");
-                      setNewBaseUrl("");
-                    } else if (p === "ollama") {
-                      setNewModel("llama3:latest");
-                      setNewBaseUrl("http://host.docker.internal:11434");
-                    }
-                  }}
-                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 p-2.5 text-xs text-slate-900 dark:text-white focus:border-indigo-500 focus:outline-none"
-                >
-                  <option value="openrouter">OpenRouter (多模型聚合)</option>
-                  <option value="openai">OpenAI (或兼容接口)</option>
-                  <option value="anthropic">Anthropic Claude</option>
-                  <option value="gemini">Google Gemini</option>
-                  <option value="ollama">Ollama (本地模型)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">模型标识 (Model)</label>
-                <input
-                  type="text"
-                  required
-                  value={newModel}
-                  onChange={(e) => setNewModel(e.target.value)}
-                  placeholder="如 gpt-4o, claude-3-5-sonnet-20240620..."
-                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 p-2.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
-                />
-              </div>
-
-              {newProvider !== "ollama" && (
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">API Key</label>
-                  <input
-                    type="password"
-                    value={newApiKey}
-                    onChange={(e) => setNewApiKey(e.target.value)}
-                    placeholder="sk-..."
-                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 p-2.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
-                  />
-                </div>
-              )}
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  自定义 Base URL (选填)
-                </label>
-                <input
-                  type="text"
-                  value={newBaseUrl}
-                  onChange={(e) => setNewBaseUrl(e.target.value)}
-                  placeholder={
-                    newProvider === "ollama"
-                      ? "http://host.docker.internal:11434"
-                      : "https://api.openai.com/v1"
-                  }
-                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 p-2.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2.5 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAddConfig(false)}
-                  className="rounded-xl border border-slate-300 dark:border-slate-700 px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                >
-                  取消
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-500 shadow-md shadow-indigo-600/20 transition-all"
-                >
-                  保存配置
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* OpenRouter Live Catalog Browser Modal */}
-      {showOpenRouterModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 dark:bg-black/75 backdrop-blur-sm p-4">
-          <div className="w-full max-w-2xl max-h-[85vh] flex flex-col rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl overflow-hidden">
-            {/* Modal Header */}
-            <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-2.5">
-                <div className="h-8 w-8 rounded-lg bg-indigo-50 dark:bg-indigo-600/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/30">
-                  <Globe className="h-4 w-4" />
+      {/* Model Sync Result Dialog */}
+      {syncResultModal?.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+          <div className="w-full max-w-lg rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl space-y-4">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${
+                  syncResultModal.newCount > 0
+                    ? "bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400"
+                    : "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400"
+                }`}>
+                  {syncResultModal.newCount > 0 ? (
+                    <Sparkles className="h-5 w-5" />
+                  ) : (
+                    <CheckCircle2 className="h-5 w-5" />
+                  )}
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">从 OpenRouter 实时模型库挑选</h3>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">点击任意模型即可自动填入配置</p>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    {syncResultModal.newCount > 0
+                      ? `🎉 发现 ${syncResultModal.newCount} 个新模型！`
+                      : "模型库已是最新"}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    {syncResultModal.message}
+                  </p>
                 </div>
               </div>
               <button
-                onClick={() => setShowOpenRouterModal(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800"
+                type="button"
+                onClick={() => setSyncResultModal(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
               >
-                <X className="h-5 w-5" />
+                <X className="h-4 w-4" />
               </button>
             </div>
 
-            {/* Search and Filter */}
-            <div className="p-4 border-b border-slate-200 dark:border-slate-800 space-y-3 bg-slate-50 dark:bg-slate-950/40 shrink-0">
-              <div className="relative">
-                <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400 dark:text-slate-500" />
-                <input
-                  type="text"
-                  placeholder="搜索模型（如：claude-3.5, deepseek, llama-3.1, gemini...）"
-                  value={orSearch}
-                  onChange={(e) => {
-                    const q = e.target.value;
-                    setOrSearch(q);
-                    fetchOpenRouterModels(q);
-                  }}
-                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 py-2 pl-9 pr-4 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
-                />
-              </div>
-
-              {/* Quick Filter Tags */}
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-[11px] text-slate-500">热门过滤:</span>
-                {["Claude", "DeepSeek", "GPT", "Llama", "Gemini", "Qwen"].map((tag) => (
-                  <button
-                    key={tag}
-                    type="button"
-                    onClick={() => {
-                      setOrSearch(tag);
-                      fetchOpenRouterModels(tag);
-                    }}
-                    className="px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-[10px] font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:border-slate-300 dark:hover:border-slate-700 transition-colors shadow-xs"
-                  >
-                    {tag}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Models Scrollable List */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-2">
-              {loadingOrModels ? (
-                <div className="py-16 flex flex-col items-center justify-center gap-2">
-                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
-                  <p className="text-xs text-slate-500 dark:text-slate-400">正在从 OpenRouter 获取支持的模型列表...</p>
-                </div>
-              ) : openRouterModels.length === 0 ? (
-                <div className="py-12 text-center text-xs text-slate-500">
-                  未检索到匹配的模型，请尝试其他关键词
-                </div>
-              ) : (
-                openRouterModels.map((m) => (
-                  <div
-                    key={m.id}
-                    onClick={() => handleSelectFromOpenRouter(m)}
-                    className="group flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950/60 hover:border-indigo-500/50 hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer transition-all shadow-xs"
-                  >
-                    <div className="min-w-0 flex-1 pr-3">
-                      <p className="text-xs font-semibold text-slate-800 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-300 truncate">
-                        {m.name}
-                      </p>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono mt-0.5 truncate">
+            {syncResultModal.newCount > 0 ? (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  新检测到的模型列表：
+                </p>
+                <div className="max-h-60 overflow-y-auto space-y-2 pr-1 divide-y divide-slate-100 dark:divide-slate-800/60">
+                  {syncResultModal.newModels.map((m) => (
+                    <div key={m.id} className="pt-2 first:pt-0">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-slate-900 dark:text-slate-100">
+                          {m.name}
+                        </span>
+                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full uppercase bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800/50">
+                          {m.provider}
+                        </span>
+                      </div>
+                      <p className="text-[11px] font-mono text-slate-400 mt-0.5">
                         {m.id}
                       </p>
                       {m.description && (
-                        <p className="text-[10px] text-slate-500 mt-1 line-clamp-1">
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                           {m.description}
                         </p>
                       )}
                     </div>
-                    {m.context_length && (
-                      <span className="shrink-0 text-[10px] text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-2 py-1 rounded-md">
-                        {Math.round(m.context_length / 1000)}k 上下文
-                      </span>
-                    )}
-                  </div>
-                ))
-              )}
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="py-2 text-xs text-slate-600 dark:text-slate-400 leading-relaxed bg-slate-50 dark:bg-slate-950/50 rounded-xl p-3 border border-slate-200 dark:border-slate-800/60">
+                系统已向后台配置的所有 API 提供商（Gemini / OpenAI / OpenRouter / Ollama）发起即时校验，现有模型库已包含所有支持的模型，未检测到新增模型。
+              </div>
+            )}
+
+            <div className="flex justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => setSyncResultModal(null)}
+                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
+              >
+                我知道了
+              </button>
             </div>
           </div>
         </div>
       )}
+
     </div>
   );
 }

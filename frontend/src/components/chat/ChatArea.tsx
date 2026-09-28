@@ -692,11 +692,11 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               type="button"
               onClick={onRefreshModels}
               disabled={isRefreshingModels}
-              title="根据后端填写的 API Key 自动更新/检测已支持的模型列表"
-              className="flex items-center gap-1.5 text-xs text-indigo-600 dark:text-indigo-300 hover:text-indigo-700 dark:hover:text-white bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 border border-indigo-200 dark:border-indigo-800/50 px-2 sm:px-2.5 py-1.5 rounded-xl transition-all disabled:opacity-50 shrink-0"
+              title="向配置的提供商 API (Gemini/OpenAI/OpenRouter/Ollama) 手动同步最新模型"
+              className="flex items-center gap-1.5 text-xs text-indigo-600 dark:text-indigo-300 hover:text-indigo-700 dark:hover:text-white bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 border border-indigo-200 dark:border-indigo-800/50 px-2 sm:px-2.5 py-1.5 rounded-xl transition-all disabled:opacity-50 shrink-0 cursor-pointer"
             >
               <RotateCw className={`h-3.5 w-3.5 ${isRefreshingModels ? "animate-spin text-indigo-600 dark:text-indigo-400" : ""}`} />
-              <span className="hidden lg:inline">更新模型</span>
+              <span className="hidden lg:inline">{isRefreshingModels ? "正在同步..." : "同步模型"}</span>
             </button>
           )}
 

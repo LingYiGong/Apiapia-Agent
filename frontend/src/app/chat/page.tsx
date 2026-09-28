@@ -18,14 +18,9 @@ export default function ChatPage() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const activeIdRef = useRef<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [availableModels, setAvailableModels] = useState<ModelCatalogItem[]>([
-    { id: "gpt-4o-mini", name: "GPT-4o Mini", provider: "openai", description: "高效轻量" },
-    { id: "gpt-4o", name: "GPT-4o", provider: "openai", description: "旗舰模型" },
-    { id: "claude-3-5-sonnet-20240620", name: "Claude 3.5 Sonnet", provider: "anthropic", description: "代码与逻辑" },
-    { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash", provider: "gemini", description: "极速响应" },
-    { id: "llama3:latest", name: "Ollama Llama 3", provider: "ollama", description: "本地模型" },
-  ]);
+  const [availableModels, setAvailableModels] = useState<ModelCatalogItem[]>([]);
   const [currentModel, setCurrentModel] = useState("gpt-4o-mini");
+  const defaultModelRef = useRef<string>("gpt-4o-mini");
   const [memoryEnabled, setMemoryEnabled] = useState(true);
   const [retrievedMemories, setRetrievedMemories] = useState<any[]>([]);
 
@@ -138,21 +133,27 @@ export default function ChatPage() {
       const models = res?.models || [];
       setAvailableModels(models);
 
-      // Choose an active model
+      // Update default model ref from settings
+      const userDef = settings?.default_model;
+      if (userDef) {
+        defaultModelRef.current = userDef;
+      }
+
+      // Choose active model
       if (models.length > 0) {
-        const savedPref = typeof window !== "undefined" ? localStorage.getItem("personal_ai_preferred_model") : null;
         if (!activeIdRef.current) {
-          if (savedPref && models.some((m) => m.id === savedPref)) {
-            setCurrentModel(savedPref);
-          } else if (settings?.default_model && models.some((m) => m.id === settings.default_model)) {
-            setCurrentModel(settings.default_model);
+          // Fresh new chat: ALWAYS prioritize user's configured default model
+          if (userDef && models.some((m) => m.id === userDef)) {
+            setCurrentModel(userDef);
+            try { localStorage.setItem("personal_ai_preferred_model", userDef); } catch (e) {}
           } else if (!models.some((m) => m.id === currentModel)) {
             setCurrentModel(models[0].id);
           }
         } else {
+          // Inside existing conversation: only fallback if current model is invalid
           if (!models.some((m) => m.id === currentModel)) {
-            const preferred = models.find((m) => m.id === settings?.default_model) || models[0];
-            setCurrentModel(preferred.id);
+            const fallback = (userDef && models.some((m) => m.id === userDef)) ? userDef : models[0].id;
+            setCurrentModel(fallback);
           }
         }
       }
@@ -162,6 +163,34 @@ export default function ChatPage() {
       }
     } catch (err) {
       console.error("Failed to load configured models:", err);
+    } finally {
+      setIsRefreshingModels(false);
+    }
+  };
+
+  const handleManualSyncModels = async () => {
+    setIsRefreshingModels(true);
+    try {
+      const syncRes = await apiRequest<{
+        success: boolean;
+        new_count: number;
+        new_models: ModelCatalogItem[];
+        message: string;
+      }>("/models/sync", { method: "POST" });
+
+      await loadConfiguredModels();
+
+      if (syncRes.new_count > 0) {
+        alert(
+          `🎉 同步成功！发现了 ${syncRes.new_count} 个新模型：\n\n` +
+          syncRes.new_models.map((m) => `• ${m.name} (${m.id})`).join("\n")
+        );
+      } else {
+        alert("✅ 模型列表已是最新，未从提供商检测到新增模型。");
+      }
+    } catch (err: any) {
+      console.error("Failed to sync models:", err);
+      alert(err.message || "同步模型失败，请检查后台 .env 配置");
     } finally {
       setIsRefreshingModels(false);
     }
@@ -208,12 +237,15 @@ export default function ChatPage() {
     setMessages([]);
     setStreamingContent("");
     setRetrievedMemories([]);
-    try {
-      const savedPref = localStorage.getItem("personal_ai_preferred_model");
-      if (savedPref && availableModels.some((m) => m.id === savedPref)) {
-        setCurrentModel(savedPref);
-      }
-    } catch (e) {}
+
+    // Always reset to user's configured default model from Settings!
+    const userDef = defaultModelRef.current;
+    if (userDef && availableModels.some((m) => m.id === userDef)) {
+      setCurrentModel(userDef);
+      try { localStorage.setItem("personal_ai_preferred_model", userDef); } catch (e) {}
+    } else if (availableModels.length > 0) {
+      setCurrentModel(availableModels[0].id);
+    }
   };
 
   const handleDeleteConversation = async (id: string) => {
@@ -475,7 +507,7 @@ export default function ChatPage() {
           thinkingDuration={thinkingDuration}
           elapsedTime={elapsedTime}
           isWaitingForFirstToken={isWaitingForFirstToken}
-          onRefreshModels={loadConfiguredModels}
+          onRefreshModels={handleManualSyncModels}
           isRefreshingModels={isRefreshingModels}
           onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
           onToggleMemory={() => setIsMemoryOpen((prev) => !prev)}

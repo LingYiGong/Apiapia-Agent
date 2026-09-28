@@ -10,7 +10,7 @@ from sqlalchemy import select
 from app.core.database import get_db, AsyncSessionLocal
 from app.models.user import User
 from app.models.conversation import Conversation, Message
-from app.models.setting import UserSetting, ModelConfig
+from app.models.setting import UserSetting
 from app.schemas.chat import ChatRequest
 from app.api.v1.deps import get_current_user
 from app.services.llm.factory import get_llm_provider
@@ -45,7 +45,16 @@ async def chat_stream(
     """
     user_id = current_user.id
 
-    # 1. Fetch or create conversation
+    # 1. Fetch User Settings
+    settings_stmt = select(UserSetting).where(UserSetting.user_id == user_id)
+    user_settings = (await db.execute(settings_stmt)).scalar_one_or_none()
+
+    system_prompt = user_settings.system_prompt if user_settings else "你是一个智能、真诚、有洞察力的私人 AI 助理。"
+    model_to_use = chat_req.model or (user_settings.default_model if user_settings else "gpt-4o-mini")
+    temperature = chat_req.temperature if chat_req.temperature is not None else (user_settings.temperature if user_settings else 0.7)
+    use_memory = chat_req.memory_enabled if chat_req.memory_enabled is not None else (user_settings.memory_enabled if user_settings else True)
+
+    # 2. Fetch or create conversation
     conversation = None
     if chat_req.conversation_id:
         stmt = select(Conversation).where(
@@ -72,20 +81,13 @@ async def chat_stream(
         conversation = Conversation(
             user_id=user_id,
             title=conv_title.strip() or "新建对话",
-            model=chat_req.model or "gpt-4o-mini"
+            model=model_to_use
         )
         db.add(conversation)
         await db.commit()
         await db.refresh(conversation)
 
     conv_id = conversation.id
-
-    # 2. Fetch User Settings
-    settings_stmt = select(UserSetting).where(UserSetting.user_id == user_id)
-    user_settings = (await db.execute(settings_stmt)).scalar_one_or_none()
-
-    system_prompt = user_settings.system_prompt if user_settings else "你是一个智能、真诚、有洞察力的私人 AI 助理。"
-    model_to_use = chat_req.model or (user_settings.default_model if user_settings else "gpt-4o-mini")
     temperature = chat_req.temperature if chat_req.temperature is not None else (user_settings.temperature if user_settings else 0.7)
     use_memory = chat_req.memory_enabled if chat_req.memory_enabled is not None else (user_settings.memory_enabled if user_settings else True)
 
@@ -212,20 +214,7 @@ async def chat_stream(
     await db.commit()
 
 
-    # 7. Check if user configured custom API key for this model/provider
-    custom_key = None
-    custom_base_url = None
-    config_stmt = select(ModelConfig).where(
-        ModelConfig.user_id == user_id,
-        ModelConfig.model == model_to_use,
-        ModelConfig.enabled == True
-    )
-    custom_cfg = (await db.execute(config_stmt)).scalar_one_or_none()
-    if custom_cfg:
-        custom_key = decrypt_api_key(custom_cfg.api_key_encrypted)
-        custom_base_url = custom_cfg.base_url
-
-    # 8. SSE Streaming generator with FULL error capture
+    # 7. SSE Streaming generator with FULL error capture
     async def sse_event_stream() -> AsyncGenerator[str, None]:
         full_assistant_reply = []
         start_time = time.time()
@@ -274,12 +263,10 @@ async def chat_stream(
             }
             yield f"data: {json.dumps(meta_chunk, ensure_ascii=False, default=str)}\n\n"
 
-            # Obtain LLM Provider inside stream so configuration errors are also returned to chat window
+            # Obtain LLM Provider (uses backend .env configuration strictly)
             provider = get_llm_provider(
                 provider=chat_req.provider,
-                model=model_to_use,
-                api_key=custom_key,
-                base_url=custom_base_url
+                model=model_to_use
             )
 
             # Stream LLM generation tokens

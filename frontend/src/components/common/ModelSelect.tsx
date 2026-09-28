@@ -269,7 +269,7 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
                     <AlertTriangle className="h-6 w-6 text-amber-500/80 mx-auto" />
                     <p className="text-slate-800 dark:text-slate-300 font-medium">暂无可用的已配置模型</p>
                     <p className="text-[11px] text-slate-500 leading-relaxed">
-                      请在下方“自定义模型与 API 凭证”中配置，或在后端 .env 中添加。
+                      请在后端 .env 中配置提供商 API Key，然后点击「同步最新模型」。
                     </p>
                   </div>
                 ) : (

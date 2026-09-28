@@ -50,7 +50,12 @@ class GeminiProvider(LLMProvider):
     ) -> AsyncGenerator[str, None]:
         system_instruction, contents = self._convert_messages(messages)
         
-        url = f"{self.base_url}/models/{model}:streamGenerateContent?key={self.api_key}&alt=sse"
+        clean_model = model.replace("models/", "")
+        url = f"{self.base_url}/models/{clean_model}:streamGenerateContent?alt=sse"
+        headers = {
+            "x-goog-api-key": self.api_key,
+            "Content-Type": "application/json"
+        }
         payload: Dict[str, Any] = {
             "contents": contents,
             "generationConfig": {
@@ -61,7 +66,7 @@ class GeminiProvider(LLMProvider):
             payload["systemInstruction"] = system_instruction
 
         async with httpx.AsyncClient(timeout=120.0) as client:
-            async with client.stream("POST", url, json=payload) as response:
+            async with client.stream("POST", url, headers=headers, json=payload) as response:
                 if response.status_code != 200:
                     error_text = await response.aread()
                     raise RuntimeError(f"Gemini API error ({response.status_code}): {error_text.decode('utf-8')}")

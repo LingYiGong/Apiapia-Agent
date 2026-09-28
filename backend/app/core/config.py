@@ -64,7 +64,7 @@ class Settings(BaseSettings):
 
     GEMINI_API_KEY: Optional[str] = None
 
-    OLLAMA_BASE_URL: str = "http://host.docker.internal:11434"
+    OLLAMA_BASE_URL: Optional[str] = None
 
     class Config:
         case_sensitive = True

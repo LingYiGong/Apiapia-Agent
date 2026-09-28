@@ -6,6 +6,7 @@ from sqlalchemy import select
 from app.core.database import get_db
 from app.models.user import User
 from app.models.conversation import Conversation, Message
+from app.models.setting import UserSetting
 from app.schemas.conversation import (
     ConversationCreate,
     ConversationUpdate,
@@ -44,10 +45,16 @@ async def create_conversation(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
+    model_to_use = conv_in.model
+    if not model_to_use:
+        settings_stmt = select(UserSetting).where(UserSetting.user_id == current_user.id)
+        user_settings = (await db.execute(settings_stmt)).scalar_one_or_none()
+        model_to_use = user_settings.default_model if user_settings else "gpt-4o-mini"
+
     conv = Conversation(
         user_id=current_user.id,
         title=conv_in.title or "新建对话",
-        model=conv_in.model or "gpt-4o-mini"
+        model=model_to_use
     )
     db.add(conv)
     await db.commit()

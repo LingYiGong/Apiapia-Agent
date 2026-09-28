@@ -4,15 +4,16 @@ import urllib.parse
 from html import unescape
 from typing import List, Dict, Any, Optional
 import httpx
+from app.core.config import settings
 
 logger = logging.getLogger("web_search")
 
 
 class WebSearchService:
     """
-    High-availability, zero-configuration web search service.
-    Primary: DuckDuckGo HTML & API (100% free, no key required).
-    Fallback/Enhancement: duckduckgo_search library and Tavily API if configured.
+    High-availability web search service.
+    Primary: Tavily AI-native search when TAVILY_API_KEY is configured.
+    Fallback: DuckDuckGo HTML & API (100% free, no key required).
     """
 
     def __init__(self):
@@ -26,18 +27,51 @@ class WebSearchService:
             "Accept-Language": "zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7",
         }
 
-    async def search(self, query: str, max_results: int = 5) -> List[Dict[str, str]]:
+    def is_tavily_configured(self) -> bool:
+        """Check if Tavily API key is available (same pattern as MemoryService.is_configured)."""
+        return bool(settings.TAVILY_API_KEY and settings.TAVILY_API_KEY.strip())
+
+    async def search(
+        self,
+        query: str,
+        max_results: int = 5,
+        topic: str = "general",
+        time_range: Optional[str] = None
+    ) -> List[Dict[str, str]]:
         """
         Execute web search with multi-tier fallback.
+        topic/time_range follow Tavily official enums and are only sent to Tavily;
+        DuckDuckGo fallback tiers ignore them.
         Returns a list of dicts: [{'title': '...', 'url': '...', 'snippet': '...'}]
         """
         clean_q = query.strip()
         if not clean_q:
             return []
 
-        logger.info("Executing web search for query: '%s' (max_results=%d)", clean_q, max_results)
+        if topic not in ("general", "news", "finance"):
+            topic = "general"
+        if time_range not in ("day", "week", "month", "year", None):
+            time_range = None
 
-        # 1. Try DuckDuckGo via duckduckgo_search library if available
+        logger.info(
+            "Executing web search for query: '%s' (max_results=%d, topic=%s, time_range=%s)",
+            clean_q, max_results, topic, time_range
+        )
+
+        # 1. Try Tavily AI-native search when API key is configured
+        if self.is_tavily_configured():
+            try:
+                tavily_results = await self._search_tavily(
+                    clean_q, max_results=max_results, topic=topic, time_range=time_range
+                )
+                if tavily_results:
+                    logger.info("Tavily search succeeded: %d items", len(tavily_results))
+                    return tavily_results[:max_results]
+                logger.warning("Tavily returned empty, falling back to DuckDuckGo.")
+            except Exception as e:
+                logger.warning("Tavily search failed: %s. Falling back to DuckDuckGo.", str(e))
+
+        # 2. Try DuckDuckGo via duckduckgo_search library if available
         try:
             from duckduckgo_search import DDGS
             results = []
@@ -55,7 +89,7 @@ class WebSearchService:
         except Exception as e:
             logger.debug("duckduckgo_search library failed or not installed: %s. Using HTTP fallback.", str(e))
 
-        # 2. Try DuckDuckGo HTML direct HTTP scraping (zero external dependencies)
+        # 3. Try DuckDuckGo HTML direct HTTP scraping (zero external dependencies)
         try:
             html_results = await self._search_duckduckgo_html(clean_q, max_results=max_results)
             if html_results:
@@ -64,7 +98,7 @@ class WebSearchService:
         except Exception as e:
             logger.warning("DuckDuckGo HTML scraping failed: %s", str(e))
 
-        # 3. Try DuckDuckGo Lite endpoint
+        # 4. Try DuckDuckGo Lite endpoint
         try:
             lite_results = await self._search_duckduckgo_lite(clean_q, max_results=max_results)
             if lite_results:
@@ -73,7 +107,7 @@ class WebSearchService:
         except Exception as e:
             logger.warning("DuckDuckGo Lite search failed: %s", str(e))
 
-        # 4. Try DuckDuckGo Instant Answer API as final fallback
+        # 5. Try DuckDuckGo Instant Answer API as final fallback
         try:
             api_results = await self._search_duckduckgo_api(clean_q)
             if api_results:
@@ -84,6 +118,56 @@ class WebSearchService:
 
         logger.warning("All web search attempts returned empty for query '%s'", clean_q)
         return []
+
+    async def _search_tavily(
+        self,
+        query: str,
+        max_results: int = 5,
+        topic: str = "general",
+        time_range: Optional[str] = None
+    ) -> List[Dict[str, str]]:
+        """Tavily AI-native search: relevance-scored results optimized for RAG/LLM."""
+        api_key = (settings.TAVILY_API_KEY or "").strip()
+        if not api_key:
+            return []
+
+        payload: Dict[str, Any] = {
+            "api_key": api_key,
+            "query": query,
+            "search_depth": settings.TAVILY_SEARCH_DEPTH or "advanced",
+            "topic": topic,
+            "max_results": max(1, min(max_results, 10)),
+            "include_answer": bool(settings.TAVILY_INCLUDE_ANSWER),
+            "include_images": False,
+        }
+        if time_range:
+            payload["time_range"] = time_range
+        async with httpx.AsyncClient(timeout=12.0) as client:
+            resp = await client.post("https://api.tavily.com/search", json=payload)
+            if resp.status_code in (401, 403):
+                logger.warning("Tavily auth failed (HTTP %d): check TAVILY_API_KEY", resp.status_code)
+                return []
+            if resp.status_code == 429:
+                logger.warning("Tavily rate limited (HTTP 429), falling back.")
+                return []
+            if resp.status_code != 200:
+                logger.warning("Tavily returned HTTP %d: %s", resp.status_code, resp.text[:300])
+                return []
+            data = resp.json()
+
+        results: List[Dict[str, str]] = []
+        for item in data.get("results", []) or []:
+            title = (item.get("title") or "").strip()
+            url = (item.get("url") or "").strip()
+            snippet = (item.get("content") or item.get("snippet") or "").strip()
+            if url and title:
+                # Keep prompt compact (same "..." truncation style as _search_duckduckgo_api)
+                if len(snippet) > 800:
+                    snippet = snippet[:800].rstrip() + "..."
+                results.append({"title": title, "url": url, "snippet": snippet})
+                if len(results) >= max_results:
+                    break
+        return results
 
     async def _search_duckduckgo_html(self, query: str, max_results: int = 5) -> List[Dict[str, str]]:
         url = "https://html.duckduckgo.com/html/"

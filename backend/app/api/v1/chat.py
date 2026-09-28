@@ -223,15 +223,20 @@ async def chat_stream(
 
         search_results = []
         search_mode = chat_req.web_search_mode or "auto"
-        need_search, search_query = should_search_web(chat_req.message, mode=search_mode)
+        need_search, search_query, search_topic, search_time_range = should_search_web(chat_req.message, mode=search_mode)
 
         try:
             # Check and execute automatic search before streaming LLM tokens
             if need_search and search_query:
-                logger.info("Executing web search for query: '%s' (mode=%s)", search_query, search_mode)
+                logger.info(
+                    "Executing web search for query: '%s' (mode=%s, topic=%s, time_range=%s)",
+                    search_query, search_mode, search_topic, search_time_range
+                )
                 yield f"data: {json.dumps({'type': 'search_start', 'query': search_query}, ensure_ascii=False)}\n\n"
                 try:
-                    search_results = await web_search_service.search(search_query, max_results=5)
+                    search_results = await web_search_service.search(
+                        search_query, max_results=5, topic=search_topic, time_range=search_time_range
+                    )
                 except Exception as se:
                     logger.warning("Web search service failed for '%s': %s", search_query, str(se))
                     search_results = []

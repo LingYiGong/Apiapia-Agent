@@ -66,6 +66,12 @@ class Settings(BaseSettings):
 
     OLLAMA_BASE_URL: Optional[str] = None
 
+    # Tavily AI Search (LLM-native web search, primary when configured)
+    TAVILY_API_KEY: Optional[str] = None
+    TAVILY_SEARCH_DEPTH: str = "advanced"
+    TAVILY_MAX_RESULTS: int = 5
+    TAVILY_INCLUDE_ANSWER: bool = True
+
     class Config:
         case_sensitive = True
         env_file = ".env"

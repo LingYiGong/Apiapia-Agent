@@ -62,11 +62,13 @@ async def root():
 
 @app.get("/api/health", tags=["health"])
 async def health_check():
+    tavily_configured = bool(settings.TAVILY_API_KEY and settings.TAVILY_API_KEY.strip())
     return {
         "status": "healthy",
         "database": "connected",
         "vector_store": "pgvector",
-        "mem0_oss": "active (2.2.1)"
+        "mem0_oss": "active (2.2.1)",
+        "web_search": "tavily+duckduckgo" if tavily_configured else "duckduckgo"
     }
 
 

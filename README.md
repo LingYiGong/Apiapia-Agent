@@ -14,7 +14,7 @@
    - **全模型普惠**：不依赖特定模型厂商的联网功能，无论是 Claude、GPT、Gemini、DeepSeek，还是本地 Ollama 部署的模型，全部自动具备联网搜索能力。
    - **智能自动判定 (Auto-Decision)**：系统自主识别时效性新闻、天气、汇率、股票行情、外部事实、最新技术资讯等需求，按需自动搜索；日常闲聊、纯代码或逻辑运算保持零延迟免搜。
    - **三档模式随心控**：输入框支持「自动判定 (默认) / 强制开启 / 关闭」一键循环切换，并自动持久化用户偏好。
-   - **多级免 Key 高可用**：内置 DuckDuckGo 多级异步搜索引擎与解析器，100% 免费、免配置任何第三方付费搜索 Key，开箱即用。
+   - **多级免 Key 高可用**：未配置 Key 时内置 DuckDuckGo 多级异步搜索引擎与解析器，100% 免费开箱即用；配置 `TAVILY_API_KEY` 后自动升级为 **Tavily AI 原生搜索为主 + DuckDuckGo 兜底**，搜索质量与 RAG 相关性更强（`/api/health` 的 `web_search` 字段可查看当前生效引擎）。
    - **实时检索与网页溯源**：流式生成过程中动态呈现检索中动效及检索词；回答下方持久化提供「🌐 参考了 X 个网页来源」交互式可折叠卡片，展示网页标题、摘要与一键直达外链。
 
 3. **长期记忆与聊天记录严格分离**：
@@ -89,6 +89,9 @@ cp .env.example .env
 - `SECRET_KEY`: JWT 签名密钥（生产环境请更换为复杂随机字符串）
 - `API_KEY_ENCRYPTION_KEY`: 数据库 API Key 对称加密密钥
 - `OPENROUTER_API_KEY`: OpenRouter 统一大模型 API 密钥
+- `TAVILY_API_KEY`: Tavily 联网搜索 Key（https://tavily.com 免费申请，每月 1000 次；留空则只用免费 DuckDuckGo）
+- `TAVILY_SEARCH_DEPTH`: 搜索深度 `advanced`（准）/ `basic`（快），默认 `advanced`
+- `TAVILY_MAX_RESULTS`: 每次检索条数，默认 `5`
 
 ### 2. 一键启动 Docker 容器集群
 

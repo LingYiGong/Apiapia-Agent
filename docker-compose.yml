@@ -59,6 +59,10 @@ services:
       ANTHROPIC_BASE_URL: ${ANTHROPIC_BASE_URL:-https://api.anthropic.com}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-}
+      TAVILY_API_KEY: ${TAVILY_API_KEY:-}
+      TAVILY_SEARCH_DEPTH: ${TAVILY_SEARCH_DEPTH:-advanced}
+      TAVILY_MAX_RESULTS: ${TAVILY_MAX_RESULTS:-5}
+      TAVILY_INCLUDE_ANSWER: ${TAVILY_INCLUDE_ANSWER:-True}
     volumes:
       - ./backend/app:/app/app
       - mem0_data:/app/data/mem0

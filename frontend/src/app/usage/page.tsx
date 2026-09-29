@@ -417,7 +417,7 @@ export default function UsagePage() {
                           key={u.user_id}
                           className="hover:bg-muted/50 transition-colors"
                         >
-                          <td className="py-3.5 px-4">
+                          <td className="py-3.5 px-4 whitespace-nowrap">
                             <div className="flex items-center gap-2">
                               <span className="font-semibold">
                                 {u.username}
@@ -433,22 +433,25 @@ export default function UsagePage() {
                                 </Badge>
                               )}
                             </div>
-                            <span className="text-[11px] text-muted-foreground font-mono">
+                            <span
+                              className="block max-w-[240px] truncate text-[11px] text-muted-foreground font-mono"
+                              title={u.email}
+                            >
                               {u.email}
                             </span>
                           </td>
-                          <td className="py-3.5 px-4 font-mono">
+                          <td className="py-3.5 px-4 font-mono whitespace-nowrap">
                             <span className="font-semibold text-slate-800 dark:text-slate-200">{u.messages_count}</span>
                             <span className="text-slate-400 text-[11px]"> 轮 ({u.conversations_count} 会话)</span>
                           </td>
-                          <td className="py-3.5 px-4 font-mono font-bold  ">
+                          <td className="py-3.5 px-4 font-mono font-bold whitespace-nowrap">
                             {u.total_tokens.toLocaleString()}
                           </td>
-                          <td className="py-3.5 px-4 font-mono text-[11px] text-muted-foreground">
+                          <td className="py-3.5 px-4 font-mono text-[11px] text-muted-foreground whitespace-nowrap">
                             <div>In: {u.prompt_tokens.toLocaleString()}</div>
                             <div>Out: {u.completion_tokens.toLocaleString()}</div>
                           </td>
-                          <td className="py-3.5 px-4 font-mono">
+                          <td className="py-3.5 px-4 font-mono whitespace-nowrap">
                             <div className="font-bold text-emerald-600 dark:text-emerald-400">
                               ¥{u.estimated_cost_cny.toFixed(2)}
                             </div>
@@ -456,10 +459,13 @@ export default function UsagePage() {
                               ${u.estimated_cost_usd.toFixed(4)}
                             </div>
                           </td>
-                          <td className="py-3.5 px-4 font-mono text-[11px] text-slate-600 dark:text-slate-300">
+                          <td
+                            className="py-3.5 px-4 font-mono text-[11px] text-slate-600 dark:text-slate-300 max-w-[220px] truncate"
+                            title={u.top_model}
+                          >
                             {u.top_model}
                           </td>
-                          <td className="py-3.5 px-4">
+                          <td className="py-3.5 px-4 whitespace-nowrap">
                             {u.is_active ? (
                               <Badge className="text-[11px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10">
                                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 mr-1"></span>

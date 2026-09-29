@@ -18,9 +18,11 @@ class OpenRouterProvider(OpenAIProvider):
             raise ValueError("OpenRouter API Key is not configured. Please set it in Settings or .env.")
 
         # OpenRouter recommends HTTP-Referer and X-Title headers for ranking/stats
+        # NOTE: HTTP headers must be ASCII-only (httpx enforces this),
+        # so X-Title cannot contain Chinese characters.
         default_headers = {
             "HTTP-Referer": "http://localhost:3000",
-            "X-Title": "Apiapia 助理",
+            "X-Title": "Apiapia Assistant",
         }
 
         self.client = AsyncOpenAI(

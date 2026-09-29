@@ -14,6 +14,8 @@ class Conversation(Base):
     model = Column(String(100), nullable=False, default="gpt-4o-mini")
     is_deleted = Column(Boolean, default=False, nullable=False, index=True)
     deleted_at = Column(DateTime(timezone=True), nullable=True)
+    is_pinned = Column(Boolean, default=False, nullable=False, index=True)
+    pin_order = Column(Integer, default=0, nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 

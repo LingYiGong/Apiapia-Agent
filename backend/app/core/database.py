@@ -59,6 +59,8 @@ async def init_db():
                 IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'conversations') THEN
                     ALTER TABLE conversations ADD COLUMN IF NOT EXISTS is_deleted boolean DEFAULT false;
                     ALTER TABLE conversations ADD COLUMN IF NOT EXISTS deleted_at timestamp with time zone;
+                    ALTER TABLE conversations ADD COLUMN IF NOT EXISTS is_pinned boolean DEFAULT false;
+                    ALTER TABLE conversations ADD COLUMN IF NOT EXISTS pin_order integer DEFAULT 0;
                 END IF;
             END $$;
         """))

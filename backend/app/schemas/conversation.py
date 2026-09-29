@@ -30,6 +30,8 @@ class MessageResponse(MessageBase):
 class ConversationBase(BaseModel):
     title: Optional[str] = "新建对话"
     model: Optional[str] = "gpt-4o-mini"
+    is_pinned: Optional[bool] = False
+    pin_order: Optional[int] = 0
 
 
 class ConversationCreate(ConversationBase):
@@ -39,6 +41,8 @@ class ConversationCreate(ConversationBase):
 class ConversationUpdate(BaseModel):
     title: Optional[str] = None
     model: Optional[str] = None
+    is_pinned: Optional[bool] = None
+    pin_order: Optional[int] = None
 
 
 class ConversationResponse(ConversationBase):

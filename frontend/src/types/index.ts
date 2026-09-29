@@ -16,6 +16,8 @@ export interface Conversation {
   model: string;
   is_deleted?: boolean;
   deleted_at?: string;
+  is_pinned?: boolean;
+  pin_order?: number;
   created_at: string;
   updated_at: string;
 }

@@ -267,6 +267,67 @@ export default function ChatPage() {
     }
   };
 
+  const getPinnedSorted = (list: Conversation[]) =>
+    list
+      .filter((c) => c.is_pinned)
+      .sort((a, b) => (a.pin_order ?? 0) - (b.pin_order ?? 0));
+
+  const handleTogglePin = async (id: string, nextPinned: boolean) => {
+    const prev = conversations;
+    // 乐观更新：置顶放到末尾，取消置顶直接去掉标记
+    if (nextPinned) {
+      const maxOrder = Math.max(-1, ...prev.filter((c) => c.is_pinned).map((c) => c.pin_order ?? 0));
+      setConversations((list) =>
+        list.map((c) => (c.id === id ? { ...c, is_pinned: true, pin_order: maxOrder + 1 } : c))
+      );
+    } else {
+      setConversations((list) =>
+        list.map((c) => (c.id === id ? { ...c, is_pinned: false, pin_order: 0 } : c))
+      );
+    }
+    try {
+      const updated = await apiRequest<Conversation>(`/conversations/${id}/pin`, {
+        method: nextPinned ? "POST" : "DELETE",
+      });
+      setConversations((list) => list.map((c) => (c.id === id ? { ...c, ...updated } : c)));
+    } catch (err) {
+      console.error("Failed to toggle pin:", err);
+      setConversations(prev);
+    }
+  };
+
+  const handleReorderPinned = async (orderedIds: string[]) => {
+    const prev = conversations;
+    const orderMap = new Map(orderedIds.map((id, idx) => [id, idx]));
+    setConversations((list) =>
+      list.map((c) => (orderMap.has(c.id) ? { ...c, pin_order: orderMap.get(c.id)! } : c))
+    );
+    try {
+      const updated = await apiRequest<Conversation[]>(`/conversations/pinned/order`, {
+        method: "PUT",
+        body: JSON.stringify({ ordered_ids: orderedIds }),
+      });
+      const updatedMap = new Map(updated.map((c) => [c.id, c]));
+      setConversations((list) =>
+        list.map((c) => (updatedMap.has(c.id) ? { ...c, ...updatedMap.get(c.id)! } : c))
+      );
+    } catch (err) {
+      console.error("Failed to reorder pinned:", err);
+      setConversations(prev);
+    }
+  };
+
+  const handleMovePinned = (id: string, direction: "up" | "down") => {
+    const pinned = getPinnedSorted(conversations);
+    const idx = pinned.findIndex((c) => c.id === id);
+    if (idx < 0) return;
+    const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= pinned.length) return;
+    const ids = pinned.map((c) => c.id);
+    [ids[idx], ids[swapIdx]] = [ids[swapIdx], ids[idx]];
+    handleReorderPinned(ids);
+  };
+
   const finalizeAssistantMessage = () => {
     if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current);
@@ -525,6 +586,9 @@ export default function ChatPage() {
           onSelect={selectConversation}
           onNewChat={handleNewChat}
           onDelete={handleDeleteConversation}
+          onTogglePin={handleTogglePin}
+          onMovePinned={handleMovePinned}
+          onReorderPinned={handleReorderPinned}
           isOpen={isSidebarOpen}
           onClose={() => setIsSidebarOpen(false)}
         />

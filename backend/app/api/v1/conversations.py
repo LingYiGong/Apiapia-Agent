@@ -1,8 +1,9 @@
 from typing import List
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from app.core.database import get_db
 from app.models.user import User
 from app.models.conversation import Conversation, Message
@@ -54,10 +55,53 @@ async def list_conversations(
             Conversation.user_id == current_user.id,
             Conversation.is_deleted == False
         )
-        .order_by(Conversation.updated_at.desc())
+        .order_by(
+            Conversation.is_pinned.desc(),
+            Conversation.pin_order.asc(),
+            Conversation.updated_at.desc()
+        )
     )
     result = await db.execute(stmt)
     return result.scalars().all()
+
+
+class PinOrderUpdate(BaseModel):
+    ordered_ids: List[str]
+
+
+@router.put("/pinned/order", response_model=List[ConversationResponse])
+async def reorder_pinned_conversations(
+    payload: PinOrderUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Manually sort pinned conversations. ordered_ids = pinned ids top-to-bottom."""
+    if not payload.ordered_ids:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="ordered_ids 不能为空")
+
+    stmt = select(Conversation).where(
+        Conversation.user_id == current_user.id,
+        Conversation.is_deleted == False,
+        Conversation.is_pinned == True,
+        Conversation.id.in_(payload.ordered_ids)
+    )
+    pinned = (await db.execute(stmt)).scalars().all()
+    found = {c.id: c for c in pinned}
+    missing = [cid for cid in payload.ordered_ids if cid not in found]
+    if missing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"以下置顶会话不存在或未置顶: {', '.join(missing)}"
+        )
+
+    for index, cid in enumerate(payload.ordered_ids):
+        found[cid].pin_order = index
+        found[cid].updated_at = datetime.now(timezone.utc)
+
+    await db.commit()
+    for c in pinned:
+        await db.refresh(c)
+    return sorted(pinned, key=lambda c: c.pin_order)
 
 
 @router.post("", response_model=ConversationResponse)
@@ -120,8 +164,78 @@ async def update_conversation(
         conv.title = conv_in.title
     if conv_in.model is not None:
         conv.model = conv_in.model
+    if conv_in.is_pinned is not None:
+        # Pinning: append to the end unless an explicit pin_order is given
+        if conv_in.is_pinned and not conv.is_pinned and conv_in.pin_order is None:
+            max_order = await db.scalar(
+                select(func.max(Conversation.pin_order)).where(
+                    Conversation.user_id == current_user.id,
+                    Conversation.is_deleted == False,
+                    Conversation.is_pinned == True
+                )
+            )
+            conv.pin_order = (max_order + 1) if max_order is not None else 0
+        conv.is_pinned = conv_in.is_pinned
+    if conv_in.pin_order is not None:
+        conv.pin_order = conv_in.pin_order
     conv.updated_at = datetime.now(timezone.utc)
 
+    await db.commit()
+    await db.refresh(conv)
+    return conv
+
+
+@router.post("/{conversation_id}/pin", response_model=ConversationResponse)
+async def pin_conversation(
+    conversation_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Pin a conversation (goes to the end of the pinned list)."""
+    stmt = select(Conversation).where(
+        Conversation.id == conversation_id,
+        Conversation.user_id == current_user.id,
+        Conversation.is_deleted == False
+    )
+    conv = (await db.execute(stmt)).scalar_one_or_none()
+    if not conv:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+
+    if not conv.is_pinned:
+        max_order = await db.scalar(
+            select(func.max(Conversation.pin_order)).where(
+                Conversation.user_id == current_user.id,
+                Conversation.is_deleted == False,
+                Conversation.is_pinned == True
+            )
+        )
+        conv.is_pinned = True
+        conv.pin_order = (max_order + 1) if max_order is not None else 0
+        conv.updated_at = datetime.now(timezone.utc)
+        await db.commit()
+        await db.refresh(conv)
+    return conv
+
+
+@router.delete("/{conversation_id}/pin", response_model=ConversationResponse)
+async def unpin_conversation(
+    conversation_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Unpin a conversation."""
+    stmt = select(Conversation).where(
+        Conversation.id == conversation_id,
+        Conversation.user_id == current_user.id,
+        Conversation.is_deleted == False
+    )
+    conv = (await db.execute(stmt)).scalar_one_or_none()
+    if not conv:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+
+    conv.is_pinned = False
+    conv.pin_order = 0
+    conv.updated_at = datetime.now(timezone.utc)
     await db.commit()
     await db.refresh(conv)
     return conv

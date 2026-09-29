@@ -6,7 +6,6 @@ import { Cpu, ChevronDown, Search, Check, Zap, AlertTriangle } from "lucide-reac
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
@@ -263,8 +262,9 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
             </>
           )}
 
-          {/* Model Items List */}
-          <ScrollArea className="flex-1 max-h-64">
+          {/* Model Items List (native scroll: Radix ScrollArea can't measure
+              an auto-height absolute panel, so it never becomes scrollable here) */}
+          <div className="overflow-y-auto max-h-64">
             <div className="space-y-1 pr-1">
               {sorted.length === 0 ? (
                 <div className="py-8 text-center text-xs text-muted-foreground">
@@ -338,7 +338,7 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
                 })
               )}
             </div>
-          </ScrollArea>
+          </div>
         </div>
       )}
     </div>

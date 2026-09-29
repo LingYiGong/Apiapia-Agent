@@ -11,16 +11,16 @@ class Settings(BaseSettings):
     # PostgreSQL Database
     POSTGRES_USER: str = "postgres"
     POSTGRES_PASSWORD: str = "postgres"
-    POSTGRES_DB: str = "personal_ai"
+    POSTGRES_DB: str = "apiapia"
     POSTGRES_HOST: str = "postgres"
     POSTGRES_PORT: int = 5432
 
     DATABASE_URL: str = Field(
-        default="postgresql+asyncpg://postgres:postgres@postgres:5432/personal_ai",
+        default="postgresql+asyncpg://postgres:postgres@postgres:5432/apiapia",
         description="Async SQLAlchemy database URL"
     )
     MEM0_DATABASE_URL: str = Field(
-        default="postgresql://postgres:postgres@postgres:5432/personal_ai",
+        default="postgresql://postgres:postgres@postgres:5432/apiapia",
         description="Sync PostgreSQL URL for Mem0 pgvector"
     )
 

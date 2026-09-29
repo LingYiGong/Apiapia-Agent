@@ -83,7 +83,7 @@ export async function checkAppUpdate(): Promise<CheckUpdateResult> {
  */
 export function triggerManualUpdateCheck() {
   if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent("personal_ai_check_update", { detail: { manual: true } }));
+    window.dispatchEvent(new CustomEvent("apiapia_check_update", { detail: { manual: true } }));
   }
 }
 

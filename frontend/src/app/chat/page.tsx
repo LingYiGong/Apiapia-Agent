@@ -27,7 +27,7 @@ export default function ChatPage() {
   // Web search state: "auto" (default, smart auto-trigger) | "on" (force on) | "off" (disabled)
   const [webSearchMode, setWebSearchMode] = useState<"auto" | "on" | "off">(() => {
     if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("personal_ai_web_search_mode") as "auto" | "on" | "off" | null;
+      const saved = localStorage.getItem("apiapia_web_search_mode") as "auto" | "on" | "off" | null;
       if (saved && ["auto", "on", "off"].includes(saved)) return saved;
     }
     return "auto";
@@ -37,7 +37,7 @@ export default function ChatPage() {
     setWebSearchMode((prev) => {
       const next = prev === "auto" ? "on" : prev === "on" ? "off" : "auto";
       try {
-        localStorage.setItem("personal_ai_web_search_mode", next);
+        localStorage.setItem("apiapia_web_search_mode", next);
       } catch (e) {}
       return next;
     });
@@ -88,7 +88,7 @@ export default function ChatPage() {
   const handleModelChange = async (newModel: string) => {
     setCurrentModel(newModel);
     try {
-      localStorage.setItem("personal_ai_preferred_model", newModel);
+      localStorage.setItem("apiapia_preferred_model", newModel);
     } catch (e) {}
 
     // If currently inside an active conversation, update it in DB and local state
@@ -147,7 +147,7 @@ export default function ChatPage() {
           // Fresh new chat: ALWAYS prioritize user's configured default model
           if (userDef && models.some((m) => m.id === userDef)) {
             setCurrentModel(userDef);
-            try { localStorage.setItem("personal_ai_preferred_model", userDef); } catch (e) {}
+            try { localStorage.setItem("apiapia_preferred_model", userDef); } catch (e) {}
           } else if (!models.some((m) => m.id === currentModel)) {
             setCurrentModel(models[0].id);
           }
@@ -244,7 +244,7 @@ export default function ChatPage() {
     const userDef = defaultModelRef.current;
     if (userDef && availableModels.some((m) => m.id === userDef)) {
       setCurrentModel(userDef);
-      try { localStorage.setItem("personal_ai_preferred_model", userDef); } catch (e) {}
+      try { localStorage.setItem("apiapia_preferred_model", userDef); } catch (e) {}
     } else if (availableModels.length > 0) {
       setCurrentModel(availableModels[0].id);
     }

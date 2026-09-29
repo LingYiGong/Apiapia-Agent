@@ -46,8 +46,8 @@ export const UpdatePrompt: React.FC = () => {
     if (result.hasUpdate && result.info) {
       let isIgnored = false;
       try {
-        const dismissed = sessionStorage.getItem("personal_ai_dismissed_version");
-        const updated = localStorage.getItem("personal_ai_updated_version");
+        const dismissed = sessionStorage.getItem("apiapia_dismissed_version");
+        const updated = localStorage.getItem("apiapia_updated_version");
         if (dismissed === result.latestVersion || updated === result.latestVersion) {
           isIgnored = true;
         }
@@ -78,9 +78,9 @@ export const UpdatePrompt: React.FC = () => {
       runCheck(true);
     };
 
-    window.addEventListener("personal_ai_check_update", handleManualEvent);
+    window.addEventListener("apiapia_check_update", handleManualEvent);
     return () => {
-      window.removeEventListener("personal_ai_check_update", handleManualEvent);
+      window.removeEventListener("apiapia_check_update", handleManualEvent);
     };
   }, [runCheck]);
 
@@ -88,8 +88,8 @@ export const UpdatePrompt: React.FC = () => {
     setIsUpdating(true);
     if (updateInfo) {
       try {
-        localStorage.setItem("personal_ai_updated_version", updateInfo.version);
-        sessionStorage.setItem("personal_ai_dismissed_version", updateInfo.version);
+        localStorage.setItem("apiapia_updated_version", updateInfo.version);
+        sessionStorage.setItem("apiapia_dismissed_version", updateInfo.version);
       } catch {}
     }
     await performAppUpdate();
@@ -98,7 +98,7 @@ export const UpdatePrompt: React.FC = () => {
   const handleDismiss = () => {
     if (updateInfo) {
       try {
-        sessionStorage.setItem("personal_ai_dismissed_version", updateInfo.version);
+        sessionStorage.setItem("apiapia_dismissed_version", updateInfo.version);
       } catch {}
     }
     setShowModal(false);

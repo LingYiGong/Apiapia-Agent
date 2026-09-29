@@ -91,7 +91,7 @@ cp .env.example .env
 
 - `POSTGRES_USER`: PostgreSQL 用户名（默认 `postgres`）
 - `POSTGRES_PASSWORD`: PostgreSQL 密码（请确保 `DATABASE_URL` 与 `MEM0_DATABASE_URL` 里的密码与之保持一致）
-- `POSTGRES_DB`: 数据库名称（默认 `personal_ai`）
+- `POSTGRES_DB`: 数据库名称（默认 `apiapia`）
 - `SECRET_KEY`: JWT 签名密钥（生产环境请更换为复杂随机字符串）
 - `API_KEY_ENCRYPTION_KEY`: 数据库 API Key 对称加密密钥
 - `OPENROUTER_API_KEY`: OpenRouter 统一大模型 API 密钥
@@ -138,10 +138,10 @@ Compose 将按序拉起并协同三个服务：
 
 数据备份示例命令：
 ```bash
-docker exec -t personal_ai_postgres pg_dump -U postgres personal_ai > backup_$(date +%Y%m%d).sql
+docker exec -t apiapia_postgres pg_dump -U postgres apiapia > backup_$(date +%Y%m%d).sql
 ```
 
 数据还原示例命令：
 ```bash
-cat backup_xxx.sql | docker exec -i personal_ai_postgres psql -U postgres -d personal_ai
+cat backup_xxx.sql | docker exec -i apiapia_postgres psql -U postgres -d apiapia
 ```

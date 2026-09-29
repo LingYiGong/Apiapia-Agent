@@ -234,7 +234,7 @@ export default function SettingsPage() {
         }),
       });
       try {
-        localStorage.setItem("personal_ai_preferred_model", defaultModel);
+        localStorage.setItem("apiapia_preferred_model", defaultModel);
       } catch (e) {}
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);

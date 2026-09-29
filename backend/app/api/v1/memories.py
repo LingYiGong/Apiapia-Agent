@@ -47,7 +47,7 @@ async def export_memories(
             "total": len(memories),
             "memories": memories
         },
-        headers={"Content-Disposition": f"attachment; filename=personal_ai_memories_{current_user.username}.json"}
+        headers={"Content-Disposition": f"attachment; filename=apiapia_memories_{current_user.username}.json"}
     )
 
 

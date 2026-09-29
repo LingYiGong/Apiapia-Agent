@@ -13,7 +13,7 @@ from app.schemas.conversation import (
     ConversationResponse,
     MessageResponse
 )
-from app.api.v1.deps import get_current_user
+from app.api.v1.deps import get_current_user, get_current_admin
 from app.services.memory.retrieval import retrieve_relevant_memories
 from app.services.memory.service import memory_service
 
@@ -26,13 +26,34 @@ async def list_conversations(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    where_clauses = [Conversation.user_id == current_user.id]
-    if not include_deleted:
-        where_clauses.append(Conversation.is_deleted == False)
+    # Recycle bin is admin-only: ordinary users must not see any deleted items
+    if include_deleted and not getattr(current_user, "is_superuser", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="仅管理员可查看对话回收站"
+        )
+
+    if include_deleted:
+        # Admin cross-user recycle bin: all soft-deleted conversations with owner names
+        stmt = (
+            select(Conversation, User.username)
+            .join(User, User.id == Conversation.user_id)
+            .where(Conversation.is_deleted == True)
+            .order_by(Conversation.deleted_at.desc().nullslast())
+        )
+        rows = (await db.execute(stmt)).all()
+        trashed = []
+        for conv, username in rows:
+            conv.username = username
+            trashed.append(conv)
+        return trashed
 
     stmt = (
         select(Conversation)
-        .where(*where_clauses)
+        .where(
+            Conversation.user_id == current_user.id,
+            Conversation.is_deleted == False
+        )
         .order_by(Conversation.updated_at.desc())
     )
     result = await db.execute(stmt)
@@ -134,14 +155,11 @@ async def delete_conversation(
 @router.post("/{conversation_id}/restore", response_model=ConversationResponse)
 async def restore_conversation(
     conversation_id: str,
-    current_user: User = Depends(get_current_user),
+    admin_user: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db)
 ):
-    """Restore a previously soft-deleted conversation."""
-    stmt = select(Conversation).where(
-        Conversation.id == conversation_id,
-        Conversation.user_id == current_user.id
-    )
+    """Admin-only: restore any user's soft-deleted conversation back to its owner's list."""
+    stmt = select(Conversation).where(Conversation.id == conversation_id)
     conv = (await db.execute(stmt)).scalar_one_or_none()
     if not conv:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")

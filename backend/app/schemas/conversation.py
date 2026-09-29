@@ -44,6 +44,7 @@ class ConversationUpdate(BaseModel):
 class ConversationResponse(ConversationBase):
     id: str
     user_id: str
+    username: Optional[str] = None  # Owner name, populated only by admin recycle-bin listing
     is_deleted: Optional[bool] = False
     deleted_at: Optional[datetime] = None
     created_at: datetime

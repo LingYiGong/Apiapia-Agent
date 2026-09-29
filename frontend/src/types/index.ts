@@ -11,6 +11,7 @@ export interface User {
 export interface Conversation {
   id: string;
   user_id: string;
+  username?: string;
   title: string;
   model: string;
   is_deleted?: boolean;

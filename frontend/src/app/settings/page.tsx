@@ -39,6 +39,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import { FullPageSkeleton, SettingsFormSkeleton } from "@/components/common/PageSkeleton";
 import { Settings, Save, ShieldCheck, Sparkles, Sun, Moon, Monitor, RefreshCw, Info, CheckCircle2, Zap, BookOpen, Lightbulb, PenLine, Target, Scale, Palette } from "lucide-react";
 
@@ -180,7 +181,7 @@ export default function SettingsPage() {
         message: res.message || "同步完成",
       });
     } catch (err: any) {
-      alert(err.message || "同步模型失败，请检查后台 .env 是否配置了有效 API 密钥");
+      toast.error(err.message || "同步模型失败，请检查后台 .env 是否配置了有效 API 密钥");
     } finally {
       setSyncingModels(false);
     }
@@ -243,7 +244,7 @@ export default function SettingsPage() {
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err: any) {
-      alert(err.message || "保存设置失败");
+      toast.error(err.message || "保存设置失败");
     } finally {
       setSavingSettings(false);
     }

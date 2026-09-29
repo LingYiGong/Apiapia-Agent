@@ -8,6 +8,7 @@ import { Navbar } from "@/components/layout/Navbar";
 import { Sidebar } from "@/components/chat/Sidebar";
 import { ChatArea } from "@/components/chat/ChatArea";
 import { MemorySidebar } from "@/components/chat/MemorySidebar";
+import { toast } from "sonner";
 import { FullPageSkeleton } from "@/components/common/PageSkeleton";
 import { Conversation, Message, ModelCatalogItem, AttachmentItem, SearchResultItem } from "@/types";
 
@@ -188,16 +189,15 @@ export default function ChatPage() {
       await loadConfiguredModels();
 
       if (syncRes.new_count > 0) {
-        alert(
-          `🎉 同步成功！发现了 ${syncRes.new_count} 个新模型：\n\n` +
-          syncRes.new_models.map((m) => `• ${m.name} (${m.id})`).join("\n")
-        );
+        toast.success(`同步成功，发现了 ${syncRes.new_count} 个新模型`, {
+          description: syncRes.new_models.map((m) => `${m.name} (${m.id})`).join("、"),
+        });
       } else {
-        alert("✅ 模型列表已是最新，未从提供商检测到新增模型。");
+        toast.success("模型列表已是最新，未发现新增模型");
       }
     } catch (err: any) {
       console.error("Failed to sync models:", err);
-      alert(err.message || "同步模型失败，请检查后台 .env 配置");
+      toast.error(err.message || "同步模型失败，请检查后台 .env 配置");
     } finally {
       setIsRefreshingModels(false);
     }

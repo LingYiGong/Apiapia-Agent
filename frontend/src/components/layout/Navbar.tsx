@@ -42,7 +42,6 @@ export const Navbar: React.FC<NavbarProps> = ({
       label: user?.is_superuser ? "管理后台" : "用量",
       shortLabel: user?.is_superuser ? "管理" : "用量",
       icon: user?.is_superuser ? ShieldCheck : BarChart3,
-      badge: user?.is_superuser ? "管理" : undefined,
     },
     { href: "/settings", label: "设置", shortLabel: "设置", icon: Settings },
   ];
@@ -88,11 +87,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <Icon className="h-4 w-4 shrink-0" />
                     <span className="hidden lg:inline">{item.label}</span>
                     <span className="lg:hidden">{item.shortLabel}</span>
-                    {item.badge && (
-                      <Badge variant="outline" className="ml-1 text-[10px]">
-                        {item.badge}
-                      </Badge>
-                    )}
                   </Link>
                 </Button>
               );

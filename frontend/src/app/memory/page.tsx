@@ -20,6 +20,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { FullPageSkeleton } from "@/components/common/PageSkeleton";
 import {
   Brain,
@@ -67,6 +69,9 @@ export default function MemoryPage() {
 
   const [editingItem, setEditingItem] = useState<MemoryItem | null>(null);
   const [editText, setEditText] = useState("");
+
+  // 删除确认框状态（替代原生 confirm）
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const sortedMemories = React.useMemo(() => {
     return [...memories].sort((a, b) => {
@@ -133,8 +138,9 @@ export default function MemoryPage() {
       setNewMemoryText("");
       setShowAddModal(false);
       fetchMemories();
+      toast.success("已添加记忆");
     } catch (err: any) {
-      alert(err.message || "添加记忆失败");
+      toast.error(err.message || "添加记忆失败");
     }
   };
 
@@ -147,18 +153,21 @@ export default function MemoryPage() {
       });
       setEditingItem(null);
       fetchMemories();
+      toast.success("已保存修改");
     } catch (err: any) {
-      alert(err.message || "修改记忆失败");
+      toast.error(err.message || "修改记忆失败");
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("确定要删除这条长期记忆吗？")) return;
     try {
       await apiRequest(`/memories/${id}`, { method: "DELETE" });
       setMemories((prev) => prev.filter((m) => m.id !== id));
+      toast.success("已删除记忆");
     } catch (err: any) {
-      alert(err.message || "删除记忆失败");
+      toast.error(err.message || "删除记忆失败");
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -346,7 +355,7 @@ export default function MemoryPage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => handleDelete(item.id)}
+                              onClick={() => setDeletingId(item.id)}
                               title="删除记忆"
                               className="hover:text-destructive"
                             >
@@ -366,8 +375,22 @@ export default function MemoryPage() {
       </main>
       </div>
 
-      {/* Add Memory Dialog */}
-      <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
+      {/* Delete Confirm Dialog */}
+      {deletingId && (
+        <ConfirmDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setDeletingId(null);
+          }}
+          title="删除这条记忆"
+          description="确定要删除这条长期记忆吗？删除后 AI 将不再参考它，该操作不可恢复。"
+          confirmText="删除"
+          danger
+          onConfirm={() => handleDelete(deletingId)}
+        />
+      )}
+
+      {/* Add Memory Dialog */}      <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>新增记忆</DialogTitle>

@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
 import { MessageListSkeleton } from "@/components/common/PageSkeleton";
 import { cn } from "@/lib/utils";
 import {
@@ -488,7 +489,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           dataUrl = await compressImage(file);
         } else {
           if (file.size > 15 * 1024 * 1024) {
-            alert(`文件 ${file.name} 超过 15MB 上传限制`);
+            toast.error(`文件 ${file.name} 超过 15MB 上传限制`);
             continue;
           }
           dataUrl = await readFileAsDataUrl(file);

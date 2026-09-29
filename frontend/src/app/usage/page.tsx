@@ -18,6 +18,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { FullPageSkeleton, StatCardsSkeleton } from "@/components/common/PageSkeleton";
 import {
   BarChart3,
@@ -62,6 +64,15 @@ export default function UsagePage() {
   const [restoreLoading, setRestoreLoading] = useState<string | null>(null);
   const [modelSortKey, setModelSortKey] = useState<"cost" | "tokens">("cost");
 
+  // 统一确认框状态（替代原生 confirm）
+  const [pendingConfirm, setPendingConfirm] = useState<{
+    title: string;
+    description: string;
+    confirmText: string;
+    danger: boolean;
+    onConfirm: () => void;
+  } | null>(null);
+
   useEffect(() => {
     if (!loading && !user) {
       router.push("/login");
@@ -103,30 +114,50 @@ export default function UsagePage() {
     fetchStats(newPeriod);
   };
 
-  const handleToggleActive = async (userId: string, currentStatus: boolean, username: string) => {
-    if (!confirm(`确定要${currentStatus ? "停用" : "启用"}用户 [${username}] 吗？`)) return;
-    setActionLoading(userId);
-    try {
-      await apiRequest(`/stats/admin/users/${userId}/toggle-active`, { method: "POST" });
-      await fetchStats();
-    } catch (err: any) {
-      alert(err.message || "操作失败");
-    } finally {
-      setActionLoading(null);
-    }
+  const handleToggleActive = (userId: string, currentStatus: boolean, username: string) => {
+    setPendingConfirm({
+      title: `${currentStatus ? "停用" : "启用"}用户`,
+      description: `确定要${currentStatus ? "停用" : "启用"}用户 [${username}] 吗？${
+        currentStatus ? "停用后该用户将无法登录使用。" : ""
+      }`,
+      confirmText: currentStatus ? "停用" : "启用",
+      danger: currentStatus,
+      onConfirm: async () => {
+        setPendingConfirm(null);
+        setActionLoading(userId);
+        try {
+          await apiRequest(`/stats/admin/users/${userId}/toggle-active`, { method: "POST" });
+          await fetchStats();
+          toast.success(`已${currentStatus ? "停用" : "启用"}用户 [${username}]`);
+        } catch (err: any) {
+          toast.error(err.message || "操作失败");
+        } finally {
+          setActionLoading(null);
+        }
+      },
+    });
   };
 
-  const handleToggleAdmin = async (userId: string, currentAdmin: boolean, username: string) => {
-    if (!confirm(`确定要${currentAdmin ? "取消" : "设置"}用户 [${username}] 的超级管理员权限吗？`)) return;
-    setActionLoading(userId);
-    try {
-      await apiRequest(`/stats/admin/users/${userId}/toggle-admin`, { method: "POST" });
-      await fetchStats();
-    } catch (err: any) {
-      alert(err.message || "操作失败");
-    } finally {
-      setActionLoading(null);
-    }
+  const handleToggleAdmin = (userId: string, currentAdmin: boolean, username: string) => {
+    setPendingConfirm({
+      title: `${currentAdmin ? "取消" : "授予"}管理员权限`,
+      description: `确定要${currentAdmin ? "取消" : "设置"}用户 [${username}] 的超级管理员权限吗？`,
+      confirmText: currentAdmin ? "取消权限" : "设为管理员",
+      danger: currentAdmin,
+      onConfirm: async () => {
+        setPendingConfirm(null);
+        setActionLoading(userId);
+        try {
+          await apiRequest(`/stats/admin/users/${userId}/toggle-admin`, { method: "POST" });
+          await fetchStats();
+          toast.success(`已${currentAdmin ? "取消" : "授予"} [${username}] 的管理员权限`);
+        } catch (err: any) {
+          toast.error(err.message || "操作失败");
+        } finally {
+          setActionLoading(null);
+        }
+      },
+    });
   };
 
   const fetchAuditList = async (userId: string) => {
@@ -135,7 +166,7 @@ export default function UsagePage() {
       const data = await apiRequest<any[]>(`/stats/admin/users/${userId}/conversations`);
       setAuditConversations(data || []);
     } catch (err: any) {
-      alert(err.message || "获取对话列表失败");
+      toast.error(err.message || "获取对话列表失败");
     } finally {
       setAuditLoading(false);
     }
@@ -156,7 +187,7 @@ export default function UsagePage() {
       );
       setInspectData(res);
     } catch (err: any) {
-      alert(err.message || "获取对话消息失败");
+      toast.error(err.message || "获取对话消息失败");
     } finally {
       setInspectLoading(false);
     }
@@ -169,8 +200,9 @@ export default function UsagePage() {
       await apiRequest(`/stats/admin/conversations/${convId}/restore`, { method: "POST" });
       await fetchAuditList(auditUser.id);
       await fetchStats();
+      toast.success(`已恢复对话「${title}」`);
     } catch (err: any) {
-      alert(err.message || "恢复对话失败");
+      toast.error(err.message || "恢复对话失败");
     } finally {
       setRestoreLoading(null);
     }
@@ -918,6 +950,22 @@ export default function UsagePage() {
               </div>
             </DialogContent>
           </Dialog>
+        )}
+
+        {/* ===================== 操作确认框 ===================== */}
+        {pendingConfirm && (
+          <ConfirmDialog
+            open
+            onOpenChange={(open) => {
+              if (!open) setPendingConfirm(null);
+            }}
+            title={pendingConfirm.title}
+            description={pendingConfirm.description}
+            confirmText={pendingConfirm.confirmText}
+            danger={pendingConfirm.danger}
+            loading={actionLoading !== null}
+            onConfirm={pendingConfirm.onConfirm}
+          />
         )}
 
         {/* ===================== MESSAGE INSPECTION POPUP ===================== */}

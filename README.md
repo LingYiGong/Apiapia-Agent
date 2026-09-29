@@ -1,13 +1,13 @@
 # Personal AI Assistant (私人 AI 助理)
 
-基于 **Next.js + FastAPI + Mem0 OSS (2.2.1) + PostgreSQL (pgvector) + Docker Compose** 的全功能私人 AI 助理系统。当前系统版本：**v2.3.0**。
+基于 **Next.js + FastAPI + Mem0 OSS (2.2.1) + PostgreSQL (pgvector) + Docker Compose** 的全功能私人 AI 助理系统。当前系统版本：**v2.5.0**。
 
 ---
 
 ## 🌟 核心理念与架构特点
 
 1. **前后端分离与解耦**：
-   - 前端采用 **Next.js (React 18 + TypeScript + Tailwind CSS)**，负责 UI、交互、流式 SSE 渲染、移动端 Web App 适配及版本自动更新检测。
+   - 前端采用 **Next.js (React 18 + TypeScript + Tailwind CSS + shadcn/ui)**，基于 Radix 原语与 CSS 变量主题，负责 UI、交互、流式 SSE 渲染、移动端 Web App 适配及版本自动更新检测，移动端抽屉与桌面端三栏共用同一套响应式布局。
    - 后端采用 **FastAPI (Python 3.12)**，统一负责 LLM 路由调度、长期记忆提取生命周期、全网实时检索、文档解析、会话数据库及敏感 API Key 加密。
 
 2. **全模型通用智能全自动联网检索 (Web Search Engine, v2.3.0)**：
@@ -34,6 +34,12 @@
    - **强制身份隔离**：所有 API 中的 `user_id` 均从经过验证的 JWT 中获取，绝不信任前端传递的 `user_id`。
    - **不可信上下文防御**：召回的长期记忆在 Prompt 层面作为不可信背景资料包裹，防止 Prompt Injection 劫持系统指令。
    - **API Key 加密持久化**：用户配置的模型凭证在后端使用 Fernet 对称加密入库，前端永不返回明文。
+
+6. **shadcn/ui 设计系统 (UI Design System, v2.5.0)**：
+   - **标准原语**：内置 18 个 shadcn/ui 基础组件（Button、Dialog、DropdownMenu、Select、Switch、Sheet、Tabs、Sonner 等），全站按钮、弹窗、下拉、开关、抽屉与通知样式统一。
+   - **主题三档**：基于 `next-themes`，支持浅色、深色、跟随系统，跟随 shadcn CSS 变量规范。
+   - **系统字体栈**：中文使用各平台系统黑体（PingFang SC / 微软雅黑），构建期零 Google Fonts 网络依赖。
+   - **移动端抽屉**：左右抽屉不透明背景 + 滑入滑出动画，与桌面端三栏布局自适应切换。
 
 ---
 

@@ -6,11 +6,14 @@ import remarkGfm from "remark-gfm";
 import { Message, ModelCatalogItem, AttachmentItem, SearchResultItem } from "@/types";
 import { isFreeModel, isMultimodalModel } from "@/components/common/ModelSelect";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 import {
   Send,
   Square,
-  Bot,
-  User,
   Sparkles,
   ChevronDown,
   Search,
@@ -26,7 +29,6 @@ import {
   Paperclip,
   X,
   FileText,
-  Image as ImageIcon,
   ZoomIn,
   Download,
   Copy,
@@ -641,20 +643,22 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   const activeModelObj = availableModels.find((m) => m.id === currentModel);
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-white dark:bg-slate-950 relative overflow-hidden transition-colors min-w-0 max-w-full">
+    <div className="flex-1 flex flex-col h-full bg-background relative overflow-hidden min-w-0 max-w-full">
       {/* Top Bar with Searchable Model Picker & Mobile/Tablet Controls */}
-      <div className="border-b border-slate-200/80 dark:border-slate-800/80 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md px-2.5 sm:px-4 flex items-center justify-between z-20 gap-1.5 sm:gap-2 flex-nowrap min-w-0 pt-[max(0.65rem,env(safe-area-inset-top))] pb-2 md:pb-2 md:pt-2 min-h-[calc(3.25rem+env(safe-area-inset-top,0px))] md:min-h-12 transition-colors">
+      <div className="border-b bg-background/90 backdrop-blur-md px-2.5 sm:px-4 flex items-center justify-between z-20 gap-1.5 sm:gap-2 flex-nowrap min-w-0 pt-[max(0.65rem,env(safe-area-inset-top))] pb-2 md:pb-2 md:pt-2 min-h-[calc(3.25rem+env(safe-area-inset-top,0px))] md:min-h-12">
         <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 shrink" ref={dropdownRef}>
           {/* Mobile Sidebar Toggle Button */}
           {onToggleSidebar && (
-            <button
-              type="button"
+            <Button
+              variant="outline"
+              size="icon"
               onClick={onToggleSidebar}
               title="展开历史对话"
-              className="md:hidden p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 shrink-0"
+              className="md:hidden shrink-0"
             >
               <Menu className="h-4 w-4" />
-            </button>
+              <span className="sr-only">展开历史对话</span>
+            </Button>
           )}
 
           <span className="hidden lg:inline text-xs text-slate-500 dark:text-slate-400 font-medium shrink-0 whitespace-nowrap">
@@ -662,117 +666,116 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           </span>
 
           {/* Trigger Button */}
-          <button
-            type="button"
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => setModelDropdownOpen(!modelDropdownOpen)}
-            className="flex items-center gap-1.5 sm:gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/90 px-2.5 sm:px-3 py-1.5 text-xs text-slate-800 dark:text-white hover:border-indigo-500/80 transition-all shadow-sm max-w-[130px] xs:max-w-[170px] sm:max-w-[200px] md:max-w-[210px] lg:max-w-xs truncate shrink min-w-0"
+            className="gap-1.5 sm:gap-2 shadow-sm max-w-[130px] xs:max-w-[170px] sm:max-w-[200px] md:max-w-[210px] lg:max-w-xs truncate shrink min-w-0"
           >
-            <Cpu className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+            <Cpu className="h-3.5 w-3.5 text-primary shrink-0" />
             <span className="truncate font-medium">
               {activeModelObj ? activeModelObj.name : currentModel || "请选择模型"}
             </span>
             {activeModelObj && isFreeModel(activeModelObj) && (
-              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shrink-0">
+              <Badge className="text-[9px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10 shrink-0">
                 免费
-              </span>
+              </Badge>
             )}
             {activeModelObj && isMultimodalModel(activeModelObj) && (
-              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/30 shrink-0">
+              <Badge className="text-[9px] bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/30 hover:bg-violet-500/10 shrink-0">
                 多模态
-              </span>
+              </Badge>
             )}
             {activeModelObj?.provider && (
-              <span className="hidden xl:inline-block text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/50 shrink-0">
+              <Badge variant="secondary" className="hidden xl:inline-flex text-[10px] uppercase font-mono shrink-0">
                 {activeModelObj.provider}
-              </span>
+              </Badge>
             )}
-            <ChevronDown className="h-3.5 w-3.5 text-slate-400 shrink-0 ml-0.5" />
-          </button>
+            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0 ml-0.5" />
+          </Button>
 
           {/* Refresh/Sync Models Button */}
           {onRefreshModels && (
-            <button
-              type="button"
+            <Button
+              variant="outline"
+              size="sm"
               onClick={onRefreshModels}
               disabled={isRefreshingModels}
               title="向配置的提供商 API (Gemini/OpenAI/OpenRouter/Ollama) 手动同步最新模型"
-              className="flex items-center gap-1.5 text-xs text-indigo-600 dark:text-indigo-300 hover:text-indigo-700 dark:hover:text-white bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 border border-indigo-200 dark:border-indigo-800/50 px-2 sm:px-2.5 py-1.5 rounded-xl transition-all disabled:opacity-50 shrink-0 cursor-pointer"
+              className="shrink-0 text-primary border-primary/30 bg-primary/5 hover:bg-primary/10 hover:text-primary"
             >
-              <RotateCw className={`h-3.5 w-3.5 ${isRefreshingModels ? "animate-spin text-indigo-600 dark:text-indigo-400" : ""}`} />
+              <RotateCw className={cn("h-3.5 w-3.5", isRefreshingModels && "animate-spin")} />
               <span className="hidden lg:inline">{isRefreshingModels ? "正在同步..." : "同步模型"}</span>
-            </button>
+              <span className="sr-only">同步模型</span>
+            </Button>
           )}
 
           {/* Searchable Dropdown Modal/Panel - Mobile Full Screen/Centered */}
           {modelDropdownOpen && (
-            <div className="fixed inset-x-3 top-[calc(3.5rem+env(safe-area-inset-top,0px))] sm:absolute sm:inset-x-auto sm:left-0 sm:top-10 sm:mt-1 sm:w-96 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/95 shadow-2xl backdrop-blur-md p-3 z-50 flex flex-col max-h-[75vh]">
+            <div className="fixed inset-x-3 top-[calc(3.5rem+env(safe-area-inset-top,0px))] sm:absolute sm:inset-x-auto sm:left-0 sm:top-10 sm:mt-1 sm:w-96 rounded-2xl border bg-popover shadow-2xl p-3 z-40 flex flex-col max-h-[75vh]">
               {/* Search Box */}
               <div className="relative mb-2.5">
-                <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
-                <input
-                  type="text"
+                <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  type="search"
                   placeholder="搜索模型（如：free, deepseek, gpt...）"
                   value={modelSearch}
                   onChange={(e) => setModelSearch(e.target.value)}
                   autoFocus
-                  className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 py-1.5 pl-8 pr-3 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+                  className="pl-8 text-xs"
                 />
               </div>
 
               {/* Provider & Free Filter Badges */}
               {(distinctProviders.length > 1 || availableModels.some(isFreeModel)) && (
-                <div className="flex items-center gap-1 flex-wrap mb-2.5 pb-2 border-b border-slate-200 dark:border-slate-800/80">
-                  <button
-                    type="button"
+                <div className="flex items-center gap-1 flex-wrap mb-2.5 pb-2 border-b">
+                  <Button
+                    size="sm"
+                    variant={selectedProviderFilter === "all" ? "default" : "secondary"}
                     onClick={() => setSelectedProviderFilter("all")}
-                    className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-colors ${
-                      selectedProviderFilter === "all"
-                        ? "bg-indigo-600 text-white"
-                        : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                    }`}
+                    className="h-6 px-2 text-[10px]"
                   >
                     全部 ({availableModels.length})
-                  </button>
+                  </Button>
                   {availableModels.some(isFreeModel) && (
-                    <button
-                      type="button"
+                    <Button
+                      size="sm"
                       onClick={() => setSelectedProviderFilter("free")}
-                      className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold transition-colors ${
+                      className={cn(
+                        "h-6 px-2 text-[10px] font-semibold",
                         selectedProviderFilter === "free"
-                          ? "bg-emerald-600 text-white shadow-xs"
-                          : "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 border border-emerald-200 dark:border-emerald-800/50"
-                      }`}
+                          ? "bg-emerald-600 text-white hover:bg-emerald-600/90"
+                          : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20"
+                      )}
                     >
                       <Zap className="h-3 w-3" />
                       免费 ({availableModels.filter(isFreeModel).length})
-                    </button>
+                    </Button>
                   )}
                   {availableModels.some(isMultimodalModel) && (
-                    <button
-                      type="button"
+                    <Button
+                      size="sm"
                       onClick={() => setSelectedProviderFilter("multimodal")}
-                      className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold transition-colors ${
+                      className={cn(
+                        "h-6 px-2 text-[10px] font-semibold",
                         selectedProviderFilter === "multimodal"
-                          ? "bg-violet-600 text-white shadow-xs"
-                          : "bg-violet-50 dark:bg-violet-950/40 text-violet-600 dark:text-violet-400 hover:bg-violet-100 dark:hover:bg-violet-900/50 border border-violet-200 dark:border-violet-800/50"
-                      }`}
+                          ? "bg-violet-600 text-white hover:bg-violet-600/90"
+                          : "bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/30 hover:bg-violet-500/20"
+                      )}
                     >
                       多模态 ({availableModels.filter(isMultimodalModel).length})
-                    </button>
+                    </Button>
                   )}
                   {distinctProviders.map((p) => (
-                    <button
+                    <Button
                       key={p}
-                      type="button"
+                      size="sm"
+                      variant={selectedProviderFilter === p ? "default" : "secondary"}
                       onClick={() => setSelectedProviderFilter(p)}
-                      className={`px-2 py-0.5 rounded-md text-[10px] font-medium uppercase font-mono transition-colors ${
-                        selectedProviderFilter === p
-                          ? "bg-indigo-600 text-white"
-                          : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                      }`}
+                      className="h-6 px-2 text-[10px] uppercase font-mono"
                     >
                       {p}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               )}
@@ -796,40 +799,41 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                           onModelChange(m.id);
                           setModelDropdownOpen(false);
                         }}
-                        className={`w-full flex items-center justify-between p-2 rounded-xl text-left transition-all ${
+                        className={cn(
+                          "w-full flex items-center justify-between p-2 rounded-xl text-left transition-all border",
                           isSelected
-                            ? "bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800"
-                            : "hover:bg-slate-100 dark:hover:bg-slate-800/60 border border-transparent"
-                        }`}
+                            ? "bg-accent border-primary/30"
+                            : "hover:bg-accent/60 border-transparent"
+                        )}
                       >
                         <div className="min-w-0 flex-1 pr-2">
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-xs font-semibold text-slate-900 dark:text-white truncate">
+                            <span className="text-xs font-semibold truncate">
                               {m.name}
                             </span>
                             {free && (
-                              <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                              <Badge className="text-[9px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10">
                                 免费
-                              </span>
+                              </Badge>
                             )}
                             {isMM && (
-                              <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/30">
+                              <Badge className="text-[9px] bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/30 hover:bg-violet-500/10">
                                 多模态
-                              </span>
+                              </Badge>
                             )}
-                            <span className="text-[9px] uppercase font-mono px-1 rounded bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                            <Badge variant="secondary" className="text-[9px] uppercase font-mono">
                               {m.provider}
-                            </span>
+                            </Badge>
                           </div>
                           {m.description && (
-                            <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate mt-0.5">
+                            <p className="text-[10px] text-muted-foreground truncate mt-0.5">
                               {m.description}
                             </p>
                           )}
-                          <p className="text-[9px] text-slate-400 font-mono truncate">{m.id}</p>
+                          <p className="text-[9px] text-muted-foreground font-mono truncate">{m.id}</p>
                         </div>
                         {isSelected && (
-                          <Check className="h-4 w-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                          <Check className="h-4 w-4 text-primary shrink-0" />
                         )}
                       </button>
                     );
@@ -845,30 +849,33 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           <ThemeToggle />
 
           {onToggleMemory && (
-            <button
-              type="button"
+            <Button
+              variant="outline"
+              size="icon"
               onClick={onToggleMemory}
               title="查看本次对话关联记忆"
-              className="lg:hidden relative p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+              className="lg:hidden relative"
             >
-              <Brain className="h-4 w-4 text-indigo-500" />
+              <Brain className="h-4 w-4 text-primary" />
               {typeof memoriesCount === "number" && memoriesCount > 0 && (
-                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-indigo-600 text-[9px] font-bold text-white shadow-xs">
+                <Badge className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-1 items-center justify-center rounded-full text-[9px] font-bold">
                   {memoriesCount > 9 ? "9+" : memoriesCount}
-                </span>
+                </Badge>
               )}
-            </button>
+              <span className="sr-only">查看关联记忆</span>
+            </Button>
           )}
 
           {onNewChat && (
-            <button
-              type="button"
+            <Button
+              variant="outline"
+              size="icon"
               onClick={onNewChat}
               title="新建对话"
-              className="p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
             >
               <Plus className="h-4 w-4" />
-            </button>
+              <span className="sr-only">新建对话</span>
+            </Button>
           )}
         </div>
       </div>
@@ -881,13 +888,13 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       >
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center px-4 py-8">
-            <div className="flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 mb-3 shadow-inner">
+            <div className="flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary mb-3 shadow-inner">
               <Sparkles className="h-6 w-6 sm:h-8 sm:w-8" />
             </div>
-            <h2 className="text-base sm:text-lg font-semibold text-slate-800 dark:text-slate-200">
+            <h2 className="text-base sm:text-lg font-semibold">
               Personal AI 助手已就绪
             </h2>
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-sm">
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1 max-w-sm">
               对话会自动与 Mem0 个人记忆库联动，随着交流更加懂得你的习惯与事实。
             </p>
           </div>
@@ -912,13 +919,14 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                   }`}
                 >
                   <div
-                    className={`rounded-2xl px-3.5 sm:px-4 py-2 sm:py-2.5 text-[15px] sm:text-sm leading-relaxed min-w-0 max-w-full break-words [overflow-wrap:anywhere] ${
+                    className={cn(
+                      "rounded-2xl px-3.5 sm:px-4 py-2 sm:py-2.5 text-[15px] sm:text-sm leading-relaxed min-w-0 max-w-full break-words [overflow-wrap:anywhere]",
                       isUser
-                        ? "bg-indigo-600 text-white shadow-xs font-normal rounded-br-xs"
+                        ? "bg-primary text-primary-foreground shadow-sm font-normal"
                         : isErrorMsg
-                        ? "bg-rose-50/80 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 text-rose-900 dark:text-rose-200 shadow-xs rounded-tl-xs w-full py-2.5 sm:py-3.5"
-                        : "bg-slate-50/90 dark:bg-slate-900/70 border border-slate-200/70 dark:border-slate-800/70 text-slate-800 dark:text-slate-200 shadow-xs rounded-tl-xs w-full py-2.5 sm:py-3.5"
-                    }`}
+                        ? "bg-destructive/5 border border-destructive/30 shadow-sm w-full py-2.5 sm:py-3.5"
+                        : "bg-card border text-card-foreground shadow-sm w-full py-2.5 sm:py-3.5"
+                    )}
                   >
                     {isUser ? (
                       <div>
@@ -1014,11 +1022,11 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                       </div>
                     ) : isErrorMsg ? (
                       <div>
-                        <div className="flex items-center gap-1.5 font-bold text-rose-600 dark:text-rose-400 mb-1">
+                        <div className="flex items-center gap-1.5 font-bold text-destructive mb-1">
                           <AlertTriangle className="h-4 w-4 shrink-0" />
                           <span>生成出错：</span>
                         </div>
-                        <div className="whitespace-pre-wrap font-mono text-xs text-rose-700 dark:text-rose-300 break-words [overflow-wrap:anywhere] bg-rose-100/50 dark:bg-rose-900/30 p-2.5 rounded-lg border border-rose-200/50 dark:border-rose-800/40">
+                        <div className="whitespace-pre-wrap font-mono text-xs break-words [overflow-wrap:anywhere] bg-destructive/5 p-2.5 rounded-lg border border-destructive/20">
                           {msg.content}
                         </div>
                       </div>
@@ -1046,10 +1054,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                                       href={item.url}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className="group/card flex flex-col p-2 rounded-lg bg-white/90 dark:bg-slate-900/90 border border-slate-200/70 dark:border-slate-800 hover:border-sky-400 dark:hover:border-sky-500 hover:shadow-xs transition-all text-left"
+                                      className="group/card flex flex-col p-2 rounded-lg bg-card border hover:border-sky-500 hover:shadow-sm transition-all text-left"
                                       title={item.title}
                                     >
-                                      <div className="flex items-center gap-1 text-[11px] font-medium text-slate-800 dark:text-slate-200 group-hover/card:text-sky-600 dark:group-hover/card:text-sky-400">
+                                      <div className="flex items-center gap-1 text-[11px] font-medium group-hover/card:text-sky-600 dark:group-hover/card:text-sky-400">
                                         <span className="shrink-0 w-3.5 h-3.5 rounded-full bg-sky-100 dark:bg-sky-900/70 text-sky-600 dark:text-sky-300 text-[9px] flex items-center justify-center font-bold">
                                           {sIdx + 1}
                                         </span>
@@ -1057,11 +1065,11 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                                         <ExternalLink className="h-3 w-3 shrink-0 opacity-0 group-hover/card:opacity-100 transition-opacity ml-auto text-sky-500" />
                                       </div>
                                       {item.snippet && (
-                                        <p className="text-[10px] text-slate-500 dark:text-slate-400 line-clamp-2 mt-1 leading-snug break-words">
+                                        <p className="text-[10px] text-muted-foreground line-clamp-2 mt-1 leading-snug break-words">
                                           {item.snippet}
                                         </p>
                                       )}
-                                      <span className="text-[9px] text-slate-400 dark:text-slate-500 truncate mt-1 font-mono">
+                                      <span className="text-[9px] text-muted-foreground truncate mt-1 font-mono">
                                         {(() => {
                                           try {
                                             return new URL(item.url).hostname.replace(/^www\./, "");
@@ -1084,20 +1092,20 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
                   {/* Message Meta Info & Mobile Action Bar */}
                   {!isUser && !isErrorMsg && (
-                    <div className="flex items-center justify-between gap-1.5 flex-wrap text-[10px] text-slate-400 dark:text-slate-500 mt-1.5 px-0.5 font-mono">
+                    <div className="flex items-center justify-between gap-1.5 flex-wrap text-[10px] text-muted-foreground mt-1.5 px-0.5 font-mono">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {msg.created_at && (
                           <span className="flex items-center gap-1" title="回复时间">
-                            <Clock className="h-3 w-3 text-slate-400" />
+                            <Clock className="h-3 w-3" />
                             <span>{formatTime(msg.created_at)}</span>
                           </span>
                         )}
 
                         {msg.model && (
-                          <span className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800/90 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded text-[10px] border border-slate-200 dark:border-slate-700/60 font-mono" title="回复模型">
-                            <Cpu className="h-3 w-3 text-indigo-600 dark:text-indigo-400" />
+                          <Badge variant="secondary" className="text-[10px] font-mono font-normal" title="回复模型">
+                            <Cpu className="h-3 w-3 text-primary mr-1" />
                             <span>{msg.model}</span>
-                          </span>
+                          </Badge>
                         )}
 
                         {typeof msg.thinking_duration_ms === "number" && msg.thinking_duration_ms > 0 && (
@@ -1125,10 +1133,11 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                       </div>
 
                       {/* Copy Message Button */}
-                      <button
-                        type="button"
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => handleCopyMessage(msg.content, idx)}
-                        className="flex items-center gap-1 px-2 py-0.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors shrink-0 select-none"
+                        className="h-6 px-2 text-muted-foreground hover:text-foreground shrink-0 select-none"
                         title="复制回答内容"
                       >
                         {copiedIdx === idx ? (
@@ -1142,7 +1151,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                             <span className="font-sans text-[11px]">复制</span>
                           </>
                         )}
-                      </button>
+                      </Button>
                     </div>
                   )}
                 </div>
@@ -1154,7 +1163,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         {/* Current Streaming Message */}
         {isStreaming && (
           <div className="w-full max-w-full sm:max-w-3xl mr-auto min-w-0">
-            <div className="rounded-2xl px-3.5 sm:px-4 py-2.5 sm:py-3.5 text-[15px] sm:text-sm leading-relaxed bg-slate-50/90 dark:bg-slate-900/70 border border-slate-200/70 dark:border-slate-800/70 text-slate-800 dark:text-slate-200 shadow-xs w-full min-w-0 break-words [overflow-wrap:anywhere] rounded-tl-xs">
+            <div className="rounded-2xl px-3.5 sm:px-4 py-2.5 sm:py-3.5 text-[15px] sm:text-sm leading-relaxed bg-card border text-card-foreground shadow-sm w-full min-w-0 break-words [overflow-wrap:anywhere]">
               {isWaitingForFirstToken || !streamingContent ? (
                 /* Stage 1: Waiting / Thinking Live Timer Box */
                 <div className="space-y-1.5 py-0.5">
@@ -1284,24 +1293,25 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       {/* Floating Scroll-to-Bottom Button */}
       {showScrollBottomBtn && (
         <div className="absolute bottom-16 sm:bottom-20 right-4 sm:right-8 z-30 pointer-events-auto">
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => {
               isAtBottomRef.current = true;
               setShowScrollBottomBtn(false);
               scrollToBottom(true, true);
             }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 border border-slate-200 dark:border-slate-700 shadow-lg hover:bg-slate-50 dark:hover:bg-slate-700/80 text-xs font-medium transition-all"
+            className="rounded-full shadow-lg text-xs"
             title="滚动回最新内容"
           >
             <ChevronDown className="h-3.5 w-3.5" />
             <span>回到最新</span>
-          </button>
+          </Button>
         </div>
       )}
 
       {/* Input Box Area with safe area bottom */}
-      <div className="px-2 py-1.5 sm:p-3 sm:px-4 border-t border-slate-200/80 dark:border-slate-800/80 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md transition-colors safe-pb">
+      <div className="px-2 py-1.5 sm:p-3 sm:px-4 border-t bg-background/90 backdrop-blur-md safe-pb">
         <div
           onDragOver={(e) => e.preventDefault()}
           onDrop={(e) => {
@@ -1310,47 +1320,49 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               handleFiles(e.dataTransfer.files);
             }
           }}
-          className="max-w-3xl mx-auto rounded-2xl sm:rounded-3xl border border-slate-300/80 dark:border-slate-700/80 bg-slate-50 dark:bg-slate-950 p-1 sm:p-1.5 focus-within:border-indigo-500 shadow-xs flex flex-col transition-all"
+          className="max-w-3xl mx-auto rounded-2xl sm:rounded-3xl border border-input bg-muted/40 p-1 sm:p-1.5 focus-within:border-ring focus-within:ring-1 focus-within:ring-ring shadow-sm flex flex-col"
         >
           {/* Attachment Preview Tray */}
           {attachments.length > 0 && (
-            <div className="flex items-center gap-2 overflow-x-auto pb-2 mb-1.5 pt-0.5 px-1 border-b border-slate-200/70 dark:border-slate-800/80">
+            <div className="flex items-center gap-2 overflow-x-auto pb-2 mb-1.5 pt-0.5 px-1 border-b">
               {attachments.map((att) => (
                 <div
                   key={att.id}
-                  className="relative group shrink-0 flex items-center gap-2 p-1.5 pr-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 shadow-xs"
+                  className="relative group shrink-0 flex items-center gap-2 p-1.5 pr-2 rounded-xl bg-card border shadow-sm"
                 >
                   {att.type === "image" ? (
                     <img
                       src={att.data_url}
                       alt={att.name}
-                      className="h-9 w-9 rounded-lg object-cover border border-slate-200 dark:border-slate-700"
+                      className="h-9 w-9 rounded-lg object-cover border"
                     />
                   ) : (
-                    <div className="h-9 w-9 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-100 dark:border-indigo-900/60 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                    <div className="h-9 w-9 rounded-lg bg-primary/10 border flex items-center justify-center text-primary">
                       <FileText className="h-4 w-4" />
                     </div>
                   )}
                   <div className="max-w-[110px] sm:max-w-[150px] min-w-0">
-                    <p className="text-xs font-medium text-slate-800 dark:text-slate-200 truncate" title={att.name}>
+                    <p className="text-xs font-medium truncate" title={att.name}>
                       {att.name}
                     </p>
-                    <p className="text-[10px] text-slate-400 font-mono">
+                    <p className="text-[10px] text-muted-foreground font-mono">
                       {formatFileSize(att.size)}
                     </p>
                   </div>
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     onClick={() => setAttachments((prev) => prev.filter((a) => a.id !== att.id))}
-                    className="p-1 rounded-full text-slate-400 hover:text-rose-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                    className="h-6 w-6 rounded-full text-muted-foreground hover:text-destructive"
                     title="移除附件"
                   >
                     <X className="h-3.5 w-3.5" />
-                  </button>
+                    <span className="sr-only">移除附件</span>
+                  </Button>
                 </div>
               ))}
               {isUploading && (
-                <div className="flex items-center gap-1.5 px-2 py-1 text-xs text-indigo-500 font-mono">
+                <div className="flex items-center gap-1.5 px-2 py-1 text-xs text-primary font-mono">
                   <RotateCw className="h-3 w-3 animate-spin" />
                   <span>处理中...</span>
                 </div>
@@ -1373,18 +1385,21 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 }
               }}
             />
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => fileInputRef.current?.click()}
               disabled={isStreaming || isUploading}
               title="上传图片或文件（PDF、Word、代码、文本）"
-              className="flex h-9 w-9 items-center justify-center rounded-full text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-200/60 dark:hover:bg-slate-800/80 active:scale-95 transition-all shrink-0 mb-0.5 disabled:opacity-40"
+              className="h-9 w-9 rounded-full shrink-0 mb-0.5"
             >
               <Paperclip className="h-4 w-4" />
-            </button>
+              <span className="sr-only">上传附件</span>
+            </Button>
             {onToggleWebSearchMode && (
-              <button
-                type="button"
+              <Button
+                variant={webSearchMode === "off" ? "ghost" : "outline"}
+                size="sm"
                 onClick={onToggleWebSearchMode}
                 disabled={isStreaming}
                 title={
@@ -1394,29 +1409,28 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                     ? "联网检索: 强制开启 (每次提问均搜索最新网络)"
                     : "联网检索: 已关闭 (仅使用模型自身知识)"
                 }
-                className={`flex items-center gap-1 h-9 px-2 sm:px-2.5 rounded-full border text-xs font-medium transition-all shrink-0 mb-0.5 select-none disabled:opacity-40 ${
-                  webSearchMode === "on"
-                    ? "bg-sky-100 dark:bg-sky-950/70 border-sky-300 dark:border-sky-800 text-sky-700 dark:text-sky-300 shadow-xs"
-                    : webSearchMode === "auto"
-                    ? "bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-sky-400 hover:text-sky-600 dark:hover:text-sky-400"
-                    : "bg-transparent border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800/50"
-                }`}
+                className={cn(
+                  "h-9 px-2 sm:px-2.5 rounded-full text-xs font-medium shrink-0 mb-0.5 select-none",
+                  webSearchMode === "on" && "bg-sky-500/10 border-sky-500/40 text-sky-600 dark:text-sky-400 hover:bg-sky-500/20 hover:text-sky-600 dark:hover:text-sky-400",
+                  webSearchMode === "auto" && "hover:border-sky-500/50 hover:text-sky-600 dark:hover:text-sky-400"
+                )}
               >
                 <Globe
-                  className={`h-3.5 w-3.5 ${
+                  className={cn(
+                    "h-3.5 w-3.5",
                     webSearchMode === "on"
                       ? "text-sky-600 dark:text-sky-400"
                       : webSearchMode === "auto"
-                      ? "text-indigo-600 dark:text-indigo-400"
-                      : "text-slate-400"
-                  }`}
+                      ? "text-primary"
+                      : "text-muted-foreground"
+                  )}
                 />
                 <span className="hidden sm:inline font-mono text-[11px]">
                   {webSearchMode === "auto" ? "联网:自动" : webSearchMode === "on" ? "联网:开启" : "联网:关闭"}
                 </span>
-              </button>
+              </Button>
             )}
-            <textarea
+            <Textarea
               ref={textareaRef}
               rows={1}
               value={input}
@@ -1428,25 +1442,29 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                   ? "添加说明或问题... (Enter 发送)"
                   : "输入消息，或拖入图片、PDF等文件... (Enter 发送)"
               }
-              className="w-full resize-none bg-transparent px-2.5 sm:px-3 py-2 text-[16px] sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none max-h-32 sm:max-h-44 leading-relaxed"
+              className="border-0 bg-transparent shadow-none focus-visible:ring-0 px-2.5 sm:px-3 py-2 text-[16px] sm:text-sm max-h-32 sm:max-h-44 leading-relaxed resize-none min-h-[36px]"
             />
             {isStreaming ? (
-              <button
-                type="button"
+              <Button
+                variant="destructive"
+                size="icon"
                 onClick={() => onStopGenerating?.()}
                 title="停止生成"
-                className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-rose-600 text-white hover:bg-rose-500 active:scale-95 transition-all shrink-0 ml-1 mb-1 shadow-sm shadow-rose-600/30"
+                className="h-8 w-8 sm:h-9 sm:w-9 rounded-full shrink-0 ml-1 mb-1 shadow-sm"
               >
                 <Square className="h-4 w-4 fill-current" />
-              </button>
+                <span className="sr-only">停止生成</span>
+              </Button>
             ) : (
-              <button
+              <Button
                 onClick={handleSend}
                 disabled={(!input.trim() && attachments.length === 0) || isStreaming || isUploading}
-                className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-indigo-600 text-white disabled:opacity-30 hover:bg-indigo-500 active:scale-95 transition-all shrink-0 ml-1 mb-1 shadow-sm shadow-indigo-600/30"
+                size="icon"
+                className="h-8 w-8 sm:h-9 sm:w-9 rounded-full shrink-0 ml-1 mb-1 shadow-sm"
               >
                 <Send className="h-4 w-4" />
-              </button>
+                <span className="sr-only">发送消息</span>
+              </Button>
             )}
           </div>
         </div>
@@ -1470,25 +1488,27 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               {previewImage.alt || "图片预览"}
             </span>
             <div className="flex items-center gap-2">
-              <a
-                href={previewImage.src}
-                download={previewImage.alt || "image.png"}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-medium transition-colors cursor-pointer"
-                title="下载原图"
-              >
-                <Download className="h-3.5 w-3.5" />
-                <span>下载</span>
-              </a>
-              <button
-                type="button"
+              <Button variant="secondary" size="sm" asChild title="下载原图">
+                <a
+                  href={previewImage.src}
+                  download={previewImage.alt || "image.png"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="cursor-pointer"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  <span>下载</span>
+                </a>
+              </Button>
+              <Button
+                variant="secondary"
+                size="icon"
                 onClick={() => setPreviewImage(null)}
-                className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
                 title="关闭预览 (Esc)"
               >
                 <X className="h-5 w-5" />
-              </button>
+                <span className="sr-only">关闭预览</span>
+              </Button>
             </div>
           </div>
 

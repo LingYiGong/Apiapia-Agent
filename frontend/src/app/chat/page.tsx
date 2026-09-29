@@ -512,7 +512,7 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex flex-col h-dvh overflow-hidden">
+    <div className="flex flex-col h-dvh overflow-hidden bg-background">
       <Navbar
         onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
         onToggleMemory={() => setIsMemoryOpen((prev) => !prev)}

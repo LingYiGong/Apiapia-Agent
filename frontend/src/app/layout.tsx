@@ -3,6 +3,8 @@ import { AuthProvider } from "@/lib/auth";
 import { ThemeProvider } from "@/lib/theme";
 import { UpdatePrompt } from "@/components/common/UpdatePrompt";
 import { CapacitorInit } from "@/components/common/CapacitorInit";
+import { Toaster } from "@/components/ui/sonner";
+import { cn } from "@/lib/utils";
 import "./globals.css";
 
 export const viewport: Viewport = {
@@ -13,7 +15,7 @@ export const viewport: Viewport = {
   viewportFit: "cover",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#090d16" },
+    { media: "(prefers-color-scheme: dark)", color: "#020617" },
   ],
 };
 
@@ -44,30 +46,18 @@ export default function RootLayout({
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                try {
-                  var t = localStorage.getItem('personal_ai_theme') || 'system';
-                  var isDark = t === 'dark' || (t === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-                  if (isDark) {
-                    document.documentElement.classList.add('dark');
-                  } else {
-                    document.documentElement.classList.remove('dark');
-                  }
-                } catch (e) {}
-              })();
-            `,
-          }}
-        />
       </head>
-      <body className="min-h-dvh bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors duration-200">
+      <body
+        className={cn(
+          "min-h-dvh bg-background font-sans text-foreground antialiased flex flex-col"
+        )}
+      >
         <ThemeProvider>
           <AuthProvider>
             <CapacitorInit />
             <UpdatePrompt />
             {children}
+            <Toaster richColors position="top-center" />
           </AuthProvider>
         </ThemeProvider>
       </body>

@@ -6,6 +6,18 @@ import { useAuth } from "@/lib/auth";
 import { apiRequest } from "@/lib/api";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { Bot, KeyRound, Mail, User as UserIcon, ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function LoginPage() {
   const [isRegister, setIsRegister] = useState(false);
@@ -49,117 +61,104 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-slate-50 dark:bg-slate-950 p-3 sm:p-4 relative transition-colors">
+    <div className="flex min-h-dvh items-center justify-center bg-background p-3 sm:p-4 relative">
       <div className="absolute top-4 right-4">
         <ThemeToggle />
       </div>
 
-      <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-5 sm:p-8 shadow-2xl backdrop-blur-sm">
-        {/* Brand Header */}
-        <div className="flex flex-col items-center mb-8">
+      <Card className="w-full max-w-md shadow-2xl">
+        <CardHeader className="items-center text-center">
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-500 shadow-lg shadow-indigo-500/25 mb-3">
             <Bot className="h-8 w-8 text-white" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Personal AI</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">独立长期记忆的私人 AI 助手</p>
-        </div>
-
-        {/* Tab Toggle */}
-        <div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 dark:bg-slate-950/60 p-1 mb-6 border border-slate-200 dark:border-slate-800">
-          <button
-            type="button"
-            onClick={() => { setIsRegister(false); setError(""); }}
-            className={`py-2 text-sm font-medium rounded-lg transition-all ${
-              !isRegister
-                ? "bg-white dark:bg-indigo-600 text-indigo-600 dark:text-white shadow-sm font-semibold"
-                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
-            }`}
+          <CardTitle className="text-2xl tracking-tight">Personal AI</CardTitle>
+          <CardDescription>独立长期记忆的私人 AI 助手</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {/* Tab Toggle */}
+          <Tabs
+            value={isRegister ? "register" : "login"}
+            onValueChange={(v) => {
+              setIsRegister(v === "register");
+              setError("");
+            }}
+            className="mb-6"
           >
-            登录
-          </button>
-          <button
-            type="button"
-            onClick={() => { setIsRegister(true); setError(""); }}
-            className={`py-2 text-sm font-medium rounded-lg transition-all ${
-              isRegister
-                ? "bg-white dark:bg-indigo-600 text-indigo-600 dark:text-white shadow-sm font-semibold"
-                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
-            }`}
-          >
-            注册新账户
-          </button>
-        </div>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="login">登录</TabsTrigger>
+              <TabsTrigger value="register">注册新账户</TabsTrigger>
+            </TabsList>
+          </Tabs>
 
-        {error && (
-          <div className="mb-4 rounded-lg bg-red-500/10 border border-red-500/20 p-3 text-sm text-red-600 dark:text-red-400">
-            {error}
-          </div>
-        )}
+          {error && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
-              用户名
-            </label>
-            <div className="relative">
-              <UserIcon className="absolute left-3.5 top-3 h-4 w-4 text-slate-400 dark:text-slate-500" />
-              <input
-                type="text"
-                required
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="请输入用户名"
-                className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 py-2.5 pl-10 pr-4 text-base sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              />
-            </div>
-          </div>
-
-          {isRegister && (
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
-                电子邮箱
-              </label>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="username">用户名</Label>
               <div className="relative">
-                <Mail className="absolute left-3.5 top-3 h-4 w-4 text-slate-400 dark:text-slate-500" />
-                <input
-                  type="email"
+                <UserIcon className="absolute left-3.5 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="username"
+                  type="text"
                   required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="your-email@example.com"
-                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 py-2.5 pl-10 pr-4 text-base sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="请输入用户名"
+                  className="pl-10 text-base sm:text-sm"
                 />
               </div>
             </div>
-          )}
 
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
-              密码
-            </label>
-            <div className="relative">
-              <KeyRound className="absolute left-3.5 top-3 h-4 w-4 text-slate-400 dark:text-slate-500" />
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 py-2.5 pl-10 pr-4 text-base sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              />
+            {isRegister && (
+              <div className="space-y-1.5">
+                <Label htmlFor="email">电子邮箱</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3.5 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="email"
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="your-email@example.com"
+                    className="pl-10 text-base sm:text-sm"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <Label htmlFor="password">密码</Label>
+              <div className="relative">
+                <KeyRound className="absolute left-3.5 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="password"
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="pl-10 text-base sm:text-sm"
+                />
+              </div>
             </div>
-          </div>
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-600/30 hover:brightness-110 active:scale-[0.99] disabled:opacity-50 transition-all mt-6"
-          >
-            {submitting ? "正在处理..." : isRegister ? "创建账户" : "立即登录"}
-            <ArrowRight className="h-4 w-4" />
-          </button>
-        </form>
-      </div>
+            <Button
+              type="submit"
+              disabled={submitting}
+              className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:brightness-110 shadow-lg shadow-indigo-600/30 mt-6"
+              size="lg"
+            >
+              {submitting ? "正在处理..." : isRegister ? "创建账户" : "立即登录"}
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 }

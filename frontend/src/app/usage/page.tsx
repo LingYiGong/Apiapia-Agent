@@ -54,6 +54,7 @@ export default function UsagePage() {
   const [inspectData, setInspectData] = useState<{ conversation: any; messages: any[] } | null>(null);
   const [inspectLoading, setInspectLoading] = useState(false);
   const [restoreLoading, setRestoreLoading] = useState<string | null>(null);
+  const [modelSortKey, setModelSortKey] = useState<"cost" | "tokens">("cost");
 
   useEffect(() => {
     if (!loading && !user) {
@@ -355,8 +356,8 @@ export default function UsagePage() {
 
             {/* User Breakdown Table */}
             <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 shadow-xs overflow-hidden">
-              <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
-                <div>
+              <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                <div className="min-w-0">
                   <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
                     各用户详细消耗明细 ({currentPeriodName})
                   </h2>
@@ -364,21 +365,21 @@ export default function UsagePage() {
                     按当前选定时间区间内的总 Token 消耗排序，支持实时停用/启用异常账号。
                   </p>
                 </div>
-                <span className="text-xs text-slate-500 font-mono">共 {adminStats.users.length} 位用户</span>
+                <span className="text-xs text-slate-500 font-mono shrink-0">共 {adminStats.users.length} 位用户</span>
               </div>
 
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-50 dark:bg-slate-950/80 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-medium uppercase">
                     <tr>
-                      <th className="py-3 px-4">用户</th>
-                      <th className="py-3 px-4">对话轮次</th>
-                      <th className="py-3 px-4">总 Token 消耗</th>
-                      <th className="py-3 px-4">输入 / 输出明细</th>
-                      <th className="py-3 px-4">预估花费 (CNY / USD)</th>
-                      <th className="py-3 px-4">常用模型</th>
-                      <th className="py-3 px-4">状态</th>
-                      <th className="py-3 px-4 text-right">管理操作</th>
+                      <th className="py-3 px-4 whitespace-nowrap">用户</th>
+                      <th className="py-3 px-4 whitespace-nowrap">对话轮次</th>
+                      <th className="py-3 px-4 whitespace-nowrap">总 Token 消耗</th>
+                      <th className="py-3 px-4 whitespace-nowrap">输入 / 输出明细</th>
+                      <th className="py-3 px-4 whitespace-nowrap">预估花费 (CNY / USD)</th>
+                      <th className="py-3 px-4 whitespace-nowrap">常用模型</th>
+                      <th className="py-3 px-4 whitespace-nowrap">状态</th>
+                      <th className="py-3 px-4 whitespace-nowrap text-right">管理操作</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
@@ -491,42 +492,75 @@ export default function UsagePage() {
 
             {/* Model Breakdown Section */}
             <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 p-5 shadow-xs space-y-4">
-              <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
-                <Cpu className="h-4 w-4 text-indigo-500" />
-                各模型调用分布与花费 ({currentPeriodName})
-              </h2>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                  <Cpu className="h-4 w-4 text-indigo-500" />
+                  各模型调用分布与花费 ({currentPeriodName})
+                </h2>
+                <div className="flex items-center gap-1 text-[11px] font-medium">
+                  <span className="text-slate-400 dark:text-slate-500 mr-1">排序:</span>
+                  {(
+                    [
+                      { id: "cost", label: "按花费" },
+                      { id: "tokens", label: "按 Token" },
+                    ] as const
+                  ).map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setModelSortKey(opt.id)}
+                      className={`px-2.5 py-1 rounded-lg transition-all ${
+                        modelSortKey === opt.id
+                          ? "bg-indigo-600 text-white shadow-xs"
+                          : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
               {adminStats.model_breakdown.length === 0 ? (
                 <div className="p-6 text-center text-xs text-slate-500">
                   该时间区间内暂无模型调用数据。
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {adminStats.model_breakdown.map((m) => (
-                    <div
-                      key={m.model}
-                      className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 space-y-2 text-xs"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-slate-900 dark:text-white truncate max-w-[180px]">
-                          {m.model}
+                <div className="space-y-2">
+                  {[...adminStats.model_breakdown]
+                    .sort((a, b) =>
+                      modelSortKey === "cost"
+                        ? b.cost_cny - a.cost_cny || b.total_tokens - a.total_tokens
+                        : b.total_tokens - a.total_tokens || b.cost_cny - a.cost_cny
+                    )
+                    .map((m, idx) => (
+                      <div
+                        key={m.model}
+                        className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 text-xs"
+                      >
+                        <span className="shrink-0 w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-300 text-[11px] flex items-center justify-center font-bold font-mono">
+                          {idx + 1}
                         </span>
-                        {m.is_free ? (
-                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
-                            免费
-                          </span>
-                        ) : (
-                          <span className="font-bold text-emerald-600 dark:text-emerald-400 font-mono">
-                            ¥{m.cost_cny.toFixed(2)}
-                          </span>
-                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-semibold text-slate-900 dark:text-white truncate">
+                              {m.model}
+                            </span>
+                            {m.is_free && (
+                              <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shrink-0">
+                                免费
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">
+                            调用 {m.calls} 次 · Token {m.total_tokens.toLocaleString()}
+                          </div>
+                        </div>
+                        <span className="font-bold text-emerald-600 dark:text-emerald-400 font-mono shrink-0">
+                          {m.is_free ? "¥0.00" : `¥${m.cost_cny.toFixed(2)}`}
+                        </span>
                       </div>
-                      <div className="text-[11px] text-slate-500 dark:text-slate-400 flex justify-between font-mono">
-                        <span>调用: {m.calls} 次</span>
-                        <span>Token: {m.total_tokens.toLocaleString()}</span>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
                 </div>
               )}
             </div>
@@ -643,12 +677,12 @@ export default function UsagePage() {
                   <table className="w-full text-left text-xs">
                     <thead className="bg-slate-50 dark:bg-slate-950/80 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-medium uppercase">
                       <tr>
-                        <th className="py-3 px-4">调用模型</th>
-                        <th className="py-3 px-4">调用次数</th>
-                        <th className="py-3 px-4">输入 Token (Prompt)</th>
-                        <th className="py-3 px-4">输出 Token (Completion)</th>
-                        <th className="py-3 px-4">总 Token 消耗</th>
-                        <th className="py-3 px-4 text-right">折算花费 (CNY / USD)</th>
+                        <th className="py-3 px-4 whitespace-nowrap">调用模型</th>
+                        <th className="py-3 px-4 whitespace-nowrap">调用次数</th>
+                        <th className="py-3 px-4 whitespace-nowrap">输入 Token (Prompt)</th>
+                        <th className="py-3 px-4 whitespace-nowrap">输出 Token (Completion)</th>
+                        <th className="py-3 px-4 whitespace-nowrap">总 Token 消耗</th>
+                        <th className="py-3 px-4 whitespace-nowrap text-right">折算花费 (CNY / USD)</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
@@ -899,7 +933,7 @@ export default function UsagePage() {
 
         {/* ===================== MESSAGE INSPECTION POPUP ===================== */}
         {inspectData && (
-          <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
             <div className="relative w-full max-w-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden">
               {/* Header */}
               <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">

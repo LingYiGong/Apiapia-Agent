@@ -9,7 +9,89 @@ import { ModelCatalogItem } from "@/types";
 import { useTheme } from "@/lib/theme";
 import { ModelSelect } from "@/components/common/ModelSelect";
 import { CURRENT_VERSION, triggerManualUpdateCheck } from "@/lib/version";
-import { Settings, Save, ShieldCheck, Sparkles, Sun, Moon, Monitor, RefreshCw, Info, CheckCircle2, X } from "lucide-react";
+import { Settings, Save, ShieldCheck, Sparkles, Sun, Moon, Monitor, RefreshCw, Info, CheckCircle2, X, Zap, BookOpen, Lightbulb, PenLine, Target, Scale, Palette } from "lucide-react";
+
+const TEMPERATURE_PRESETS = [
+  {
+    id: "precise",
+    label: "严谨精确",
+    desc: "稳定可复现，适合事实与代码",
+    value: 0.2,
+    icon: Target,
+    iconColor: "text-sky-500",
+    activeClass:
+      "border-sky-600 bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 shadow-sm ring-1 ring-sky-600",
+  },
+  {
+    id: "balanced",
+    label: "平衡",
+    desc: "日常聊天推荐",
+    value: 0.7,
+    icon: Scale,
+    iconColor: "text-indigo-500",
+    activeClass:
+      "border-indigo-600 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-400 shadow-sm ring-1 ring-indigo-600",
+  },
+  {
+    id: "creative",
+    label: "发散创意",
+    desc: "写故事起名要灵感时用",
+    value: 1.0,
+    icon: Palette,
+    iconColor: "text-violet-500",
+    activeClass:
+      "border-violet-600 bg-violet-50 dark:bg-violet-950/60 text-violet-700 dark:text-violet-300 shadow-sm ring-1 ring-violet-600",
+  },
+] as const;
+
+const SYSTEM_PROMPT_PRESETS = [
+  {
+    id: "default",
+    label: "默认助手",
+    desc: "通用推荐",
+    icon: Sparkles,
+    iconColor: "text-indigo-500",
+    activeClass:
+      "border-indigo-600 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-400 shadow-sm ring-1 ring-indigo-600",
+    text: "你是一个智能、真诚、有洞察力的私人 AI 助理。请根据用户提供的历史背景和长期记忆为用户提供高质量服务。",
+  },
+  {
+    id: "concise",
+    label: "简洁直接",
+    desc: "直击要点不啰嗦",
+    icon: Zap,
+    iconColor: "text-sky-500",
+    activeClass:
+      "border-sky-600 bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 shadow-sm ring-1 ring-sky-600",
+    text: "你是一个高效直接的私人 AI 助理。回答简洁、直击要点，避免寒暄和冗余解释，善用列表呈现；除非用户要求，不输出长篇大论。",
+  },
+  {
+    id: "rigorous",
+    label: "严谨学术",
+    desc: "有依据分步骤",
+    icon: BookOpen,
+    iconColor: "text-emerald-500",
+    activeClass:
+      "border-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 shadow-sm ring-1 ring-emerald-600",
+    text: "你是一个严谨细致的私人 AI 助理。回答准确、有依据，不确定的内容明确说明；涉及事实时优先引用检索到的来源；逻辑清晰、分步骤表达。",
+  },
+  {
+    id: "creative",
+    label: "创意灵感",
+    desc: "多灵感不死板",
+    icon: Lightbulb,
+    iconColor: "text-amber-500",
+    activeClass:
+      "border-amber-600 bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 shadow-sm ring-1 ring-amber-600",
+    text: "你是一个富有想象力的私人 AI 助理。乐于发散、多给灵感与可能性，表达生动；涉及客观事实时仍以检索资料为准，不虚构。",
+  },
+  { id: "custom", label: "自定义", desc: "自己写人设", icon: PenLine, text: "" },
+] as const;
+
+function matchPersonaId(text: string): string {
+  const found = SYSTEM_PROMPT_PRESETS.find((p) => p.id !== "custom" && p.text === text);
+  return found ? found.id : "custom";
+}
 
 export default function SettingsPage() {
   const { user, loading } = useAuth();
@@ -20,6 +102,7 @@ export default function SettingsPage() {
   const [defaultModel, setDefaultModel] = useState("gpt-4o-mini");
   const [memoryModel, setMemoryModel] = useState("openai/gpt-4o-mini");
   const [systemPrompt, setSystemPrompt] = useState("");
+  const [personaId, setPersonaId] = useState<string>("default");
   const [temperature, setTemperature] = useState(0.7);
   const [memoryEnabled, setMemoryEnabled] = useState(true);
 
@@ -80,6 +163,7 @@ export default function SettingsPage() {
         setDefaultModel(settingsRes.default_model || "gpt-4o-mini");
         setMemoryModel(settingsRes.memory_model || "openai/gpt-4o-mini");
         setSystemPrompt(settingsRes.system_prompt || "");
+        setPersonaId(matchPersonaId(settingsRes.system_prompt || ""));
         setTemperature(settingsRes.temperature ?? 0.7);
         setMemoryEnabled(settingsRes.memory_enabled ?? true);
       }
@@ -231,39 +315,119 @@ export default function SettingsPage() {
               />
             </div>
 
-            {/* System Prompt */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                系统人设 Prompt (System Prompt)
-              </label>
+            {/* System Prompt: preset persona cards (theme-switcher style) + editable text */}
+            <div className="space-y-2">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  助手人设 (Persona)
+                </label>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  选一种回答风格，需要完全自己写时点自定义再往下写。
+                </p>
+              </div>
+              <div className="grid grid-cols-4 gap-2">
+                {SYSTEM_PROMPT_PRESETS.filter((p) => p.id !== "custom").map((preset) => {
+                  const isActive = personaId === preset.id;
+                  const Icon = preset.icon;
+                  return (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => {
+                        setPersonaId(preset.id);
+                        setSystemPrompt(preset.text);
+                      }}
+                      className={`flex flex-col items-center justify-center gap-1 p-2 sm:p-3 rounded-xl border text-xs font-medium transition-all ${
+                        isActive
+                          ? preset.activeClass
+                          : "border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-700"
+                      }`}
+                    >
+                      <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${isActive ? "" : preset.iconColor}`} />
+                      <span className="font-semibold text-[11px] sm:text-xs">{preset.label}</span>
+                      <span className="hidden sm:block text-[10px] font-normal opacity-70 text-center leading-snug">
+                        {preset.desc}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setPersonaId("custom");
+                  setSystemPrompt("");
+                }}
+                className={`w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-dashed text-xs font-medium transition-all ${
+                  personaId === "custom"
+                    ? "border-indigo-600 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-400 shadow-sm ring-1 ring-indigo-600"
+                    : "border-slate-300 dark:border-slate-700 bg-transparent text-slate-500 dark:text-slate-400 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-400"
+                }`}
+              >
+                <PenLine className="h-4 w-4 shrink-0" />
+                <span className="font-semibold">自定义人设</span>
+                <span className="text-[11px] font-normal opacity-70">
+                  不套模板，在下方文本框自由编写
+                </span>
+              </button>
               <textarea
                 rows={4}
                 value={systemPrompt}
-                onChange={(e) => setSystemPrompt(e.target.value)}
-                placeholder="设定 AI 助理的口吻与角色准则..."
+                onChange={(e) => {
+                  setSystemPrompt(e.target.value);
+                  setPersonaId(matchPersonaId(e.target.value));
+                }}
+                placeholder={
+                  personaId === "custom"
+                    ? "写下你想要的人设，例如：你是一个毒舌但靠谱的编程搭子——先给结论再给代码，拒绝寒暄；不确定的事直说不知道……"
+                    : "设定 AI 助理的口吻与角色准则..."
+                }
                 className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 p-3 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
               />
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                上面是所选人设的完整文本，可直接微调；一改动即变为自定义。
+              </p>
             </div>
 
-            {/* Temperature */}
-            <div>
-              <div className="flex justify-between items-center mb-1.5">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  回答创意度 (Temperature): {temperature}
+            {/* Temperature: three preset gears instead of a raw number slider */}
+            <div className="space-y-2">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  回答风格 (创意度)
                 </label>
-                <span className="text-[11px] text-slate-500">
-                  {temperature < 0.4 ? "严谨精确" : temperature > 0.8 ? "发散创意" : "平衡"}
-                </span>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  严谨适合查事实写代码，发散适合起名写故事，日常用平衡。
+                </p>
               </div>
-              <input
-                type="range"
-                min="0.0"
-                max="1.5"
-                step="0.1"
-                value={temperature}
-                onChange={(e) => setTemperature(parseFloat(e.target.value))}
-                className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-              />
+              <div className="grid grid-cols-3 gap-2.5">
+                {TEMPERATURE_PRESETS.map((preset) => {
+                  const isActive = temperature === preset.value;
+                  const Icon = preset.icon;
+                  return (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => setTemperature(preset.value)}
+                      className={`flex flex-col items-center gap-1 p-3 rounded-xl border text-xs font-medium transition-all ${
+                        isActive
+                          ? preset.activeClass
+                          : "border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-700"
+                      }`}
+                    >
+                      <Icon className={`h-5 w-5 ${isActive ? "" : preset.iconColor}`} />
+                      <span className="font-semibold">{preset.label}</span>
+                      <span className="text-[10px] font-normal opacity-70 text-center leading-snug">
+                        {preset.desc}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              {!TEMPERATURE_PRESETS.some((p) => p.value === temperature) && (
+                <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                  当前为历史自定义值 {temperature}，点上面任意一档即可覆盖。
+                </p>
+              )}
             </div>
 
             {/* Memory Toggle */}

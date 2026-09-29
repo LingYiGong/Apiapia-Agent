@@ -23,7 +23,7 @@ export default function Home() {
     <div className="flex h-screen items-center justify-center bg-background">
       <div className="flex flex-col items-center gap-3">
         <Skeleton className="h-8 w-8 rounded-full" />
-        <p className="text-sm text-muted-foreground">正在进入私人 AI 助理...</p>
+        <p className="text-sm text-muted-foreground">正在进入 Apiapia 助理...</p>
       </div>
     </div>
   );

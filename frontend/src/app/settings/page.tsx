@@ -83,7 +83,7 @@ const SYSTEM_PROMPT_PRESETS = [
     iconColor: "text-indigo-500",
     activeClass:
       "border-indigo-600 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-400 shadow-sm ring-1 ring-indigo-600",
-    text: "你是一个智能、真诚、有洞察力的私人 AI 助理。请根据用户提供的历史背景和长期记忆为用户提供高质量服务。",
+    text: "你是一个智能、真诚、有洞察力的个人智能助理。请根据用户提供的历史背景和长期记忆为用户提供高质量服务。",
   },
   {
     id: "concise",
@@ -93,7 +93,7 @@ const SYSTEM_PROMPT_PRESETS = [
     iconColor: "text-sky-500",
     activeClass:
       "border-sky-600 bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 shadow-sm ring-1 ring-sky-600",
-    text: "你是一个高效直接的私人 AI 助理。回答简洁、直击要点，避免寒暄和冗余解释，善用列表呈现；除非用户要求，不输出长篇大论。",
+    text: "你是一个高效直接的个人智能助理。回答简洁、直击要点，避免寒暄和冗余解释，善用列表呈现；除非用户要求，不输出长篇大论。",
   },
   {
     id: "rigorous",
@@ -103,7 +103,7 @@ const SYSTEM_PROMPT_PRESETS = [
     iconColor: "text-emerald-500",
     activeClass:
       "border-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 shadow-sm ring-1 ring-emerald-600",
-    text: "你是一个严谨细致的私人 AI 助理。回答准确、有依据，不确定的内容明确说明；涉及事实时优先引用检索到的来源；逻辑清晰、分步骤表达。",
+    text: "你是一个严谨细致的个人智能助理。回答准确、有依据，不确定的内容明确说明；涉及事实时优先引用检索到的来源；逻辑清晰、分步骤表达。",
   },
   {
     id: "creative",
@@ -113,7 +113,7 @@ const SYSTEM_PROMPT_PRESETS = [
     iconColor: "text-amber-500",
     activeClass:
       "border-amber-600 bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 shadow-sm ring-1 ring-amber-600",
-    text: "你是一个富有想象力的私人 AI 助理。乐于发散、多给灵感与可能性，表达生动；涉及客观事实时仍以检索资料为准，不虚构。",
+    text: "你是一个富有想象力的个人智能助理。乐于发散、多给灵感与可能性，表达生动；涉及客观事实时仍以检索资料为准，不虚构。",
   },
   { id: "custom", label: "自定义", desc: "自己写人设", icon: PenLine, text: "" },
 ] as const;
@@ -259,11 +259,11 @@ export default function SettingsPage() {
           <div>
             <div className="flex items-center gap-2 text-primary font-semibold mb-1">
               <Settings className="h-5 w-5" />
-              <span>系统与模型设置</span>
+              <span>系统设置</span>
             </div>
-            <h1 className="text-2xl font-bold tracking-tight">偏好配置</h1>
+            <h1 className="text-2xl font-bold tracking-tight">偏好设置</h1>
             <p className="text-xs text-muted-foreground mt-1">
-              控制界面外观模式、默认提示词、温度、长期记忆开关以及专属 API Key。
+              管理界面外观、默认模型、助手人设、回答风格与长期记忆开关。
             </p>
           </div>
         </div>
@@ -272,7 +272,7 @@ export default function SettingsPage() {
         <form onSubmit={handleSaveSettings} className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm uppercase tracking-wider">全局通用设置</CardTitle>
+              <CardTitle className="text-sm uppercase tracking-wider">通用</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Theme Appearance Setting */}

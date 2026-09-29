@@ -26,7 +26,7 @@ async def get_user_settings(
             user_id=current_user.id,
             default_model=app_settings.DEFAULT_MODEL,
             memory_model="openai/gpt-4o-mini",
-            system_prompt="你是一个智能、真诚、有洞察力的私人 AI 助理。请根据用户提供的历史背景和长期记忆为用户提供高质量服务。",
+            system_prompt="你是一个智能、真诚、有洞察力的个人智能助理。请根据用户提供的历史背景和长期记忆为用户提供高质量服务。",
             temperature=0.7,
             memory_enabled=True
         )

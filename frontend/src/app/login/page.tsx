@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { apiRequest } from "@/lib/api";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
-import { Bot, KeyRound, Mail, User as UserIcon, ArrowRight } from "lucide-react";
+import { Cat, KeyRound, Mail, User as UserIcon, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -69,10 +69,10 @@ export default function LoginPage() {
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="items-center text-center">
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-500 shadow-lg shadow-indigo-500/25 mb-3">
-            <Bot className="h-8 w-8 text-white" />
+            <Cat className="h-8 w-8 text-white" />
           </div>
-          <CardTitle className="text-2xl tracking-tight">Personal AI</CardTitle>
-          <CardDescription>独立长期记忆的私人 AI 助手</CardDescription>
+          <CardTitle className="text-2xl tracking-tight">Apiapia 助理</CardTitle>
+          <CardDescription>一只拥有长期记忆的猫咪助理</CardDescription>
         </CardHeader>
         <CardContent>
           {/* Tab Toggle */}
@@ -86,7 +86,7 @@ export default function LoginPage() {
           >
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="login">登录</TabsTrigger>
-              <TabsTrigger value="register">注册新账户</TabsTrigger>
+              <TabsTrigger value="register">注册</TabsTrigger>
             </TabsList>
           </Tabs>
 

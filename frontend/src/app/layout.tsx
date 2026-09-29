@@ -20,13 +20,13 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Personal AI Assistant",
-  description: "Personal AI Assistant with Decoupled LLMs and Long-term Mem0 Memory",
+  title: "Apiapia 助理",
+  description: "Apiapia 助理——一只拥有长期记忆的猫咪助理",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Personal AI",
+    title: "Apiapia",
   },
   icons: {
     icon: "/icon.svg",

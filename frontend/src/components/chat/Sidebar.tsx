@@ -101,7 +101,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="p-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:pt-3 border-b flex flex-col gap-2">
           <div className="flex items-center justify-between md:hidden pb-1 border-b">
             <span className="text-xs font-bold">
-              历史对话与导航
+              历史对话
             </span>
             <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7">
               <X className="h-4 w-4" />
@@ -117,7 +117,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               className="flex flex-col items-center py-1.5 px-1 rounded-lg text-[10px] font-medium text-muted-foreground hover:text-primary hover:bg-accent transition-colors"
             >
               <Brain className="h-4 w-4 mb-0.5 text-primary" />
-              <span>长期记忆</span>
+              <span>记忆库</span>
             </Link>
             <Link
               href="/usage"
@@ -125,7 +125,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               className="flex flex-col items-center py-1.5 px-1 rounded-lg text-[10px] font-medium text-muted-foreground hover:text-primary hover:bg-accent transition-colors"
             >
               <BarChart3 className="h-4 w-4 mb-0.5 text-primary" />
-              <span>用量统计</span>
+              <span>用量</span>
             </Link>
             <Link
               href="/settings"
@@ -133,7 +133,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               className="flex flex-col items-center py-1.5 px-1 rounded-lg text-[10px] font-medium text-muted-foreground hover:text-primary hover:bg-accent transition-colors"
             >
               <Settings className="h-4 w-4 mb-0.5 text-primary" />
-              <span>系统设置</span>
+              <span>设置</span>
             </Link>
           </div>
 
@@ -146,7 +146,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
             <Input
               type="search"
-              placeholder="搜索对话..."
+              placeholder="搜索历史对话..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-8 text-xs"

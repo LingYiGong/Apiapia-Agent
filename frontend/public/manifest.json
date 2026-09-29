@@ -1,7 +1,7 @@
 {
-  "name": "Personal AI Assistant",
-  "short_name": "Personal AI",
-  "description": "具有解耦大模型与长期记忆的私人 AI 助手",
+  "name": "Apiapia 助理",
+  "short_name": "Apiapia",
+  "description": "一只拥有长期记忆的猫咪助理",
   "start_url": "/chat",
   "display": "standalone",
   "orientation": "portrait-primary",

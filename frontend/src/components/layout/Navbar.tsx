@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import {
-  Bot,
+  Cat,
   MessageSquare,
   Brain,
   Settings,
@@ -36,11 +36,11 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   const navItems = [
     { href: "/chat", label: "对话", shortLabel: "对话", icon: MessageSquare },
-    { href: "/memory", label: "长期记忆", shortLabel: "记忆", icon: Brain },
+    { href: "/memory", label: "记忆库", shortLabel: "记忆", icon: Brain },
     {
       href: "/usage",
-      label: user?.is_superuser ? "后台与用量" : "用量统计",
-      shortLabel: user?.is_superuser ? "后台" : "用量",
+      label: user?.is_superuser ? "管理后台" : "用量",
+      shortLabel: user?.is_superuser ? "管理" : "用量",
       icon: user?.is_superuser ? ShieldCheck : BarChart3,
       badge: user?.is_superuser ? "管理" : undefined,
     },
@@ -61,10 +61,10 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div className="flex items-center gap-2 md:gap-3 lg:gap-6 min-w-0 shrink">
           <Link href="/chat" className="flex items-center gap-2 font-bold tracking-wide shrink-0">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-md shrink-0">
-              <Bot className="h-5 w-5" />
+              <Cat className="h-5 w-5" />
             </div>
             <span className="text-base font-semibold bg-gradient-to-r from-indigo-600 to-violet-600 dark:from-indigo-200 dark:to-indigo-400 bg-clip-text text-transparent truncate max-w-[110px] sm:max-w-none">
-              Personal AI
+              Apiapia 助理
             </span>
           </Link>
 
@@ -115,7 +115,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span className="truncate">{user.username}</span>
                 {user.is_superuser && (
                   <Badge variant="outline" className="hidden xl:inline-flex text-[10px] border-amber-500/30 text-amber-600 dark:text-amber-400">
-                    超管
+                    管理员
                   </Badge>
                 )}
               </div>

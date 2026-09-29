@@ -5,7 +5,7 @@ from typing import Optional
 
 
 class Settings(BaseSettings):
-    PROJECT_NAME: str = "Personal AI Assistant"
+    PROJECT_NAME: str = "Apiapia 助理"
     API_V1_STR: str = "/api"
 
     # PostgreSQL Database

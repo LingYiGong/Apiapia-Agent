@@ -1,6 +1,6 @@
 {
-  "appId": "com.personalai.assistant",
-  "appName": "Personal AI",
+  "appId": "com.apiapia.assistant",
+  "appName": "Apiapia",
   "webDir": "public",
   "server": {
     "cleartext": true,

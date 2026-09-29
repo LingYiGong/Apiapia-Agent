@@ -74,7 +74,7 @@ export const MemorySidebar: React.FC<MemorySidebarProps> = ({
           <div className="flex items-center gap-2">
             <Brain className="h-4 w-4 text-primary" />
             <span className="text-xs font-semibold">
-              相关长期记忆
+              相关记忆
             </span>
           </div>
 

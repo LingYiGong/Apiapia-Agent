@@ -20,7 +20,7 @@ class OpenRouterProvider(OpenAIProvider):
         # OpenRouter recommends HTTP-Referer and X-Title headers for ranking/stats
         default_headers = {
             "HTTP-Referer": "http://localhost:3000",
-            "X-Title": "Personal AI Assistant",
+            "X-Title": "Apiapia 助理",
         }
 
         self.client = AsyncOpenAI(

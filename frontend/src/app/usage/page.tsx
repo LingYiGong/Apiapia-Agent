@@ -199,15 +199,15 @@ export default function UsagePage() {
           <div>
             <div className="flex items-center gap-2 text-primary font-semibold mb-1 flex-wrap">
               <BarChart3 className="h-5 w-5 shrink-0" />
-              <span>{isSuperuser ? "全局监控与用量统计" : "个人用量与 Token 统计"}</span>
+              <span>{isSuperuser ? "全局用量监控" : "个人用量统计"}</span>
               {isSuperuser && (
                 <Badge className="text-[10px] bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/10 shrink-0">
-                  超级管理员控制台
+                  管理员控制台
                 </Badge>
               )}
             </div>
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
-              {isSuperuser ? "平台用量与多用户成本核算" : "我的 API 消耗总览"}
+              {isSuperuser ? "平台用量与成本核算" : "我的用量总览"}
             </h1>
             <p className="text-xs text-muted-foreground mt-1 max-w-2xl">
               {isSuperuser
@@ -274,11 +274,11 @@ export default function UsagePage() {
             <TabsList>
               <TabsTrigger value="overview">
                 <Users className="h-4 w-4 shrink-0 mr-2" />
-                <span>全盘多用户监控 ({adminStats?.total_users || 0} 人)</span>
+                <span>全部用户 ({adminStats?.total_users || 0})</span>
               </TabsTrigger>
               <TabsTrigger value="my">
                 <UserCheck className="h-4 w-4 shrink-0 mr-2" />
-                <span>我的个人消耗 ({user.username})</span>
+                <span>我的用量</span>
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -467,7 +467,7 @@ export default function UsagePage() {
                                   onClick={() => handleToggleAdmin(u.user_id, u.is_superuser, u.username)}
                                   className="h-7 px-2 text-[11px] text-muted-foreground"
                                 >
-                                  {u.is_superuser ? "取消超管" : "设为超管"}
+                                  {u.is_superuser ? "取消管理员" : "设为管理员"}
                                 </Button>
                               </>
                             ) : (

@@ -49,7 +49,7 @@ async def chat_stream(
     settings_stmt = select(UserSetting).where(UserSetting.user_id == user_id)
     user_settings = (await db.execute(settings_stmt)).scalar_one_or_none()
 
-    system_prompt = user_settings.system_prompt if user_settings else "你是一个智能、真诚、有洞察力的私人 AI 助理。"
+    system_prompt = user_settings.system_prompt if user_settings else "你是一个智能、真诚、有洞察力的个人智能助理。"
     model_to_use = chat_req.model or (user_settings.default_model if user_settings else "gpt-4o-mini")
     temperature = chat_req.temperature if chat_req.temperature is not None else (user_settings.temperature if user_settings else 0.7)
     use_memory = chat_req.memory_enabled if chat_req.memory_enabled is not None else (user_settings.memory_enabled if user_settings else True)

@@ -181,18 +181,18 @@ export default function MemoryPage() {
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 text-primary font-semibold mb-1">
               <Brain className="h-5 w-5 shrink-0" />
-              <span>Mem0 长期记忆管理</span>
+              <span>长期记忆管理</span>
             </div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight">AI 记住的事实与偏好</h1>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight">记忆库</h1>
             <p className="text-xs text-muted-foreground mt-1 max-w-2xl">
-              所有记忆均独立持久化保存在本地 pgvector 中，你可在此随时审查、修正或删除。
+              所有记忆均独立保存在本地向量数据库中，你可在此随时审查、修正或删除。
             </p>
           </div>
 
           <div className="flex items-center gap-2.5 shrink-0">
             <Button onClick={() => setShowAddModal(true)} size="sm">
               <Plus className="h-4 w-4 shrink-0" />
-              <span>手动新增记忆</span>
+              <span>新增记忆</span>
             </Button>
             <Button
               onClick={handleExport}
@@ -212,7 +212,7 @@ export default function MemoryPage() {
             <Search className="absolute left-3.5 top-3 h-4 w-4 text-muted-foreground" />
             <Input
               type="search"
-              placeholder="搜索长期记忆（如：笔记本、编程、生活习惯）..."
+              placeholder="搜索记忆（如：笔记本、编程、生活习惯）..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10 text-base sm:text-sm"
@@ -255,7 +255,7 @@ export default function MemoryPage() {
               <CardContent className="p-12 text-center">
                 <Sparkles className="h-10 w-10 text-primary/50 mx-auto mb-3" />
                 <h3 className="text-sm font-semibold">
-                  {isSearching ? "未找到符合条件的长期记忆" : "当前记忆库为空"}
+                  {isSearching ? "未找到符合条件的记忆" : "记忆库为空"}
                 </h3>
                 <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
                   在对话中提及关于你的事实，或点击上方“手动新增记忆”按钮直接添加。
@@ -369,9 +369,9 @@ export default function MemoryPage() {
       <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>手动添加长期记忆</DialogTitle>
+            <DialogTitle>新增记忆</DialogTitle>
             <DialogDescription>
-              直接向 pgvector 记忆库写入一条事实。AI 将在后续所有模型回答中参考该信息。
+              直接向记忆库写入一条事实。AI 将在后续回答中参考该信息。
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleAddMemory} className="space-y-4">

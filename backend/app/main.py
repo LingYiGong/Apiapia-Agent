@@ -11,7 +11,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 )
-logger = logging.getLogger("personal_ai")
+logger = logging.getLogger("apiapia")
 
 # Filter out repetitive health check access logs to prevent console log flooding
 class HealthCheckFilter(logging.Filter):
@@ -30,13 +30,13 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error("Database initialization failed: %s", str(e), exc_info=True)
     yield
-    logger.info("Shutting down Personal AI Assistant backend.")
+    logger.info("Shutting down Apiapia assistant backend.")
 
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    version="2.2.0",
-    description="Personal AI Assistant API with Decoupled LLMs and Mem0 OSS Long-term Memory",
+    version="2.5.0",
+    description="Apiapia 助理 API：多模型解耦调度与 Mem0 OSS 长期记忆",
     lifespan=lifespan
 )
 
@@ -54,7 +54,7 @@ app.add_middleware(
 async def root():
     return {
         "name": settings.PROJECT_NAME,
-        "version": "2.2.0",
+        "version": "2.5.0",
         "status": "online",
         "mem0_version": settings.MEM0_VERSION
     }

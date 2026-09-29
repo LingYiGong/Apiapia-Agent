@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import {
   Send,
   Square,
+  Cat,
   Sparkles,
   ChevronDown,
   Search,
@@ -889,13 +890,13 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center px-4 py-8">
             <div className="flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary mb-3 shadow-inner">
-              <Sparkles className="h-6 w-6 sm:h-8 sm:w-8" />
+              <Cat className="h-6 w-6 sm:h-8 sm:w-8" />
             </div>
             <h2 className="text-base sm:text-lg font-semibold">
-              Personal AI 助手已就绪
+              Apiapia 已就绪，开始新的对话吧
             </h2>
             <p className="text-xs sm:text-sm text-muted-foreground mt-1 max-w-sm">
-              对话会自动与 Mem0 个人记忆库联动，随着交流更加懂得你的习惯与事实。
+              与长期记忆库联动，越聊越懂你的习惯与偏好。
             </p>
           </div>
         ) : (

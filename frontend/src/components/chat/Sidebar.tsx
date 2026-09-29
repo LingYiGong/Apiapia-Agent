@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ConversationListSkeleton } from "@/components/common/PageSkeleton";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { cn } from "@/lib/utils";
 import {
   Plus,
@@ -86,6 +87,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [search, setSearch] = useState("");
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropId, setDropId] = useState<string | null>(null);
+  // 待删除会话（二次确认框状态，点击删除按钮后先弹窗，不直接删除）
+  const [pendingDelete, setPendingDelete] = useState<Conversation | null>(null);
 
   const sorted = sortConversations(conversations);
 
@@ -240,7 +243,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             size="icon"
             onClick={(e) => {
               e.stopPropagation();
-              onDelete(c.id);
+              setPendingDelete(c);
             }}
             title="删除对话"
             className="h-7 w-7 shrink-0 opacity-60 hover:opacity-100 hover:text-destructive"
@@ -388,6 +391,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         </div>
       </aside>
+
+      {/* 删除历史会话二次确认 */}
+      {pendingDelete && (
+        <ConfirmDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setPendingDelete(null);
+          }}
+          title="删除该历史会话"
+          description={`确定要删除对话「${pendingDelete.title || "新建对话"}」吗？删除后将无法恢复，该操作不可撤销。`}
+          confirmText="删除"
+          danger
+          onConfirm={() => {
+            onDelete(pendingDelete.id);
+            setPendingDelete(null);
+          }}
+        />
+      )}
     </>
   );
 };

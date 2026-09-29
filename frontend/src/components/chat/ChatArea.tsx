@@ -177,6 +177,25 @@ const markdownComponents = {
   ),
 };
 
+function ThoughtBox({ thought, autoScroll }: { thought: string; autoScroll: boolean }) {
+  const ref = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    if (!autoScroll) return;
+    const el = ref.current;
+    if (el) {
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [thought, autoScroll]);
+  return (
+    <div
+      ref={ref}
+      className="mt-2 pl-2.5 border-l-2 border-indigo-400 dark:border-indigo-600 text-xs text-slate-600 dark:text-slate-400 whitespace-pre-wrap font-mono max-h-72 overflow-y-auto overflow-x-hidden leading-relaxed break-words [overflow-wrap:anywhere]"
+    >
+      {thought}
+    </div>
+  );
+}
+
 function renderMessageBody(
   content: string,
   isStreaming = false,
@@ -234,9 +253,7 @@ function renderMessageBody(
                 ▼
               </span>
             </summary>
-            <div className="mt-2 pl-2.5 border-l-2 border-indigo-400 dark:border-indigo-600 text-xs text-slate-600 dark:text-slate-400 whitespace-pre-wrap font-mono max-h-72 overflow-y-auto overflow-x-hidden leading-relaxed break-words [overflow-wrap:anywhere]">
-              {thought}
-            </div>
+            <ThoughtBox thought={thought} autoScroll={isStreaming} />
           </details>
         )}
         {mainContent ? (

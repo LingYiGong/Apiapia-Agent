@@ -8,6 +8,7 @@ import { Navbar } from "@/components/layout/Navbar";
 import { Sidebar } from "@/components/chat/Sidebar";
 import { ChatArea } from "@/components/chat/ChatArea";
 import { MemorySidebar } from "@/components/chat/MemorySidebar";
+import { FullPageSkeleton } from "@/components/common/PageSkeleton";
 import { Conversation, Message, ModelCatalogItem, AttachmentItem, SearchResultItem } from "@/types";
 
 export default function ChatPage() {
@@ -109,6 +110,8 @@ export default function ChatPage() {
   };
 
   // Load conversations & settings
+  const [loadingConversations, setLoadingConversations] = useState(true);
+  const [loadingMessages, setLoadingMessages] = useState(false);
   const loadConversations = async (autoSelectFirst = false) => {
     try {
       const list = await apiRequest<Conversation[]>("/conversations");
@@ -118,6 +121,8 @@ export default function ChatPage() {
       }
     } catch (err) {
       console.error("Failed to load conversations:", err);
+    } finally {
+      setLoadingConversations(false);
     }
   };
 
@@ -210,6 +215,9 @@ export default function ChatPage() {
     activeIdRef.current = id;
     setStreamingContent("");
     setRetrievedMemories([]);
+    // 立刻清空旧消息，让右侧消息区显示骨架屏，而不是残留上一个会话的内容
+    setMessages([]);
+    setLoadingMessages(true);
 
     // Restore this conversation's saved model if present
     const targetConv = (customList || conversations).find((c) => c.id === id);
@@ -230,6 +238,10 @@ export default function ChatPage() {
       }
     } catch (err) {
       console.error("Failed to load conversation details:", err);
+    } finally {
+      if (activeIdRef.current === id) {
+        setLoadingMessages(false);
+      }
     }
   };
 
@@ -239,6 +251,7 @@ export default function ChatPage() {
     setMessages([]);
     setStreamingContent("");
     setRetrievedMemories([]);
+    setLoadingMessages(false);
 
     // Always reset to user's configured default model from Settings!
     const userDef = defaultModelRef.current;
@@ -569,7 +582,7 @@ export default function ChatPage() {
   };
 
   if (loading || !user) {
-    return null;
+    return <FullPageSkeleton variant="chat" />;
   }
 
   return (
@@ -591,6 +604,7 @@ export default function ChatPage() {
           onReorderPinned={handleReorderPinned}
           isOpen={isSidebarOpen}
           onClose={() => setIsSidebarOpen(false)}
+          loading={loadingConversations}
         />
         <ChatArea
           messages={messages}
@@ -614,6 +628,7 @@ export default function ChatPage() {
           onToggleWebSearchMode={handleToggleWebSearchMode}
           searchStatus={searchStatus}
           streamingSearchResults={streamingSearchResults}
+          loadingMessages={loadingMessages}
         />
         <MemorySidebar
           memories={retrievedMemories}

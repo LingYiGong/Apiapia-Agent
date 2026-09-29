@@ -20,6 +20,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { FullPageSkeleton } from "@/components/common/PageSkeleton";
 import {
   Brain,
   Search,
@@ -168,7 +169,7 @@ export default function MemoryPage() {
     window.open(`${base}/memories/export?token=${token}`, "_blank");
   };
 
-  if (loading || !user) return null;
+  if (loading || !user) return <FullPageSkeleton variant="list" />;
 
   return (
     <div className="flex flex-col h-dvh overflow-hidden bg-background">

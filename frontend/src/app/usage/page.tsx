@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { FullPageSkeleton, StatCardsSkeleton } from "@/components/common/PageSkeleton";
 import {
   BarChart3,
   Users,
@@ -175,7 +176,7 @@ export default function UsagePage() {
     }
   };
 
-  if (loading || !user) return null;
+  if (loading || !user) return <FullPageSkeleton variant="list" />;
 
   const isSuperuser = !!user.is_superuser;
 
@@ -285,6 +286,7 @@ export default function UsagePage() {
         )}
 
         {/* ===================== TAB 1: ALL USERS OVERVIEW (SUPER ADMIN ONLY) ===================== */}
+        {isLoading && !adminStats && !myStats && <StatCardsSkeleton />}
         {isSuperuser && activeTab === "overview" && adminStats && (
           <div className="space-y-6">
             {/* KPI Cards */}

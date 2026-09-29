@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { MessageListSkeleton } from "@/components/common/PageSkeleton";
 import { cn } from "@/lib/utils";
 import {
   Send,
@@ -409,6 +410,7 @@ interface ChatAreaProps {
     count?: number;
   };
   streamingSearchResults?: SearchResultItem[] | null;
+  loadingMessages?: boolean;
 }
 
 export const ChatArea: React.FC<ChatAreaProps> = ({
@@ -433,6 +435,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   onToggleWebSearchMode,
   searchStatus = { state: "idle" },
   streamingSearchResults = null,
+  loadingMessages = false,
 }) => {
   const [input, setInput] = useState("");
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
@@ -887,7 +890,11 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         onScroll={handleScroll}
         className="flex-1 overflow-y-auto overflow-x-hidden px-2.5 py-3 sm:px-5 sm:py-5 md:px-8 space-y-3 sm:space-y-4 relative min-w-0"
       >
-        {messages.length === 0 ? (
+        {loadingMessages && messages.length === 0 ? (
+          <div className="max-w-4xl w-full mx-auto">
+            <MessageListSkeleton rows={4} />
+          </div>
+        ) : messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center px-4 py-8">
             <div className="flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary mb-3 shadow-inner">
               <Cat className="h-6 w-6 sm:h-8 sm:w-8" />

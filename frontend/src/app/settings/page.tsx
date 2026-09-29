@@ -39,6 +39,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { FullPageSkeleton, SettingsFormSkeleton } from "@/components/common/PageSkeleton";
 import { Settings, Save, ShieldCheck, Sparkles, Sun, Moon, Monitor, RefreshCw, Info, CheckCircle2, Zap, BookOpen, Lightbulb, PenLine, Target, Scale, Palette } from "lucide-react";
 
 const TEMPERATURE_PRESETS = [
@@ -156,6 +157,7 @@ export default function SettingsPage() {
 
   const [savingSettings, setSavingSettings] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [loadingSettings, setLoadingSettings] = useState(true);
 
   const handleSyncModels = async () => {
     setSyncingModels(true);
@@ -189,8 +191,8 @@ export default function SettingsPage() {
       router.push("/login");
     }
   }, [user, loading, router]);
-
   const fetchSettingsAndConfigs = async () => {
+    setLoadingSettings(true);
     try {
       const [settingsRes, modelsRes] = await Promise.all([
         apiRequest<any>("/settings"),
@@ -208,6 +210,8 @@ export default function SettingsPage() {
       if (modelsRes?.models) setAvailableModels(modelsRes.models);
     } catch (err) {
       console.error("Failed to load settings:", err);
+    } finally {
+      setLoadingSettings(false);
     }
   };
 
@@ -245,7 +249,7 @@ export default function SettingsPage() {
     }
   };
 
-  if (loading || !user) return null;
+  if (loading || !user) return <FullPageSkeleton variant="list" />;
 
   const memoryModelIsPreset = MEMORY_MODEL_OPTIONS.some((o) => o.id === memoryModel);
 
@@ -269,6 +273,10 @@ export default function SettingsPage() {
         </div>
 
         {/* General Settings Form */}
+        {loadingSettings ? (
+          <SettingsFormSkeleton />
+        ) : (
+          <>
         <form onSubmit={handleSaveSettings} className="space-y-6">
           <Card>
             <CardHeader>
@@ -592,6 +600,8 @@ export default function SettingsPage() {
             </div>
           </CardContent>
         </Card>
+          </>
+        )}
       </main>
       </div>
 

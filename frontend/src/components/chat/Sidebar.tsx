@@ -7,6 +7,7 @@ import { CURRENT_VERSION, triggerManualUpdateCheck } from "@/lib/version";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { ConversationListSkeleton } from "@/components/common/PageSkeleton";
 import { cn } from "@/lib/utils";
 import {
   Plus,
@@ -34,6 +35,7 @@ interface SidebarProps {
   onReorderPinned: (orderedIds: string[]) => void;
   isOpen?: boolean;
   onClose?: () => void;
+  loading?: boolean;
 }
 
 function formatFullDateTime(isoStr?: string) {
@@ -79,6 +81,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onReorderPinned,
   isOpen = false,
   onClose,
+  loading = false,
 }) => {
   const [search, setSearch] = useState("");
   const [dragId, setDragId] = useState<string | null>(null);
@@ -331,7 +334,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
             min-h-0 保证 flex-1 能正确收缩出滚动区。 */}
         <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain p-2">
           <div className="space-y-1">
-            {filtered.length === 0 ? (
+            {loading ? (
+              <ConversationListSkeleton rows={8} />
+            ) : filtered.length === 0 ? (
               <div className="text-center py-8 text-xs text-muted-foreground">
                 {search ? "未找到匹配会话" : "暂无历史对话"}
               </div>

@@ -57,7 +57,10 @@ async def update_user_settings(
     if update_data.default_model is not None:
         setting.default_model = update_data.default_model
     if update_data.memory_model is not None:
-        setting.memory_model = update_data.memory_model
+        # Memory LLM is admin-only: silently ignore when set by ordinary users
+        # (rejecting outright would break older clients that always submit it)
+        if getattr(current_user, "is_superuser", False):
+            setting.memory_model = update_data.memory_model
     if update_data.system_prompt is not None:
         setting.system_prompt = update_data.system_prompt
     if update_data.temperature is not None:

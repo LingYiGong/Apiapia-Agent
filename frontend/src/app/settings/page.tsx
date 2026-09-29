@@ -188,7 +188,8 @@ export default function SettingsPage() {
         method: "PATCH",
         body: JSON.stringify({
           default_model: defaultModel,
-          memory_model: memoryModel,
+          // Memory LLM is admin-only: ordinary users don't submit it
+          ...(user?.is_superuser ? { memory_model: memoryModel } : {}),
           system_prompt: systemPrompt,
           temperature,
           memory_enabled: memoryEnabled,
@@ -453,8 +454,8 @@ export default function SettingsPage() {
               </button>
             </div>
 
-            {/* Memory Extraction Model */}
-            {memoryEnabled && (
+            {/* Memory Extraction Model (admin only) */}
+            {memoryEnabled && user?.is_superuser && (
               <div className="pt-3 border-t border-slate-200 dark:border-slate-800/80 space-y-2">
                 <div className="flex justify-between items-center">
                   <label htmlFor="memory-model-select" className="text-xs font-semibold text-slate-700 dark:text-slate-300">

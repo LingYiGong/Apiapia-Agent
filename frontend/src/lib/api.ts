@@ -108,6 +108,9 @@ export async function streamChatResponse(
       created_at?: string;
       search_results?: SearchResultItem[];
     }) => void;
+  },
+  opts?: {
+    signal?: AbortSignal;
   }
 ) {
   const token = getToken();
@@ -121,6 +124,7 @@ export async function streamChatResponse(
       Authorization: token ? `Bearer ${token}` : "",
     },
     body: JSON.stringify(payload),
+    signal: opts?.signal,
   });
 
   if (!response.ok) {
@@ -138,9 +142,11 @@ export async function streamChatResponse(
   const decoder = new TextDecoder();
   let buffer = "";
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
+  try {
+    while (true) {
+      if (opts?.signal?.aborted) break;
+      const { done, value } = await reader.read();
+      if (done) break;
 
     buffer += decoder.decode(value, { stream: true });
     const lines = buffer.split("\n\n");
@@ -170,5 +176,15 @@ export async function streamChatResponse(
         console.error("Failed to parse SSE JSON:", dataStr, e);
       }
     }
+    }
+  } catch (e: any) {
+    // Intentional stop via AbortController: exit silently without onError
+    if (e?.name === "AbortError" || opts?.signal?.aborted) {
+      try {
+        reader.cancel();
+      } catch (_) {}
+      return;
+    }
+    throw e;
   }
 }

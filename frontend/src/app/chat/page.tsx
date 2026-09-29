@@ -66,6 +66,8 @@ export default function ChatPage() {
   const displayedContentRef = useRef<string>("");
   const isStreamCompletedRef = useRef<boolean>(false);
   const doneMetaRef = useRef<any>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const stopRequestedRef = useRef<boolean>(false);
 
   useEffect(() => {
     return () => {
@@ -358,6 +360,8 @@ export default function ChatPage() {
     displayedContentRef.current = "";
     isStreamCompletedRef.current = false;
     doneMetaRef.current = null;
+    stopRequestedRef.current = false;
+    abortControllerRef.current = new AbortController();
 
     // Live waiting & duration timer (every 80ms)
     timerIntervalRef.current = setInterval(() => {
@@ -435,6 +439,8 @@ export default function ChatPage() {
             targetContentRef.current += token;
           },
           onError: (err) => {
+            // Intentional stop: states already reset by handleStopGenerating
+            if (stopRequestedRef.current) return;
             console.error("Stream error:", err);
             if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
             if (typewriterIntervalRef.current) clearInterval(typewriterIntervalRef.current);
@@ -459,9 +465,14 @@ export default function ChatPage() {
               finalizeAssistantMessage();
             }
           },
-        }
+        },
+        { signal: abortControllerRef.current?.signal }
       );
     } catch (err: any) {
+      // Intentional stop: states already reset by handleStopGenerating, stay silent
+      if (stopRequestedRef.current || abortControllerRef.current?.signal.aborted) {
+        return;
+      }
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
       if (typewriterIntervalRef.current) clearInterval(typewriterIntervalRef.current);
       setIsStreaming(false);
@@ -472,6 +483,38 @@ export default function ChatPage() {
         { role: "assistant", content: `❌ 网络连接失败: ${err?.message || err}` },
       ]);
     }
+  };
+
+  const handleStopGenerating = () => {
+    if (!isStreaming) return;
+    // Mark intentional stop so the pending stream promise stays silent
+    stopRequestedRef.current = true;
+    try {
+      abortControllerRef.current?.abort();
+    } catch (_) {}
+    abortControllerRef.current = null;
+
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+    if (typewriterIntervalRef.current) {
+      clearInterval(typewriterIntervalRef.current);
+      typewriterIntervalRef.current = null;
+    }
+
+    // Backend never persists the cut-off assistant reply on disconnect,
+    // so drop the partial content locally to stay consistent with DB.
+    isStreamCompletedRef.current = false;
+    doneMetaRef.current = null;
+    targetContentRef.current = "";
+    displayedContentRef.current = "";
+    currentSearchResultsRef.current = null;
+    setStreamingContent("");
+    setStreamingSearchResults(null);
+    setSearchStatus({ state: "idle" });
+    setIsWaitingForFirstToken(false);
+    setIsStreaming(false);
   };
 
   if (loading || !user) {
@@ -502,6 +545,7 @@ export default function ChatPage() {
           onModelChange={handleModelChange}
           availableModels={availableModels}
           onSendMessage={handleSendMessage}
+          onStopGenerating={handleStopGenerating}
           isStreaming={isStreaming}
           streamingContent={streamingContent}
           thinkingDuration={thinkingDuration}

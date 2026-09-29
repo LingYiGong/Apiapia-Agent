@@ -8,6 +8,7 @@ import { isFreeModel, isMultimodalModel } from "@/components/common/ModelSelect"
 import { ThemeToggle } from "@/components/common/ThemeToggle";
 import {
   Send,
+  Square,
   Bot,
   User,
   Sparkles,
@@ -385,6 +386,7 @@ interface ChatAreaProps {
   onModelChange: (model: string) => void;
   availableModels: ModelCatalogItem[];
   onSendMessage: (message: string, attachments?: AttachmentItem[]) => void;
+  onStopGenerating?: () => void;
   isStreaming: boolean;
   streamingContent: string;
   thinkingDuration?: number | null;
@@ -412,6 +414,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   onModelChange,
   availableModels,
   onSendMessage,
+  onStopGenerating,
   isStreaming,
   streamingContent,
   thinkingDuration,
@@ -1427,13 +1430,24 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               }
               className="w-full resize-none bg-transparent px-2.5 sm:px-3 py-2 text-[16px] sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none max-h-32 sm:max-h-44 leading-relaxed"
             />
-            <button
-              onClick={handleSend}
-              disabled={(!input.trim() && attachments.length === 0) || isStreaming || isUploading}
-              className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-indigo-600 text-white disabled:opacity-30 hover:bg-indigo-500 active:scale-95 transition-all shrink-0 ml-1 mb-1 shadow-sm shadow-indigo-600/30"
-            >
-              <Send className="h-4 w-4" />
-            </button>
+            {isStreaming ? (
+              <button
+                type="button"
+                onClick={() => onStopGenerating?.()}
+                title="停止生成"
+                className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-rose-600 text-white hover:bg-rose-500 active:scale-95 transition-all shrink-0 ml-1 mb-1 shadow-sm shadow-rose-600/30"
+              >
+                <Square className="h-4 w-4 fill-current" />
+              </button>
+            ) : (
+              <button
+                onClick={handleSend}
+                disabled={(!input.trim() && attachments.length === 0) || isStreaming || isUploading}
+                className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-indigo-600 text-white disabled:opacity-30 hover:bg-indigo-500 active:scale-95 transition-all shrink-0 ml-1 mb-1 shadow-sm shadow-indigo-600/30"
+              >
+                <Send className="h-4 w-4" />
+              </button>
+            )}
           </div>
         </div>
       </div>

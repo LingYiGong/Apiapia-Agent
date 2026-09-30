@@ -89,8 +89,6 @@ async def chat_stream(
         await db.refresh(conversation)
 
     conv_id = conversation.id
-    temperature = chat_req.temperature if chat_req.temperature is not None else (user_settings.temperature if user_settings else 0.7)
-    use_memory = chat_req.memory_enabled if chat_req.memory_enabled is not None else (user_settings.memory_enabled if user_settings else True)
 
     # 3. Parse Attachments (Images & Documents/PDFs)
     parsed_images = []

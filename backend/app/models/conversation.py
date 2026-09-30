@@ -1,12 +1,16 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Text, DateTime, ForeignKey, Integer, Boolean
+from sqlalchemy import Column, String, Text, DateTime, ForeignKey, Integer, Boolean, Index
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 
 
 class Conversation(Base):
     __tablename__ = "conversations"
+    __table_args__ = (
+        Index("idx_conversations_user_active", "user_id", "is_deleted", "updated_at"),
+        Index("idx_conversations_user_pin", "user_id", "is_deleted", "is_pinned", "pin_order"),
+    )
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
     user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
@@ -26,6 +30,10 @@ class Conversation(Base):
 
 class Message(Base):
     __tablename__ = "messages"
+    __table_args__ = (
+        Index("idx_messages_conv_created", "conversation_id", "created_at"),
+        Index("idx_messages_role_created", "role", "created_at"),
+    )
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
     conversation_id = Column(String(36), ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False, index=True)

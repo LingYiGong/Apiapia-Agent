@@ -693,17 +693,9 @@ async def admin_restore_conversation(
     admin_user: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db)
 ):
-    """Admin can restore any soft-deleted conversation."""
-    c_stmt = select(Conversation).where(Conversation.id == conversation_id)
-    conv = (await db.execute(c_stmt)).scalar_one_or_none()
-    if not conv:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="对话不存在")
-
-    conv.is_deleted = False
-    conv.deleted_at = None
-    conv.updated_at = datetime.now(timezone.utc)
-    await db.commit()
-    await db.refresh(conv)
+    """Admin can restore any soft-deleted conversation (delegates to canonical conversations.py)."""
+    from app.api.v1.conversations import restore_conversation
+    conv = await restore_conversation(conversation_id=conversation_id, admin_user=admin_user, db=db)
     return {
         "id": conv.id,
         "title": conv.title,

@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import re
 import urllib.parse
@@ -26,6 +27,19 @@ class WebSearchService:
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
             "Accept-Language": "zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7",
         }
+
+    def _sync_ddgs_search(self, query: str, max_results: int) -> List[Dict[str, str]]:
+        from duckduckgo_search import DDGS
+        results = []
+        with DDGS() as ddgs:
+            ddg_gen = ddgs.text(query, max_results=max_results)
+            for item in ddg_gen:
+                results.append({
+                    "title": item.get("title", ""),
+                    "url": item.get("href") or item.get("url", ""),
+                    "snippet": item.get("body") or item.get("snippet", "")
+                })
+        return results
 
     def is_tavily_configured(self) -> bool:
         """Check if Tavily API key is available (same pattern as MemoryService.is_configured)."""
@@ -71,18 +85,9 @@ class WebSearchService:
             except Exception as e:
                 logger.warning("Tavily search failed: %s. Falling back to DuckDuckGo.", str(e))
 
-        # 2. Try DuckDuckGo via duckduckgo_search library if available
+        # 2. Try DuckDuckGo via duckduckgo_search library in worker thread (non-blocking)
         try:
-            from duckduckgo_search import DDGS
-            results = []
-            with DDGS() as ddgs:
-                ddg_gen = ddgs.text(clean_q, max_results=max_results)
-                for item in ddg_gen:
-                    results.append({
-                        "title": item.get("title", ""),
-                        "url": item.get("href") or item.get("url", ""),
-                        "snippet": item.get("body") or item.get("snippet", "")
-                    })
+            results = await asyncio.to_thread(self._sync_ddgs_search, clean_q, max_results)
             if results:
                 logger.info("DuckDuckGo library search succeeded: %d items", len(results))
                 return results[:max_results]

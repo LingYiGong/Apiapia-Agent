@@ -14,33 +14,40 @@ IMPORTANCE_THRESHOLD = 2        # facts scored below this are discarded
 DEDUP_SIMILARITY_THRESHOLD = 0.88  # cosine similarity above which we consider two memories "same topic"
 
 
-# ── LLM client helper ─────────────────────────────────────────────────────────
+# ── LLM client helper with connection reuse ──────────────────────────────────
+_client_cache: Dict[Tuple[str, str], Any] = {}
 
 def _get_llm_client(memory_model: str = "gpt-4o-mini") -> Tuple[Optional[Any], str]:
     """
     Return (OpenAI-compatible client, resolved_model).
     Prefers OpenAI key; falls back to OpenRouter.
+    Reuses client instance to maintain HTTP connection pooling.
     Returns (None, model) when no key is configured.
     """
     try:
         from openai import OpenAI
         from app.core.config import settings
 
-        if settings.OPENAI_API_KEY and settings.OPENAI_API_KEY.strip():
-            client = OpenAI(
-                api_key=settings.OPENAI_API_KEY,
-                base_url=settings.OPENAI_BASE_URL or "https://api.openai.com/v1"
-            )
-            return client, memory_model
+        api_key = None
+        base_url = None
+        target_model = memory_model
 
-        if settings.OPENROUTER_API_KEY and settings.OPENROUTER_API_KEY.strip():
-            # Ensure model slug is in openrouter's "provider/model" format
-            model = memory_model if "/" in memory_model else f"openai/{memory_model}"
-            client = OpenAI(
-                api_key=settings.OPENROUTER_API_KEY,
-                base_url="https://openrouter.ai/api/v1"
-            )
-            return client, model
+        if settings.OPENAI_API_KEY and settings.OPENAI_API_KEY.strip():
+            api_key = settings.OPENAI_API_KEY
+            base_url = settings.OPENAI_BASE_URL or "https://api.openai.com/v1"
+        elif settings.OPENROUTER_API_KEY and settings.OPENROUTER_API_KEY.strip():
+            api_key = settings.OPENROUTER_API_KEY
+            base_url = "https://openrouter.ai/api/v1"
+            target_model = memory_model if "/" in memory_model else f"openai/{memory_model}"
+
+        if not api_key:
+            return None, target_model
+
+        cache_key = (api_key, base_url or "")
+        if cache_key not in _client_cache:
+            _client_cache[cache_key] = OpenAI(api_key=api_key, base_url=base_url)
+
+        return _client_cache[cache_key], target_model
 
     except ImportError:
         logger.warning("openai package not installed; cannot run smart extraction.")
@@ -193,53 +200,37 @@ def _add_single_fact(
         logger.warning("Failed to add memory for user %s: %s", user_id, e)
 
 
-# ── Core smart extraction task (Phases 1 + 2 combined) ───────────────────────
+# ── Shared Fact Dedup & Upsert Pipeline ──────────────────────────────────────
 
-def smart_extract_memories_task(
+def upsert_facts_to_memory(
     user_id: str,
-    messages: List[Dict[str, str]],
+    raw_facts: List[Dict[str, Any]],
     metadata: Optional[Dict[str, Any]] = None,
     memory_model: Optional[str] = None,
-):
+    min_importance: int = IMPORTANCE_THRESHOLD,
+) -> int:
     """
-    4-step smart memory extraction pipeline:
-
-    1. LLM extracts facts from the conversation WITH importance scores (Phase 1)
-    2. Facts below IMPORTANCE_THRESHOLD are discarded (Phase 1)
-    3. Each surviving fact is checked against existing similar memories (Phase 2)
-    4. Decision: ADD / KEEP_NEW (update) / MERGE (update) / IGNORE (Phase 2)
-
-    Replaces the naïve single add_memory() call in the original extraction.py.
+    Dedup and upsert a list of candidate facts/summaries with importance scores into Mem0.
+    Shared pipeline used by both single-turn smart extraction and macro-level dreaming.
+    Returns the count of successfully processed facts.
     """
-    if not memory_service.is_configured():
-        logger.debug("Skipping smart extraction for user %s: no API key configured.", user_id)
-        return
+    if not raw_facts:
+        return 0
 
     resolved_model = memory_model or "gpt-4o-mini"
-    sanitized = sanitize_messages_for_memory(messages)
-    if not sanitized:
-        logger.info("No content after sanitizing for user %s — skipping extraction.", user_id)
-        return
-
-    # ── Step 1: Extract facts with importance scores ───────────────────────
-    facts = _extract_facts_with_importance(sanitized, memory_model=resolved_model)
-    if not facts:
-        logger.info("No facts extracted for user %s.", user_id)
-        return
-
-    # ── Step 2: Filter by importance threshold ─────────────────────────────
     important_facts = [
-        f for f in facts
-        if isinstance(f.get("importance"), (int, float)) and f["importance"] >= IMPORTANCE_THRESHOLD
+        f for f in raw_facts
+        if isinstance(f.get("importance"), (int, float)) and f["importance"] >= min_importance
     ]
     logger.info(
         "user %s: %d/%d facts passed importance filter (threshold=%d)",
-        user_id, len(important_facts), len(facts), IMPORTANCE_THRESHOLD,
+        user_id, len(important_facts), len(raw_facts), min_importance,
     )
     if not important_facts:
-        return
+        return 0
 
     meta_base = (metadata or {}).copy()
+    processed_count = 0
 
     for fact in important_facts:
         fact_text = (fact.get("text") or "").strip()
@@ -247,7 +238,7 @@ def smart_extract_memories_task(
         if not fact_text:
             continue
 
-        # ── Step 3: Dedup search ───────────────────────────────────────────
+        # Dedup search in Mem0
         try:
             similar = memory_service.search_memory(
                 user_id=user_id, query=fact_text, limit=3
@@ -261,7 +252,6 @@ def smart_extract_memories_task(
             if isinstance(m.get("score"), float) and m["score"] >= DEDUP_SIMILARITY_THRESHOLD
         ]
 
-        # ── Step 4: Act on decision ────────────────────────────────────────
         if high_sim:
             existing = high_sim[0]
             existing_id = str(existing.get("id") or "")
@@ -283,6 +273,7 @@ def smart_extract_memories_task(
                         user_id=user_id, memory_id=existing_id, data=final_text
                     )
                     logger.info("Updated memory %s for user %s (%s)", existing_id, user_id, decision)
+                    processed_count += 1
                     continue
                 except Exception as e:
                     logger.warning(
@@ -290,11 +281,50 @@ def smart_extract_memories_task(
                         existing_id, decision, e,
                     )
 
-            # Falls through here for decision==ADD or if update failed
             _add_single_fact(user_id, fact_text, importance, meta_base, resolved_model)
+            processed_count += 1
         else:
-            # No duplicate found → genuinely new information
             _add_single_fact(user_id, fact_text, importance, meta_base, resolved_model)
+            processed_count += 1
+
+    return processed_count
+
+
+# ── Core smart extraction task ────────────────────────────────────────────────
+
+def smart_extract_memories_task(
+    user_id: str,
+    messages: List[Dict[str, str]],
+    metadata: Optional[Dict[str, Any]] = None,
+    memory_model: Optional[str] = None,
+):
+    """
+    4-step smart memory extraction pipeline:
+    1. LLM extracts facts from the conversation WITH importance scores (Phase 1)
+    2. Delegate deduplication & storage to unified upsert_facts_to_memory
+    """
+    if not memory_service.is_configured():
+        logger.debug("Skipping smart extraction for user %s: no API key configured.", user_id)
+        return
+
+    resolved_model = memory_model or "gpt-4o-mini"
+    sanitized = sanitize_messages_for_memory(messages)
+    if not sanitized:
+        logger.info("No content after sanitizing for user %s — skipping extraction.", user_id)
+        return
+
+    facts = _extract_facts_with_importance(sanitized, memory_model=resolved_model)
+    if not facts:
+        logger.info("No facts extracted for user %s.", user_id)
+        return
+
+    upsert_facts_to_memory(
+        user_id=user_id,
+        raw_facts=facts,
+        metadata=metadata,
+        memory_model=resolved_model,
+        min_importance=IMPORTANCE_THRESHOLD,
+    )
 
 
 # ── Message sanitization (unchanged from v1) ──────────────────────────────────

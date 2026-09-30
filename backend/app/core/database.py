@@ -62,6 +62,12 @@ async def init_db():
                     ALTER TABLE conversations ADD COLUMN IF NOT EXISTS is_pinned boolean DEFAULT false;
                     ALTER TABLE conversations ADD COLUMN IF NOT EXISTS pin_order integer DEFAULT 0;
                 END IF;
+
+                -- Composite indexes for high-frequency queries and stats
+                CREATE INDEX IF NOT EXISTS idx_conversations_user_active ON conversations (user_id, is_deleted, updated_at DESC);
+                CREATE INDEX IF NOT EXISTS idx_conversations_user_pin ON conversations (user_id, is_deleted, is_pinned, pin_order);
+                CREATE INDEX IF NOT EXISTS idx_messages_conv_created ON messages (conversation_id, created_at ASC);
+                CREATE INDEX IF NOT EXISTS idx_messages_role_created ON messages (role, created_at);
             END $$;
         """))
 

@@ -55,6 +55,7 @@ interface ModelSelectProps {
   models: ModelCatalogItem[];
   placeholder?: string;
   className?: string;
+  variant?: "default" | "compact";
 }
 
 export const ModelSelect: React.FC<ModelSelectProps> = ({
@@ -63,6 +64,7 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
   models,
   placeholder = "请选择模型",
   className = "",
+  variant = "default",
 }) => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -133,66 +135,107 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
     const bFree = isFreeModel(b);
     if (aFree && !bFree) return -1;
     if (!aFree && bFree) return 1;
-    return 0;
+    return a.name.localeCompare(b.name);
   });
 
   return (
     <div className={cn("relative", className)} ref={containerRef}>
       {/* Trigger Button */}
-      <Button
-        type="button"
-        variant="outline"
-        onClick={() => setOpen(!open)}
-        className="w-full h-auto justify-between gap-3 p-3 text-left shadow-xs"
-      >
-        <div className="flex items-center gap-2.5 min-w-0 flex-1">
-          <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary border shrink-0">
-            <Cpu className="h-4 w-4" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-semibold truncate">
-                {selectedModel ? selectedModel.name : value || placeholder}
-              </span>
-              {selectedModel && isFreeModel(selectedModel) && (
-                <Badge className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10">
-                  免费
-                </Badge>
-              )}
-              {selectedModel && isMultimodalModel(selectedModel) && (
-                <Badge className="text-[10px] bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/30 hover:bg-violet-500/10">
-                  多模态
-                </Badge>
-              )}
-              {selectedModel?.provider && (
-                <Badge variant="secondary" className="text-[10px] uppercase font-mono">
-                  {selectedModel.provider}
-                </Badge>
-              )}
-            </div>
-            {selectedModel ? (
-              <p className="text-[11px] text-muted-foreground font-mono truncate mt-0.5">
-                {selectedModel.id} {selectedModel.description && `· ${selectedModel.description}`}
-              </p>
-            ) : value ? (
-              <p className="text-[11px] text-muted-foreground font-mono truncate mt-0.5">
-                {value}
-              </p>
-            ) : null}
-          </div>
-        </div>
-
-        <ChevronDown
-          className={cn(
-            "h-4 w-4 text-muted-foreground shrink-0 transition-transform duration-200",
-            open && "rotate-180 text-primary"
+      {variant === "compact" ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => setOpen(!open)}
+          className="gap-1.5 sm:gap-2 shadow-sm max-w-[130px] xs:max-w-[170px] sm:max-w-[200px] md:max-w-[210px] lg:max-w-xs truncate shrink min-w-0"
+        >
+          <Cpu className="h-3.5 w-3.5 text-primary shrink-0" />
+          <span className="truncate font-medium">
+            {selectedModel ? selectedModel.name : value || placeholder}
+          </span>
+          {selectedModel && isFreeModel(selectedModel) && (
+            <Badge className="text-[9px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10 shrink-0">
+              免费
+            </Badge>
           )}
-        />
-      </Button>
+          {selectedModel && isMultimodalModel(selectedModel) && (
+            <Badge className="text-[9px] bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/30 hover:bg-violet-500/10 shrink-0">
+              多模态
+            </Badge>
+          )}
+          {selectedModel?.provider && (
+            <Badge variant="secondary" className="hidden xl:inline-flex text-[10px] uppercase font-mono shrink-0">
+              {selectedModel.provider}
+            </Badge>
+          )}
+          <ChevronDown
+            className={cn(
+              "h-3.5 w-3.5 text-muted-foreground shrink-0 ml-0.5 transition-transform duration-200",
+              open && "rotate-180 text-primary"
+            )}
+          />
+        </Button>
+      ) : (
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setOpen(!open)}
+          className="w-full h-auto justify-between gap-3 p-3 text-left shadow-xs"
+        >
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary border shrink-0">
+              <Cpu className="h-4 w-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-semibold truncate">
+                  {selectedModel ? selectedModel.name : value || placeholder}
+                </span>
+                {selectedModel && isFreeModel(selectedModel) && (
+                  <Badge className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10">
+                    免费
+                  </Badge>
+                )}
+                {selectedModel && isMultimodalModel(selectedModel) && (
+                  <Badge className="text-[10px] bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/30 hover:bg-violet-500/10">
+                    多模态
+                  </Badge>
+                )}
+                {selectedModel?.provider && (
+                  <Badge variant="secondary" className="text-[10px] uppercase font-mono">
+                    {selectedModel.provider}
+                  </Badge>
+                )}
+              </div>
+              {selectedModel ? (
+                <p className="text-[11px] text-muted-foreground font-mono truncate mt-0.5">
+                  {selectedModel.id} {selectedModel.description && `· ${selectedModel.description}`}
+                </p>
+              ) : value ? (
+                <p className="text-[11px] text-muted-foreground font-mono truncate mt-0.5">
+                  {value}
+                </p>
+              ) : null}
+            </div>
+          </div>
+
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 text-muted-foreground shrink-0 transition-transform duration-200",
+              open && "rotate-180 text-primary"
+            )}
+          />
+        </Button>
+      )}
 
       {/* Dropdown Panel */}
       {open && (
-        <div className="absolute left-0 right-0 top-full mt-2 rounded-2xl border bg-popover shadow-2xl p-3 z-50 flex flex-col max-h-96 animate-in fade-in zoom-in-95 duration-150">
+        <div className={cn(
+          "rounded-2xl border bg-popover shadow-2xl p-3 z-50 flex flex-col max-h-[75vh] animate-in fade-in zoom-in-95 duration-150",
+          variant === "compact"
+            ? "fixed inset-x-3 top-[calc(3.5rem+env(safe-area-inset-top,0px))] sm:absolute sm:inset-x-auto sm:left-0 sm:top-10 sm:mt-1 sm:w-96"
+            : "absolute left-0 right-0 top-full mt-2"
+        )}>
           {/* Search Input */}
           <div className="relative mb-2.5">
             <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />

@@ -71,9 +71,7 @@ def run_dreaming_task(
     from app.services.memory.service import memory_service
     from app.services.memory.extraction import (
         _get_llm_client,
-        _decide_dedup,
-        _add_single_fact,
-        DEDUP_SIMILARITY_THRESHOLD,
+        upsert_facts_to_memory,
     )
 
     if not memory_service.is_configured():
@@ -149,63 +147,14 @@ def run_dreaming_task(
         "dreamed_at": datetime.now(timezone.utc).isoformat(),
     }
 
-    important = [
-        s for s in summaries
-        if isinstance(s.get("importance"), (int, float)) and s["importance"] >= DREAM_IMPORTANCE_THRESHOLD
-    ]
-    logger.info(
-        "Dreaming: %d/%d summaries passed importance filter for user %s",
-        len(important), len(summaries), user_id,
+    count = upsert_facts_to_memory(
+        user_id=user_id,
+        raw_facts=summaries,
+        metadata=meta_base,
+        memory_model=resolved_model,
+        min_importance=DREAM_IMPORTANCE_THRESHOLD,
     )
-
-    for summary in important:
-        text = (summary.get("text") or "").strip()
-        importance = int(summary.get("importance", 3))
-        if not text:
-            continue
-
-        # Dedup against existing memories (same logic as extraction.py)
-        try:
-            similar = memory_service.search_memory(user_id=user_id, query=text, limit=3)
-        except Exception as e:
-            logger.warning("Dreaming dedup search failed: %s", e)
-            similar = []
-
-        high_sim = [
-            m for m in similar
-            if isinstance(m.get("score"), float) and m["score"] >= DEDUP_SIMILARITY_THRESHOLD
-        ]
-
-        if high_sim:
-            existing = high_sim[0]
-            existing_id = str(existing.get("id") or "")
-            existing_text = existing.get("memory") or ""
-
-            decision, merged_text = _decide_dedup(text, existing_text, memory_model=resolved_model)
-            logger.info(
-                "Dreaming dedup [%s] | new='%.40s' | old='%.40s'",
-                decision, text, existing_text,
-            )
-
-            if decision == "IGNORE":
-                continue
-
-            if decision in ("KEEP_NEW", "MERGE") and existing_id:
-                final_text = merged_text if decision == "MERGE" else text
-                try:
-                    memory_service.update_memory(
-                        user_id=user_id, memory_id=existing_id, data=final_text
-                    )
-                    logger.info("Dreaming: updated memory %s (%s)", existing_id, decision)
-                    continue
-                except Exception as e:
-                    logger.warning("Dreaming: failed to update memory %s: %s", existing_id, e)
-
-            _add_single_fact(user_id, text, importance, meta_base, resolved_model)
-        else:
-            _add_single_fact(user_id, text, importance, meta_base, resolved_model)
-
-    logger.info("Dreaming complete for user %s conv %s", user_id, conv_id)
+    logger.info("Dreaming complete for user %s conv %s: %d summaries processed", user_id, conv_id, count)
 
 
 # ── Public API ─────────────────────────────────────────────────────────────────

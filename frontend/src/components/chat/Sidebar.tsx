@@ -3,10 +3,8 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { Conversation } from "@/types";
-import { CURRENT_VERSION, triggerManualUpdateCheck } from "@/lib/version";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { ConversationListSkeleton } from "@/components/common/PageSkeleton";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
@@ -365,21 +363,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
               )}
             </>
           )}
-        </div>
-      </div>
-
-      {/* Bottom Version info */}
-      <div className="p-2 border-t safe-pb space-y-1">
-        <div className="flex items-center justify-between px-3 py-1 text-[11px] text-muted-foreground select-none">
-          <Badge variant="outline" className="font-mono">v{CURRENT_VERSION}</Badge>
-          <Button
-            variant="link"
-            size="sm"
-            onClick={triggerManualUpdateCheck}
-            className="h-auto p-0 text-xs"
-          >
-            检查更新
-          </Button>
         </div>
       </div>
     </>

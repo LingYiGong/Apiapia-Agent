@@ -701,11 +701,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
-              placeholder={
-                attachments.length > 0
-                  ? "添加说明或问题... (Enter 发送)"
-                  : "输入消息，或拖入图片、PDF等文件... (Enter 发送)"
-              }
+              placeholder="询问 Apiapia"
               className="border-0 bg-transparent shadow-none focus-visible:ring-0 px-2.5 sm:px-3 py-2 text-[16px] sm:text-sm max-h-32 sm:max-h-44 leading-relaxed resize-none min-h-[36px]"
             />
             {isStreaming ? (

@@ -1,17 +1,312 @@
 import re
+import json
 import logging
 import asyncio
-from typing import List, Dict, Any
+from datetime import datetime, timezone
+from typing import List, Dict, Any, Optional, Tuple
+
 from app.services.memory.service import memory_service
 
 logger = logging.getLogger("memory_extraction")
 
+# ── Tunable constants ──────────────────────────────────────────────────────────
+IMPORTANCE_THRESHOLD = 2        # facts scored below this are discarded
+DEDUP_SIMILARITY_THRESHOLD = 0.88  # cosine similarity above which we consider two memories "same topic"
 
-def sanitize_messages_for_memory(messages: List[Dict[str, str]], max_total_chars: int = 5000) -> List[Dict[str, str]]:
+
+# ── LLM client helper ─────────────────────────────────────────────────────────
+
+def _get_llm_client(memory_model: str = "gpt-4o-mini") -> Tuple[Optional[Any], str]:
     """
-    Sanitize and truncate messages before sending to Mem0:
-    1. Strip <think>...</think> reasoning scratchpad (e.g. DeepSeek R1) so it doesn't pollute memory or exceed embedding limits.
-    2. Limit character length to guarantee it never exceeds OpenAI's 8192 embedding token limit.
+    Return (OpenAI-compatible client, resolved_model).
+    Prefers OpenAI key; falls back to OpenRouter.
+    Returns (None, model) when no key is configured.
+    """
+    try:
+        from openai import OpenAI
+        from app.core.config import settings
+
+        if settings.OPENAI_API_KEY and settings.OPENAI_API_KEY.strip():
+            client = OpenAI(
+                api_key=settings.OPENAI_API_KEY,
+                base_url=settings.OPENAI_BASE_URL or "https://api.openai.com/v1"
+            )
+            return client, memory_model
+
+        if settings.OPENROUTER_API_KEY and settings.OPENROUTER_API_KEY.strip():
+            # Ensure model slug is in openrouter's "provider/model" format
+            model = memory_model if "/" in memory_model else f"openai/{memory_model}"
+            client = OpenAI(
+                api_key=settings.OPENROUTER_API_KEY,
+                base_url="https://openrouter.ai/api/v1"
+            )
+            return client, model
+
+    except ImportError:
+        logger.warning("openai package not installed; cannot run smart extraction.")
+
+    return None, memory_model
+
+
+# ── Phase 1: Importance-scored fact extraction ────────────────────────────────
+
+def _extract_facts_with_importance(
+    messages: List[Dict[str, str]],
+    memory_model: str = "gpt-4o-mini"
+) -> List[Dict[str, Any]]:
+    """
+    Use LLM to extract facts about the USER from the conversation,
+    each annotated with an importance score (1-5).
+
+    Importance scale:
+      5 = Core identity (name, occupation, city, long-term goals)
+      4 = Strong preference / habit (explicitly stated likes / dislikes)
+      3 = Useful background (skills, interests, current projects)
+      2 = Short-term state (temporary activities, one-off events)
+      1 = Noise (small talk, greetings — not worth storing)
+    """
+    client, model = _get_llm_client(memory_model)
+    if not client:
+        return []
+
+    conv_text = "\n".join(
+        f"{m.get('role', 'user').upper()}: {m.get('content', '')}"
+        for m in messages
+    )
+
+    prompt = (
+        "从以下对话中提取关于「用户」本人的关键事实和偏好（不包括助理说的内容、建议或分析）。\n\n"
+        "重要性等级（1-5）：\n"
+        "5 = 核心身份信息（姓名、职业、所在城市、长期目标或计划）\n"
+        "4 = 强烈偏好或习惯（明确表达的喜好、厌恶、行为习惯）\n"
+        "3 = 有用背景信息（技能、兴趣爱好、当前项目、正在学习的内容）\n"
+        "2 = 短期状态（临时性活动、一次性事件，信息可能很快过期）\n"
+        "1 = 噪音（随意闲聊、打招呼、无实质记忆价值的内容）\n\n"
+        "要求：\n"
+        "- 每条事实用简洁的陈述句（10-60字），主语为「用户」\n"
+        "- 只记录用户「自己」表达的信息，不包括助理的推断\n"
+        "- 若对话中没有值得记录的事实，facts 返回空列表\n\n"
+        "返回纯 JSON（不要包含任何 markdown 格式）：\n"
+        '{"facts": [{"text": "事实内容", "importance": 3}]}\n\n'
+        "对话内容：\n"
+        + conv_text
+    )
+
+    try:
+        resp = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"},
+            temperature=0.1,
+            max_tokens=800,
+        )
+        raw = resp.choices[0].message.content or "{}"
+        data = json.loads(raw)
+        facts = data.get("facts", [])
+        logger.info("Extracted %d raw facts from conversation", len(facts))
+        return facts
+    except Exception as e:
+        logger.warning("Failed to extract facts with importance: %s", e)
+        return []
+
+
+# ── Phase 2: Dedup / merge decision ──────────────────────────────────────────
+
+def _decide_dedup(
+    new_fact: str,
+    existing_memory: str,
+    memory_model: str = "gpt-4o-mini"
+) -> Tuple[str, str]:
+    """
+    Ask LLM whether a new fact conflicts with / duplicates an existing memory.
+
+    Returns (decision, text_to_use):
+      KEEP_NEW  → replace old with new_fact
+      MERGE     → replace old with merged_text (returned in 2nd element)
+      IGNORE    → keep old, discard new_fact
+      ADD       → both are different facts; add new_fact without touching old
+    """
+    client, model = _get_llm_client(memory_model)
+    if not client:
+        return "ADD", new_fact
+
+    prompt = (
+        "判断以下两条关于同一用户的记忆是否指向同一事实，并决定如何处理。\n\n"
+        f"新记忆：{new_fact}\n"
+        f"现有记忆：{existing_memory}\n\n"
+        "选项说明：\n"
+        "- KEEP_NEW  ：新记忆更准确或更新（例如状态已发生变化），应替换旧记忆\n"
+        "- MERGE     ：两者信息互补，合并为一条更完整的记忆（在 merged_text 给出合并结果）\n"
+        "- IGNORE    ：现有记忆已足够准确，新记忆不带来新增信息，丢弃新记忆\n"
+        "- ADD       ：两者描述不同事实，不存在冲突，都应保留\n\n"
+        "返回纯 JSON：\n"
+        '{"decision": "KEEP_NEW", "merged_text": ""}'
+    )
+
+    try:
+        resp = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"},
+            temperature=0.0,
+            max_tokens=300,
+        )
+        raw = resp.choices[0].message.content or "{}"
+        data = json.loads(raw)
+        decision = str(data.get("decision", "ADD")).upper()
+        merged = data.get("merged_text") or new_fact
+        if decision not in ("KEEP_NEW", "MERGE", "IGNORE", "ADD"):
+            decision = "ADD"
+        return decision, merged
+    except Exception as e:
+        logger.warning("Failed to decide dedup (defaulting to ADD): %s", e)
+        return "ADD", new_fact
+
+
+# ── Shared helper: add a single vetted fact string to Mem0 ────────────────────
+
+def _add_single_fact(
+    user_id: str,
+    fact_text: str,
+    importance: int,
+    meta_base: Dict[str, Any],
+    memory_model: str,
+):
+    """Add a single pre-vetted fact string to Mem0 with importance in metadata."""
+    meta = {
+        **meta_base,
+        "importance": importance,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    try:
+        memory_service.add_memory(
+            user_id=user_id,
+            data=fact_text,
+            metadata=meta,
+            memory_model=memory_model,
+        )
+        logger.info(
+            "Stored new memory for user %s (importance=%d): '%s'",
+            user_id, importance, fact_text[:70],
+        )
+    except Exception as e:
+        logger.warning("Failed to add memory for user %s: %s", user_id, e)
+
+
+# ── Core smart extraction task (Phases 1 + 2 combined) ───────────────────────
+
+def smart_extract_memories_task(
+    user_id: str,
+    messages: List[Dict[str, str]],
+    metadata: Optional[Dict[str, Any]] = None,
+    memory_model: Optional[str] = None,
+):
+    """
+    4-step smart memory extraction pipeline:
+
+    1. LLM extracts facts from the conversation WITH importance scores (Phase 1)
+    2. Facts below IMPORTANCE_THRESHOLD are discarded (Phase 1)
+    3. Each surviving fact is checked against existing similar memories (Phase 2)
+    4. Decision: ADD / KEEP_NEW (update) / MERGE (update) / IGNORE (Phase 2)
+
+    Replaces the naïve single add_memory() call in the original extraction.py.
+    """
+    if not memory_service.is_configured():
+        logger.debug("Skipping smart extraction for user %s: no API key configured.", user_id)
+        return
+
+    resolved_model = memory_model or "gpt-4o-mini"
+    sanitized = sanitize_messages_for_memory(messages)
+    if not sanitized:
+        logger.info("No content after sanitizing for user %s — skipping extraction.", user_id)
+        return
+
+    # ── Step 1: Extract facts with importance scores ───────────────────────
+    facts = _extract_facts_with_importance(sanitized, memory_model=resolved_model)
+    if not facts:
+        logger.info("No facts extracted for user %s.", user_id)
+        return
+
+    # ── Step 2: Filter by importance threshold ─────────────────────────────
+    important_facts = [
+        f for f in facts
+        if isinstance(f.get("importance"), (int, float)) and f["importance"] >= IMPORTANCE_THRESHOLD
+    ]
+    logger.info(
+        "user %s: %d/%d facts passed importance filter (threshold=%d)",
+        user_id, len(important_facts), len(facts), IMPORTANCE_THRESHOLD,
+    )
+    if not important_facts:
+        return
+
+    meta_base = (metadata or {}).copy()
+
+    for fact in important_facts:
+        fact_text = (fact.get("text") or "").strip()
+        importance = int(fact.get("importance", 3))
+        if not fact_text:
+            continue
+
+        # ── Step 3: Dedup search ───────────────────────────────────────────
+        try:
+            similar = memory_service.search_memory(
+                user_id=user_id, query=fact_text, limit=3
+            )
+        except Exception as e:
+            logger.warning("Dedup search failed for user %s, proceeding with ADD: %s", user_id, e)
+            similar = []
+
+        high_sim = [
+            m for m in similar
+            if isinstance(m.get("score"), float) and m["score"] >= DEDUP_SIMILARITY_THRESHOLD
+        ]
+
+        # ── Step 4: Act on decision ────────────────────────────────────────
+        if high_sim:
+            existing = high_sim[0]
+            existing_id = str(existing.get("id") or "")
+            existing_text = existing.get("memory") or ""
+
+            decision, merged_text = _decide_dedup(fact_text, existing_text, memory_model=resolved_model)
+            logger.info(
+                "Dedup [%s] for user %s | new='%.40s' | old='%.40s'",
+                decision, user_id, fact_text, existing_text,
+            )
+
+            if decision == "IGNORE":
+                continue
+
+            if decision in ("KEEP_NEW", "MERGE") and existing_id:
+                final_text = merged_text if decision == "MERGE" else fact_text
+                try:
+                    memory_service.update_memory(
+                        user_id=user_id, memory_id=existing_id, data=final_text
+                    )
+                    logger.info("Updated memory %s for user %s (%s)", existing_id, user_id, decision)
+                    continue
+                except Exception as e:
+                    logger.warning(
+                        "Failed to update memory %s (%s) — falling back to ADD: %s",
+                        existing_id, decision, e,
+                    )
+
+            # Falls through here for decision==ADD or if update failed
+            _add_single_fact(user_id, fact_text, importance, meta_base, resolved_model)
+        else:
+            # No duplicate found → genuinely new information
+            _add_single_fact(user_id, fact_text, importance, meta_base, resolved_model)
+
+
+# ── Message sanitization (unchanged from v1) ──────────────────────────────────
+
+def sanitize_messages_for_memory(
+    messages: List[Dict[str, str]],
+    max_total_chars: int = 5000,
+) -> List[Dict[str, str]]:
+    """
+    Sanitize and truncate messages before processing:
+    1. Strip <think>...</think> reasoning scratchpad (e.g. DeepSeek R1)
+    2. Limit character length to prevent OpenAI embedding 8192 token overflow.
     """
     if not messages:
         return []
@@ -23,11 +318,9 @@ def sanitize_messages_for_memory(messages: List[Dict[str, str]], max_total_chars
         role = msg.get("role", "user")
         content = msg.get("content", "") or ""
 
-        # Remove <think>...</think> internal reasoning
         if "<think>" in content:
             content = re.sub(r"<think>[\s\S]*?</think>", "", content).strip()
 
-        # Enforce max length per message to prevent embedding overflow
         if len(content) > max_per_msg:
             content = content[:max_per_msg] + "... [内容已截断]"
 
@@ -37,49 +330,27 @@ def sanitize_messages_for_memory(messages: List[Dict[str, str]], max_total_chars
     return cleaned
 
 
+# ── Public API (backward-compatible) ──────────────────────────────────────────
+
 def extract_memories_task(
     user_id: str,
     messages: List[Dict[str, str]],
-    metadata: Dict[str, Any] = None,
-    memory_model: str = None
+    metadata: Optional[Dict[str, Any]] = None,
+    memory_model: Optional[str] = None,
 ):
     """
-    Background worker task to extract and persist long-term memories using Mem0 OSS.
-    Runs asynchronously and non-blocking after SSE streaming finishes.
+    Background worker — now delegates to smart_extract_memories_task.
+    Signature kept identical to v1 for backward compatibility.
     """
-    if not memory_service.is_configured():
-        logger.debug("Skipping memory extraction for user %s: No API key is configured.", user_id)
-        return
-
-    try:
-        sanitized_messages = sanitize_messages_for_memory(messages)
-        if not sanitized_messages:
-            logger.info("No content remaining after sanitizing messages for user %s", user_id)
-            return
-
-        logger.info(
-            "Starting background memory extraction for user %s (%d messages, model=%s)",
-            user_id,
-            len(sanitized_messages),
-            memory_model or "default"
-        )
-        result = memory_service.add_memory(
-            user_id=user_id,
-            data=sanitized_messages,
-            metadata=metadata or {},
-            memory_model=memory_model
-        )
-        logger.info("Successfully completed memory extraction for user %s: %s", user_id, result)
-    except Exception as e:
-        logger.error("Error in background memory extraction for user %s: %s", user_id, str(e), exc_info=True)
+    smart_extract_memories_task(user_id, messages, metadata, memory_model)
 
 
 async def schedule_memory_extraction(
     user_id: str,
     messages: List[Dict[str, str]],
-    metadata: Dict[str, Any] = None,
-    memory_model: str = None
+    metadata: Optional[Dict[str, Any]] = None,
+    memory_model: Optional[str] = None,
 ):
-    """Schedule extraction to run on background executor without blocking current coroutine."""
+    """Schedule extraction to run on background executor without blocking the caller."""
     loop = asyncio.get_running_loop()
     loop.run_in_executor(None, extract_memories_task, user_id, messages, metadata, memory_model)

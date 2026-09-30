@@ -16,6 +16,7 @@ from app.api.v1.deps import get_current_user
 from app.services.llm.factory import get_llm_provider
 from app.services.memory.retrieval import retrieve_relevant_memories
 from app.services.memory.extraction import schedule_memory_extraction
+from app.services.memory.dreaming import schedule_dreaming
 from app.services.document_parser import parse_attachment, fetch_and_parse_url, extract_urls
 from app.services.search import web_search_service, should_search_web
 from app.core.security import decrypt_api_key
@@ -402,6 +403,36 @@ async def chat_stream(
                     metadata={"conversation_id": conv_id},
                     memory_model=memory_model_to_use
                 )
+
+                # ── Dreaming: count total messages in this conversation and
+                #    trigger macro-level summarisation every DREAM_INTERVAL turns.
+                try:
+                    from sqlalchemy import func
+                    async with AsyncSessionLocal() as count_db:
+                        count_stmt = select(func.count()).where(
+                            Message.conversation_id == conv_id
+                        )
+                        total_msg_count: int = (await count_db.execute(count_stmt)).scalar() or 0
+
+                    # Build plain-dict snapshots of recent messages for the executor
+                    dreaming_messages = [
+                        {"role": m.role, "content": m.content}
+                        for m in recent_msgs  # recent_msgs already fetched above
+                    ] + [
+                        {"role": "user",      "content": user_content_for_memory},
+                        {"role": "assistant", "content": clean_assistant},
+                    ]
+
+                    await schedule_dreaming(
+                        user_id=user_id,
+                        conv_id=conv_id,
+                        total_message_count=total_msg_count,
+                        recent_messages=dreaming_messages,
+                        memory_model=memory_model_to_use,
+                    )
+                except Exception as dream_err:
+                    logger.warning("Failed to schedule dreaming for user %s: %s", user_id, dream_err)
+
 
     return StreamingResponse(
         sse_event_stream(),

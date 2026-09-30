@@ -60,7 +60,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       {/* Top Navigation Header - flex-nowrap to prevent text/buttons dropping down on iPad */}
       <header
         className={cn(
-          "border-b bg-background/90 backdrop-blur px-3 sm:px-4 items-center justify-between shrink-0 z-30 flex-nowrap min-w-0",
+          "border-b border-border/70 bg-background/80 backdrop-blur-xl px-3 sm:px-4 items-center justify-between shrink-0 z-30 flex-nowrap min-w-0",
           isChatPage
             ? "hidden md:flex md:h-14"
             : "flex pt-[max(0.65rem,env(safe-area-inset-top))] pb-2 md:pt-0 md:pb-0 md:h-14 min-h-[calc(3.5rem+env(safe-area-inset-top,0px))] md:min-h-14"
@@ -171,7 +171,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       {/* Mobile Bottom Tab Bar (shown on non-chat pages to maximize chat canvas in /chat) */}
       {!isChatPage && (
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur-lg border-t flex items-center justify-around px-2 py-1 safe-pb shadow-lg">
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-background/80 backdrop-blur-xl border-t border-border/70 flex items-center justify-around px-2 py-1 safe-pb shadow-lg">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname.startsWith(item.href);

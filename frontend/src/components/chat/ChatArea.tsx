@@ -301,7 +301,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   return (
     <div className="flex-1 flex flex-col h-full bg-background relative overflow-hidden min-w-0 max-w-full">
       {/* Top Bar with Searchable Model Picker & Mobile/Tablet Controls */}
-      <div className="border-b bg-background/90 backdrop-blur-md px-2.5 sm:px-4 flex items-center justify-between z-20 gap-1.5 sm:gap-2 flex-nowrap min-w-0 pt-[max(0.65rem,env(safe-area-inset-top))] pb-2 md:pb-2 md:pt-2 min-h-[calc(3.25rem+env(safe-area-inset-top,0px))] md:min-h-12">
+      <div className="border-b border-border/70 bg-background/80 backdrop-blur-xl px-2.5 sm:px-4 flex items-center justify-between z-20 gap-1.5 sm:gap-2 flex-nowrap min-w-0 pt-[max(0.65rem,env(safe-area-inset-top))] pb-2 md:pb-2 md:pt-2 min-h-[calc(3.25rem+env(safe-area-inset-top,0px))] md:min-h-12">
         <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 shrink">
           {/* Mobile Sidebar Toggle Button */}
           {onToggleSidebar && (
@@ -317,7 +317,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             </Button>
           )}
 
-          <span className="hidden lg:inline text-xs text-slate-500 dark:text-slate-400 font-medium shrink-0 whitespace-nowrap">
+          <span className="hidden lg:inline text-xs text-muted-foreground font-medium shrink-0 whitespace-nowrap">
             当前模型：
           </span>
 
@@ -578,24 +578,24 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               handleFiles(e.dataTransfer.files);
             }
           }}
-          className="max-w-3xl mx-auto rounded-2xl sm:rounded-3xl border border-input bg-muted/40 p-1 sm:p-1.5 focus-within:border-ring focus-within:ring-1 focus-within:ring-ring shadow-sm flex flex-col"
+          className="max-w-3xl mx-auto rounded-2xl sm:rounded-3xl border border-border/80 bg-muted/40 dark:bg-[#1c1c1e] p-1 sm:p-1.5 focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/40 shadow-xs flex flex-col"
         >
           {/* Attachment Preview Tray */}
           {attachments.length > 0 && (
-            <div className="flex items-center gap-2 overflow-x-auto pb-2 mb-1.5 pt-0.5 px-1 border-b">
+            <div className="flex items-center gap-2 overflow-x-auto pb-2 mb-1.5 pt-0.5 px-1 border-b border-border/60">
               {attachments.map((att) => (
                 <div
                   key={att.id}
-                  className="relative group shrink-0 flex items-center gap-2 p-1.5 pr-2 rounded-xl bg-card border shadow-sm"
+                  className="relative group shrink-0 flex items-center gap-2 p-1.5 pr-2 rounded-xl bg-card dark:bg-[#2c2c2e] border border-border/70 shadow-xs"
                 >
                   {att.type === "image" ? (
                     <img
                       src={att.data_url}
                       alt={att.name}
-                      className="h-9 w-9 rounded-lg object-cover border"
+                      className="h-9 w-9 rounded-lg object-cover border border-border/60"
                     />
                   ) : (
-                    <div className="h-9 w-9 rounded-lg bg-primary/10 border flex items-center justify-center text-primary">
+                    <div className="h-9 w-9 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
                       <FileText className="h-4 w-4" />
                     </div>
                   )}

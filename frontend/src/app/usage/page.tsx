@@ -404,17 +404,17 @@ export default function UsagePage() {
             </div>
 
             {/* User Breakdown Table */}
-            <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
-              <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+            <div className="rounded-xl border border-border/80 bg-card shadow-xs overflow-hidden">
+              <div className="p-5 border-b border-border/70 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                 <div className="min-w-0">
-                  <h2 className="text-sm font-bold   uppercase tracking-wider">
+                  <h2 className="text-sm font-bold uppercase tracking-wider">
                     各用户详细消耗明细 ({currentPeriodName})
                   </h2>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     按当前选定时间区间内的总 Token 消耗排序，支持实时停用/启用异常账号。
                   </p>
                 </div>
-                <span className="text-xs text-slate-500 font-mono shrink-0">共 {adminStats.users.length} 位用户</span>
+                <span className="text-xs text-muted-foreground font-mono shrink-0">共 {adminStats.users.length} 位用户</span>
               </div>
 
               <Table className="text-xs">
@@ -462,8 +462,8 @@ export default function UsagePage() {
                             </span>
                           </TableCell>
                           <TableCell className="py-3.5 px-4 font-mono whitespace-nowrap">
-                            <span className="font-semibold text-slate-800 dark:text-slate-200">{u.messages_count}</span>
-                            <span className="text-slate-400 text-[11px]"> 轮 ({u.conversations_count} 会话)</span>
+                            <span className="font-semibold text-foreground">{u.messages_count}</span>
+                            <span className="text-muted-foreground text-[11px]"> 轮 ({u.conversations_count} 会话)</span>
                           </TableCell>
                           <TableCell className="py-3.5 px-4 font-mono font-bold whitespace-nowrap">
                             {u.total_tokens.toLocaleString()}
@@ -476,12 +476,12 @@ export default function UsagePage() {
                             <div className="font-bold text-emerald-600 dark:text-emerald-400">
                               ¥{u.estimated_cost_cny.toFixed(2)}
                             </div>
-                            <div className="text-[10px] text-slate-400">
+                            <div className="text-[10px] text-muted-foreground">
                               ${u.estimated_cost_usd.toFixed(4)}
                             </div>
                           </TableCell>
                           <TableCell
-                            className="py-3.5 px-4 font-mono text-[11px] text-slate-600 dark:text-slate-300 max-w-[220px] truncate"
+                            className="py-3.5 px-4 font-mono text-[11px] text-muted-foreground max-w-[220px] truncate"
                             title={u.top_model}
                           >
                             {u.top_model}
@@ -650,13 +650,13 @@ export default function UsagePage() {
                       key={d.date}
                       className="p-3 rounded-xl border bg-muted/40 text-center space-y-1"
                     >
-                      <div className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 font-mono">
+                      <div className="text-[11px] font-semibold text-muted-foreground font-mono">
                         {d.date}
                       </div>
-                      <div className="text-sm font-bold   font-mono">
+                      <div className="text-sm font-bold font-mono">
                         {d.tokens.toLocaleString()}
                       </div>
-                      <div className="text-[10px] text-slate-400">
+                      <div className="text-[10px] text-muted-foreground">
                         {d.calls} 次 · ¥{d.cost_cny.toFixed(2)}
                       </div>
                     </div>
@@ -727,16 +727,16 @@ export default function UsagePage() {
             </div>
 
             {/* My Models Breakdown */}
-            <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
-              <div className="p-5 border-b border-slate-200 dark:border-slate-800">
-                <h2 className="text-sm font-bold   uppercase tracking-wider flex items-center gap-2">
-                  <Cpu className="h-4 w-4 text-indigo-500" />
+            <div className="rounded-xl border border-border/80 bg-card shadow-xs overflow-hidden">
+              <div className="p-5 border-b border-border/70">
+                <h2 className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+                  <Cpu className="h-4 w-4 text-primary" />
                   我使用的模型与费用明细 ({currentPeriodName})
                 </h2>
               </div>
 
               {myStats.model_breakdown.length === 0 ? (
-                <div className="p-8 text-center text-xs text-slate-500">
+                <div className="p-8 text-center text-xs text-muted-foreground">
                   该时间区间内暂无模型调用数据。
                 </div>
               ) : (
@@ -816,13 +816,13 @@ export default function UsagePage() {
                       key={d.date}
                       className="p-3 rounded-xl border bg-muted/40 text-center space-y-1"
                     >
-                      <div className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 font-mono">
+                      <div className="text-[11px] font-semibold text-muted-foreground font-mono">
                         {d.date}
                       </div>
-                      <div className="text-sm font-bold   font-mono">
+                      <div className="text-sm font-bold font-mono">
                         {d.tokens.toLocaleString()}
                       </div>
-                      <div className="text-[10px] text-slate-400">
+                      <div className="text-[10px] text-muted-foreground">
                         {d.calls} 次对话 · ¥{d.cost_cny.toFixed(2)}
                       </div>
                     </div>

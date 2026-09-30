@@ -158,10 +158,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
         }}
         onClick={() => handleSelectConv(c.id)}
         className={cn(
-          "group flex items-center gap-1 px-2 py-2 rounded-xl cursor-pointer text-xs transition-all border",
+          "group flex items-center gap-1 px-2.5 py-2 rounded-xl cursor-pointer text-xs transition-all border",
           isSelected
-            ? "bg-background font-medium shadow-sm"
-            : "text-muted-foreground hover:text-foreground hover:bg-accent border-transparent",
+            ? "bg-card dark:bg-[#2c2c2e] text-foreground font-medium shadow-xs border-border/70"
+            : "text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10 border-transparent",
           dragId === c.id && "opacity-50",
           dropId === c.id && dragId !== c.id && "ring-1 ring-primary"
         )}
@@ -319,7 +319,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             placeholder="搜索历史对话..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-8 text-xs"
+            className="pl-8 text-xs bg-background dark:bg-[#1c1c1e] border-border/60"
           />
         </div>
       </div>
@@ -352,7 +352,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     })
                   )}
                   {unpinned.length > 0 && (
-                    <div className="px-3 pt-2 pb-0.5 text-[10px] font-semibold tracking-wider text-muted-foreground select-none border-t mt-2">
+                    <div className="px-3 pt-2 pb-0.5 text-[10px] font-semibold tracking-wider text-muted-foreground select-none border-t border-border/60 mt-2">
                       全部对话
                     </div>
                   )}
@@ -371,13 +371,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <>
       {/* Desktop Persistent Sidebar */}
-      <aside className="hidden md:flex md:w-64 lg:w-72 flex-col border-r bg-background h-full shrink-0">
+      <aside className="hidden md:flex md:w-64 lg:w-72 flex-col border-r border-border/70 bg-muted/30 dark:bg-[#121214] h-full shrink-0">
         {sidebarBody(false)}
       </aside>
 
       {/* Mobile Drawer via standard shadcn Sheet */}
       <Sheet open={isOpen} onOpenChange={(open) => !open && onClose?.()}>
-        <SheetContent side="left" className="p-0 w-[84vw] max-w-xs flex flex-col h-full bg-background [&>button]:hidden">
+        <SheetContent side="left" className="p-0 w-[84vw] max-w-xs flex flex-col h-full bg-background dark:bg-[#121214] border-r border-border/70 [&>button]:hidden">
           {sidebarBody(true)}
         </SheetContent>
       </Sheet>

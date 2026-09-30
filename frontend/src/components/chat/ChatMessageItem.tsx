@@ -84,7 +84,7 @@ const markdownComponents = {
     <img
       {...props}
       alt={props.alt || "image"}
-      className="max-h-80 max-w-full rounded-xl border border-slate-200 dark:border-slate-700/80 my-2 object-contain shadow-sm"
+      className="max-h-80 max-w-full rounded-xl border border-border/80 my-2 object-contain shadow-sm"
     />
   ),
   a: ({ node, ...props }: any) => (
@@ -92,45 +92,45 @@ const markdownComponents = {
       {...props}
       target="_blank"
       rel="noopener noreferrer"
-      className="text-indigo-600 dark:text-indigo-400 underline hover:text-indigo-500 font-medium break-all [overflow-wrap:anywhere]"
+      className="text-primary underline underline-offset-2 hover:opacity-80 font-medium break-all [overflow-wrap:anywhere]"
     />
   ),
   p: ({ node, children, ...props }: any) => (
-    <p {...props} className="break-words [overflow-wrap:anywhere] leading-[1.65] my-2 text-[15px] sm:text-sm text-slate-800 dark:text-slate-200">
+    <p {...props} className="break-words [overflow-wrap:anywhere] leading-[1.65] my-2 text-[15px] sm:text-sm text-foreground/90">
       {renderWithBreaks(children)}
     </p>
   ),
   h1: ({ node, ...props }: any) => (
-    <h1 {...props} className="text-base sm:text-lg font-bold mt-4 mb-2 text-slate-900 dark:text-white" />
+    <h1 {...props} className="text-base sm:text-lg font-bold mt-4 mb-2 text-foreground tracking-tight" />
   ),
   h2: ({ node, ...props }: any) => (
-    <h2 {...props} className="text-sm sm:text-base font-bold mt-3 mb-1.5 text-slate-900 dark:text-white" />
+    <h2 {...props} className="text-sm sm:text-base font-bold mt-3 mb-1.5 text-foreground tracking-tight" />
   ),
   h3: ({ node, ...props }: any) => (
-    <h3 {...props} className="text-xs sm:text-sm font-semibold mt-2.5 mb-1 text-slate-900 dark:text-white" />
+    <h3 {...props} className="text-xs sm:text-sm font-semibold mt-2.5 mb-1 text-foreground" />
   ),
   table: ({ node, ...props }: any) => (
-    <div className="w-full max-w-full my-3 overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs">
-      <table {...props} className="min-w-full divide-y divide-slate-200 dark:divide-slate-800 text-xs sm:text-sm border-collapse" />
+    <div className="w-full max-w-full my-3 overflow-x-auto rounded-xl border border-border/70 shadow-2xs">
+      <table {...props} className="min-w-full divide-y divide-border/70 text-xs sm:text-sm border-collapse" />
     </div>
   ),
   thead: ({ node, ...props }: any) => (
-    <thead {...props} className="bg-slate-100/90 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300" />
+    <thead {...props} className="bg-muted/60 dark:bg-[#2c2c2e] text-foreground font-medium" />
   ),
   th: ({ node, children, ...props }: any) => (
-    <th {...props} className="px-3.5 py-2.5 font-semibold text-left border-b border-slate-200 dark:border-slate-800 whitespace-nowrap bg-slate-100/90 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300">
+    <th {...props} className="px-3.5 py-2.5 font-semibold text-left border-b border-border/70 whitespace-nowrap bg-muted/60 dark:bg-[#2c2c2e] text-foreground">
       {renderWithBreaks(children)}
     </th>
   ),
   td: ({ node, children, ...props }: any) => (
-    <td {...props} className="px-3.5 py-2.5 border-b border-slate-100 dark:border-slate-800/60 whitespace-nowrap text-slate-800 dark:text-slate-200 align-top">
+    <td {...props} className="px-3.5 py-2.5 border-b border-border/50 whitespace-nowrap text-foreground/90 align-top">
       {renderWithBreaks(children)}
     </td>
   ),
   pre: ({ node, ...props }: any) => (
     <pre
       {...props}
-      className="my-2.5 max-w-full overflow-x-auto rounded-xl bg-slate-900 dark:bg-slate-950 p-3 sm:p-4 text-[13px] sm:text-xs text-slate-100 font-mono shadow-inner border border-slate-800/80"
+      className="my-2.5 max-w-full overflow-x-auto rounded-xl bg-[#161618] p-3 sm:p-4 text-[13px] sm:text-xs text-[#f5f5f7] font-mono shadow-inner border border-border/70"
     />
   ),
   code: ({ node, inline, className, children, ...props }: any) => {
@@ -139,7 +139,7 @@ const markdownComponents = {
       return (
         <code
           {...props}
-          className="px-1.5 py-0.5 rounded-md bg-slate-200/70 dark:bg-slate-800 text-indigo-700 dark:text-indigo-300 font-mono text-[13px] sm:text-xs break-all [overflow-wrap:anywhere]"
+          className="px-1.5 py-0.5 rounded-md bg-muted/80 dark:bg-[#2c2c2e] text-primary font-mono text-[13px] sm:text-xs break-all [overflow-wrap:anywhere]"
         >
           {children}
         </code>
@@ -158,12 +158,12 @@ const markdownComponents = {
     <ol {...props} className="list-decimal list-outside pl-4 sm:pl-5 my-1.5 space-y-1 break-words [overflow-wrap:anywhere]" />
   ),
   li: ({ node, children, ...props }: any) => (
-    <li {...props} className="break-words [overflow-wrap:anywhere] leading-[1.6] my-1 text-[15px] sm:text-sm text-slate-800 dark:text-slate-200">
+    <li {...props} className="break-words [overflow-wrap:anywhere] leading-[1.6] my-1 text-[15px] sm:text-sm text-foreground/90">
       {renderWithBreaks(children)}
     </li>
   ),
   blockquote: ({ node, ...props }: any) => (
-    <blockquote {...props} className="border-l-3 border-indigo-500 pl-3 py-1 my-2 text-slate-600 dark:text-slate-400 italic break-words [overflow-wrap:anywhere]" />
+    <blockquote {...props} className="border-l-3 border-primary pl-3 py-1 my-2 text-muted-foreground italic break-words [overflow-wrap:anywhere]" />
   ),
 };
 
@@ -179,7 +179,7 @@ export function ThoughtBox({ thought, autoScroll }: { thought: string; autoScrol
   return (
     <div
       ref={ref}
-      className="mt-2 pl-2.5 border-l-2 border-indigo-400 dark:border-indigo-600 text-xs text-slate-600 dark:text-slate-400 whitespace-pre-wrap font-mono max-h-72 overflow-y-auto overflow-x-hidden leading-relaxed break-words [overflow-wrap:anywhere]"
+      className="mt-2 pl-2.5 border-l-2 border-primary/50 text-xs text-muted-foreground whitespace-pre-wrap font-mono max-h-72 overflow-y-auto overflow-x-hidden leading-relaxed break-words [overflow-wrap:anywhere]"
     >
       {thought}
     </div>
@@ -200,7 +200,7 @@ export function renderMessageBody(
         {...props}
         alt={props.alt || "image"}
         onClick={() => props.src && onImageClick?.(props.src, props.alt)}
-        className="max-h-80 max-w-full rounded-xl border border-slate-200 dark:border-slate-700/80 my-2 object-contain shadow-sm cursor-zoom-in hover:opacity-95 transition-opacity"
+        className="max-h-80 max-w-full rounded-xl border border-border/80 my-2 object-contain shadow-sm cursor-zoom-in hover:opacity-95 transition-opacity"
         title="点击放大查看原图"
       />
     ),
@@ -229,15 +229,15 @@ export function renderMessageBody(
       <div className="space-y-2.5">
         {thought && (
           <details
-            className="rounded-xl border border-indigo-100 dark:border-indigo-900/60 bg-indigo-50/50 dark:bg-indigo-950/30 p-2.5 text-xs group transition-all min-w-0 max-w-full overflow-hidden"
+            className="rounded-xl border border-border/70 bg-muted/40 dark:bg-[#1c1c1e]/80 p-2.5 text-xs group transition-all min-w-0 max-w-full overflow-hidden"
             open={isStreaming && !mainContent}
           >
-            <summary className="cursor-pointer select-none font-medium text-indigo-700 dark:text-indigo-300 flex items-center justify-between">
+            <summary className="cursor-pointer select-none font-medium text-primary flex items-center justify-between">
               <span className="flex items-center gap-1.5">
-                <Brain className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400 animate-pulse" />
+                <Brain className="h-3.5 w-3.5 text-primary animate-pulse" />
                 <span>思考过程</span>
               </span>
-              <span className="text-[10px] text-slate-400 group-open:rotate-180 transition-transform">
+              <span className="text-[10px] text-muted-foreground group-open:rotate-180 transition-transform">
                 ▼
               </span>
             </summary>

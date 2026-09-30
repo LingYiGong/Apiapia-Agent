@@ -134,7 +134,7 @@ export const MemorySidebar: React.FC<MemorySidebarProps> = ({
         </div>
       </ScrollArea>
 
-      <div className="p-3 border-t bg-muted/40 safe-pb">
+      <div className="p-3 border-t border-border/70 bg-muted/30 dark:bg-[#121214] safe-pb">
         <Button variant="ghost" size="sm" asChild className="w-full">
           <Link href="/memory" onClick={onClose}>
             <span>查看完整记忆库 →</span>
@@ -147,13 +147,13 @@ export const MemorySidebar: React.FC<MemorySidebarProps> = ({
   return (
     <>
       {/* Desktop Persistent Memory Sidebar */}
-      <aside className="hidden lg:flex lg:w-72 flex-col border-l bg-background h-full shrink-0">
+      <aside className="hidden lg:flex lg:w-72 flex-col border-l border-border/70 bg-muted/30 dark:bg-[#121214] h-full shrink-0">
         {memoryBody(false)}
       </aside>
 
       {/* Mobile Drawer via standard shadcn Sheet */}
       <Sheet open={isOpen} onOpenChange={(open) => !open && onClose?.()}>
-        <SheetContent side="right" className="p-0 w-[84vw] max-w-xs flex flex-col h-full bg-background [&>button]:hidden">
+        <SheetContent side="right" className="p-0 w-[84vw] max-w-xs flex flex-col h-full bg-background dark:bg-[#121214] border-l border-border/70 [&>button]:hidden">
           {memoryBody(true)}
         </SheetContent>
       </Sheet>

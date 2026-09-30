@@ -50,9 +50,6 @@ const TEMPERATURE_PRESETS = [
     desc: "稳定可复现，适合事实与代码",
     value: 0.2,
     icon: Target,
-    iconColor: "text-sky-500",
-    activeClass:
-      "border-sky-600 bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 shadow-sm ring-1 ring-sky-600",
   },
   {
     id: "balanced",
@@ -60,9 +57,6 @@ const TEMPERATURE_PRESETS = [
     desc: "日常聊天推荐",
     value: 0.7,
     icon: Scale,
-    iconColor: "text-indigo-500",
-    activeClass:
-      "border-indigo-600 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-400 shadow-sm ring-1 ring-indigo-600",
   },
   {
     id: "creative",
@@ -70,9 +64,6 @@ const TEMPERATURE_PRESETS = [
     desc: "写故事起名要灵感时用",
     value: 1.0,
     icon: Palette,
-    iconColor: "text-violet-500",
-    activeClass:
-      "border-violet-600 bg-violet-50 dark:bg-violet-950/60 text-violet-700 dark:text-violet-300 shadow-sm ring-1 ring-violet-600",
   },
 ] as const;
 
@@ -82,9 +73,6 @@ const SYSTEM_PROMPT_PRESETS = [
     label: "默认助手",
     desc: "通用推荐",
     icon: Sparkles,
-    iconColor: "text-indigo-500",
-    activeClass:
-      "border-indigo-600 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-400 shadow-sm ring-1 ring-indigo-600",
     text: "你是一个智能、真诚、有洞察力的个人智能助理。请根据用户提供的历史背景和长期记忆为用户提供高质量服务。",
   },
   {
@@ -92,9 +80,6 @@ const SYSTEM_PROMPT_PRESETS = [
     label: "简洁直接",
     desc: "直击要点不啰嗦",
     icon: Zap,
-    iconColor: "text-sky-500",
-    activeClass:
-      "border-sky-600 bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 shadow-sm ring-1 ring-sky-600",
     text: "你是一个高效直接的个人智能助理。回答简洁、直击要点，避免寒暄和冗余解释，善用列表呈现；除非用户要求，不输出长篇大论。",
   },
   {
@@ -102,9 +87,6 @@ const SYSTEM_PROMPT_PRESETS = [
     label: "严谨学术",
     desc: "有依据分步骤",
     icon: BookOpen,
-    iconColor: "text-emerald-500",
-    activeClass:
-      "border-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 shadow-sm ring-1 ring-emerald-600",
     text: "你是一个严谨细致的个人智能助理。回答准确、有依据，不确定的内容明确说明；涉及事实时优先引用检索到的来源；逻辑清晰、分步骤表达。",
   },
   {
@@ -112,9 +94,6 @@ const SYSTEM_PROMPT_PRESETS = [
     label: "创意灵感",
     desc: "多灵感不死板",
     icon: Lightbulb,
-    iconColor: "text-amber-500",
-    activeClass:
-      "border-amber-600 bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 shadow-sm ring-1 ring-amber-600",
     text: "你是一个富有想象力的个人智能助理。乐于发散、多给灵感与可能性，表达生动；涉及客观事实时仍以检索资料为准，不虚构。",
   },
   { id: "custom", label: "自定义", desc: "自己写人设", icon: PenLine, text: "" },
@@ -384,11 +363,11 @@ export default function SettingsPage() {
                         className={cn(
                           "flex flex-col items-center justify-center gap-1 p-2 sm:p-3 rounded-xl border text-xs font-medium transition-all",
                           isActive
-                            ? preset.activeClass
-                            : "border-border bg-muted/40 text-muted-foreground hover:border-muted-foreground/40"
+                            ? "border-primary bg-primary/10 text-primary shadow-xs ring-1 ring-primary"
+                            : "border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground"
                         )}
                       >
-                        <Icon className={cn("h-4 w-4 sm:h-5 sm:w-5", !isActive && preset.iconColor)} />
+                        <Icon className={cn("h-4 w-4 sm:h-5 sm:w-5", isActive ? "text-primary" : "text-muted-foreground")} />
                         <span className="font-semibold text-[11px] sm:text-xs">{preset.label}</span>
                         <span className="hidden sm:block text-[10px] font-normal opacity-70 text-center leading-snug">
                           {preset.desc}
@@ -456,11 +435,11 @@ export default function SettingsPage() {
                         className={cn(
                           "flex flex-col items-center gap-1 p-3 rounded-xl border text-xs font-medium transition-all",
                           isActive
-                            ? preset.activeClass
-                            : "border-border bg-muted/40 text-muted-foreground hover:border-muted-foreground/40"
+                            ? "border-primary bg-primary/10 text-primary shadow-xs ring-1 ring-primary"
+                            : "border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground"
                         )}
                       >
-                        <Icon className={cn("h-5 w-5", !isActive && preset.iconColor)} />
+                        <Icon className={cn("h-5 w-5", isActive ? "text-primary" : "text-muted-foreground")} />
                         <span className="font-semibold">{preset.label}</span>
                         <span className="text-[10px] font-normal opacity-70 text-center leading-snug">
                           {preset.desc}

@@ -7,7 +7,7 @@ import {
   checkAppUpdate,
   performAppUpdate,
 } from "@/lib/version";
-import { Sparkles, RefreshCw, ArrowUpRight, CheckCircle2, AlertCircle } from "lucide-react";
+import { Sparkles, RefreshCw, ArrowUpRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,26 +19,16 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { toast } from "sonner";
 
 export const UpdatePrompt: React.FC = () => {
   const [updateInfo, setUpdateInfo] = useState<VersionInfo | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [toastType, setToastType] = useState<"info" | "success" | "warning">("info");
-
-  const showToast = useCallback((msg: string, type: "info" | "success" | "warning" = "info") => {
-    setToastMessage(msg);
-    setToastType(type);
-    const timer = setTimeout(() => {
-      setToastMessage(null);
-    }, 3500);
-    return () => clearTimeout(timer);
-  }, []);
 
   const runCheck = useCallback(async (isManual = false) => {
     if (isManual) {
-      showToast("正在检查是否有新版本...", "info");
+      toast.info("正在检查是否有新版本...");
     }
 
     const result = await checkAppUpdate();
@@ -58,9 +48,9 @@ export const UpdatePrompt: React.FC = () => {
         setShowModal(true);
       }
     } else if (isManual) {
-      showToast(`已是最新版本 (v${CURRENT_VERSION})，无需更新`, "success");
+      toast.success(`已是最新版本 (v${CURRENT_VERSION})，无需更新`);
     }
-  }, [showToast]);
+  }, []);
 
   // Initial check on entry / page mount
   useEffect(() => {
@@ -113,27 +103,7 @@ export const UpdatePrompt: React.FC = () => {
   };
 
   return (
-    <>
-      {/* Toast Notification for Manual Checks */}
-      {toastMessage && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] pointer-events-none transition-all duration-300 animate-in fade-in slide-in-from-top-4">
-          <div className="flex items-center gap-2 px-4 py-2.5 rounded-full shadow-xl text-xs font-semibold backdrop-blur-md border bg-background/95">
-            {toastType === "success" && (
-              <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
-            )}
-            {toastType === "info" && (
-              <RefreshCw className="h-4 w-4 text-primary animate-spin shrink-0" />
-            )}
-            {toastType === "warning" && (
-              <AlertCircle className="h-4 w-4 text-amber-500 shrink-0" />
-            )}
-            <span>{toastMessage}</span>
-          </div>
-        </div>
-      )}
-
-      {/* Update Dialog */}
-      <Dialog open={showModal} onOpenChange={handleOpenChange}>
+    <Dialog open={showModal} onOpenChange={handleOpenChange}>
         <DialogContent className="max-w-md p-0 overflow-hidden gap-0">
           {/* Header banner */}
           <div className="relative bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-700 p-5 text-white">
@@ -213,6 +183,5 @@ export const UpdatePrompt: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
   );
 };

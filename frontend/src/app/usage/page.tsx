@@ -11,6 +11,14 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from "@/components/ui/table";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -395,21 +403,20 @@ export default function UsagePage() {
                 <span className="text-xs text-slate-500 font-mono shrink-0">共 {adminStats.users.length} 位用户</span>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-muted border-b text-muted-foreground font-medium uppercase">
-                    <tr>
-                      <th className="py-3 px-4 whitespace-nowrap">用户</th>
-                      <th className="py-3 px-4 whitespace-nowrap">对话轮次</th>
-                      <th className="py-3 px-4 whitespace-nowrap">总 Token 消耗</th>
-                      <th className="py-3 px-4 whitespace-nowrap">输入 / 输出明细</th>
-                      <th className="py-3 px-4 whitespace-nowrap">预估花费 (CNY / USD)</th>
-                      <th className="py-3 px-4 whitespace-nowrap">常用模型</th>
-                      <th className="py-3 px-4 whitespace-nowrap">状态</th>
-                      <th className="py-3 px-4 whitespace-nowrap text-right">管理操作</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
+              <Table className="text-xs">
+                <TableHeader className="bg-muted uppercase">
+                  <TableRow>
+                    <TableHead className="py-3 px-4 whitespace-nowrap">用户</TableHead>
+                    <TableHead className="py-3 px-4 whitespace-nowrap">对话轮次</TableHead>
+                    <TableHead className="py-3 px-4 whitespace-nowrap">总 Token 消耗</TableHead>
+                    <TableHead className="py-3 px-4 whitespace-nowrap">输入 / 输出明细</TableHead>
+                    <TableHead className="py-3 px-4 whitespace-nowrap">预估花费 (CNY / USD)</TableHead>
+                    <TableHead className="py-3 px-4 whitespace-nowrap">常用模型</TableHead>
+                    <TableHead className="py-3 px-4 whitespace-nowrap">状态</TableHead>
+                    <TableHead className="py-3 px-4 whitespace-nowrap text-right">管理操作</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                     {adminStats.users.map((u) => {
                       const isMe = u.user_id === user.id;
                       return (
@@ -517,9 +524,8 @@ export default function UsagePage() {
                         </tr>
                       );
                     })}
-                  </tbody>
-                </table>
-              </div>
+                  </TableBody>
+                </Table>
             </div>
 
             {/* Model Breakdown Section */}
@@ -702,63 +708,61 @@ export default function UsagePage() {
                   该时间区间内暂无模型调用数据。
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-muted border-b text-muted-foreground font-medium uppercase">
-                      <tr>
-                        <th className="py-3 px-4 whitespace-nowrap">调用模型</th>
-                        <th className="py-3 px-4 whitespace-nowrap">调用次数</th>
-                        <th className="py-3 px-4 whitespace-nowrap">输入 Token (Prompt)</th>
-                        <th className="py-3 px-4 whitespace-nowrap">输出 Token (Completion)</th>
-                        <th className="py-3 px-4 whitespace-nowrap">总 Token 消耗</th>
-                        <th className="py-3 px-4 whitespace-nowrap text-right">折算花费 (CNY / USD)</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {myStats.model_breakdown.map((m) => (
-                        <tr
-                          key={m.model}
-                          className="hover:bg-muted/50 transition-colors"
-                        >
-                          <td className="py-3.5 px-4 font-semibold flex items-center gap-2">
-                            <span>{m.model}</span>
-                            {m.is_free && (
-                              <Badge className="text-[9px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10">
-                                免费
-                              </Badge>
-                            )}
-                          </td>
-                          <td className="py-3.5 px-4 font-mono text-slate-700 dark:text-slate-300">
-                            {m.calls} 次
-                          </td>
-                          <td className="py-3.5 px-4 font-mono text-muted-foreground">
-                            {m.prompt_tokens.toLocaleString()}
-                          </td>
-                          <td className="py-3.5 px-4 font-mono text-muted-foreground">
-                            {m.completion_tokens.toLocaleString()}
-                          </td>
-                          <td className="py-3.5 px-4 font-mono font-bold  ">
-                            {m.total_tokens.toLocaleString()}
-                          </td>
-                          <td className="py-3.5 px-4 font-mono text-right">
-                            {m.is_free ? (
-                              <span className="font-bold text-emerald-600 dark:text-emerald-400">¥0.00</span>
-                            ) : (
-                              <div>
-                                <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                                  ¥{m.cost_cny.toFixed(2)}
-                                </span>
-                                <span className="text-[10px] text-slate-400 block">
-                                  ${m.cost_usd.toFixed(4)}
-                                </span>
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <Table className="text-xs">
+                  <TableHeader className="bg-muted uppercase">
+                    <TableRow>
+                      <TableHead className="py-3 px-4 whitespace-nowrap">调用模型</TableHead>
+                      <TableHead className="py-3 px-4 whitespace-nowrap">调用次数</TableHead>
+                      <TableHead className="py-3 px-4 whitespace-nowrap">输入 Token (Prompt)</TableHead>
+                      <TableHead className="py-3 px-4 whitespace-nowrap">输出 Token (Completion)</TableHead>
+                      <TableHead className="py-3 px-4 whitespace-nowrap">总 Token 消耗</TableHead>
+                      <TableHead className="py-3 px-4 whitespace-nowrap text-right">折算花费 (CNY / USD)</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {myStats.model_breakdown.map((m) => (
+                      <TableRow
+                        key={m.model}
+                        className="hover:bg-muted/50 transition-colors"
+                      >
+                        <TableCell className="py-3.5 px-4 font-semibold flex items-center gap-2">
+                          <span>{m.model}</span>
+                          {m.is_free && (
+                            <Badge className="text-[9px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10">
+                              免费
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="py-3.5 px-4 font-mono text-muted-foreground">
+                          {m.calls} 次
+                        </TableCell>
+                        <TableCell className="py-3.5 px-4 font-mono text-muted-foreground">
+                          {m.prompt_tokens.toLocaleString()}
+                        </TableCell>
+                        <TableCell className="py-3.5 px-4 font-mono text-muted-foreground">
+                          {m.completion_tokens.toLocaleString()}
+                        </TableCell>
+                        <TableCell className="py-3.5 px-4 font-mono font-bold">
+                          {m.total_tokens.toLocaleString()}
+                        </TableCell>
+                        <TableCell className="py-3.5 px-4 font-mono text-right">
+                          {m.is_free ? (
+                            <span className="font-bold text-emerald-600 dark:text-emerald-400">¥0.00</span>
+                          ) : (
+                            <div>
+                              <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                                ¥{m.cost_cny.toFixed(2)}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground block">
+                                ${m.cost_usd.toFixed(4)}
+                              </span>
+                            </div>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               )}
             </div>
 
@@ -833,29 +837,19 @@ export default function UsagePage() {
               <div className="flex items-center justify-between px-6 py-2.5 border-b text-xs">
                 <div className="flex items-center gap-2">
                   <span className="text-muted-foreground font-medium mr-1">筛选状态:</span>
-                  {(
-                    [
-                      { id: "all", label: `全部 (${auditConversations.length})` },
-                      {
-                        id: "active",
-                        label: `正常显示 (${auditConversations.filter((c) => !c.is_deleted).length})`,
-                      },
-                      {
-                        id: "deleted",
-                        label: `已删除/回收站 (${auditConversations.filter((c) => c.is_deleted).length})`,
-                      },
-                    ] as const
-                  ).map((f) => (
-                    <Button
-                      key={f.id}
-                      size="sm"
-                      variant={auditFilter === f.id ? "default" : "secondary"}
-                      onClick={() => setAuditFilter(f.id)}
-                      className="h-7 px-3 text-xs"
-                    >
-                      {f.label}
-                    </Button>
-                  ))}
+                  <Tabs value={auditFilter} onValueChange={(v) => setAuditFilter(v as any)}>
+                    <TabsList className="h-8">
+                      <TabsTrigger value="all" className="h-7 text-xs px-2.5">
+                        全部 ({auditConversations.length})
+                      </TabsTrigger>
+                      <TabsTrigger value="active" className="h-7 text-xs px-2.5">
+                        正常显示 ({auditConversations.filter((c) => !c.is_deleted).length})
+                      </TabsTrigger>
+                      <TabsTrigger value="deleted" className="h-7 text-xs px-2.5">
+                        已删除/回收站 ({auditConversations.filter((c) => c.is_deleted).length})
+                      </TabsTrigger>
+                    </TabsList>
+                  </Tabs>
                 </div>
 
                 <Button

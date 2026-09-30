@@ -7,6 +7,11 @@ import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { MessageListSkeleton } from "@/components/common/PageSkeleton";
 import { cn } from "@/lib/utils";
@@ -166,16 +171,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     setTimeout(() => setCopiedIdx(null), 2000);
   };
 
-  // Close image preview on Escape key
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setPreviewImage(null);
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+
 
   // Process selected or pasted files
   const handleFiles = async (files: FileList | File[]) => {
@@ -482,39 +478,39 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                   {/* Realtime reference sources during streaming */}
                   {streamingSearchResults && streamingSearchResults.length > 0 && (
                     <div className="mb-2.5">
-                      <details className="group rounded-xl border border-sky-200/80 dark:border-sky-900/60 bg-sky-50/50 dark:bg-sky-950/20 text-xs overflow-hidden transition-all">
-                        <summary className="cursor-pointer select-none font-medium text-sky-700 dark:text-sky-300 flex items-center justify-between p-2 sm:p-2.5 hover:bg-sky-100/50 dark:hover:bg-sky-900/30 transition-colors">
+                      <details className="group rounded-xl border border-border bg-muted/40 text-xs overflow-hidden transition-all">
+                        <summary className="cursor-pointer select-none font-medium text-foreground flex items-center justify-between p-2 sm:p-2.5 hover:bg-muted/70 transition-colors">
                           <span className="flex items-center gap-1.5">
-                            <Globe className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400 shrink-0" />
+                            <Globe className="h-3.5 w-3.5 text-primary shrink-0" />
                             <span>参考了 {streamingSearchResults.length} 个网页来源</span>
                           </span>
-                          <span className="text-[10px] text-slate-400 group-open:rotate-180 transition-transform">
+                          <span className="text-[10px] text-muted-foreground group-open:rotate-180 transition-transform">
                             ▼
                           </span>
                         </summary>
-                        <div className="p-2 sm:p-2.5 pt-1 grid grid-cols-1 sm:grid-cols-2 gap-1.5 border-t border-sky-100/80 dark:border-sky-900/40">
+                        <div className="p-2 sm:p-2.5 pt-1 grid grid-cols-1 sm:grid-cols-2 gap-1.5 border-t border-border">
                           {streamingSearchResults.map((item, sIdx) => (
                             <a
                               key={sIdx}
                               href={item.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="group/card flex flex-col p-2 rounded-lg bg-white/90 dark:bg-slate-900/90 border border-slate-200/70 dark:border-slate-800 hover:border-sky-400 dark:hover:border-sky-500 hover:shadow-xs transition-all text-left"
+                              className="group/card flex flex-col p-2 rounded-lg bg-card border hover:border-primary hover:shadow-xs transition-all text-left"
                               title={item.title}
                             >
-                              <div className="flex items-center gap-1 text-[11px] font-medium text-slate-800 dark:text-slate-200 group-hover/card:text-sky-600 dark:group-hover/card:text-sky-400">
-                                <span className="shrink-0 w-3.5 h-3.5 rounded-full bg-sky-100 dark:bg-sky-900/70 text-sky-600 dark:text-sky-300 text-[9px] flex items-center justify-center font-bold">
+                              <div className="flex items-center gap-1 text-[11px] font-medium group-hover/card:text-primary">
+                                <span className="shrink-0 w-3.5 h-3.5 rounded-full bg-primary/10 text-primary text-[9px] flex items-center justify-center font-bold">
                                   {sIdx + 1}
                                 </span>
                                 <span className="truncate">{item.title}</span>
-                                <ExternalLink className="h-3 w-3 shrink-0 opacity-0 group-hover/card:opacity-100 transition-opacity ml-auto text-sky-500" />
+                                <ExternalLink className="h-3 w-3 shrink-0 opacity-0 group-hover/card:opacity-100 transition-opacity ml-auto text-primary" />
                               </div>
                               {item.snippet && (
-                                <p className="text-[10px] text-slate-500 dark:text-slate-400 line-clamp-2 mt-1 leading-snug break-words">
+                                <p className="text-[10px] text-muted-foreground line-clamp-2 mt-1 leading-snug break-words">
                                   {item.snippet}
                                 </p>
                               )}
-                              <span className="text-[9px] text-slate-400 dark:text-slate-500 truncate mt-1 font-mono">
+                              <span className="text-[9px] text-muted-foreground truncate mt-1 font-mono">
                                 {(() => {
                                   try {
                                     return new URL(item.url).hostname.replace(/^www\./, "");
@@ -532,12 +528,12 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
                   {renderMessageBody(streamingContent, true, (src, alt) => setPreviewImage({ src, alt }))}
 
-                  <div className="mt-2.5 pt-1.5 border-t border-slate-200 dark:border-slate-800/80 flex items-center justify-between gap-1.5 text-[10px] text-indigo-600 dark:text-indigo-400 font-mono">
+                  <div className="mt-2.5 pt-1.5 border-t border-border flex items-center justify-between gap-1.5 text-[10px] text-primary font-mono">
                     <div className="flex items-center gap-1.5">
                       <Cpu className="h-3 w-3 animate-spin" />
                       <span>{currentModel}</span>
                     </div>
-                    <div className="flex items-center gap-1 text-slate-400 font-mono">
+                    <div className="flex items-center gap-1 text-muted-foreground font-mono">
                       <Clock className="h-3 w-3" />
                       <span>总耗时 {(elapsedTime || 0).toFixed(1)}s</span>
                     </div>
@@ -732,65 +728,53 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       </div>
 
       {/* Image Lightbox / Modal */}
-      {previewImage && (
-        <div
-          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex flex-col items-center justify-center p-3 sm:p-6 animate-in fade-in duration-150"
-          onClick={() => setPreviewImage(null)}
-        >
-          {/* Top action bar */}
-          <div
-            className="w-full max-w-5xl flex items-center justify-between mb-2 text-white/90 px-2"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <span
-              className="text-xs sm:text-sm font-medium truncate max-w-[60%]"
-              title={previewImage.alt || "图片预览"}
-            >
-              {previewImage.alt || "图片预览"}
-            </span>
-            <div className="flex items-center gap-2">
-              <Button variant="secondary" size="sm" asChild title="下载原图">
-                <a
-                  href={previewImage.src}
-                  download={previewImage.alt || "image.png"}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="cursor-pointer"
-                >
-                  <Download className="h-3.5 w-3.5" />
-                  <span>下载</span>
-                </a>
-              </Button>
-              <Button
-                variant="secondary"
-                size="icon"
-                onClick={() => setPreviewImage(null)}
-                title="关闭预览 (Esc)"
-              >
-                <X className="h-5 w-5" />
-                <span className="sr-only">关闭预览</span>
-              </Button>
-            </div>
-          </div>
+      <Dialog
+        open={!!previewImage}
+        onOpenChange={(open) => {
+          if (!open) setPreviewImage(null);
+        }}
+      >
+        <DialogContent className="max-w-5xl bg-black/90 backdrop-blur-md p-3 sm:p-6 border-none text-white shadow-2xl flex flex-col items-center justify-center">
+          {previewImage && (
+            <>
+              {/* Top action bar */}
+              <div className="w-full flex items-center justify-between mb-2 text-white/90 px-1">
+                <DialogTitle className="text-xs sm:text-sm font-medium truncate max-w-[60%] text-white">
+                  {previewImage.alt || "图片预览"}
+                </DialogTitle>
+                <div className="flex items-center gap-2">
+                  <Button variant="secondary" size="sm" asChild title="下载原图">
+                    <a
+                      href={previewImage.src}
+                      download={previewImage.alt || "image.png"}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="cursor-pointer"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      <span>下载</span>
+                    </a>
+                  </Button>
+                </div>
+              </div>
 
-          {/* Centered Image */}
-          <div
-            className="relative flex items-center justify-center max-w-full max-h-[85vh] overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <img
-              src={previewImage.src}
-              alt={previewImage.alt || "大图预览"}
-              className="max-h-[82vh] max-w-[95vw] sm:max-w-[85vw] object-contain rounded-xl shadow-2xl select-none"
-            />
-          </div>
+              {/* Centered Image */}
+              <div className="relative flex items-center justify-center max-w-full max-h-[80vh] overflow-hidden">
+                <img
+                  src={previewImage.src}
+                  alt={previewImage.alt || "大图预览"}
+                  className="max-h-[75vh] max-w-[90vw] sm:max-w-[80vw] object-contain rounded-xl shadow-2xl select-none"
+                />
+              </div>
 
-          {/* Bottom hint */}
-          <div className="text-[11px] text-white/50 mt-2 select-none">
-            按 Esc 或点击空白区域关闭
-          </div>
-        </div>
-      )}
+              {/* Bottom hint */}
+              <p className="text-[11px] text-white/50 mt-2 select-none">
+                按 Esc 或点击遮罩空白区域关闭
+              </p>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

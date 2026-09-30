@@ -458,32 +458,32 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                 if (searchResults.length === 0) return null;
                 return (
                   <div className="mb-2.5">
-                    <details className="group rounded-xl border border-sky-200/80 dark:border-sky-900/60 bg-sky-50/50 dark:bg-sky-950/20 text-xs overflow-hidden transition-all">
-                      <summary className="cursor-pointer select-none font-medium text-sky-700 dark:text-sky-300 flex items-center justify-between p-2 sm:p-2.5 hover:bg-sky-100/50 dark:hover:bg-sky-900/30 transition-colors">
+                    <details className="group rounded-xl border border-border bg-muted/40 text-xs overflow-hidden transition-all">
+                      <summary className="cursor-pointer select-none font-medium text-foreground flex items-center justify-between p-2 sm:p-2.5 hover:bg-muted/70 transition-colors">
                         <span className="flex items-center gap-1.5">
-                          <Globe className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400 shrink-0" />
+                          <Globe className="h-3.5 w-3.5 text-primary shrink-0" />
                           <span>参考了 {searchResults.length} 个网页来源</span>
                         </span>
-                        <span className="text-[10px] text-slate-400 group-open:rotate-180 transition-transform">
+                        <span className="text-[10px] text-muted-foreground group-open:rotate-180 transition-transform">
                           ▼
                         </span>
                       </summary>
-                      <div className="p-2 sm:p-2.5 pt-1 grid grid-cols-1 sm:grid-cols-2 gap-1.5 border-t border-sky-100/80 dark:border-sky-900/40">
+                      <div className="p-2 sm:p-2.5 pt-1 grid grid-cols-1 sm:grid-cols-2 gap-1.5 border-t border-border">
                         {searchResults.map((item, sIdx) => (
                           <a
                             key={sIdx}
                             href={item.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="group/card flex flex-col p-2 rounded-lg bg-card border hover:border-sky-500 hover:shadow-sm transition-all text-left"
+                            className="group/card flex flex-col p-2 rounded-lg bg-card border hover:border-primary hover:shadow-xs transition-all text-left"
                             title={item.title}
                           >
-                            <div className="flex items-center gap-1 text-[11px] font-medium group-hover/card:text-sky-600 dark:group-hover/card:text-sky-400">
-                              <span className="shrink-0 w-3.5 h-3.5 rounded-full bg-sky-100 dark:bg-sky-900/70 text-sky-600 dark:text-sky-300 text-[9px] flex items-center justify-center font-bold">
+                            <div className="flex items-center gap-1 text-[11px] font-medium group-hover/card:text-primary">
+                              <span className="shrink-0 w-3.5 h-3.5 rounded-full bg-primary/10 text-primary text-[9px] flex items-center justify-center font-bold">
                                 {sIdx + 1}
                               </span>
                               <span className="truncate">{item.title}</span>
-                              <ExternalLink className="h-3 w-3 shrink-0 opacity-0 group-hover/card:opacity-100 transition-opacity ml-auto text-sky-500" />
+                              <ExternalLink className="h-3 w-3 shrink-0 opacity-0 group-hover/card:opacity-100 transition-opacity ml-auto text-primary" />
                             </div>
                             {item.snippet && (
                               <p className="text-[10px] text-muted-foreground line-clamp-2 mt-1 leading-snug break-words">

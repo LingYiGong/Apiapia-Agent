@@ -7,6 +7,7 @@ import { CURRENT_VERSION, triggerManualUpdateCheck } from "@/lib/version";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { ConversationListSkeleton } from "@/components/common/PageSkeleton";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { cn } from "@/lib/utils";
@@ -256,28 +257,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
     );
   };
 
-  return (
+  const sidebarBody = (isMobile: boolean) => (
     <>
-      {/* Mobile Backdrop Overlay (always mounted so it can fade) */}
-      <div
-        onClick={onClose}
-        className={cn(
-          "fixed inset-0 z-40 bg-black/60 backdrop-blur-xs transition-opacity duration-200 md:hidden",
-          isOpen ? "opacity-100" : "pointer-events-none opacity-0"
-        )}
-        aria-hidden="true"
-      />
-
-      {/* Sidebar Drawer Container */}
-      <aside
-        className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-[84vw] max-w-xs flex-col border-r bg-background h-full shrink-0 shadow-2xl transition-[transform,visibility] duration-200 md:static md:w-64 md:shadow-none lg:w-72 md:z-auto",
-          isOpen ? "translate-x-0 visible" : "-translate-x-full invisible md:visible md:translate-x-0"
-        )}
-      >
-        {/* Mobile Header with App Switcher & Close button */}
-        <div className="p-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:pt-3 border-b flex flex-col gap-2">
-          <div className="flex items-center justify-between md:hidden pb-1 border-b">
+      {/* Header with Quick Jump & Search */}
+      <div className="p-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:pt-3 border-b flex flex-col gap-2">
+        {isMobile && (
+          <div className="flex items-center justify-between pb-1 border-b">
             <span className="text-xs font-bold">
               历史对话
             </span>
@@ -286,9 +271,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <span className="sr-only">关闭</span>
             </Button>
           </div>
+        )}
 
-          {/* Quick Page Jump for Mobile */}
-          <div className="grid grid-cols-3 gap-1 md:hidden pb-2 border-b">
+        {/* Quick Page Jump for Mobile */}
+        {isMobile && (
+          <div className="grid grid-cols-3 gap-1 pb-2 border-b">
             <Link
               href="/memory"
               onClick={onClose}
@@ -314,83 +301,97 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <span>设置</span>
             </Link>
           </div>
+        )}
 
-          <Button onClick={handleNewChatClick} className="w-full">
-            <Plus className="h-4 w-4" />
-            <span>新建对话</span>
-          </Button>
+        <Button onClick={handleNewChatClick} className="w-full">
+          <Plus className="h-4 w-4" />
+          <span>新建对话</span>
+        </Button>
 
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="搜索历史对话..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-8 text-xs"
-            />
-          </div>
+        <div className="relative">
+          <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="搜索历史对话..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-8 text-xs"
+          />
         </div>
+      </div>
 
-        {/* 历史列表：原生滚动容器。Radix ScrollArea 的滚动条是 absolute 定位
-            覆盖在内容右侧，正好压住删除按钮；原生滚动条占布局空间，不会遮挡。
-            min-h-0 保证 flex-1 能正确收缩出滚动区。 */}
-        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain p-2">
-          <div className="space-y-1">
-            {loading ? (
-              <ConversationListSkeleton rows={8} />
-            ) : filtered.length === 0 ? (
-              <div className="text-center py-8 text-xs text-muted-foreground">
-                {search ? "未找到匹配会话" : "暂无历史对话"}
-              </div>
-            ) : isSearching ? (
-              filtered.map((c) =>
-                renderRow(c, { showSortControls: false, isFirst: true, isLast: true })
-              )
-            ) : (
-              <>
-                {pinned.length > 0 && (
-                  <div className="space-y-1">
-                    <div className="px-3 pt-1 pb-0.5 text-[10px] font-semibold tracking-wider text-muted-foreground select-none">
-                      置顶（{pinned.length}，可拖拽排序）
-                    </div>
-                    {pinned.map((c, idx) =>
-                      renderRow(c, {
-                        showSortControls: true,
-                        isFirst: idx === 0,
-                        isLast: idx === pinned.length - 1,
-                      })
-                    )}
-                    {unpinned.length > 0 && (
-                      <div className="px-3 pt-2 pb-0.5 text-[10px] font-semibold tracking-wider text-muted-foreground select-none border-t mt-2">
-                        全部对话
-                      </div>
-                    )}
+      {/* 历史列表：原生滚动容器 */}
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain p-2">
+        <div className="space-y-1">
+          {loading ? (
+            <ConversationListSkeleton rows={8} />
+          ) : filtered.length === 0 ? (
+            <div className="text-center py-8 text-xs text-muted-foreground">
+              {search ? "未找到匹配会话" : "暂无历史对话"}
+            </div>
+          ) : isSearching ? (
+            filtered.map((c) =>
+              renderRow(c, { showSortControls: false, isFirst: true, isLast: true })
+            )
+          ) : (
+            <>
+              {pinned.length > 0 && (
+                <div className="space-y-1">
+                  <div className="px-3 pt-1 pb-0.5 text-[10px] font-semibold tracking-wider text-muted-foreground select-none">
+                    置顶（{pinned.length}，可拖拽排序）
                   </div>
-                )}
-                {unpinned.map((c) =>
-                  renderRow(c, { showSortControls: false, isFirst: true, isLast: true })
-                )}
-              </>
-            )}
-          </div>
+                  {pinned.map((c, idx) =>
+                    renderRow(c, {
+                      showSortControls: true,
+                      isFirst: idx === 0,
+                      isLast: idx === pinned.length - 1,
+                    })
+                  )}
+                  {unpinned.length > 0 && (
+                    <div className="px-3 pt-2 pb-0.5 text-[10px] font-semibold tracking-wider text-muted-foreground select-none border-t mt-2">
+                      全部对话
+                    </div>
+                  )}
+                </div>
+              )}
+              {unpinned.map((c) =>
+                renderRow(c, { showSortControls: false, isFirst: true, isLast: true })
+              )}
+            </>
+          )}
         </div>
+      </div>
 
-        {/* Bottom Version info */}
-        <div className="p-2 border-t safe-pb space-y-1">
-          <div className="flex items-center justify-between px-3 py-1 text-[11px] text-muted-foreground select-none">
-            <Badge variant="outline" className="font-mono">v{CURRENT_VERSION}</Badge>
-            <Button
-              variant="link"
-              size="sm"
-              onClick={triggerManualUpdateCheck}
-              className="h-auto p-0 text-xs"
-            >
-              检查更新
-            </Button>
-          </div>
+      {/* Bottom Version info */}
+      <div className="p-2 border-t safe-pb space-y-1">
+        <div className="flex items-center justify-between px-3 py-1 text-[11px] text-muted-foreground select-none">
+          <Badge variant="outline" className="font-mono">v{CURRENT_VERSION}</Badge>
+          <Button
+            variant="link"
+            size="sm"
+            onClick={triggerManualUpdateCheck}
+            className="h-auto p-0 text-xs"
+          >
+            检查更新
+          </Button>
         </div>
+      </div>
+    </>
+  );
+
+  return (
+    <>
+      {/* Desktop Persistent Sidebar */}
+      <aside className="hidden md:flex md:w-64 lg:w-72 flex-col border-r bg-background h-full shrink-0">
+        {sidebarBody(false)}
       </aside>
+
+      {/* Mobile Drawer via standard shadcn Sheet */}
+      <Sheet open={isOpen} onOpenChange={(open) => !open && onClose?.()}>
+        <SheetContent side="left" className="p-0 w-[84vw] max-w-xs flex flex-col h-full bg-background [&>button]:hidden">
+          {sidebarBody(true)}
+        </SheetContent>
+      </Sheet>
 
       {/* 删除历史会话二次确认 */}
       {pendingDelete && (

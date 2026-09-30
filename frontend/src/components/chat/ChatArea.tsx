@@ -702,7 +702,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
               placeholder="询问 Apiapia"
-              className="border-0 bg-transparent shadow-none focus-visible:ring-0 px-2.5 sm:px-3 py-2 text-[16px] sm:text-sm max-h-32 sm:max-h-44 leading-relaxed resize-none min-h-[36px]"
+              className="border-0 bg-transparent shadow-none focus-visible:ring-0 px-2.5 sm:px-3 py-2 text-[16px] sm:text-[15px] tracking-[-0.011em] max-h-32 sm:max-h-44 leading-relaxed resize-none min-h-[36px]"
             />
             {isStreaming ? (
               <ActionTooltip label="停止生成" side="top">

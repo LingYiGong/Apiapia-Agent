@@ -37,10 +37,10 @@
     --apple-bg-tertiary: #ffffff;
     --apple-bg-quaternary: #e5e5ea;
 
-    /* 系统字体栈（优先 Apple SF Pro / PingFang） */
-    --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "PingFang SC", "Hiragino Sans GB", "Segoe UI", Roboto, sans-serif;
+    /* 系统字体栈（优先 Apple SF Pro / PingFang / SF Mono） */
+    --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "SF Pro", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
     --font-sans-sc: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
-    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    --font-mono: -apple-system-monospaced, "SF Mono", SFMono-Regular, ui-monospace, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
     --sat: env(safe-area-inset-top, 0px);
     --sab: env(safe-area-inset-bottom, 0px);
     --sal: env(safe-area-inset-left, 0px);
@@ -98,12 +98,14 @@
     text-rendering: optimizeLegibility;
     text-size-adjust: 100%;
     -webkit-text-size-adjust: 100%;
+    font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
   }
   body {
     @apply bg-background text-foreground;
-    font-family: var(--font-sans), var(--font-sans-sc), -apple-system,
-      BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "PingFang SC",
-      "Hiragino Sans GB", "Microsoft YaHei", "Segoe UI", Roboto, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+      "SF Pro", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC",
+      sans-serif;
+    letter-spacing: -0.011em;
     transition: background-color 0.2s ease, color 0.2s ease;
   }
 }

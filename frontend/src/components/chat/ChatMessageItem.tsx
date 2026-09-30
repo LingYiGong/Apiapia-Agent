@@ -96,18 +96,18 @@ const markdownComponents = {
     />
   ),
   p: ({ node, children, ...props }: any) => (
-    <p {...props} className="break-words [overflow-wrap:anywhere] leading-[1.65] my-2 text-[15px] sm:text-sm text-foreground/90">
+    <p {...props} className="break-words [overflow-wrap:anywhere] leading-[1.62] my-2 text-[16px] sm:text-[15px] tracking-[-0.012em] text-foreground/95">
       {renderWithBreaks(children)}
     </p>
   ),
   h1: ({ node, ...props }: any) => (
-    <h1 {...props} className="text-base sm:text-lg font-bold mt-4 mb-2 text-foreground tracking-tight" />
+    <h1 {...props} className="text-[22px] sm:text-[24px] font-bold mt-4 mb-2 text-foreground tracking-tight" />
   ),
   h2: ({ node, ...props }: any) => (
-    <h2 {...props} className="text-sm sm:text-base font-bold mt-3 mb-1.5 text-foreground tracking-tight" />
+    <h2 {...props} className="text-[18px] sm:text-[19px] font-bold mt-3 mb-1.5 text-foreground tracking-tight" />
   ),
   h3: ({ node, ...props }: any) => (
-    <h3 {...props} className="text-xs sm:text-sm font-semibold mt-2.5 mb-1 text-foreground" />
+    <h3 {...props} className="text-[16px] sm:text-[16px] font-semibold mt-2.5 mb-1 text-foreground" />
   ),
   table: ({ node, ...props }: any) => (
     <div className="w-full max-w-full my-3 overflow-x-auto rounded-xl border border-border/70 shadow-2xs">
@@ -118,19 +118,19 @@ const markdownComponents = {
     <thead {...props} className="bg-muted/60 dark:bg-[#2c2c2e] text-foreground font-medium" />
   ),
   th: ({ node, children, ...props }: any) => (
-    <th {...props} className="px-3.5 py-2.5 font-semibold text-left border-b border-border/70 whitespace-nowrap bg-muted/60 dark:bg-[#2c2c2e] text-foreground">
+    <th {...props} className="px-3.5 py-2.5 font-semibold text-left border-b border-border/70 whitespace-nowrap bg-muted/60 dark:bg-[#2c2c2e] text-foreground text-[13px]">
       {renderWithBreaks(children)}
     </th>
   ),
   td: ({ node, children, ...props }: any) => (
-    <td {...props} className="px-3.5 py-2.5 border-b border-border/50 whitespace-nowrap text-foreground/90 align-top">
+    <td {...props} className="px-3.5 py-2.5 border-b border-border/50 whitespace-nowrap text-foreground/90 align-top text-[13px] sm:text-[14px]">
       {renderWithBreaks(children)}
     </td>
   ),
   pre: ({ node, ...props }: any) => (
     <pre
       {...props}
-      className="my-2.5 max-w-full overflow-x-auto rounded-xl bg-[#161618] p-3 sm:p-4 text-[13px] sm:text-xs text-[#f5f5f7] font-mono shadow-inner border border-border/70"
+      className="my-2.5 max-w-full overflow-x-auto rounded-xl bg-[#161618] p-3 sm:p-4 text-[13px] leading-relaxed text-[#f5f5f7] font-mono shadow-inner border border-border/70"
     />
   ),
   code: ({ node, inline, className, children, ...props }: any) => {
@@ -158,7 +158,7 @@ const markdownComponents = {
     <ol {...props} className="list-decimal list-outside pl-4 sm:pl-5 my-1.5 space-y-1 break-words [overflow-wrap:anywhere]" />
   ),
   li: ({ node, children, ...props }: any) => (
-    <li {...props} className="break-words [overflow-wrap:anywhere] leading-[1.6] my-1 text-[15px] sm:text-sm text-foreground/90">
+    <li {...props} className="break-words [overflow-wrap:anywhere] leading-[1.62] my-1 text-[16px] sm:text-[15px] tracking-[-0.012em] text-foreground/95">
       {renderWithBreaks(children)}
     </li>
   ),
@@ -344,7 +344,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
       >
         <div
           className={cn(
-            "rounded-2xl px-3.5 sm:px-4 py-2 sm:py-2.5 text-[15px] sm:text-sm leading-relaxed min-w-0 max-w-full break-words [overflow-wrap:anywhere]",
+            "rounded-2xl px-3.5 sm:px-4 py-2 sm:py-2.5 text-[16px] sm:text-[15px] leading-relaxed tracking-[-0.011em] min-w-0 max-w-full break-words [overflow-wrap:anywhere]",
             isUser
               ? "bg-primary text-primary-foreground shadow-sm font-normal"
               : isErrorMsg

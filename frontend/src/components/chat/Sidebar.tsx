@@ -158,7 +158,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         }}
         onClick={() => handleSelectConv(c.id)}
         className={cn(
-          "group flex items-center gap-1 px-2.5 py-2 rounded-xl cursor-pointer text-xs transition-all border",
+          "group flex items-center gap-1 px-2.5 py-2 rounded-xl cursor-pointer text-[13px] tracking-[-0.01em] transition-all border",
           isSelected
             ? "bg-card dark:bg-[#2c2c2e] text-foreground font-medium shadow-xs border-border/70"
             : "text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10 border-transparent",
@@ -182,10 +182,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
             title={c.title || "新建对话"}
           >
             {pinnedActive && <Pin className="h-3 w-3 shrink-0 text-primary" />}
-            <span className="min-w-0 flex-1 truncate">{c.title || "新建对话"}</span>
+            <span className="min-w-0 flex-1 truncate font-normal">{c.title || "新建对话"}</span>
           </span>
           {timeDisplay && (
-            <span className="text-[10px] text-muted-foreground font-mono mt-0.5 select-none truncate">
+            <span className="text-[11px] text-muted-foreground font-mono mt-0.5 select-none truncate tracking-tight">
               {timeDisplay}
             </span>
           )}

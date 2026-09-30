@@ -23,6 +23,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Slider } from "@/components/ui/slider";
+import { ActionTooltip } from "@/components/common/ActionTooltip";
 import {
   Select,
   SelectContent,
@@ -274,37 +277,26 @@ export default function SettingsPage() {
                   </p>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3">
-                  <Button
-                    type="button"
-                    variant={theme === "system" ? "default" : "outline"}
-                    onClick={() => setTheme("system")}
-                    className="flex-col h-auto py-3.5 gap-2"
-                  >
-                    <Monitor className="h-5 w-5" />
-                    <span className="text-xs">💻 跟随系统</span>
-                  </Button>
-
-                  <Button
-                    type="button"
-                    variant={theme === "light" ? "default" : "outline"}
-                    onClick={() => setTheme("light")}
-                    className="flex-col h-auto py-3.5 gap-2"
-                  >
-                    <Sun className="h-5 w-5 text-amber-500" />
-                    <span className="text-xs">☀️ 浅色 (白天)</span>
-                  </Button>
-
-                  <Button
-                    type="button"
-                    variant={theme === "dark" ? "default" : "outline"}
-                    onClick={() => setTheme("dark")}
-                    className="flex-col h-auto py-3.5 gap-2"
-                  >
-                    <Moon className="h-5 w-5" />
-                    <span className="text-xs">🌙 深色 (夜间)</span>
-                  </Button>
-                </div>
+                <Tabs
+                  value={theme}
+                  onValueChange={(val) => setTheme(val as "light" | "dark" | "system")}
+                  className="w-full"
+                >
+                  <TabsList className="grid grid-cols-3 h-14 p-1 bg-muted/60">
+                    <TabsTrigger value="system" className="flex items-center justify-center gap-2 h-12 text-xs">
+                      <Monitor className="h-4 w-4" />
+                      <span>💻 跟随系统</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="light" className="flex items-center justify-center gap-2 h-12 text-xs">
+                      <Sun className="h-4 w-4 text-amber-500" />
+                      <span>☀️ 浅色 (白天)</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="dark" className="flex items-center justify-center gap-2 h-12 text-xs">
+                      <Moon className="h-4 w-4" />
+                      <span>🌙 深色 (夜间)</span>
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
               </div>
 
               {/* Default Model */}
@@ -318,17 +310,18 @@ export default function SettingsPage() {
                       新对话启动时默认使用的大模型（当前共有 {availableModels.length} 个可用模型）。
                     </p>
                   </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleSyncModels}
-                    disabled={syncingModels}
-                    title="向提供商 API (Gemini/OpenAI/OpenRouter/Ollama) 请求最新模型"
-                  >
-                    <RefreshCw className={cn("h-3.5 w-3.5", syncingModels && "animate-spin")} />
-                    <span>{syncingModels ? "正在请求提供商..." : "同步最新模型"}</span>
-                  </Button>
+                  <ActionTooltip label="向提供商 API (Gemini/OpenAI/OpenRouter/Ollama) 请求最新模型">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleSyncModels}
+                      disabled={syncingModels}
+                    >
+                      <RefreshCw className={cn("h-3.5 w-3.5", syncingModels && "animate-spin")} />
+                      <span>{syncingModels ? "正在请求提供商..." : "同步最新模型"}</span>
+                    </Button>
+                  </ActionTooltip>
                 </div>
                 <ModelSelect
                   value={defaultModel}
@@ -413,19 +406,42 @@ export default function SettingsPage() {
                 </p>
               </div>
 
-              {/* Temperature presets */}
-              <div className="space-y-2">
-                <div>
-                  <Label className="text-xs">
-                    回答风格 (创意度)
-                  </Label>
-                  <p className="text-[11px] text-muted-foreground mt-1">
-                    严谨适合查事实写代码，发散适合起名写故事，日常用平衡。
-                  </p>
+              {/* Temperature presets & Slider */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-xs">
+                      回答风格 (创意度 Temperature)
+                    </Label>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      严谨适合查事实写代码，发散适合起名写故事，日常用平衡。
+                    </p>
+                  </div>
+                  <Badge variant="outline" className="font-mono text-xs px-2 py-0.5 border-primary/30 text-primary">
+                    {temperature.toFixed(2)}
+                  </Badge>
                 </div>
-                <div className="grid grid-cols-3 gap-2.5">
+
+                {/* Slider */}
+                <div className="pt-2 px-1">
+                  <Slider
+                    min={0}
+                    max={2}
+                    step={0.05}
+                    value={[temperature]}
+                    onValueChange={([val]) => setTemperature(Math.round(val * 100) / 100)}
+                  />
+                  <div className="flex justify-between text-[10px] text-muted-foreground font-mono mt-1.5 px-0.5">
+                    <span>0.0 (最确定/严谨)</span>
+                    <span>1.0 (标准发散)</span>
+                    <span>2.0 (极度发散)</span>
+                  </div>
+                </div>
+
+                {/* Quick Presets */}
+                <div className="grid grid-cols-3 gap-2 pt-1">
                   {TEMPERATURE_PRESETS.map((preset) => {
-                    const isActive = temperature === preset.value;
+                    const isActive = Math.abs(temperature - preset.value) < 0.01;
                     const Icon = preset.icon;
                     return (
                       <button
@@ -433,14 +449,14 @@ export default function SettingsPage() {
                         type="button"
                         onClick={() => setTemperature(preset.value)}
                         className={cn(
-                          "flex flex-col items-center gap-1 p-3 rounded-xl border text-xs font-medium transition-all",
+                          "flex flex-col items-center gap-1 p-2 sm:p-2.5 rounded-xl border text-xs font-medium transition-all cursor-pointer",
                           isActive
                             ? "border-primary bg-primary/10 text-primary shadow-xs ring-1 ring-primary"
                             : "border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground"
                         )}
                       >
-                        <Icon className={cn("h-5 w-5", isActive ? "text-primary" : "text-muted-foreground")} />
-                        <span className="font-semibold">{preset.label}</span>
+                        <Icon className={cn("h-4 w-4", isActive ? "text-primary" : "text-muted-foreground")} />
+                        <span className="font-semibold text-xs">{preset.label} ({preset.value})</span>
                         <span className="text-[10px] font-normal opacity-70 text-center leading-snug">
                           {preset.desc}
                         </span>
@@ -448,11 +464,6 @@ export default function SettingsPage() {
                     );
                   })}
                 </div>
-                {!TEMPERATURE_PRESETS.some((p) => p.value === temperature) && (
-                  <p className="text-[11px] text-amber-600 dark:text-amber-400">
-                    当前为历史自定义值 {temperature}，点上面任意一档即可覆盖。
-                  </p>
-                )}
               </div>
 
               {/* Memory Toggle */}

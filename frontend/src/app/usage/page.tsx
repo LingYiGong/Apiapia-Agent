@@ -273,32 +273,35 @@ export default function UsagePage() {
         {/* Time Period Filter Selector */}
         <Card className="shadow-sm">
           <CardContent className="p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 shrink-0">
-            <span className="text-xs font-semibold text-muted-foreground pl-2 mr-1 shrink-0 whitespace-nowrap">
-              统计范围：
-            </span>
-            {[
-              { id: "today", label: "今天", icon: Zap },
-              { id: "month", label: "本月", icon: Calendar },
-              { id: "year", label: "今年", icon: TrendingUp },
-              { id: "all", label: "全部累计", icon: Coins },
-            ].map((item) => {
-              const Icon = item.icon;
-              const isSelected = period === item.id;
-              return (
-                <Button
-                  key={item.id}
-                  size="sm"
-                  variant={isSelected ? "default" : "secondary"}
-                  onClick={() => handlePeriodChange(item.id as PeriodType)}
-                  className="shrink-0 whitespace-nowrap"
-                >
-                  <Icon className="h-3.5 w-3.5 shrink-0" />
-                  <span>{item.label}</span>
-                </Button>
-              );
-            })}
-          </div>
+            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 shrink-0">
+              <span className="text-xs font-semibold text-muted-foreground pl-2 shrink-0 whitespace-nowrap">
+                统计范围：
+              </span>
+              <Tabs
+                value={period}
+                onValueChange={(v) => handlePeriodChange(v as PeriodType)}
+                className="shrink-0"
+              >
+                <TabsList className="h-8">
+                  <TabsTrigger value="today" className="text-xs h-7 px-2.5">
+                    <Zap className="h-3 w-3 mr-1" />
+                    <span>今天</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="month" className="text-xs h-7 px-2.5">
+                    <Calendar className="h-3 w-3 mr-1" />
+                    <span>本月</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="year" className="text-xs h-7 px-2.5">
+                    <TrendingUp className="h-3 w-3 mr-1" />
+                    <span>今年</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="all" className="text-xs h-7 px-2.5">
+                    <Coins className="h-3 w-3 mr-1" />
+                    <span>全部累计</span>
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
 
           <div className="text-[11px] text-muted-foreground font-mono pr-2 shrink-0 whitespace-nowrap">
             {period === "today" && "⚡ 今日 00:00 至今"}
@@ -535,24 +538,17 @@ export default function UsagePage() {
                   <Cpu className="h-4 w-4 text-indigo-500" />
                   各模型调用分布与花费 ({currentPeriodName})
                 </h2>
-                <div className="flex items-center gap-1 text-[11px] font-medium">
-                  <span className="text-slate-400 dark:text-slate-500 mr-1">排序:</span>
-                  {(
-                    [
-                      { id: "cost", label: "按花费" },
-                      { id: "tokens", label: "按 Token" },
-                    ] as const
-                  ).map((opt) => (
-                    <Button
-                      key={opt.id}
-                      size="sm"
-                      variant={modelSortKey === opt.id ? "default" : "secondary"}
-                      onClick={() => setModelSortKey(opt.id)}
-                      className="h-7 px-2.5 text-[11px]"
-                    >
-                      {opt.label}
-                    </Button>
-                  ))}
+                <div className="flex items-center gap-1.5 text-[11px] font-medium">
+                  <span className="text-muted-foreground mr-0.5">排序:</span>
+                  <Tabs
+                    value={modelSortKey}
+                    onValueChange={(v) => setModelSortKey(v as "cost" | "tokens")}
+                  >
+                    <TabsList className="h-7 p-0.5">
+                      <TabsTrigger value="cost" className="h-6 px-2 text-[11px]">按花费</TabsTrigger>
+                      <TabsTrigger value="tokens" className="h-6 px-2 text-[11px]">按 Token</TabsTrigger>
+                    </TabsList>
+                  </Tabs>
                 </div>
               </div>
 

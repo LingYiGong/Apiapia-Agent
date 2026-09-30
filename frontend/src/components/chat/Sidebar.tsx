@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { ConversationListSkeleton } from "@/components/common/PageSkeleton";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { ActionTooltip } from "@/components/common/ActionTooltip";
 import { cn } from "@/lib/utils";
 import {
   Plus,
@@ -168,13 +169,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
         )}
       >
         {opts.showSortControls && (
-          <span
-            className="cursor-grab active:cursor-grabbing text-muted-foreground/60 hover:text-foreground shrink-0"
-            title="拖拽排序"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <GripVertical className="h-3.5 w-3.5" />
-          </span>
+          <ActionTooltip label="拖拽排序" side="top">
+            <span
+              className="cursor-grab active:cursor-grabbing text-muted-foreground/60 hover:text-foreground shrink-0"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <GripVertical className="h-3.5 w-3.5" />
+            </span>
+          </ActionTooltip>
         )}
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <span
@@ -195,63 +197,67 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="relative z-10 flex items-center gap-0.5 ml-1 shrink-0">
           {opts.showSortControls ? (
             <span className="flex items-center shrink-0" onClick={(e) => e.stopPropagation()}>
-              <Button
-                variant="ghost"
-                size="icon"
-                disabled={opts.isFirst}
-                onClick={() => onMovePinned(c.id, "up")}
-                title="上移"
-                className="h-7 w-6 shrink-0 hover:text-primary disabled:opacity-30"
-              >
-                <ChevronUp className="h-4 w-4" />
-                <span className="sr-only">上移</span>
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                disabled={opts.isLast}
-                onClick={() => onMovePinned(c.id, "down")}
-                title="下移"
-                className="h-7 w-6 shrink-0 hover:text-primary disabled:opacity-30"
-              >
-                <ChevronDown className="h-4 w-4" />
-                <span className="sr-only">下移</span>
-              </Button>
+              <ActionTooltip label="上移" side="top">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  disabled={opts.isFirst}
+                  onClick={() => onMovePinned(c.id, "up")}
+                  className="h-7 w-6 shrink-0 hover:text-primary disabled:opacity-30"
+                >
+                  <ChevronUp className="h-4 w-4" />
+                  <span className="sr-only">上移</span>
+                </Button>
+              </ActionTooltip>
+              <ActionTooltip label="下移" side="top">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  disabled={opts.isLast}
+                  onClick={() => onMovePinned(c.id, "down")}
+                  className="h-7 w-6 shrink-0 hover:text-primary disabled:opacity-30"
+                >
+                  <ChevronDown className="h-4 w-4" />
+                  <span className="sr-only">下移</span>
+                </Button>
+              </ActionTooltip>
             </span>
           ) : null}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={(e) => {
-              e.stopPropagation();
-              onTogglePin(c.id, !pinnedActive);
-            }}
-            title={pinnedActive ? "取消置顶" : "置顶"}
-            className={cn(
-              "h-7 w-7 shrink-0 hover:text-primary",
-              pinnedActive ? "opacity-100 text-primary" : "opacity-60 hover:opacity-100"
-            )}
-          >
-            {pinnedActive ? (
-              <PinOff className="h-4 w-4" />
-            ) : (
-              <Pin className="h-4 w-4" />
-            )}
-            <span className="sr-only">{pinnedActive ? "取消置顶" : "置顶"}</span>
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={(e) => {
-              e.stopPropagation();
-              setPendingDelete(c);
-            }}
-            title="删除对话"
-            className="h-7 w-7 shrink-0 opacity-60 hover:opacity-100 hover:text-destructive"
-          >
-            <Trash2 className="h-4 w-4" />
-            <span className="sr-only">删除对话</span>
-          </Button>
+          <ActionTooltip label={pinnedActive ? "取消置顶" : "置顶"} side="top">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={(e) => {
+                e.stopPropagation();
+                onTogglePin(c.id, !pinnedActive);
+              }}
+              className={cn(
+                "h-7 w-7 shrink-0 hover:text-primary",
+                pinnedActive ? "opacity-100 text-primary" : "opacity-60 hover:opacity-100"
+              )}
+            >
+              {pinnedActive ? (
+                <PinOff className="h-4 w-4" />
+              ) : (
+                <Pin className="h-4 w-4" />
+              )}
+              <span className="sr-only">{pinnedActive ? "取消置顶" : "置顶"}</span>
+            </Button>
+          </ActionTooltip>
+          <ActionTooltip label="删除对话" side="top">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={(e) => {
+                e.stopPropagation();
+                setPendingDelete(c);
+              }}
+              className="h-7 w-7 shrink-0 opacity-60 hover:opacity-100 hover:text-destructive"
+            >
+              <Trash2 className="h-4 w-4" />
+              <span className="sr-only">删除对话</span>
+            </Button>
+          </ActionTooltip>
         </div>
       </div>
     );

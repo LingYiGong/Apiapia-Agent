@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { ActionTooltip } from "@/components/common/ActionTooltip";
 import { MessageListSkeleton } from "@/components/common/PageSkeleton";
 import { cn } from "@/lib/utils";
 import {
@@ -550,20 +551,21 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       {/* Floating Scroll-to-Bottom Button */}
       {showScrollBottomBtn && (
         <div className="absolute bottom-16 sm:bottom-20 right-4 sm:right-8 z-30 pointer-events-auto">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              isAtBottomRef.current = true;
-              setShowScrollBottomBtn(false);
-              scrollToBottom(true, true);
-            }}
-            className="rounded-full shadow-lg text-xs"
-            title="滚动回最新内容"
-          >
-            <ChevronDown className="h-3.5 w-3.5" />
-            <span>回到最新</span>
-          </Button>
+          <ActionTooltip label="回到最新内容" side="top">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                isAtBottomRef.current = true;
+                setShowScrollBottomBtn(false);
+                scrollToBottom(true, true);
+              }}
+              className="rounded-full shadow-lg text-xs"
+            >
+              <ChevronDown className="h-3.5 w-3.5" />
+              <span>回到最新</span>
+            </Button>
+          </ActionTooltip>
         </div>
       )}
 
@@ -606,16 +608,17 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                       {formatFileSize(att.size)}
                     </p>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setAttachments((prev) => prev.filter((a) => a.id !== att.id))}
-                    className="h-6 w-6 rounded-full text-muted-foreground hover:text-destructive"
-                    title="移除附件"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                    <span className="sr-only">移除附件</span>
-                  </Button>
+                  <ActionTooltip label="移除附件" side="top">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setAttachments((prev) => prev.filter((a) => a.id !== att.id))}
+                      className="h-6 w-6 rounded-full text-muted-foreground hover:text-destructive"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                      <span className="sr-only">移除附件</span>
+                    </Button>
+                  </ActionTooltip>
                 </div>
               ))}
               {isUploading && (
@@ -642,50 +645,55 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 }
               }}
             />
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isStreaming || isUploading}
-              title="上传图片或文件（PDF、Word、代码、文本）"
-              className="h-9 w-9 rounded-full shrink-0 mb-0.5"
-            >
-              <Paperclip className="h-4 w-4" />
-              <span className="sr-only">上传附件</span>
-            </Button>
-            {onToggleWebSearchMode && (
+            <ActionTooltip label="上传图片或文件（PDF、Word、代码、文本）" side="top">
               <Button
-                variant={webSearchMode === "off" ? "ghost" : "outline"}
-                size="sm"
-                onClick={onToggleWebSearchMode}
-                disabled={isStreaming}
-                title={
+                variant="ghost"
+                size="icon"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isStreaming || isUploading}
+                className="h-9 w-9 rounded-full shrink-0 mb-0.5"
+              >
+                <Paperclip className="h-4 w-4" />
+                <span className="sr-only">上传附件</span>
+              </Button>
+            </ActionTooltip>
+            {onToggleWebSearchMode && (
+              <ActionTooltip
+                label={
                   webSearchMode === "auto"
                     ? "联网检索: 自动智能 (系统根据问题自动决定是否检索)"
                     : webSearchMode === "on"
                     ? "联网检索: 强制开启 (每次提问均搜索最新网络)"
                     : "联网检索: 已关闭 (仅使用模型自身知识)"
                 }
-                className={cn(
-                  "h-9 px-2 sm:px-2.5 rounded-full text-xs font-medium shrink-0 mb-0.5 select-none",
-                  webSearchMode === "on" && "bg-sky-500/10 border-sky-500/40 text-sky-600 dark:text-sky-400 hover:bg-sky-500/20 hover:text-sky-600 dark:hover:text-sky-400",
-                  webSearchMode === "auto" && "hover:border-sky-500/50 hover:text-sky-600 dark:hover:text-sky-400"
-                )}
+                side="top"
               >
-                <Globe
+                <Button
+                  variant={webSearchMode === "off" ? "ghost" : "outline"}
+                  size="sm"
+                  onClick={onToggleWebSearchMode}
+                  disabled={isStreaming}
                   className={cn(
-                    "h-3.5 w-3.5",
-                    webSearchMode === "on"
-                      ? "text-sky-600 dark:text-sky-400"
-                      : webSearchMode === "auto"
-                      ? "text-primary"
-                      : "text-muted-foreground"
+                    "h-9 px-2 sm:px-2.5 rounded-full text-xs font-medium shrink-0 mb-0.5 select-none",
+                    webSearchMode === "on" && "bg-sky-500/10 border-sky-500/40 text-sky-600 dark:text-sky-400 hover:bg-sky-500/20 hover:text-sky-600 dark:hover:text-sky-400",
+                    webSearchMode === "auto" && "hover:border-sky-500/50 hover:text-sky-600 dark:hover:text-sky-400"
                   )}
-                />
-                <span className="hidden sm:inline font-mono text-[11px]">
-                  {webSearchMode === "auto" ? "联网:自动" : webSearchMode === "on" ? "联网:开启" : "联网:关闭"}
-                </span>
-              </Button>
+                >
+                  <Globe
+                    className={cn(
+                      "h-3.5 w-3.5",
+                      webSearchMode === "on"
+                        ? "text-sky-600 dark:text-sky-400"
+                        : webSearchMode === "auto"
+                        ? "text-primary"
+                        : "text-muted-foreground"
+                    )}
+                  />
+                  <span className="hidden sm:inline font-mono text-[11px]">
+                    {webSearchMode === "auto" ? "联网:自动" : webSearchMode === "on" ? "联网:开启" : "联网:关闭"}
+                  </span>
+                </Button>
+              </ActionTooltip>
             )}
             <Textarea
               ref={textareaRef}
@@ -702,26 +710,29 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               className="border-0 bg-transparent shadow-none focus-visible:ring-0 px-2.5 sm:px-3 py-2 text-[16px] sm:text-sm max-h-32 sm:max-h-44 leading-relaxed resize-none min-h-[36px]"
             />
             {isStreaming ? (
-              <Button
-                variant="destructive"
-                size="icon"
-                onClick={() => onStopGenerating?.()}
-                title="停止生成"
-                className="h-8 w-8 sm:h-9 sm:w-9 rounded-full shrink-0 ml-1 mb-1 shadow-sm"
-              >
-                <Square className="h-4 w-4 fill-current" />
-                <span className="sr-only">停止生成</span>
-              </Button>
+              <ActionTooltip label="停止生成" side="top">
+                <Button
+                  variant="destructive"
+                  size="icon"
+                  onClick={() => onStopGenerating?.()}
+                  className="h-8 w-8 sm:h-9 sm:w-9 rounded-full shrink-0 ml-1 mb-1 shadow-sm"
+                >
+                  <Square className="h-4 w-4 fill-current" />
+                  <span className="sr-only">停止生成</span>
+                </Button>
+              </ActionTooltip>
             ) : (
-              <Button
-                onClick={handleSend}
-                disabled={(!input.trim() && attachments.length === 0) || isStreaming || isUploading}
-                size="icon"
-                className="h-8 w-8 sm:h-9 sm:w-9 rounded-full shrink-0 ml-1 mb-1 shadow-sm"
-              >
-                <Send className="h-4 w-4" />
-                <span className="sr-only">发送消息</span>
-              </Button>
+              <ActionTooltip label="发送消息 (Enter)" side="top">
+                <Button
+                  onClick={handleSend}
+                  disabled={(!input.trim() && attachments.length === 0) || isStreaming || isUploading}
+                  size="icon"
+                  className="h-8 w-8 sm:h-9 sm:w-9 rounded-full shrink-0 ml-1 mb-1 shadow-sm"
+                >
+                  <Send className="h-4 w-4" />
+                  <span className="sr-only">发送消息</span>
+                </Button>
+              </ActionTooltip>
             )}
           </div>
         </div>
@@ -743,18 +754,20 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                   {previewImage.alt || "图片预览"}
                 </DialogTitle>
                 <div className="flex items-center gap-2">
-                  <Button variant="secondary" size="sm" asChild title="下载原图">
-                    <a
-                      href={previewImage.src}
-                      download={previewImage.alt || "image.png"}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="cursor-pointer"
-                    >
-                      <Download className="h-3.5 w-3.5" />
-                      <span>下载</span>
-                    </a>
-                  </Button>
+                  <ActionTooltip label="下载原图" side="bottom">
+                    <Button variant="secondary" size="sm" asChild>
+                      <a
+                        href={previewImage.src}
+                        download={previewImage.alt || "image.png"}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="cursor-pointer"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        <span>下载</span>
+                      </a>
+                    </Button>
+                  </ActionTooltip>
                 </div>
               </div>
 

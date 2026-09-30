@@ -22,6 +22,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { ActionTooltip } from "@/components/common/ActionTooltip";
 import { FullPageSkeleton } from "@/components/common/PageSkeleton";
 import {
   Brain,
@@ -340,28 +341,30 @@ export default function MemoryPage() {
 
                           {/* Actions */}
                           <div className="flex items-center gap-1 shrink-0 self-end sm:self-start pt-1 sm:pt-0 border-t sm:border-t-0 w-full sm:w-auto justify-end">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => {
-                                setEditingItem(item);
-                                setEditText(text);
-                              }}
-                              title="编辑修正记忆"
-                            >
-                              <Edit3 className="h-4 w-4" />
-                              <span className="sr-only">编辑记忆</span>
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => setDeletingId(item.id)}
-                              title="删除记忆"
-                              className="hover:text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                              <span className="sr-only">删除记忆</span>
-                            </Button>
+                            <ActionTooltip label="编辑修正记忆" side="top">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  setEditingItem(item);
+                                  setEditText(text);
+                                }}
+                              >
+                                <Edit3 className="h-4 w-4" />
+                                <span className="sr-only">编辑记忆</span>
+                              </Button>
+                            </ActionTooltip>
+                            <ActionTooltip label="删除记忆" side="top">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setDeletingId(item.id)}
+                                className="hover:text-destructive"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                                <span className="sr-only">删除记忆</span>
+                              </Button>
+                            </ActionTooltip>
                           </div>
                         </div>
                       )}

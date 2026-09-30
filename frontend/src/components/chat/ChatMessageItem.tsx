@@ -6,6 +6,7 @@ import remarkGfm from "remark-gfm";
 import { Message, SearchResultItem } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ActionTooltip } from "@/components/common/ActionTooltip";
 import { cn } from "@/lib/utils";
 import {
   Brain,
@@ -516,63 +517,74 @@ export const ChatMessageItem = memo(function ChatMessageItem({
           <div className="flex items-center justify-between gap-1.5 flex-wrap text-[10px] text-muted-foreground mt-1.5 px-0.5 font-mono">
             <div className="flex items-center gap-1.5 flex-wrap">
               {msg.created_at && (
-                <span className="flex items-center gap-1" title="回复时间">
-                  <Clock className="h-3 w-3" />
-                  <span>{formatTime(msg.created_at)}</span>
-                </span>
+                <ActionTooltip label="回复时间" side="top">
+                  <span className="flex items-center gap-1 cursor-default">
+                    <Clock className="h-3 w-3" />
+                    <span>{formatTime(msg.created_at)}</span>
+                  </span>
+                </ActionTooltip>
               )}
 
               {msg.model && (
-                <Badge variant="secondary" className="text-[10px] font-mono font-normal" title="回复模型">
-                  <Cpu className="h-3 w-3 text-primary mr-1" />
-                  <span>{msg.model}</span>
-                </Badge>
+                <ActionTooltip label="回复模型" side="top">
+                  <Badge variant="secondary" className="text-[10px] font-mono font-normal cursor-default">
+                    <Cpu className="h-3 w-3 text-primary mr-1" />
+                    <span>{msg.model}</span>
+                  </Badge>
+                </ActionTooltip>
               )}
 
               {typeof msg.thinking_duration_ms === "number" && msg.thinking_duration_ms > 0 && (
-                <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium" title="思考耗时（到首字时间）">
-                  <Clock className="h-3 w-3 text-emerald-500" />
-                  <span>思考 {(msg.thinking_duration_ms / 1000).toFixed(1)}s</span>
-                </span>
+                <ActionTooltip label="思考耗时（到首字输出时间）" side="top">
+                  <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium cursor-default">
+                    <Clock className="h-3 w-3 text-emerald-500" />
+                    <span>思考 {(msg.thinking_duration_ms / 1000).toFixed(1)}s</span>
+                  </span>
+                </ActionTooltip>
               )}
 
               {typeof msg.duration_ms === "number" && msg.duration_ms > 0 && (
-                <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 font-medium" title="总生成耗时">
-                  <Zap className="h-3 w-3 text-amber-500" />
-                  <span>总用时 {(msg.duration_ms / 1000).toFixed(2)}s</span>
-                </span>
+                <ActionTooltip label="总生成耗时" side="top">
+                  <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 font-medium cursor-default">
+                    <Zap className="h-3 w-3 text-amber-500" />
+                    <span>总用时 {(msg.duration_ms / 1000).toFixed(2)}s</span>
+                  </span>
+                </ActionTooltip>
               )}
 
               {(msg.prompt_tokens || msg.completion_tokens || msg.token_usage) ? (
-                <span className="flex items-center gap-1 text-slate-500 dark:text-slate-400 text-[10px]" title="Token 消耗">
-                  <span className="text-slate-400 dark:text-slate-500">Tokens:</span>
-                  <span className="text-slate-700 dark:text-slate-300 font-medium">
-                    {msg.token_usage || (msg.prompt_tokens || 0) + (msg.completion_tokens || 0)}
+                <ActionTooltip label="Token 消耗（输入+输出）" side="top">
+                  <span className="flex items-center gap-1 text-slate-500 dark:text-slate-400 text-[10px] cursor-default">
+                    <span className="text-slate-400 dark:text-slate-500">Tokens:</span>
+                    <span className="text-slate-700 dark:text-slate-300 font-medium">
+                      {msg.token_usage || (msg.prompt_tokens || 0) + (msg.completion_tokens || 0)}
+                    </span>
                   </span>
-                </span>
+                </ActionTooltip>
               ) : null}
             </div>
 
             {/* Copy Message Button */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onCopy(msg.content, idx)}
-              className="h-6 px-2 text-muted-foreground hover:text-foreground shrink-0 select-none"
-              title="复制回答内容"
-            >
-              {isCopied ? (
-                <>
-                  <Check className="h-3 w-3 text-emerald-500" />
-                  <span className="text-emerald-500 font-sans text-[11px] font-medium">已复制</span>
-                </>
-              ) : (
-                <>
-                  <Copy className="h-3 w-3" />
-                  <span className="font-sans text-[11px]">复制</span>
-                </>
-              )}
-            </Button>
+            <ActionTooltip label={isCopied ? "已复制到剪贴板" : "复制回答内容"} side="top">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onCopy(msg.content, idx)}
+                className="h-6 px-2 text-muted-foreground hover:text-foreground shrink-0 select-none"
+              >
+                {isCopied ? (
+                  <>
+                    <Check className="h-3 w-3 text-emerald-500" />
+                    <span className="text-emerald-500 font-sans text-[11px] font-medium">已复制</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-3 w-3" />
+                    <span className="font-sans text-[11px]">复制</span>
+                  </>
+                )}
+              </Button>
+            </ActionTooltip>
           </div>
         )}
       </div>

@@ -17,7 +17,7 @@ class SystemPromptBuilder:
         self.enable_formatting = True
         self.enable_search_instruction = True
 
-    def build(self, memory_context: Optional[str] = None) -> str:
+    def build(self, memory_context: Optional[str] = None, deterministic_context: Optional[str] = None) -> str:
         sections = []
 
         # 1. 用户自定义助手人设 / 基础系统角色设定
@@ -28,19 +28,23 @@ class SystemPromptBuilder:
             temporal = get_current_temporal_context()
             sections.append(temporal["prompt_instruction"])
 
-        # 3. 业界标准批判性常识与逻辑防翻车护栏
+        # 3. 本地确定性核验事实（针对数字比大小、字符清点、算术的铁证依据）
+        if deterministic_context and deterministic_context.strip():
+            sections.append(deterministic_context.strip())
+
+        # 4. 业界标准批判性常识与逻辑防翻车护栏
         if self.enable_anti_trap:
             sections.append(ANTI_TRAP_RULES)
 
-        # 4. 召回的长期背景事实（Mem0 长期记忆库）
+        # 5. 召回的长期背景事实（Mem0 长期记忆库）
         if memory_context and memory_context.strip():
             sections.append(memory_context.strip())
 
-        # 5. 实时网络检索引导
+        # 6. 实时网络检索引导
         if self.enable_search_instruction:
             sections.append(SEARCH_INSTRUCTION)
 
-        # 6. Markdown 与表格排版规范
+        # 7. Markdown 与表格排版规范
         if self.enable_formatting:
             sections.append(FORMAT_INSTRUCTION)
 
@@ -48,7 +52,12 @@ class SystemPromptBuilder:
         return "\n\n".join(sections)
 
 
-def build_system_prompt(base_prompt: Optional[str] = None, memory_context: Optional[str] = None) -> str:
+def build_system_prompt(
+    base_prompt: Optional[str] = None,
+    memory_context: Optional[str] = None,
+    deterministic_context: Optional[str] = None
+) -> str:
     """快捷构建完整的防翻车系统提示词"""
     builder = SystemPromptBuilder(base_system_prompt=base_prompt)
-    return builder.build(memory_context=memory_context)
+    return builder.build(memory_context=memory_context, deterministic_context=deterministic_context)
+

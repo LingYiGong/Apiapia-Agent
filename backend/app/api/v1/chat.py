@@ -20,6 +20,7 @@ from app.services.memory.dreaming import schedule_dreaming
 from app.services.document_parser import parse_attachment, fetch_and_parse_url, extract_urls
 from app.services.search import web_search_service, should_search_web
 from app.services.prompt import build_system_prompt
+from app.services.deterministic import evaluate_deterministic_context
 from app.core.security import decrypt_api_key
 
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -153,11 +154,15 @@ async def chat_stream(
     recent_msgs = (await db.execute(msg_stmt)).scalars().all()
     recent_msgs.reverse()  # chronological order
 
-    # 6. Assemble messages payload for LLM Adapter (时基、防翻车规则、记忆、检索与排版规则)
+    # 5.1 本地确定性事实核验（数字比大小、字符清点、算术与日期天数差）
+    deterministic_context_str = evaluate_deterministic_context(full_user_text)
+
+    # 6. Assemble messages payload for LLM Adapter (时基、确定性核验事实、防翻车规则、记忆、检索与排版规则)
     messages_payload = []
     combined_system_content = build_system_prompt(
         base_prompt=system_prompt,
-        memory_context=memory_context_str
+        memory_context=memory_context_str,
+        deterministic_context=deterministic_context_str
     )
     messages_payload.append({"role": "system", "content": combined_system_content})
 

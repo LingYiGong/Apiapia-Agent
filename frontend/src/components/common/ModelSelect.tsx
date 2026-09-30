@@ -290,7 +290,10 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
         )}
 
         {/* Models Scrollable List */}
-        <div className="overflow-y-auto flex-1 min-h-0 space-y-1 pr-1 overscroll-contain">
+        <div
+          className="overflow-y-auto flex-1 min-h-0 max-h-[50vh] space-y-1 pr-1.5 overscroll-contain touch-pan-y"
+          onWheel={(e) => e.stopPropagation()}
+        >
           {sorted.length === 0 ? (
             <div className="py-8 text-center text-xs text-muted-foreground">
               未找到匹配的模型

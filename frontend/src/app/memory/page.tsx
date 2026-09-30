@@ -205,15 +205,16 @@ export default function MemoryPage() {
               <Plus className="h-4 w-4 shrink-0" />
               <span>新增记忆</span>
             </Button>
-            <Button
-              onClick={handleExport}
-              title="导出所有记忆数据 (JSON)"
-              variant="outline"
-              size="sm"
-            >
-              <Download className="h-4 w-4 shrink-0" />
-              <span>导出 JSON</span>
-            </Button>
+            <ActionTooltip label="导出所有记忆数据为 JSON 文件" side="bottom">
+              <Button
+                onClick={handleExport}
+                variant="outline"
+                size="sm"
+              >
+                <Download className="h-4 w-4 shrink-0" />
+                <span>导出 JSON</span>
+              </Button>
+            </ActionTooltip>
           </div>
         </div>
 

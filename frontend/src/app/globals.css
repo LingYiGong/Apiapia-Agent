@@ -159,14 +159,6 @@ button, a, input, textarea, select {
   padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
 }
 
-.safe-pt {
-  padding-top: max(0.5rem, env(safe-area-inset-top, 0px));
-}
-
-.safe-top-header {
-  padding-top: max(0.75rem, env(safe-area-inset-top, 0px));
-}
-
 /* Hide scrollbar utility */
 .no-scrollbar::-webkit-scrollbar {
   display: none;

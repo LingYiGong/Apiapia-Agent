@@ -35,7 +35,6 @@ import {
   Paperclip,
   X,
   FileText,
-  ZoomIn,
   Download,
   Globe,
   ExternalLink,

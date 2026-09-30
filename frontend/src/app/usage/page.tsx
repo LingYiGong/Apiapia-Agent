@@ -25,6 +25,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ActionTooltip } from "@/components/common/ActionTooltip";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
@@ -39,6 +47,9 @@ import {
   TrendingUp,
   RefreshCw,
   UserCheck,
+  UserX,
+  Shield,
+  MoreHorizontal,
   Zap,
   DollarSign,
   Clock,
@@ -423,11 +434,11 @@ export default function UsagePage() {
                     {adminStats.users.map((u) => {
                       const isMe = u.user_id === user.id;
                       return (
-                        <tr
+                        <TableRow
                           key={u.user_id}
                           className="hover:bg-muted/50 transition-colors"
                         >
-                          <td className="py-3.5 px-4 whitespace-nowrap">
+                          <TableCell className="py-3.5 px-4 whitespace-nowrap">
                             <div className="flex items-center gap-2">
                               <span className="font-semibold">
                                 {u.username}
@@ -449,33 +460,33 @@ export default function UsagePage() {
                             >
                               {u.email}
                             </span>
-                          </td>
-                          <td className="py-3.5 px-4 font-mono whitespace-nowrap">
+                          </TableCell>
+                          <TableCell className="py-3.5 px-4 font-mono whitespace-nowrap">
                             <span className="font-semibold text-slate-800 dark:text-slate-200">{u.messages_count}</span>
                             <span className="text-slate-400 text-[11px]"> 轮 ({u.conversations_count} 会话)</span>
-                          </td>
-                          <td className="py-3.5 px-4 font-mono font-bold whitespace-nowrap">
+                          </TableCell>
+                          <TableCell className="py-3.5 px-4 font-mono font-bold whitespace-nowrap">
                             {u.total_tokens.toLocaleString()}
-                          </td>
-                          <td className="py-3.5 px-4 font-mono text-[11px] text-muted-foreground whitespace-nowrap">
+                          </TableCell>
+                          <TableCell className="py-3.5 px-4 font-mono text-[11px] text-muted-foreground whitespace-nowrap">
                             <div>In: {u.prompt_tokens.toLocaleString()}</div>
                             <div>Out: {u.completion_tokens.toLocaleString()}</div>
-                          </td>
-                          <td className="py-3.5 px-4 font-mono whitespace-nowrap">
+                          </TableCell>
+                          <TableCell className="py-3.5 px-4 font-mono whitespace-nowrap">
                             <div className="font-bold text-emerald-600 dark:text-emerald-400">
                               ¥{u.estimated_cost_cny.toFixed(2)}
                             </div>
                             <div className="text-[10px] text-slate-400">
                               ${u.estimated_cost_usd.toFixed(4)}
                             </div>
-                          </td>
-                          <td
+                          </TableCell>
+                          <TableCell
                             className="py-3.5 px-4 font-mono text-[11px] text-slate-600 dark:text-slate-300 max-w-[220px] truncate"
                             title={u.top_model}
                           >
                             {u.top_model}
-                          </td>
-                          <td className="py-3.5 px-4 whitespace-nowrap">
+                          </TableCell>
+                          <TableCell className="py-3.5 px-4 whitespace-nowrap">
                             {u.is_active ? (
                               <Badge className="text-[11px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10">
                                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 mr-1"></span>
@@ -487,44 +498,69 @@ export default function UsagePage() {
                                 已停用
                               </Badge>
                             )}
-                          </td>
-                          <td className="py-3.5 px-4 text-right space-x-1.5 whitespace-nowrap">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleOpenAudit(u.user_id, u.username)}
-                              className="h-7 px-2.5 text-[11px] text-primary border-primary/30 bg-primary/5 hover:bg-primary/10 hover:text-primary"
-                              title="查看该用户全部对话记录（含已删除对话）与审计详情"
-                            >
-                              <Eye className="h-3 w-3" />
-                              <span>审查会话</span>
-                            </Button>
+                          </TableCell>
+                          <TableCell className="py-3.5 px-4 text-right space-x-1.5 whitespace-nowrap">
+                            <ActionTooltip label="查看该用户全部对话记录（含已删除对话）与审计详情" side="left">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleOpenAudit(u.user_id, u.username)}
+                                className="h-7 px-2.5 text-[11px] text-primary border-primary/30 bg-primary/5 hover:bg-primary/10 hover:text-primary"
+                              >
+                                <Eye className="h-3 w-3" />
+                                <span>审查会话</span>
+                              </Button>
+                            </ActionTooltip>
                             {!isMe ? (
-                              <>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  disabled={actionLoading === u.user_id}
-                                  onClick={() => handleToggleActive(u.user_id, u.is_active, u.username)}
-                                  className={cn("h-7 px-2 text-[11px]", u.is_active ? "hover:text-destructive" : "text-emerald-600 dark:text-emerald-400")}
-                                >
-                                  {u.is_active ? "停用账号" : "恢复启用"}
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  disabled={actionLoading === u.user_id}
-                                  onClick={() => handleToggleAdmin(u.user_id, u.is_superuser, u.username)}
-                                  className="h-7 px-2 text-[11px] text-muted-foreground"
-                                >
-                                  {u.is_superuser ? "取消管理员" : "设为管理员"}
-                                </Button>
-                              </>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    disabled={actionLoading === u.user_id}
+                                    className="h-7 w-7 text-muted-foreground hover:text-foreground inline-flex align-middle"
+                                  >
+                                    <MoreHorizontal className="h-4 w-4" />
+                                    <span className="sr-only">操作菜单</span>
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-36">
+                                  <DropdownMenuItem
+                                    onClick={() => handleToggleActive(u.user_id, u.is_active, u.username)}
+                                    className={cn(
+                                      "cursor-pointer text-xs",
+                                      u.is_active
+                                        ? "text-destructive focus:text-destructive focus:bg-destructive/10"
+                                        : "text-emerald-600 focus:text-emerald-600 focus:bg-emerald-500/10"
+                                    )}
+                                  >
+                                    {u.is_active ? (
+                                      <>
+                                        <UserX className="h-3.5 w-3.5 mr-2" />
+                                        <span>停用账号</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <UserCheck className="h-3.5 w-3.5 mr-2" />
+                                        <span>恢复启用</span>
+                                      </>
+                                    )}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() => handleToggleAdmin(u.user_id, u.is_superuser, u.username)}
+                                    className="cursor-pointer text-xs"
+                                  >
+                                    <Shield className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
+                                    <span>{u.is_superuser ? "取消管理员" : "设为管理员"}</span>
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             ) : (
                               <span className="text-[11px] text-muted-foreground italic ml-1">当前账号</span>
                             )}
-                          </td>
-                        </tr>
+                          </TableCell>
+                        </TableRow>
                       );
                     })}
                   </TableBody>
@@ -861,88 +897,88 @@ export default function UsagePage() {
               </div>
 
               {/* Modal Body */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-3">
-                {auditLoading ? (
-                  <div className="py-16 text-center space-y-2">
-                    <RefreshCw className="h-6 w-6 animate-spin mx-auto text-indigo-600" />
-                    <p className="text-xs text-slate-500">正在载入对话记录与审计数据...</p>
-                  </div>
-                ) : auditConversations.length === 0 ? (
-                  <div className="py-16 text-center text-xs text-slate-500">
-                    该用户暂无任何对话记录。
-                  </div>
-                ) : (
-                  auditConversations
-                    .filter((c) => {
-                      if (auditFilter === "active") return !c.is_deleted;
-                      if (auditFilter === "deleted") return c.is_deleted;
-                      return true;
-                    })
-                    .map((conv) => (
-                      <div
-                        key={conv.id}
-                        className={cn(
-                          "p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3",
-                          conv.is_deleted
-                            ? "bg-destructive/5 border-destructive/30"
-                            : "bg-muted/40"
-                        )}
-                      >
-                        <div className="space-y-1.5 flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <h4 className="text-sm font-bold truncate">
-                              {conv.title || "未命名对话"}
-                            </h4>
-                            {conv.is_deleted ? (
-                              <Badge variant="destructive" className="text-[10px] bg-destructive/10 hover:bg-destructive/10">
-                                <Trash2 className="h-2.5 w-2.5 mr-1" />
-                                用户已删除 ({conv.deleted_at || "已移入回收站"})
+              <div className="overflow-y-auto flex-1 max-h-[65vh] p-6 space-y-3 overscroll-contain">
+                  {auditLoading ? (
+                    <div className="py-16 text-center space-y-2">
+                      <RefreshCw className="h-6 w-6 animate-spin mx-auto text-indigo-600" />
+                      <p className="text-xs text-slate-500">正在载入对话记录与审计数据...</p>
+                    </div>
+                  ) : auditConversations.length === 0 ? (
+                    <div className="py-16 text-center text-xs text-slate-500">
+                      该用户暂无任何对话记录。
+                    </div>
+                  ) : (
+                    auditConversations
+                      .filter((c) => {
+                        if (auditFilter === "active") return !c.is_deleted;
+                        if (auditFilter === "deleted") return c.is_deleted;
+                        return true;
+                      })
+                      .map((conv) => (
+                        <div
+                          key={conv.id}
+                          className={cn(
+                            "p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3",
+                            conv.is_deleted
+                              ? "bg-destructive/5 border-destructive/30"
+                              : "bg-muted/40"
+                          )}
+                        >
+                          <div className="space-y-1.5 flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="text-sm font-bold truncate">
+                                {conv.title || "未命名对话"}
+                              </h4>
+                              {conv.is_deleted ? (
+                                <Badge variant="destructive" className="text-[10px] bg-destructive/10 hover:bg-destructive/10">
+                                  <Trash2 className="h-2.5 w-2.5 mr-1" />
+                                  用户已删除 ({conv.deleted_at || "已移入回收站"})
+                                </Badge>
+                              ) : (
+                                <Badge className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10">
+                                  <CheckCircle2 className="h-2.5 w-2.5 mr-1" />
+                                  正常活跃
+                                </Badge>
+                              )}
+                              <Badge variant="secondary" className="text-[10px] font-mono">
+                                {conv.model}
                               </Badge>
-                            ) : (
-                              <Badge className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10">
-                                <CheckCircle2 className="h-2.5 w-2.5 mr-1" />
-                                正常活跃
-                              </Badge>
-                            )}
-                            <Badge variant="secondary" className="text-[10px] font-mono">
-                              {conv.model}
-                            </Badge>
+                            </div>
+
+                            <div className="flex items-center gap-4 text-xs text-muted-foreground font-mono">
+                              <span>消息: {conv.message_count} 条</span>
+                              <span>Token 累计: {conv.total_tokens.toLocaleString()}</span>
+                              <span>更新: {conv.updated_at || conv.created_at}</span>
+                            </div>
                           </div>
 
-                          <div className="flex items-center gap-4 text-xs text-muted-foreground font-mono">
-                            <span>消息: {conv.message_count} 条</span>
-                            <span>Token 累计: {conv.total_tokens.toLocaleString()}</span>
-                            <span>更新: {conv.updated_at || conv.created_at}</span>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2 shrink-0">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleInspectMessages(conv.id)}
-                            className="h-8 text-xs shadow-sm"
-                          >
-                            <FileText className="h-3.5 w-3.5" />
-                            <span>查阅消息</span>
-                          </Button>
-
-                          {conv.is_deleted && (
+                          <div className="flex items-center gap-2 shrink-0">
                             <Button
                               variant="outline"
                               size="sm"
-                              disabled={restoreLoading === conv.id}
-                              onClick={() => handleAdminRestore(conv.id, conv.title)}
-                              className="h-8 text-xs text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 hover:text-emerald-600 dark:hover:text-emerald-400"
+                              onClick={() => handleInspectMessages(conv.id)}
+                              className="h-8 text-xs shadow-sm"
                             >
-                              <RotateCcw className={cn("h-3.5 w-3.5", restoreLoading === conv.id && "animate-spin")} />
-                              <span>恢复对话</span>
+                              <FileText className="h-3.5 w-3.5" />
+                              <span>查阅消息</span>
                             </Button>
-                          )}
+
+                            {conv.is_deleted && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={restoreLoading === conv.id}
+                                onClick={() => handleAdminRestore(conv.id, conv.title)}
+                                className="h-8 text-xs text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 hover:text-emerald-600 dark:hover:text-emerald-400"
+                              >
+                                <RotateCcw className={cn("h-3.5 w-3.5", restoreLoading === conv.id && "animate-spin")} />
+                                <span>恢复对话</span>
+                              </Button>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))
-                )}
+                      ))
+                  )}
               </div>
             </DialogContent>
           </Dialog>
@@ -996,7 +1032,7 @@ export default function UsagePage() {
               </DialogHeader>
 
               {/* Messages Body */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              <div className="overflow-y-auto flex-1 max-h-[65vh] p-6 space-y-4 overscroll-contain">
                 {inspectData.messages.length === 0 ? (
                   <div className="py-16 text-center text-xs text-muted-foreground">对话中暂无任何消息。</div>
                 ) : (

@@ -15,7 +15,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import {
   Card,
   CardContent,
@@ -341,7 +340,7 @@ export default function SettingsPage() {
                     选一种回答风格，需要完全自己写时点自定义再往下写。
                   </p>
                 </div>
-                <div className="grid grid-cols-4 gap-2">
+                <div role="radiogroup" aria-label="助手人设风格" className="grid grid-cols-4 gap-2">
                   {SYSTEM_PROMPT_PRESETS.filter((p) => p.id !== "custom").map((preset) => {
                     const isActive = personaId === preset.id;
                     const Icon = preset.icon;
@@ -349,12 +348,14 @@ export default function SettingsPage() {
                       <button
                         key={preset.id}
                         type="button"
+                        role="radio"
+                        aria-checked={isActive}
                         onClick={() => {
                           setPersonaId(preset.id);
                           setSystemPrompt(preset.text);
                         }}
                         className={cn(
-                          "flex flex-col items-center justify-center gap-1 p-2 sm:p-3 rounded-xl border text-xs font-medium transition-all",
+                          "flex flex-col items-center justify-center gap-1 p-2 sm:p-3 rounded-xl border text-xs font-medium transition-all cursor-pointer",
                           isActive
                             ? "border-primary bg-primary/10 text-primary shadow-xs ring-1 ring-primary"
                             : "border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground"

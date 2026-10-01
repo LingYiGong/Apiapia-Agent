@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { apiRequest } from "@/lib/api";
 import { Navbar } from "@/components/layout/Navbar";
+import { MobileHeader } from "@/components/layout/MobileHeader";
 import { ModelCatalogItem } from "@/types";
 import { useTheme } from "@/lib/theme";
 import { ModelSelect } from "@/components/common/ModelSelect";
@@ -238,20 +239,38 @@ export default function SettingsPage() {
   return (
     <div className="flex flex-col h-dvh overflow-hidden bg-background">
       <Navbar />
+      {/* ── Apple HIG Standard Mobile Navigation Bar (44pt) ── */}
+      <MobileHeader title="偏好设置" />
 
       <div className="flex-1 overflow-y-auto">
-        <main className="max-w-4xl w-full mx-auto p-4 sm:p-6 md:p-8 space-y-6 sm:space-y-8 pb-24 md:pb-8">
-        <div className="flex items-center justify-between pb-6 border-b border-border/50">
+        <main className="max-w-4xl w-full mx-auto p-4 sm:p-6 md:p-8 space-y-4 sm:space-y-8 pb-24 md:pb-8">
+        {/* Desktop Header Banner */}
+        <div className="hidden md:flex items-center justify-between pb-6 border-b border-border/50">
           <div>
             <div className="flex items-center gap-2 text-primary font-semibold mb-1 text-[13px] tracking-tight">
               <Settings className="h-4 w-4" />
               <span>系统设置</span>
             </div>
-            <h1 className="text-[28px] sm:text-3xl font-bold tracking-tight text-foreground">偏好设置</h1>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">偏好设置</h1>
             <p className="text-[13px] text-muted-foreground mt-1.5 leading-relaxed">
               管理界面外观、默认模型、助手人设、回答风格与长期记忆开关。
             </p>
           </div>
+        </div>
+
+        {/* Mobile Quick Action Sub-bar */}
+        <div className="flex md:hidden items-center justify-between gap-2 pb-1">
+          <p className="text-xs text-muted-foreground font-mono">个性化与模型偏好</p>
+          <Button
+            type="button"
+            onClick={handleSaveSettings}
+            disabled={savingSettings}
+            size="sm"
+            className="h-8 px-3.5 rounded-full text-xs font-semibold shadow-xs gap-1.5 active:scale-95"
+          >
+            <Save className="h-3.5 w-3.5" />
+            <span>{savingSettings ? "保存中..." : "保存设置"}</span>
+          </Button>
         </div>
 
         {/* General Settings Form */}

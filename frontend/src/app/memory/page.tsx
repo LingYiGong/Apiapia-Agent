@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { apiRequest, getToken, getApiBase } from "@/lib/api";
 import { Navbar } from "@/components/layout/Navbar";
+import { MobileHeader } from "@/components/layout/MobileHeader";
 import { MemoryItem } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -184,17 +185,19 @@ export default function MemoryPage() {
   return (
     <div className="flex flex-col h-dvh overflow-hidden bg-background">
       <Navbar />
+      {/* ── Apple HIG Standard Mobile Navigation Bar (44pt) ── */}
+      <MobileHeader title="记忆库" />
 
       <div className="flex-1 overflow-y-auto">
         <main className="max-w-5xl w-full mx-auto p-4 sm:p-6 md:p-8 pb-24 md:pb-8">
-        {/* Header Banner */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-border/50">
+        {/* Desktop Header Banner */}
+        <div className="hidden md:flex flex-row items-center justify-between gap-4 pb-6 border-b border-border/50">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 text-primary font-semibold mb-1 text-[13px] tracking-tight">
               <Brain className="h-4 w-4 shrink-0" />
               <span>长期记忆管理</span>
             </div>
-            <h1 className="text-[28px] sm:text-3xl font-bold tracking-tight text-foreground">记忆库</h1>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">记忆库</h1>
             <p className="text-[13px] text-muted-foreground mt-1.5 leading-relaxed max-w-2xl">
               所有记忆均独立保存在本地向量数据库中，你可在此随时审查、修正或删除。
             </p>
@@ -216,6 +219,32 @@ export default function MemoryPage() {
                 <span>导出 JSON</span>
               </Button>
             </ActionTooltip>
+          </div>
+        </div>
+
+        {/* Mobile Action Sub-Bar */}
+        <div className="flex md:hidden items-center justify-between gap-2 pb-2">
+          <p className="text-xs text-muted-foreground font-mono">
+            共 {memories.length} 条记忆记录
+          </p>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              onClick={() => setShowAddModal(true)}
+              size="sm"
+              className="h-8 px-3 rounded-full text-xs font-semibold gap-1 active:scale-95 shadow-xs"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>新增记忆</span>
+            </Button>
+            <Button
+              onClick={handleExport}
+              variant="outline"
+              size="sm"
+              className="h-8 px-2.5 rounded-full text-xs"
+              title="导出所有记忆数据"
+            >
+              <Download className="h-3.5 w-3.5" />
+            </Button>
           </div>
         </div>
 

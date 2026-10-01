@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { apiRequest } from "@/lib/api";
 import { Navbar } from "@/components/layout/Navbar";
+import { MobileHeader } from "@/components/layout/MobileHeader";
 import { MyUsageStats, AdminOverviewStats } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -243,11 +244,13 @@ export default function UsagePage() {
   return (
     <div className="flex flex-col h-dvh overflow-hidden bg-background">
       <Navbar />
+      {/* ── Apple HIG Standard Mobile Navigation Bar (44pt) ── */}
+      <MobileHeader title="用量监控" />
 
       <div className="flex-1 overflow-y-auto">
-        <main className="max-w-6xl w-full mx-auto p-4 sm:p-5 md:p-8 space-y-5 sm:space-y-6 pb-24 md:pb-8">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-border/50">
+        <main className="max-w-6xl w-full mx-auto p-4 sm:p-5 md:p-8 space-y-4 sm:space-y-6 pb-24 md:pb-8">
+        {/* Desktop Header Banner */}
+        <div className="hidden md:flex flex-row items-center justify-between gap-4 pb-6 border-b border-border/50">
           <div>
             <div className="flex items-center gap-2 text-primary font-semibold mb-1 flex-wrap text-[13px] tracking-tight">
               <BarChart3 className="h-4 w-4 shrink-0" />
@@ -258,7 +261,7 @@ export default function UsagePage() {
                 </Badge>
               )}
             </div>
-            <h1 className="text-[28px] sm:text-3xl font-bold tracking-tight text-foreground">
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">
               {isSuperuser ? "平台用量与成本核算" : "我的用量总览"}
             </h1>
             <p className="text-[13px] text-muted-foreground mt-1.5 leading-relaxed max-w-2xl">
@@ -279,6 +282,23 @@ export default function UsagePage() {
               <span>刷新数据</span>
             </Button>
           </div>
+        </div>
+
+        {/* Mobile Quick Action Sub-bar */}
+        <div className="flex md:hidden items-center justify-between gap-2 pb-1">
+          <span className="text-xs text-muted-foreground font-mono">
+            {isSuperuser ? "管理员控制台" : "个人用量统计"}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => fetchStats()}
+            disabled={isLoading}
+            className="h-8 px-3 rounded-full text-xs font-medium gap-1.5 shadow-xs"
+          >
+            <RefreshCw className={cn("h-3.5 w-3.5", isLoading && "animate-spin text-primary")} />
+            <span>刷新数据</span>
+          </Button>
         </div>
 
         {/* Time Period Filter Selector */}

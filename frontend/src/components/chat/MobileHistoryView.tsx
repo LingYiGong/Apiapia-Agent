@@ -36,6 +36,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { MobileHeader } from "@/components/layout/MobileHeader";
 
 interface MobileHistoryViewProps {
   conversations: Conversation[];
@@ -652,43 +653,25 @@ export const MobileHistoryView = ({
 
   return (
     <div className="flex-1 flex flex-col h-full bg-background overflow-hidden relative">
-      {/* ── Apple Large Title & Navigation Header ── */}
-      <div className="pt-[max(0.85rem,env(safe-area-inset-top))] px-4 pb-3 border-b border-border/40 bg-background/85 backdrop-blur-xl shrink-0 z-10 flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-[28px] font-bold tracking-tight text-foreground leading-none">
-              历史对话
-            </h1>
-            <p className="text-[12px] text-muted-foreground mt-1 font-mono">
-              共 {conversations.length} 条对话记录
-            </p>
-          </div>
+      {/* ── Apple HIG Standard Navigation Header (44pt) ── */}
+      <MobileHeader title="历史会话" />
 
-          <Button
-            onClick={onNewChat}
-            size="sm"
-            className="h-8 px-3.5 rounded-full text-xs font-semibold shadow-xs gap-1.5 active:scale-95 transition-all"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            <span>新建对话</span>
-          </Button>
-        </div>
-
-        {/* Apple Style Search Bar */}
+      {/* ── Apple Style Search Bar ── */}
+      <div className="px-3.5 py-2 border-b border-border/30 bg-background/50 backdrop-blur-md shrink-0">
         <div className="relative">
-          <Search className="absolute left-3.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
           <Input
             type="search"
             placeholder="搜索历史记录..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 pr-8 h-9 text-[15px] sm:text-xs rounded-xl bg-muted/50 border-border/50 focus-visible:bg-background"
+            className="pl-8 pr-8 h-8 text-[13px] rounded-lg bg-muted/60 border-border/40 focus-visible:bg-background"
           />
           {search && (
             <button
               type="button"
               onClick={() => setSearch("")}
-              className="absolute right-2.5 top-2.5 p-0.5 rounded-full text-muted-foreground hover:text-foreground"
+              className="absolute right-2.5 top-2 p-0.5 rounded-full text-muted-foreground hover:text-foreground"
             >
               <X className="h-3.5 w-3.5" />
             </button>

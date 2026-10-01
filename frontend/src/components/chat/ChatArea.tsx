@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { ActionTooltip } from "@/components/common/ActionTooltip";
+import { UserAvatarDropdown } from "@/components/layout/UserAvatarDropdown";
 import { MessageListSkeleton } from "@/components/common/PageSkeleton";
 import { cn } from "@/lib/utils";
 import {
@@ -315,17 +316,64 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
   return (
     <div className="flex-1 flex flex-col h-full bg-background relative overflow-hidden min-w-0 max-w-full">
-      {/* Top Bar with Searchable Model Picker & Mobile/Tablet Controls */}
-      <div className="border-b border-border/40 bg-background/80 backdrop-blur-xl px-3.5 sm:px-4 flex items-center justify-between z-20 gap-2 flex-nowrap min-w-0 pt-[max(0.65rem,env(safe-area-inset-top))] pb-2 md:pb-2 md:pt-2 min-h-[calc(3.25rem+env(safe-area-inset-top,0px))] md:min-h-12">
-        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
-          {/* Mobile Sidebar Toggle Button — hidden on mobile (moved to bottom nav) */}
+      {/* ── Apple HIG Standard Mobile Navigation Bar (44pt + safe area) ── */}
+      <div className="md:hidden sticky top-0 z-20 w-full bg-background/85 backdrop-blur-xl border-b border-border/40 pt-[env(safe-area-inset-top,0px)] shrink-0 select-none">
+        <div className="h-11 px-3 sm:px-4 flex items-center justify-between gap-2 min-w-0">
+          {/* 1. Logo */}
+          <Link
+            href="/chat"
+            onClick={onNewChat}
+            className="flex items-center shrink-0 active:scale-95 transition-transform"
+            title="Apiapia 助理 / 新建对话"
+          >
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-xs shrink-0">
+              <Cat className="h-4 w-4" />
+            </div>
+          </Link>
+
+          {/* 2. 模型选择器 */}
+          <div className="flex-1 min-w-0">
+            <ModelSelect
+              value={currentModel}
+              onChange={onModelChange}
+              models={availableModels}
+              variant="compact"
+              className="w-full"
+            />
+          </div>
+
+          {/* 3. 刷新模型按钮 */}
+          {onRefreshModels && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onRefreshModels}
+              disabled={isRefreshingModels}
+              title="向配置的提供商 API 手动同步最新模型"
+              className="h-8 w-8 rounded-full shrink-0 text-muted-foreground hover:text-foreground active:scale-95 transition-all"
+            >
+              <RotateCw className={cn("h-3.5 w-3.5", isRefreshingModels && "animate-spin text-primary")} />
+              <span className="sr-only">同步模型</span>
+            </Button>
+          )}
+
+          {/* 4. 个人设置的头像 */}
+          <div className="shrink-0 flex items-center">
+            <UserAvatarDropdown />
+          </div>
+        </div>
+      </div>
+
+      {/* ── Desktop / Tablet Top Bar (48px) ── */}
+      <div className="hidden md:flex border-b border-border/40 bg-background/80 backdrop-blur-xl px-4 items-center justify-between z-20 gap-2 flex-nowrap min-w-0 h-12 shrink-0">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
           {onToggleSidebar && (
             <Button
               variant="outline"
               size="icon"
               onClick={onToggleSidebar}
               title="展开历史对话"
-              className="hidden md:flex shrink-0"
+              className="shrink-0"
             >
               <Menu className="h-4 w-4" />
               <span className="sr-only">展开历史对话</span>
@@ -336,7 +384,6 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             当前模型：
           </span>
 
-          {/* Unified Compact Model Selector — 移动端自适应顶满所有剩余宽度 */}
           <div className="flex-1 min-w-0 flex">
             <ModelSelect
               value={currentModel}
@@ -347,15 +394,14 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             />
           </div>
 
-          {/* Refresh/Sync Models Button */}
           {onRefreshModels && (
             <Button
               variant="outline"
               size="sm"
               onClick={onRefreshModels}
               disabled={isRefreshingModels}
-              title="向配置的提供商 API (Gemini/OpenAI/OpenRouter/Ollama) 手动同步最新模型"
-              className="shrink-0 text-primary border-primary/30 bg-primary/5 hover:bg-primary/10 hover:text-primary hidden md:inline-flex"
+              title="向配置的提供商 API 手动同步最新模型"
+              className="shrink-0 text-primary border-primary/30 bg-primary/5 hover:bg-primary/10 hover:text-primary"
             >
               <RotateCw className={cn("h-3.5 w-3.5", isRefreshingModels && "animate-spin")} />
               <span className="hidden lg:inline">{isRefreshingModels ? "正在同步..." : "同步模型"}</span>
@@ -364,12 +410,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           )}
         </div>
 
-        {/* Right Header Buttons */}
-        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-          {/* Theme toggle — hidden on mobile, kept on desktop and iPad */}
-          <div className="hidden md:inline-flex">
-            <ThemeToggle />
-          </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <ThemeToggle />
 
           {onToggleMemory && (
             <Button
@@ -389,71 +431,12 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             </Button>
           )}
 
-          {/* Mobile User Avatar & Menu (md:hidden) */}
-          {user && (
-            <div className="md:hidden">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    className="flex items-center justify-center h-8 w-8 rounded-full border border-border/80 bg-muted/60 hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shrink-0 cursor-pointer"
-                  >
-                    <Avatar className="h-7 w-7">
-                      <AvatarFallback className="text-xs font-bold bg-primary/10 text-primary">
-                        {user.username.slice(0, 1).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-52">
-                  <DropdownMenuLabel className="font-normal">
-                    <div className="flex flex-col space-y-1">
-                      <p className="text-xs font-semibold leading-none truncate">{user.username}</p>
-                      <p className="text-[10px] text-muted-foreground font-mono">
-                        {user.is_superuser ? "超级管理员 (Admin)" : "普通用户 (User)"}
-                      </p>
-                    </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href="/settings" className="flex items-center gap-2 cursor-pointer text-xs">
-                      <Settings className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span>偏好设置</span>
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/usage" className="flex items-center gap-2 cursor-pointer text-xs">
-                      <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span>用量与账单</span>
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/memory" className="flex items-center gap-2 cursor-pointer text-xs">
-                      <Brain className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span>长期记忆库</span>
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={logout}
-                    className="flex items-center gap-2 cursor-pointer text-xs text-destructive focus:text-destructive focus:bg-destructive/10"
-                  >
-                    <LogOut className="h-3.5 w-3.5" />
-                    <span>退出登录</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          )}
-
-          {/* Desktop/iPad New Chat Button — only visible on md and up */}
           {onNewChat && (
             <Button
               variant="outline"
               size="icon"
               onClick={onNewChat}
               title="新建对话"
-              className="hidden md:inline-flex"
             >
               <Plus className="h-4 w-4" />
               <span className="sr-only">新建对话</span>

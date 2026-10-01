@@ -70,12 +70,7 @@ export const Navbar = ({
     <>
       {/* ── Desktop / Tablet Top Header ── */}
       <header
-        className={cn(
-          "border-b border-border/70 bg-background/80 backdrop-blur-xl px-3 sm:px-4 items-center justify-between shrink-0 z-30 flex-nowrap min-w-0",
-          isChatPage
-            ? "hidden md:flex md:h-14"
-            : "flex pt-[max(0.65rem,env(safe-area-inset-top))] pb-2 md:pt-0 md:pb-0 md:h-14 min-h-[calc(3.5rem+env(safe-area-inset-top,0px))] md:min-h-14"
-        )}
+        className="hidden md:flex md:h-14 border-b border-border/70 bg-background/80 backdrop-blur-xl px-3 sm:px-4 items-center justify-between shrink-0 z-30 flex-nowrap min-w-0"
       >
         <div className="flex items-center gap-2 md:gap-3 lg:gap-6 min-w-0 shrink">
           <Link href="/chat" className="flex items-center gap-2 font-bold tracking-wide shrink-0">

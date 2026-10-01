@@ -241,14 +241,14 @@ export default function SettingsPage() {
 
       <div className="flex-1 overflow-y-auto">
         <main className="max-w-4xl w-full mx-auto p-4 sm:p-6 md:p-8 space-y-6 sm:space-y-8 pb-24 md:pb-8">
-        <div className="flex items-center justify-between pb-6 border-b">
+        <div className="flex items-center justify-between pb-6 border-b border-border/50">
           <div>
-            <div className="flex items-center gap-2 text-primary font-semibold mb-1">
-              <Settings className="h-5 w-5" />
+            <div className="flex items-center gap-2 text-primary font-semibold mb-1 text-[13px] tracking-tight">
+              <Settings className="h-4 w-4" />
               <span>系统设置</span>
             </div>
-            <h1 className="text-2xl font-bold tracking-tight">偏好设置</h1>
-            <p className="text-xs text-muted-foreground mt-1">
+            <h1 className="text-[28px] sm:text-3xl font-bold tracking-tight text-foreground">偏好设置</h1>
+            <p className="text-[13px] text-muted-foreground mt-1.5 leading-relaxed">
               管理界面外观、默认模型、助手人设、回答风格与长期记忆开关。
             </p>
           </div>

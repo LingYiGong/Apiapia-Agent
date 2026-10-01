@@ -8,9 +8,11 @@ import { Navbar } from "@/components/layout/Navbar";
 import { Sidebar } from "@/components/chat/Sidebar";
 import { ChatArea } from "@/components/chat/ChatArea";
 import { MemorySidebar } from "@/components/chat/MemorySidebar";
+import { MobileHistoryView } from "@/components/chat/MobileHistoryView";
 import { toast } from "sonner";
 import { FullPageSkeleton } from "@/components/common/PageSkeleton";
 import { Conversation, Message, ModelCatalogItem, AttachmentItem, SearchResultItem } from "@/types";
+import { cn } from "@/lib/utils";
 
 export default function ChatPage() {
   const { user, loading } = useAuth();
@@ -25,6 +27,9 @@ export default function ChatPage() {
   const defaultModelRef = useRef<string>("gpt-4o-mini");
   const [memoryEnabled, setMemoryEnabled] = useState(true);
   const [retrievedMemories, setRetrievedMemories] = useState<any[]>([]);
+
+  // Mobile tab state: "chat" (default) or "history" (full-screen history view on mobile)
+  const [mobileTab, setMobileTab] = useState<"chat" | "history">("chat");
 
   // Web search state: "auto" (default, smart auto-trigger) | "on" (force on) | "off" (disabled)
   const [webSearchMode, setWebSearchMode] = useState<"auto" | "on" | "off">(() => {
@@ -105,11 +110,12 @@ export default function ChatPage() {
     }
   }, [user, loading, router]);
 
-  // 从其他页面点击底部的【历史】跳过来时，自动弹开历史对话抽屉
+  // 从其他页面点击底部的【历史】跳过来时，自动切换到历史列表页面
   useEffect(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
-      if (params.get("openHistory") === "1") {
+      if (params.get("openHistory") === "1" || params.get("tab") === "history") {
+        setMobileTab("history");
         setIsSidebarOpen(true);
         window.history.replaceState({}, "", "/chat");
       }
@@ -247,6 +253,7 @@ export default function ChatPage() {
     // 立刻清空旧消息，让右侧消息区显示骨架屏，而不是残留上一个会话的内容
     setMessages([]);
     setLoadingMessages(true);
+    setMobileTab("chat");
 
     // Restore this conversation's saved model if present
     const targetConv = (customList || conversations).find((c) => c.id === id);
@@ -281,6 +288,7 @@ export default function ChatPage() {
     setStreamingContent("");
     setRetrievedMemories([]);
     setLoadingMessages(false);
+    setMobileTab("chat");
 
     // Always reset to user's configured default model from Settings!
     const userDef = defaultModelRef.current;
@@ -368,6 +376,20 @@ export default function ChatPage() {
     const ids = pinned.map((c) => c.id);
     [ids[idx], ids[swapIdx]] = [ids[swapIdx], ids[idx]];
     handleReorderPinned(ids);
+  };
+
+  const handleRenameConversation = async (id: string, newTitle: string) => {
+    setConversations((list) =>
+      list.map((c) => (c.id === id ? { ...c, title: newTitle } : c))
+    );
+    try {
+      await apiRequest(`/conversations/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ title: newTitle }),
+      });
+    } catch (err) {
+      console.error("Failed to rename conversation:", err);
+    }
   };
 
   const finalizeAssistantMessage = () => {
@@ -617,50 +639,84 @@ export default function ChatPage() {
   return (
     <div className="flex flex-col h-dvh overflow-hidden bg-background">
       <Navbar
-        onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
+        onToggleSidebar={() => setMobileTab((prev) => (prev === "history" ? "chat" : "history"))}
         onToggleMemory={() => setIsMemoryOpen((prev) => !prev)}
         hasMemories={retrievedMemories.length > 0}
         onNewChat={handleNewChat}
         hasActiveChat={messages.length > 0}
+        activeMobileTab={mobileTab}
+        onSelectMobileTab={(tab) => setMobileTab(tab)}
       />
       <div className="flex flex-1 overflow-hidden relative">
         <Sidebar
           conversations={conversations}
           activeId={activeId}
-          onSelect={selectConversation}
+          onSelect={(id) => {
+            selectConversation(id);
+            setMobileTab("chat");
+          }}
           onNewChat={handleNewChat}
           onDelete={handleDeleteConversation}
           onTogglePin={handleTogglePin}
           onMovePinned={handleMovePinned}
           onReorderPinned={handleReorderPinned}
-          isOpen={isSidebarOpen}
+          isOpen={false}
           onClose={() => setIsSidebarOpen(false)}
           loading={loadingConversations}
         />
-        <ChatArea
-          messages={messages}
-          currentModel={currentModel}
-          onModelChange={handleModelChange}
-          availableModels={availableModels}
-          onSendMessage={handleSendMessage}
-          onStopGenerating={handleStopGenerating}
-          isStreaming={isStreaming}
-          streamingContent={streamingContent}
-          thinkingDuration={thinkingDuration}
-          elapsedTime={elapsedTime}
-          isWaitingForFirstToken={isWaitingForFirstToken}
-          onRefreshModels={handleManualSyncModels}
-          isRefreshingModels={isRefreshingModels}
-          onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
-          onToggleMemory={() => setIsMemoryOpen((prev) => !prev)}
-          memoriesCount={retrievedMemories.length}
-          onNewChat={handleNewChat}
-          webSearchMode={webSearchMode}
-          onToggleWebSearchMode={handleToggleWebSearchMode}
-          searchStatus={searchStatus}
-          streamingSearchResults={streamingSearchResults}
-          loadingMessages={loadingMessages}
-        />
+
+        {/* ── Mobile Full-screen History View (Shown only on mobile when mobileTab === 'history') ── */}
+        <div className={cn("flex-1 overflow-hidden relative", mobileTab === "history" ? "flex md:hidden" : "hidden")}>
+          <MobileHistoryView
+            conversations={conversations}
+            activeId={activeId}
+            isVisible={mobileTab === "history"}
+            onSelect={(id) => {
+              selectConversation(id);
+              setMobileTab("chat");
+            }}
+            onNewChat={handleNewChat}
+            onDelete={handleDeleteConversation}
+            onTogglePin={(id) => {
+              const conv = conversations.find((c) => c.id === id);
+              if (conv) {
+                handleTogglePin(id, !conv.is_pinned);
+              }
+            }}
+            onRename={handleRenameConversation}
+            onMovePinned={handleMovePinned}
+            onReorderPinned={handleReorderPinned}
+          />
+        </div>
+
+        {/* ── ChatArea: On mobile shown when mobileTab === 'chat', on desktop always visible (md:flex) ── */}
+        <div className={cn("flex-1 overflow-hidden relative", mobileTab === "chat" ? "flex" : "hidden md:flex")}>
+          <ChatArea
+            messages={messages}
+            currentModel={currentModel}
+            onModelChange={handleModelChange}
+            availableModels={availableModels}
+            onSendMessage={handleSendMessage}
+            onStopGenerating={handleStopGenerating}
+            isStreaming={isStreaming}
+            streamingContent={streamingContent}
+            thinkingDuration={thinkingDuration}
+            elapsedTime={elapsedTime}
+            isWaitingForFirstToken={isWaitingForFirstToken}
+            onRefreshModels={handleManualSyncModels}
+            isRefreshingModels={isRefreshingModels}
+            onToggleSidebar={() => setMobileTab("history")}
+            onToggleMemory={() => setIsMemoryOpen((prev) => !prev)}
+            memoriesCount={retrievedMemories.length}
+            onNewChat={handleNewChat}
+            webSearchMode={webSearchMode}
+            onToggleWebSearchMode={handleToggleWebSearchMode}
+            searchStatus={searchStatus}
+            streamingSearchResults={streamingSearchResults}
+            loadingMessages={loadingMessages}
+          />
+        </div>
+
         <MemorySidebar
           memories={retrievedMemories}
           memoryEnabled={memoryEnabled}

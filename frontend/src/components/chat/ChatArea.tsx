@@ -316,7 +316,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   return (
     <div className="flex-1 flex flex-col h-full bg-background relative overflow-hidden min-w-0 max-w-full">
       {/* Top Bar with Searchable Model Picker & Mobile/Tablet Controls */}
-      <div className="border-b border-border/70 bg-background/80 backdrop-blur-xl px-2.5 sm:px-4 flex items-center justify-between z-20 gap-1.5 sm:gap-2 flex-nowrap min-w-0 pt-[max(0.65rem,env(safe-area-inset-top))] pb-2 md:pb-2 md:pt-2 min-h-[calc(3.25rem+env(safe-area-inset-top,0px))] md:min-h-12">
+      <div className="border-b border-border/40 bg-background/80 backdrop-blur-xl px-3.5 sm:px-4 flex items-center justify-between z-20 gap-2 flex-nowrap min-w-0 pt-[max(0.65rem,env(safe-area-inset-top))] pb-2 md:pb-2 md:pt-2 min-h-[calc(3.25rem+env(safe-area-inset-top,0px))] md:min-h-12">
         <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
           {/* Mobile Sidebar Toggle Button — hidden on mobile (moved to bottom nav) */}
           {onToggleSidebar && (
@@ -467,7 +467,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         ref={scrollContainerRef}
         onScroll={handleScroll}
         className={cn(
-          "flex-1 overflow-x-hidden px-2.5 sm:px-5 md:px-8 relative min-w-0",
+          "flex-1 overflow-x-hidden px-3.5 sm:px-5 md:px-8 relative min-w-0",
           messages.length > 0 || isStreaming
             ? "overflow-y-auto py-3 sm:py-5 space-y-3 sm:space-y-4"
             : "overflow-y-hidden py-1 flex flex-col justify-center"

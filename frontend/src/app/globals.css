@@ -105,8 +105,106 @@
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
       "SF Pro", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC",
       sans-serif;
-    letter-spacing: -0.011em;
+    letter-spacing: -0.014em;
+    line-height: 1.47059; /* Apple HIG iOS Standard Body Line-height */
     transition: background-color 0.2s ease, color 0.2s ease;
+  }
+}
+
+/* Apple HIG iOS Typography & Layout Utilities */
+@layer utilities {
+  /* Apple HIG Standard Touch Target: minimum 44pt x 44pt */
+  .apple-touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Apple HIG Large Title (34pt / -0.022em) */
+  .apple-large-title {
+    font-size: 34px;
+    line-height: 41px;
+    font-weight: 700;
+    letter-spacing: -0.022em;
+  }
+
+  /* Apple HIG Title 1 (28pt / -0.021em) */
+  .apple-title-1 {
+    font-size: 28px;
+    line-height: 34px;
+    font-weight: 700;
+    letter-spacing: -0.021em;
+  }
+
+  /* Apple HIG Title 2 (22pt / -0.018em) */
+  .apple-title-2 {
+    font-size: 22px;
+    line-height: 28px;
+    font-weight: 700;
+    letter-spacing: -0.018em;
+  }
+
+  /* Apple HIG Title 3 (20pt / -0.017em) */
+  .apple-title-3 {
+    font-size: 20px;
+    line-height: 25px;
+    font-weight: 600;
+    letter-spacing: -0.017em;
+  }
+
+  /* Apple HIG Headline (17pt / semibold / -0.024em) */
+  .apple-headline {
+    font-size: 17px;
+    line-height: 22px;
+    font-weight: 600;
+    letter-spacing: -0.024em;
+  }
+
+  /* Apple HIG Body (17pt / regular / -0.024em) */
+  .apple-body {
+    font-size: 17px;
+    line-height: 22px;
+    font-weight: 400;
+    letter-spacing: -0.024em;
+  }
+
+  /* Apple HIG Callout (16pt / regular / -0.020em) */
+  .apple-callout {
+    font-size: 16px;
+    line-height: 21px;
+    font-weight: 400;
+    letter-spacing: -0.020em;
+  }
+
+  /* Apple HIG Subheadline (15pt / regular / -0.016em) */
+  .apple-subheadline {
+    font-size: 15px;
+    line-height: 20px;
+    font-weight: 400;
+    letter-spacing: -0.016em;
+  }
+
+  /* Apple HIG Footnote (13pt / regular / -0.006em) */
+  .apple-footnote {
+    font-size: 13px;
+    line-height: 18px;
+    font-weight: 400;
+    letter-spacing: -0.006em;
+  }
+
+  /* Apple HIG Caption 1 (12pt / regular / 0.0em) */
+  .apple-caption-1 {
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 400;
+    letter-spacing: 0.0em;
+  }
+
+  /* Apple HIG Caption 2 (11pt / regular / +0.006em) */
+  .apple-caption-2 {
+    font-size: 11px;
+    line-height: 13px;
+    font-weight: 400;
+    letter-spacing: 0.006em;
   }
 }
 

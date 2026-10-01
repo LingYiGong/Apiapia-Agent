@@ -54,11 +54,11 @@ export const MemorySidebar: React.FC<MemorySidebarProps> = ({
 
   const memoryBody = (isMobile: boolean) => (
     <>
-      <div className="p-3 pt-[max(0.75rem,env(safe-area-inset-top))] lg:pt-3 border-b flex items-center justify-between">
+      <div className="p-3 pt-[max(0.75rem,env(safe-area-inset-top))] lg:pt-3 border-b border-border/40 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Brain className="h-4 w-4 text-primary" />
-          <span className="text-xs font-semibold">
-            相关记忆
+          <Brain className="h-4 w-4 text-primary shrink-0" />
+          <span className="text-[15px] lg:text-xs font-semibold tracking-tight text-foreground">
+            本次关联记忆
           </span>
         </div>
 
@@ -72,8 +72,8 @@ export const MemorySidebar: React.FC<MemorySidebarProps> = ({
 
           {/* Mobile Close Button */}
           {isMobile && (
-            <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7">
-              <X className="h-4 w-4" />
+            <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7 rounded-full bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground">
+              <X className="h-3.5 w-3.5" />
               <span className="sr-only">关闭</span>
             </Button>
           )}
@@ -153,7 +153,7 @@ export const MemorySidebar: React.FC<MemorySidebarProps> = ({
 
       {/* Mobile Drawer via standard shadcn Sheet */}
       <Sheet open={isOpen} onOpenChange={(open) => !open && onClose?.()}>
-        <SheetContent side="right" className="p-0 w-[84vw] max-w-xs flex flex-col h-full bg-background dark:bg-[#121214] border-l border-border/70 [&>button]:hidden">
+        <SheetContent side="right" className="p-0 w-[84vw] max-w-xs flex flex-col h-full bg-background/95 dark:bg-[#121214]/95 backdrop-blur-2xl border-l border-border/40 shadow-2xl [&>button]:hidden">
           {memoryBody(true)}
         </SheetContent>
       </Sheet>

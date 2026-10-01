@@ -37,15 +37,19 @@ interface NavbarProps {
   onNewChat?: () => void;
   /** 是否已有进行中的对话（有消息记录）*/
   hasActiveChat?: boolean;
+  activeMobileTab?: "chat" | "history";
+  onSelectMobileTab?: (tab: "chat" | "history") => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({
+export const Navbar = ({
   onToggleSidebar,
   onToggleMemory,
   hasMemories,
   onNewChat,
   hasActiveChat = false,
-}) => {
+  activeMobileTab = "chat",
+  onSelectMobileTab,
+}: NavbarProps) => {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const isChatPage = pathname.startsWith("/chat");
@@ -178,10 +182,15 @@ export const Navbar: React.FC<NavbarProps> = ({
         {isChatPage ? (
           <button
             type="button"
-            onClick={onNewChat}
+            onClick={() => {
+              onNewChat?.();
+              onSelectMobileTab?.("chat");
+            }}
             className={cn(
               "flex flex-col items-center justify-center flex-1 pt-1 pb-0.5 gap-0.5 text-[10px] tracking-tight transition-all active:scale-95 select-none",
-              !hasActiveChat ? "text-primary font-semibold" : "text-muted-foreground/70 hover:text-foreground font-medium"
+              activeMobileTab === "chat" && !hasActiveChat
+                ? "text-primary font-semibold"
+                : "text-muted-foreground/70 hover:text-foreground font-medium"
             )}
           >
             <Plus className="h-[22px] w-[22px] shrink-0" />
@@ -197,14 +206,18 @@ export const Navbar: React.FC<NavbarProps> = ({
           </Link>
         )}
 
-        {/* 2. 历史 —— 在 /chat 且已有对话消息时高亮选中 */}
+        {/* 2. 历史 —— 处于历史列表或已有对话时高亮选中 */}
         {isChatPage ? (
           <button
             type="button"
-            onClick={onToggleSidebar}
+            onClick={() => {
+              onSelectMobileTab?.("history");
+            }}
             className={cn(
               "flex flex-col items-center justify-center flex-1 pt-1 pb-0.5 gap-0.5 text-[10px] tracking-tight transition-all active:scale-95 select-none",
-              hasActiveChat ? "text-primary font-semibold" : "text-muted-foreground/70 hover:text-foreground font-medium"
+              activeMobileTab === "history" || (activeMobileTab === "chat" && hasActiveChat)
+                ? "text-primary font-semibold"
+                : "text-muted-foreground/70 hover:text-foreground font-medium"
             )}
           >
             <AlignLeft className="h-[22px] w-[22px] shrink-0" />

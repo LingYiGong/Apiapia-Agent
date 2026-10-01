@@ -260,16 +260,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const sidebarBody = (isMobile: boolean) => (
     <>
       {/* Header with Search */}
-      <div className="p-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:pt-3 border-b flex flex-col gap-2">
+      <div className="p-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:pt-3 border-b border-border/50 flex flex-col gap-2">
         {isMobile && (
-          <div className="flex items-center justify-between pb-1 border-b">
-            <span className="text-xs font-bold">
-              历史对话
-            </span>
-            <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7">
-              <X className="h-4 w-4" />
-              <span className="sr-only">关闭</span>
-            </Button>
+          <div className="flex flex-col gap-1 pb-1 border-b border-border/40">
+            {/* iOS Bottom Sheet Grabber Handle */}
+            <div className="w-9 h-1 rounded-full bg-muted-foreground/25 mx-auto mb-1 shrink-0" />
+            <div className="flex items-center justify-between px-0.5">
+              <span className="text-[17px] font-semibold tracking-tight text-foreground">
+                历史对话
+              </span>
+              <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7 rounded-full bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground">
+                <X className="h-3.5 w-3.5" />
+                <span className="sr-only">关闭</span>
+              </Button>
+            </div>
           </div>
         )}
 
@@ -341,9 +345,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {sidebarBody(false)}
       </aside>
 
-      {/* Mobile Drawer — slides up from the bottom */}
+      {/* Mobile Drawer — slides up from the bottom (Apple HIG Modal Sheet style) */}
       <Sheet open={isOpen} onOpenChange={(open) => !open && onClose?.()}>
-        <SheetContent side="bottom" className="p-0 w-full h-[80dvh] flex flex-col bg-background dark:bg-[#121214] border-t border-border/70 rounded-t-2xl [&>button]:hidden">
+        <SheetContent side="bottom" className="p-0 w-full h-[82dvh] flex flex-col bg-background/95 dark:bg-[#121214]/95 backdrop-blur-2xl border-t border-border/40 rounded-t-[22px] shadow-2xl [&>button]:hidden">
           {sidebarBody(true)}
         </SheetContent>
       </Sheet>

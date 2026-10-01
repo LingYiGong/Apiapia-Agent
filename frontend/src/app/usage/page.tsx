@@ -245,12 +245,12 @@ export default function UsagePage() {
       <Navbar />
 
       <div className="flex-1 overflow-y-auto">
-        <main className="max-w-6xl w-full mx-auto p-3 sm:p-4 md:p-8 space-y-4 sm:space-y-6 pb-24 md:pb-8">
+        <main className="max-w-6xl w-full mx-auto p-4 sm:p-5 md:p-8 space-y-5 sm:space-y-6 pb-24 md:pb-8">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-border/50">
           <div>
-            <div className="flex items-center gap-2 text-primary font-semibold mb-1 flex-wrap">
-              <BarChart3 className="h-5 w-5 shrink-0" />
+            <div className="flex items-center gap-2 text-primary font-semibold mb-1 flex-wrap text-[13px] tracking-tight">
+              <BarChart3 className="h-4 w-4 shrink-0" />
               <span>{isSuperuser ? "全局用量监控" : "个人用量统计"}</span>
               {isSuperuser && (
                 <Badge className="text-[10px] bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/10 shrink-0">
@@ -258,10 +258,10 @@ export default function UsagePage() {
                 </Badge>
               )}
             </div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
+            <h1 className="text-[28px] sm:text-3xl font-bold tracking-tight text-foreground">
               {isSuperuser ? "平台用量与成本核算" : "我的用量总览"}
             </h1>
-            <p className="text-xs text-muted-foreground mt-1 max-w-2xl">
+            <p className="text-[13px] text-muted-foreground mt-1.5 leading-relaxed max-w-2xl">
               {isSuperuser
                 ? "统计所有注册用户的 Token 消耗、调用轮次与模型定价折算费用，支持时间区间筛选与账号权限管控。"
                 : "查看你在本平台产生的全部对话轮次、输入/输出 Token 消耗及模型调用明细。"}

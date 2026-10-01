@@ -188,21 +188,21 @@ export default function MemoryPage() {
       <div className="flex-1 overflow-y-auto">
         <main className="max-w-5xl w-full mx-auto p-4 sm:p-6 md:p-8 pb-24 md:pb-8">
         {/* Header Banner */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-border/50">
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 text-primary font-semibold mb-1">
-              <Brain className="h-5 w-5 shrink-0" />
+            <div className="flex items-center gap-2 text-primary font-semibold mb-1 text-[13px] tracking-tight">
+              <Brain className="h-4 w-4 shrink-0" />
               <span>长期记忆管理</span>
             </div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight">记忆库</h1>
-            <p className="text-xs text-muted-foreground mt-1 max-w-2xl">
+            <h1 className="text-[28px] sm:text-3xl font-bold tracking-tight text-foreground">记忆库</h1>
+            <p className="text-[13px] text-muted-foreground mt-1.5 leading-relaxed max-w-2xl">
               所有记忆均独立保存在本地向量数据库中，你可在此随时审查、修正或删除。
             </p>
           </div>
 
           <div className="flex items-center gap-2.5 shrink-0">
-            <Button onClick={() => setShowAddModal(true)} size="sm">
-              <Plus className="h-4 w-4 shrink-0" />
+            <Button onClick={() => setShowAddModal(true)} size="sm" className="h-9 px-3.5 rounded-xl font-medium">
+              <Plus className="h-4 w-4 shrink-0 mr-1" />
               <span>新增记忆</span>
             </Button>
             <ActionTooltip label="导出所有记忆数据为 JSON 文件" side="bottom">
@@ -210,8 +210,9 @@ export default function MemoryPage() {
                 onClick={handleExport}
                 variant="outline"
                 size="sm"
+                className="h-9 px-3.5 rounded-xl font-medium"
               >
-                <Download className="h-4 w-4 shrink-0" />
+                <Download className="h-4 w-4 shrink-0 mr-1" />
                 <span>导出 JSON</span>
               </Button>
             </ActionTooltip>
@@ -219,7 +220,7 @@ export default function MemoryPage() {
         </div>
 
         {/* Search bar */}
-        <form onSubmit={handleSearch} className="mt-6 flex gap-2">
+        <form onSubmit={handleSearch} className="mt-5 flex gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3.5 top-3 h-4 w-4 text-muted-foreground" />
             <Input
@@ -227,10 +228,10 @@ export default function MemoryPage() {
               placeholder="搜索记忆（如：笔记本、编程、生活习惯）..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 text-base sm:text-sm"
+              className="pl-10 h-10 text-[16px] sm:text-sm rounded-xl bg-muted/40 border-border/60"
             />
           </div>
-          <Button type="submit" variant="secondary">
+          <Button type="submit" variant="secondary" className="h-10 px-4 rounded-xl font-medium">
             搜索
           </Button>
           {isSearching && (

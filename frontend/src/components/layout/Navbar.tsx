@@ -11,12 +11,14 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import {
   Cat,
+  Plus,
   MessageSquare,
   Brain,
   Settings,
   LogOut,
   BarChart3,
   ShieldCheck,
+  AlignLeft,
 } from "lucide-react";
 
 import {
@@ -32,18 +34,23 @@ interface NavbarProps {
   onToggleSidebar?: () => void;
   onToggleMemory?: () => void;
   hasMemories?: boolean;
+  onNewChat?: () => void;
+  /** 是否已有进行中的对话（有消息记录）*/
+  hasActiveChat?: boolean;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
   onToggleSidebar,
   onToggleMemory,
   hasMemories,
+  onNewChat,
+  hasActiveChat = false,
 }) => {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const isChatPage = pathname.startsWith("/chat");
 
-  const navItems = [
+  const desktopNavItems = [
     { href: "/chat", label: "对话", shortLabel: "对话", icon: MessageSquare },
     { href: "/memory", label: "记忆库", shortLabel: "记忆", icon: Brain },
     {
@@ -57,7 +64,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <>
-      {/* Top Navigation Header - flex-nowrap to prevent text/buttons dropping down on iPad */}
+      {/* ── Desktop / Tablet Top Header ── */}
       <header
         className={cn(
           "border-b border-border/70 bg-background/80 backdrop-blur-xl px-3 sm:px-4 items-center justify-between shrink-0 z-30 flex-nowrap min-w-0",
@@ -76,9 +83,8 @@ export const Navbar: React.FC<NavbarProps> = ({
             </span>
           </Link>
 
-          {/* Desktop/Tablet Navigation Links */}
           <nav className="hidden md:flex items-center gap-0.5 lg:gap-1 min-w-0 shrink">
-            {navItems.map((item) => {
+            {desktopNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = pathname.startsWith(item.href);
               return (
@@ -87,10 +93,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   variant={isActive ? "secondary" : "ghost"}
                   size="sm"
                   asChild
-                  className={cn(
-                    "shrink-0 whitespace-nowrap",
-                    isActive && "font-semibold"
-                  )}
+                  className={cn("shrink-0 whitespace-nowrap", isActive && "font-semibold")}
                 >
                   <Link href={item.href}>
                     <Icon className="h-4 w-4 shrink-0" />
@@ -103,10 +106,8 @@ export const Navbar: React.FC<NavbarProps> = ({
           </nav>
         </div>
 
-        {/* Right Header Actions */}
         <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-3 shrink-0">
           <ThemeToggle />
-
           {user && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -169,37 +170,82 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </header>
 
-      {/* Mobile Bottom Tab Bar (shown on non-chat pages to maximize chat canvas in /chat) */}
-      {!isChatPage && (
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-background/80 backdrop-blur-xl border-t border-border/70 flex items-center justify-around px-2 py-1 safe-pb shadow-lg">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = pathname.startsWith(item.href);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-xl text-[10px] font-medium transition-all",
-                  isActive
-                    ? "text-primary font-semibold"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <div
-                  className={cn(
-                    "p-1 rounded-lg transition-colors",
-                    isActive ? "bg-accent" : "bg-transparent"
-                  )}
-                >
-                  <Icon className="h-4 w-4" />
-                </div>
-                <span className="truncate mt-0.5">{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
-      )}
+      {/* ── Apple HIG Standard Mobile Bottom Tab Bar (49pt + safe area) ── */}
+      <nav
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-background/80 dark:bg-[#121214]/85 backdrop-blur-2xl border-t border-border/40 flex items-stretch h-[calc(49px+env(safe-area-inset-bottom,0px))] pb-[env(safe-area-inset-bottom,0px)] shadow-[0_-1px_3px_rgba(0,0,0,0.03)]"
+      >
+        {/* 1. 新建 —— 在 /chat 且无进行中的对话时高亮选中 */}
+        {isChatPage ? (
+          <button
+            type="button"
+            onClick={onNewChat}
+            className={cn(
+              "flex flex-col items-center justify-center flex-1 pt-1 pb-0.5 gap-0.5 text-[10px] tracking-tight transition-all active:scale-95 select-none",
+              !hasActiveChat ? "text-primary font-semibold" : "text-muted-foreground/70 hover:text-foreground font-medium"
+            )}
+          >
+            <Plus className="h-[22px] w-[22px] shrink-0" />
+            <span>新建</span>
+          </button>
+        ) : (
+          <Link
+            href="/chat"
+            className="flex flex-col items-center justify-center flex-1 pt-1 pb-0.5 gap-0.5 text-[10px] tracking-tight transition-all active:scale-95 select-none text-muted-foreground/70 hover:text-foreground font-medium"
+          >
+            <Plus className="h-[22px] w-[22px] shrink-0" />
+            <span>新建</span>
+          </Link>
+        )}
+
+        {/* 2. 历史 —— 在 /chat 且已有对话消息时高亮选中 */}
+        {isChatPage ? (
+          <button
+            type="button"
+            onClick={onToggleSidebar}
+            className={cn(
+              "flex flex-col items-center justify-center flex-1 pt-1 pb-0.5 gap-0.5 text-[10px] tracking-tight transition-all active:scale-95 select-none",
+              hasActiveChat ? "text-primary font-semibold" : "text-muted-foreground/70 hover:text-foreground font-medium"
+            )}
+          >
+            <AlignLeft className="h-[22px] w-[22px] shrink-0" />
+            <span>历史</span>
+          </button>
+        ) : (
+          <Link
+            href="/chat?openHistory=1"
+            className="flex flex-col items-center justify-center flex-1 pt-1 pb-0.5 gap-0.5 text-[10px] tracking-tight transition-all active:scale-95 select-none text-muted-foreground/70 hover:text-foreground font-medium"
+          >
+            <AlignLeft className="h-[22px] w-[22px] shrink-0" />
+            <span>历史</span>
+          </Link>
+        )}
+
+        {/* 3. 记忆 — 始终跳转 /memory 页，当前页时高亮 */}
+        <Link
+          href="/memory"
+          className={cn(
+            "flex flex-col items-center justify-center flex-1 pt-1 pb-0.5 gap-0.5 text-[10px] tracking-tight transition-all active:scale-95 select-none",
+            pathname.startsWith("/memory") ? "text-primary font-semibold" : "text-muted-foreground/70 hover:text-foreground font-medium"
+          )}
+        >
+          <Brain className="h-[22px] w-[22px] shrink-0" />
+          <span>记忆</span>
+        </Link>
+
+        {/* 4. 用量 — 跳转 /usage，当前页时高亮 */}
+        <Link
+          href="/usage"
+          className={cn(
+            "flex flex-col items-center justify-center flex-1 pt-1 pb-0.5 gap-0.5 text-[10px] tracking-tight transition-all active:scale-95 select-none",
+            pathname.startsWith("/usage") ? "text-primary font-semibold" : "text-muted-foreground/70 hover:text-foreground font-medium"
+          )}
+        >
+          {user?.is_superuser ? <ShieldCheck className="h-[22px] w-[22px] shrink-0" /> : <BarChart3 className="h-[22px] w-[22px] shrink-0" />}
+          <span>
+            {user?.is_superuser ? "管理" : "用量"}
+          </span>
+        </Link>
+      </nav>
     </>
   );
 };

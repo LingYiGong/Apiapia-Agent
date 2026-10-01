@@ -41,6 +41,24 @@ export default function ChatPage() {
       try {
         localStorage.setItem("apiapia_web_search_mode", next);
       } catch (e) {}
+
+      if (next === "on") {
+        toast.success("🌐 联网检索：强制开启", {
+          description: "每次提问都将强制检索互联网最新信息",
+          duration: 2200,
+        });
+      } else if (next === "off") {
+        toast.warning("🌐 联网检索：已关闭", {
+          description: "仅使用模型自身知识回答，不联网搜索",
+          duration: 2200,
+        });
+      } else {
+        toast.info("🌐 联网检索：智能自动", {
+          description: "系统将根据问题自动判断是否全网搜索",
+          duration: 2200,
+        });
+      }
+
       return next;
     });
   };
@@ -86,6 +104,17 @@ export default function ChatPage() {
       router.push("/login");
     }
   }, [user, loading, router]);
+
+  // 从其他页面点击底部的【历史】跳过来时，自动弹开历史对话抽屉
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("openHistory") === "1") {
+        setIsSidebarOpen(true);
+        window.history.replaceState({}, "", "/chat");
+      }
+    }
+  }, []);
 
   const handleModelChange = async (newModel: string) => {
     setCurrentModel(newModel);
@@ -205,7 +234,7 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (user) {
-      loadConversations(true);
+      loadConversations(false);
       loadConfiguredModels();
     }
   }, [user]);
@@ -591,6 +620,8 @@ export default function ChatPage() {
         onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
         onToggleMemory={() => setIsMemoryOpen((prev) => !prev)}
         hasMemories={retrievedMemories.length > 0}
+        onNewChat={handleNewChat}
+        hasActiveChat={messages.length > 0}
       />
       <div className="flex flex-1 overflow-hidden relative">
         <Sidebar

@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import Link from "next/link";
 import { Conversation } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,9 +14,6 @@ import {
   Trash2,
   Search,
   X,
-  Brain,
-  Settings,
-  BarChart3,
   Pin,
   PinOff,
   ChevronUp,
@@ -263,7 +259,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const sidebarBody = (isMobile: boolean) => (
     <>
-      {/* Header with Quick Jump & Search */}
+      {/* Header with Search */}
       <div className="p-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:pt-3 border-b flex flex-col gap-2">
         {isMobile && (
           <div className="flex items-center justify-between pb-1 border-b">
@@ -274,36 +270,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <X className="h-4 w-4" />
               <span className="sr-only">关闭</span>
             </Button>
-          </div>
-        )}
-
-        {/* Quick Page Jump for Mobile */}
-        {isMobile && (
-          <div className="grid grid-cols-3 gap-1 pb-2 border-b">
-            <Link
-              href="/memory"
-              onClick={onClose}
-              className="flex flex-col items-center py-1.5 px-1 rounded-lg text-[10px] font-medium text-muted-foreground hover:text-primary hover:bg-accent transition-colors"
-            >
-              <Brain className="h-4 w-4 mb-0.5 text-primary" />
-              <span>记忆库</span>
-            </Link>
-            <Link
-              href="/usage"
-              onClick={onClose}
-              className="flex flex-col items-center py-1.5 px-1 rounded-lg text-[10px] font-medium text-muted-foreground hover:text-primary hover:bg-accent transition-colors"
-            >
-              <BarChart3 className="h-4 w-4 mb-0.5 text-primary" />
-              <span>用量</span>
-            </Link>
-            <Link
-              href="/settings"
-              onClick={onClose}
-              className="flex flex-col items-center py-1.5 px-1 rounded-lg text-[10px] font-medium text-muted-foreground hover:text-primary hover:bg-accent transition-colors"
-            >
-              <Settings className="h-4 w-4 mb-0.5 text-primary" />
-              <span>设置</span>
-            </Link>
           </div>
         )}
 
@@ -375,9 +341,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {sidebarBody(false)}
       </aside>
 
-      {/* Mobile Drawer via standard shadcn Sheet */}
+      {/* Mobile Drawer — slides up from the bottom */}
       <Sheet open={isOpen} onOpenChange={(open) => !open && onClose?.()}>
-        <SheetContent side="left" className="p-0 w-[84vw] max-w-xs flex flex-col h-full bg-background dark:bg-[#121214] border-r border-border/70 [&>button]:hidden">
+        <SheetContent side="bottom" className="p-0 w-full h-[80dvh] flex flex-col bg-background dark:bg-[#121214] border-t border-border/70 rounded-t-2xl [&>button]:hidden">
           {sidebarBody(true)}
         </SheetContent>
       </Sheet>

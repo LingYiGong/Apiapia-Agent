@@ -1,12 +1,23 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import Link from "next/link";
+import { useAuth } from "@/lib/auth";
 import { Message, ModelCatalogItem, AttachmentItem, SearchResultItem } from "@/types";
 import { ModelSelect } from "@/components/common/ModelSelect";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -40,6 +51,9 @@ import {
   ExternalLink,
   Cpu,
   ChevronDown,
+  Settings,
+  LogOut,
+  BarChart3,
 } from "lucide-react";
 
 
@@ -150,6 +164,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   streamingSearchResults = null,
   loadingMessages = false,
 }) => {
+  const { user, logout } = useAuth();
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -302,15 +317,15 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     <div className="flex-1 flex flex-col h-full bg-background relative overflow-hidden min-w-0 max-w-full">
       {/* Top Bar with Searchable Model Picker & Mobile/Tablet Controls */}
       <div className="border-b border-border/70 bg-background/80 backdrop-blur-xl px-2.5 sm:px-4 flex items-center justify-between z-20 gap-1.5 sm:gap-2 flex-nowrap min-w-0 pt-[max(0.65rem,env(safe-area-inset-top))] pb-2 md:pb-2 md:pt-2 min-h-[calc(3.25rem+env(safe-area-inset-top,0px))] md:min-h-12">
-        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 shrink">
-          {/* Mobile Sidebar Toggle Button */}
+        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
+          {/* Mobile Sidebar Toggle Button — hidden on mobile (moved to bottom nav) */}
           {onToggleSidebar && (
             <Button
               variant="outline"
               size="icon"
               onClick={onToggleSidebar}
               title="展开历史对话"
-              className="md:hidden shrink-0"
+              className="hidden md:flex shrink-0"
             >
               <Menu className="h-4 w-4" />
               <span className="sr-only">展开历史对话</span>
@@ -321,13 +336,16 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             当前模型：
           </span>
 
-          {/* Unified Compact Model Selector */}
-          <ModelSelect
-            value={currentModel}
-            onChange={onModelChange}
-            models={availableModels}
-            variant="compact"
-          />
+          {/* Unified Compact Model Selector — 移动端自适应顶满所有剩余宽度 */}
+          <div className="flex-1 min-w-0 flex">
+            <ModelSelect
+              value={currentModel}
+              onChange={onModelChange}
+              models={availableModels}
+              variant="compact"
+              className="w-full"
+            />
+          </div>
 
           {/* Refresh/Sync Models Button */}
           {onRefreshModels && (
@@ -337,7 +355,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               onClick={onRefreshModels}
               disabled={isRefreshingModels}
               title="向配置的提供商 API (Gemini/OpenAI/OpenRouter/Ollama) 手动同步最新模型"
-              className="shrink-0 text-primary border-primary/30 bg-primary/5 hover:bg-primary/10 hover:text-primary"
+              className="shrink-0 text-primary border-primary/30 bg-primary/5 hover:bg-primary/10 hover:text-primary hidden md:inline-flex"
             >
               <RotateCw className={cn("h-3.5 w-3.5", isRefreshingModels && "animate-spin")} />
               <span className="hidden lg:inline">{isRefreshingModels ? "正在同步..." : "同步模型"}</span>
@@ -348,7 +366,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
         {/* Right Header Buttons */}
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-          <ThemeToggle />
+          {/* Theme toggle — hidden on mobile, kept on desktop and iPad */}
+          <div className="hidden md:inline-flex">
+            <ThemeToggle />
+          </div>
 
           {onToggleMemory && (
             <Button
@@ -368,12 +389,71 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             </Button>
           )}
 
+          {/* Mobile User Avatar & Menu (md:hidden) */}
+          {user && (
+            <div className="md:hidden">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex items-center justify-center h-8 w-8 rounded-full border border-border/80 bg-muted/60 hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shrink-0 cursor-pointer"
+                  >
+                    <Avatar className="h-7 w-7">
+                      <AvatarFallback className="text-xs font-bold bg-primary/10 text-primary">
+                        {user.username.slice(0, 1).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-52">
+                  <DropdownMenuLabel className="font-normal">
+                    <div className="flex flex-col space-y-1">
+                      <p className="text-xs font-semibold leading-none truncate">{user.username}</p>
+                      <p className="text-[10px] text-muted-foreground font-mono">
+                        {user.is_superuser ? "超级管理员 (Admin)" : "普通用户 (User)"}
+                      </p>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/settings" className="flex items-center gap-2 cursor-pointer text-xs">
+                      <Settings className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span>偏好设置</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/usage" className="flex items-center gap-2 cursor-pointer text-xs">
+                      <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span>用量与账单</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/memory" className="flex items-center gap-2 cursor-pointer text-xs">
+                      <Brain className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span>长期记忆库</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={logout}
+                    className="flex items-center gap-2 cursor-pointer text-xs text-destructive focus:text-destructive focus:bg-destructive/10"
+                  >
+                    <LogOut className="h-3.5 w-3.5" />
+                    <span>退出登录</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )}
+
+          {/* Desktop/iPad New Chat Button — only visible on md and up */}
           {onNewChat && (
             <Button
               variant="outline"
               size="icon"
               onClick={onNewChat}
               title="新建对话"
+              className="hidden md:inline-flex"
             >
               <Plus className="h-4 w-4" />
               <span className="sr-only">新建对话</span>
@@ -386,14 +466,19 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       <div
         ref={scrollContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto overflow-x-hidden px-2.5 py-3 sm:px-5 sm:py-5 md:px-8 space-y-3 sm:space-y-4 relative min-w-0"
+        className={cn(
+          "flex-1 overflow-x-hidden px-2.5 sm:px-5 md:px-8 relative min-w-0",
+          messages.length > 0 || isStreaming
+            ? "overflow-y-auto py-3 sm:py-5 space-y-3 sm:space-y-4"
+            : "overflow-y-hidden py-1 flex flex-col justify-center"
+        )}
       >
         {loadingMessages && messages.length === 0 ? (
           <div className="max-w-4xl w-full mx-auto">
             <MessageListSkeleton rows={4} />
           </div>
         ) : messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center px-4 py-8">
+          <div className="flex flex-col items-center justify-center text-center px-4 py-2 select-none my-auto">
             <div className="flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary mb-3 shadow-inner">
               <Cat className="h-6 w-6 sm:h-8 sm:w-8" />
             </div>
@@ -568,8 +653,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         </div>
       )}
 
-      {/* Input Box Area with safe area bottom */}
-      <div className="px-2 py-1.5 sm:p-3 sm:px-4 border-t bg-background/90 backdrop-blur-md safe-pb">
+      {/* Input Box Area — Apple HIG Floating Island style over 49pt bottom nav on mobile */}
+      <div className="px-3 pt-2 pb-[calc(49px+env(safe-area-inset-bottom,0px)+6px)] sm:px-4 sm:pt-3 md:pb-3 border-t-0 md:border-t md:border-border/60 bg-gradient-to-t from-background via-background/90 to-transparent md:bg-background/95 md:backdrop-blur-md shrink-0 z-20">
         <div
           onDragOver={(e) => e.preventDefault()}
           onDrop={(e) => {
@@ -578,7 +663,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               handleFiles(e.dataTransfer.files);
             }
           }}
-          className="max-w-3xl mx-auto rounded-2xl sm:rounded-3xl border border-border/80 bg-muted/40 dark:bg-[#1c1c1e] p-1 sm:p-1.5 focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/40 shadow-xs flex flex-col"
+          className="max-w-3xl mx-auto rounded-2xl sm:rounded-3xl border border-border/70 dark:border-border/50 bg-background/90 dark:bg-[#1c1c1e]/90 backdrop-blur-xl p-1 sm:p-1.5 shadow-[0_2px_12px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.35)] focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/20 transition-all flex flex-col"
         >
           {/* Attachment Preview Tray */}
           {attachments.length > 0 && (

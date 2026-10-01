@@ -57,7 +57,7 @@ export default function RootLayout({
             <CapacitorInit />
             <UpdatePrompt />
             {children}
-            <Toaster richColors position="top-center" />
+            <Toaster richColors position="top-center" offset="calc(3.85rem + env(safe-area-inset-top, 0px))" />
           </AuthProvider>
         </ThemeProvider>
       </body>

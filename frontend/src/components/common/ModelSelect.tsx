@@ -125,35 +125,39 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
             role="combobox"
             aria-expanded={open}
             className={cn(
-              "gap-1.5 sm:gap-2 shadow-sm max-w-[130px] xs:max-w-[170px] sm:max-w-[200px] md:max-w-[210px] lg:max-w-xs truncate shrink min-w-0",
+              "h-9 px-2.5 sm:px-3 gap-1.5 sm:gap-2 shadow-xs w-full md:w-auto md:max-w-[280px] lg:max-w-xs min-w-0 justify-between rounded-xl",
               className
             )}
           >
-            <Cpu className="h-3.5 w-3.5 text-primary shrink-0" />
-            <span className="truncate font-medium">
-              {selectedModel ? selectedModel.name : value || placeholder}
-            </span>
-            {selectedModel && isFreeModel(selectedModel) && (
-              <Badge className="text-[9px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10 shrink-0">
-                免费
-              </Badge>
-            )}
-            {selectedModel && isMultimodalModel(selectedModel) && (
-              <Badge className="text-[9px] bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/30 hover:bg-violet-500/10 shrink-0">
-                多模态
-              </Badge>
-            )}
-            {selectedModel?.provider && (
-              <Badge variant="secondary" className="hidden xl:inline-flex text-[10px] uppercase font-mono shrink-0">
-                {selectedModel.provider}
-              </Badge>
-            )}
-            <ChevronDown
-              className={cn(
-                "h-3.5 w-3.5 text-muted-foreground shrink-0 ml-0.5 transition-transform duration-200",
-                open && "rotate-180 text-primary"
+            <div className="flex items-center gap-1.5 min-w-0 flex-1 overflow-hidden text-left">
+              <Cpu className="h-4 w-4 text-primary shrink-0" />
+              <span className="truncate font-semibold text-xs sm:text-sm min-w-0">
+                {selectedModel ? selectedModel.name : value || placeholder}
+              </span>
+              {selectedModel?.provider && (
+                <span className="hidden xs:inline-flex text-[10px] text-muted-foreground font-mono bg-muted/60 px-1 py-0.5 rounded shrink-0 uppercase">
+                  {selectedModel.provider}
+                </span>
               )}
-            />
+            </div>
+            <div className="flex items-center gap-1 shrink-0 ml-1">
+              {selectedModel && isFreeModel(selectedModel) && (
+                <Badge className="hidden sm:inline-flex text-[9px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10 shrink-0">
+                  免费
+                </Badge>
+              )}
+              {selectedModel && isMultimodalModel(selectedModel) && (
+                <Badge className="hidden sm:inline-flex text-[9px] bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/30 hover:bg-violet-500/10 shrink-0">
+                  多模态
+                </Badge>
+              )}
+              <ChevronDown
+                className={cn(
+                  "h-4 w-4 text-muted-foreground shrink-0 transition-transform duration-200",
+                  open && "rotate-180 text-primary"
+                )}
+              />
+            </div>
           </Button>
         ) : (
           <Button

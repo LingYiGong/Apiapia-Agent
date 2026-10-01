@@ -123,27 +123,29 @@ const SwipeableConversationCard = ({
   const startXRef = useRef(0);
   const startYRef = useRef(0);
   const currentOffsetRef = useRef(0);
-  const liveOffsetRef = useRef(0);
   const isHorizontalRef = useRef<boolean | null>(null);
-  const hasMovedRef = useRef(false);
+  const isSwipingRef = useRef(false);
+  const swipeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // When another item is opened or closed, or activeOpenId is reset to null, smoothly reset offset to 0
+  // When another item is opened or closed externally, reset offset
   useEffect(() => {
-    if (activeOpenId !== c.id && (offset !== 0 || liveOffsetRef.current !== 0 || currentOffsetRef.current !== 0)) {
+    if (!isOpen && offset !== 0) {
       setOffset(0);
-      liveOffsetRef.current = 0;
       currentOffsetRef.current = 0;
     }
-  }, [activeOpenId, c.id, offset]);
+  }, [isOpen]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     if (isDraggingThis) return;
     startXRef.current = e.touches[0].clientX;
     startYRef.current = e.touches[0].clientY;
     currentOffsetRef.current = offset;
-    liveOffsetRef.current = offset;
     isHorizontalRef.current = null;
-    hasMovedRef.current = false;
+    isSwipingRef.current = false;
+    if (swipeTimeoutRef.current) {
+      clearTimeout(swipeTimeoutRef.current);
+      swipeTimeoutRef.current = null;
+    }
     setIsDragging(true);
   };
 
@@ -157,17 +159,15 @@ const SwipeableConversationCard = ({
     if (isHorizontalRef.current === null) {
       if (Math.abs(diffY) > 8 && Math.abs(diffY) > Math.abs(diffX)) {
         isHorizontalRef.current = false;
-        setIsDragging(false);
         return;
       }
       if (Math.abs(diffX) > 8 && Math.abs(diffX) > Math.abs(diffY)) {
         isHorizontalRef.current = true;
-        hasMovedRef.current = true;
       }
     }
 
     if (isHorizontalRef.current !== true) return;
-    hasMovedRef.current = true;
+    isSwipingRef.current = true;
 
     let target = currentOffsetRef.current + diffX;
     // Apply smooth resistance beyond BUTTON_WIDTH
@@ -177,7 +177,6 @@ const SwipeableConversationCard = ({
       target = -BUTTON_WIDTH + (target + BUTTON_WIDTH) * 0.35;
     }
 
-    liveOffsetRef.current = target;
     setOffset(target);
   };
 
@@ -185,70 +184,57 @@ const SwipeableConversationCard = ({
     setIsDragging(false);
     if (isHorizontalRef.current !== true) return;
 
-    const finalOffset = liveOffsetRef.current;
+    if (isSwipingRef.current) {
+      if (swipeTimeoutRef.current) clearTimeout(swipeTimeoutRef.current);
+      swipeTimeoutRef.current = setTimeout(() => {
+        isSwipingRef.current = false;
+      }, 300);
+    }
 
     // Full swipe right -> toggle pin
-    if (finalOffset > FULL_SWIPE_THRESHOLD) {
+    if (offset > FULL_SWIPE_THRESHOLD) {
       onTogglePin?.();
       setOffset(0);
-      liveOffsetRef.current = 0;
       currentOffsetRef.current = 0;
       setActiveOpenId(null);
       return;
     }
 
     // Full swipe left -> delete
-    if (finalOffset < -FULL_SWIPE_THRESHOLD) {
+    if (offset < -FULL_SWIPE_THRESHOLD) {
       onDelete();
       setOffset(0);
-      liveOffsetRef.current = 0;
       currentOffsetRef.current = 0;
       setActiveOpenId(null);
       return;
     }
 
     // Partial swipe: snap open button or close
-    if (finalOffset > 36) {
+    if (offset > 36) {
       setOffset(BUTTON_WIDTH);
-      liveOffsetRef.current = BUTTON_WIDTH;
       currentOffsetRef.current = BUTTON_WIDTH;
       setActiveOpenId(c.id);
-    } else if (finalOffset < -36) {
+    } else if (offset < -36) {
       setOffset(-BUTTON_WIDTH);
-      liveOffsetRef.current = -BUTTON_WIDTH;
       currentOffsetRef.current = -BUTTON_WIDTH;
       setActiveOpenId(c.id);
     } else {
       setOffset(0);
-      liveOffsetRef.current = 0;
       currentOffsetRef.current = 0;
-      setActiveOpenId(null);
+      if (isOpen) setActiveOpenId(null);
     }
   };
 
   const handleCardClick = () => {
-    // 1. If user just completed a swipe/drag motion, consume synthetic click
-    if (hasMovedRef.current) {
-      hasMovedRef.current = false;
+    // 滑动过程中或未复位时，拦截点击，不进入会话
+    if (isSwipingRef.current || offset !== 0) {
+      if (offset !== 0) {
+        setOffset(0);
+        currentOffsetRef.current = 0;
+        setActiveOpenId(null);
+      }
       return;
     }
-
-    // 2. If this card has any non-zero offset or is marked open, clicking only restores/closes the card
-    if (offset !== 0 || liveOffsetRef.current !== 0 || currentOffsetRef.current !== 0 || isOpen) {
-      setOffset(0);
-      liveOffsetRef.current = 0;
-      currentOffsetRef.current = 0;
-      setActiveOpenId(null);
-      return;
-    }
-
-    // 3. If another card is currently open, clicking anywhere else simply closes that card
-    if (activeOpenId && activeOpenId !== c.id) {
-      setActiveOpenId(null);
-      return;
-    }
-
-    // 4. Normal tap on an idle card -> navigate to conversation
     onSelect();
   };
 
@@ -271,7 +257,7 @@ const SwipeableConversationCard = ({
       {/* ── Leading Action Behind Card: Swipe Right -> Pin / Unpin ── */}
       <div
         className={cn(
-          "absolute inset-y-0 left-0 flex flex-col items-center justify-center text-white cursor-pointer active:brightness-95 transition-opacity z-0 rounded-l-2xl",
+          "absolute inset-y-0 left-0 flex flex-col items-center justify-center text-white cursor-pointer active:brightness-95 transition-opacity duration-150 z-0 rounded-l-2xl",
           c.is_pinned
             ? "bg-slate-600 dark:bg-slate-700"
             : "bg-amber-500 dark:bg-amber-600",
@@ -282,7 +268,6 @@ const SwipeableConversationCard = ({
           e.stopPropagation();
           onTogglePin?.();
           setOffset(0);
-          liveOffsetRef.current = 0;
           currentOffsetRef.current = 0;
           setActiveOpenId(null);
         }}
@@ -300,7 +285,7 @@ const SwipeableConversationCard = ({
       {/* ── Trailing Action Behind Card: Swipe Left -> Delete ── */}
       <div
         className={cn(
-          "absolute inset-y-0 right-0 flex flex-col items-center justify-center text-white bg-red-500 dark:bg-red-600 cursor-pointer active:brightness-95 transition-opacity z-0 rounded-r-2xl",
+          "absolute inset-y-0 right-0 flex flex-col items-center justify-center text-white bg-red-500 dark:bg-red-600 cursor-pointer active:brightness-95 transition-opacity duration-150 z-0 rounded-r-2xl",
           offset < 0 ? "opacity-100" : "opacity-0 pointer-events-none"
         )}
         style={{ width: `${BUTTON_WIDTH}px` }}
@@ -308,7 +293,6 @@ const SwipeableConversationCard = ({
           e.stopPropagation();
           onDelete();
           setOffset(0);
-          liveOffsetRef.current = 0;
           currentOffsetRef.current = 0;
           setActiveOpenId(null);
         }}
@@ -329,13 +313,17 @@ const SwipeableConversationCard = ({
           transition: isDragging ? "none" : "transform 0.24s cubic-bezier(0.2, 0.8, 0.2, 1)",
         }}
         className={cn(
-          "relative z-10 flex items-center justify-between p-3.5 rounded-2xl border cursor-pointer select-none will-change-transform",
+          "relative z-10 flex items-center justify-between p-3.5 rounded-2xl border cursor-pointer select-none active:scale-[0.995] bg-card dark:bg-[#1c1c1e]",
           isSelected
-            ? "bg-primary/10 border-primary/30 shadow-xs"
-            : "bg-card/95 dark:bg-[#1c1c1e] border-border/50 shadow-2xs hover:border-border",
-          isDraggingThis && "border-primary/50 bg-card shadow-lg"
+            ? "border-primary/40 shadow-xs"
+            : "border-border/50 shadow-2xs hover:border-border",
+          isDraggingThis && "border-primary/50 shadow-lg"
         )}
       >
+        {/* 选中态高亮蒙层：位于不透明卡片之上，绝不穿透到底层按钮 */}
+        {isSelected && (
+          <div className="absolute inset-0 bg-primary/10 rounded-2xl pointer-events-none z-0" />
+        )}
         <div className="flex items-center gap-3 min-w-0 flex-1 pr-2">
           <div
             className={cn(

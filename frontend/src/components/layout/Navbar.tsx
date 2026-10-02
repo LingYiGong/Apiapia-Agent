@@ -59,9 +59,9 @@ export const Navbar = ({
     { href: "/memory", label: "记忆库", shortLabel: "记忆", icon: Brain },
     {
       href: "/usage",
-      label: user?.is_superuser ? "管理后台" : "用量",
-      shortLabel: user?.is_superuser ? "管理" : "用量",
-      icon: user?.is_superuser ? ShieldCheck : BarChart3,
+      label: "用量",
+      shortLabel: "用量",
+      icon: BarChart3,
     },
     { href: "/settings", label: "设置", shortLabel: "设置", icon: Settings },
   ];
@@ -248,10 +248,8 @@ export const Navbar = ({
             pathname.startsWith("/usage") ? "text-primary font-semibold" : "text-muted-foreground/70 hover:text-foreground font-medium"
           )}
         >
-          {user?.is_superuser ? <ShieldCheck className="h-[22px] w-[22px] shrink-0" /> : <BarChart3 className="h-[22px] w-[22px] shrink-0" />}
-          <span>
-            {user?.is_superuser ? "管理" : "用量"}
-          </span>
+          <BarChart3 className="h-[22px] w-[22px] shrink-0" />
+          <span>用量</span>
         </Link>
       </nav>
     </>

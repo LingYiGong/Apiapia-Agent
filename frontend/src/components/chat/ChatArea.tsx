@@ -178,6 +178,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   const [previewImage, setPreviewImage] = useState<{ src: string; alt?: string } | null>(null);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
 
+  // If conversation has history messages and memories retrieved, show current memory button instead of refresh models button
+  const hasActiveMemories = (messages?.length ?? 0) > 0 && (memoriesCount ?? 0) > 0;
+
   const handleCopyMessage = (text: string, idx: number) => {
     if (!text) return;
     // Clean any think tags from copy text
@@ -342,21 +345,36 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             </div>
           </div>
 
-          {/* Right: Refresh Button & Avatar */}
+          {/* Right: Refresh Button or Active Memory Button & Avatar */}
           <div className="flex items-center gap-1 shrink-0">
-            {onRefreshModels && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onRefreshModels}
-                disabled={isRefreshingModels}
-                title="向配置的提供商 API 手动同步最新模型"
-                className="h-8 w-8 rounded-full shrink-0 text-muted-foreground hover:text-foreground active:scale-95 transition-all"
-              >
-                <RotateCw className={cn("h-3.5 w-3.5", isRefreshingModels && "animate-spin text-primary")} />
-                <span className="sr-only">同步模型</span>
-              </Button>
-            )}
+            {hasActiveMemories ? (
+              <ActionTooltip label={`查看当前对话使用的 ${memoriesCount} 条关联记忆`}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onToggleMemory}
+                  className="h-8 px-2.5 rounded-full shrink-0 text-primary bg-primary/10 hover:bg-primary/15 active:scale-95 transition-all gap-1.5 font-medium text-xs border border-primary/20"
+                >
+                  <Brain className="h-4 w-4 text-primary shrink-0" />
+                  <span className="text-[11px] font-semibold font-mono">{memoriesCount}</span>
+                  <span className="sr-only">当前使用的记忆</span>
+                </Button>
+              </ActionTooltip>
+            ) : onRefreshModels ? (
+              <ActionTooltip label="向配置的提供商 API 手动同步最新模型">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onRefreshModels}
+                  disabled={isRefreshingModels}
+                  title="向配置的提供商 API 手动同步最新模型"
+                  className="h-8 w-8 rounded-full shrink-0 text-muted-foreground hover:text-foreground active:scale-95 transition-all"
+                >
+                  <RotateCw className={cn("h-3.5 w-3.5", isRefreshingModels && "animate-spin text-primary")} />
+                  <span className="sr-only">同步模型</span>
+                </Button>
+              </ActionTooltip>
+            ) : null}
 
             <UserAvatarDropdown />
           </div>

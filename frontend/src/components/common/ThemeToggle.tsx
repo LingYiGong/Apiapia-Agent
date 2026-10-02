@@ -4,6 +4,7 @@ import React from "react";
 import { useTheme, type Theme } from "@/lib/theme";
 import { Sun, Moon, Monitor, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,32 +20,64 @@ const options: { value: Theme; label: string; icon: React.FC<{ className?: strin
   { value: "dark", label: "深色模式", icon: Moon },
 ];
 
-export const ThemeToggle: React.FC = () => {
-  const { theme, setTheme } = useTheme();
+export interface ThemeToggleProps {
+  className?: string;
+  variant?: "outline" | "ghost" | "apple";
+}
+
+export const ThemeToggle: React.FC<ThemeToggleProps> = ({
+  className,
+  variant = "outline",
+}) => {
+  const { theme, resolvedTheme, setTheme } = useTheme();
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
-          variant="outline"
-          size="icon"
-          title={`切换主题 (当前: ${theme === "system" ? "跟随系统" : theme === "light" ? "浅色模式" : "深色模式"})`}
-        >
-          {theme === "system" ? (
-            <Monitor className="h-4 w-4" />
-          ) : theme === "light" ? (
-            <Sun className="h-4 w-4 text-amber-500" />
-          ) : (
-            <Moon className="h-4 w-4" />
-          )}
-          <span className="sr-only">切换主题</span>
-        </Button>
+        {variant === "apple" ? (
+          <button
+            type="button"
+            className={cn(
+              "flex h-9 w-9 items-center justify-center rounded-full border border-black/[0.08] bg-white/80 text-foreground/80 shadow-sm backdrop-blur-xl transition-all hover:bg-black/[0.04] hover:text-foreground active:scale-95 dark:border-white/[0.12] dark:bg-white/10 dark:text-foreground/90 dark:hover:bg-white/[0.16]",
+              className
+            )}
+            title={`切换界面外观 (当前: ${theme === "system" ? "跟随系统" : theme === "light" ? "浅色模式" : "深色模式"})`}
+          >
+            {theme === "system" ? (
+              <Monitor className="h-4 w-4" />
+            ) : resolvedTheme === "light" ? (
+              <Sun className="h-4 w-4 text-amber-500" />
+            ) : (
+              <Moon className="h-4 w-4 text-indigo-400" />
+            )}
+            <span className="sr-only">切换外观主题</span>
+          </button>
+        ) : (
+          <Button
+            variant={variant === "ghost" ? "ghost" : "outline"}
+            size="icon"
+            className={cn(className)}
+            title={`切换主题 (当前: ${theme === "system" ? "跟随系统" : theme === "light" ? "浅色模式" : "深色模式"})`}
+          >
+            {theme === "system" ? (
+              <Monitor className="h-4 w-4" />
+            ) : resolvedTheme === "light" ? (
+              <Sun className="h-4 w-4 text-amber-500" />
+            ) : (
+              <Moon className="h-4 w-4 text-indigo-400" />
+            )}
+            <span className="sr-only">切换主题</span>
+          </Button>
+        )}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-36">
-        <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
+      <DropdownMenuContent
+        align="end"
+        className="w-36 rounded-2xl border border-black/[0.08] bg-white/90 p-1 shadow-xl backdrop-blur-2xl dark:border-white/[0.1] dark:bg-[#1c1c1e]/90"
+      >
+        <DropdownMenuLabel className="px-2 py-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
           界面外观
         </DropdownMenuLabel>
-        <DropdownMenuSeparator />
+        <DropdownMenuSeparator className="my-1 opacity-60" />
         {options.map((opt) => {
           const Icon = opt.icon;
           const isSelected = theme === opt.value;
@@ -52,13 +85,16 @@ export const ThemeToggle: React.FC = () => {
             <DropdownMenuItem
               key={opt.value}
               onClick={() => setTheme(opt.value)}
-              className={
-                isSelected ? "bg-accent text-accent-foreground" : undefined
-              }
+              className={cn(
+                "flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-xs font-medium cursor-pointer transition-colors",
+                isSelected
+                  ? "bg-primary/10 text-primary font-semibold dark:bg-primary/20"
+                  : "text-foreground/80 hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
+              )}
             >
               <Icon className="h-3.5 w-3.5" />
               <span>{opt.label}</span>
-              {isSelected && <Check className="ml-auto h-3.5 w-3.5" />}
+              {isSelected && <Check className="ml-auto h-3.5 w-3.5 text-primary" />}
             </DropdownMenuItem>
           );
         })}
@@ -66,3 +102,4 @@ export const ThemeToggle: React.FC = () => {
     </DropdownMenu>
   );
 };
+

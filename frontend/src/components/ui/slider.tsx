@@ -35,12 +35,12 @@ export function Slider({
   return (
     <div
       className={cn(
-        "relative flex w-full touch-none select-none items-center",
+        "relative flex w-full touch-none select-none items-center py-2",
         disabled && "opacity-50 pointer-events-none",
         className
       )}
     >
-      <div className="relative h-2 w-full grow overflow-hidden rounded-full bg-secondary">
+      <div className="relative h-1.5 w-full grow overflow-hidden rounded-full bg-[#E5E5EA] dark:bg-[#38383A]">
         <div
           className="h-full bg-primary transition-all duration-75"
           style={{ width: `${percentage}%` }}
@@ -60,7 +60,7 @@ export function Slider({
         aria-valuenow={currentVal}
       />
       <div
-        className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 block h-4 w-4 rounded-full border-2 border-primary bg-background ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 pointer-events-none shadow-sm"
+        className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 block h-5 w-5 rounded-full border border-black/10 bg-white ring-offset-background transition-transform pointer-events-none shadow-[0_2px_5px_rgba(0,0,0,0.22)] active:scale-110"
         style={{ left: `${percentage}%` }}
       />
     </div>

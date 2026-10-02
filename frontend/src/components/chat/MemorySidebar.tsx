@@ -113,20 +113,18 @@ export const MemorySidebar: React.FC<MemorySidebarProps> = ({
                 const formattedTime = formatFullDateTime(createdAt);
 
                 return (
-                  <Card key={m.id || idx}>
-                    <CardContent className="p-3 text-xs leading-relaxed">
-                      <p className="break-words">{text}</p>
-                      {formattedTime && (
-                        <>
-                          <Separator className="my-2" />
-                          <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-mono">
-                            <Clock className="h-3 w-3 shrink-0" />
-                            <span>{formattedTime}</span>
-                          </div>
-                        </>
-                      )}
-                    </CardContent>
-                  </Card>
+                  <div
+                    key={m.id || idx}
+                    className="p-3 rounded-xl border border-border/40 bg-card/80 dark:bg-card/40 backdrop-blur-xs text-xs leading-relaxed shadow-2xs"
+                  >
+                    <p className="break-words text-[13px] text-foreground/90 font-normal">{text}</p>
+                    {formattedTime && (
+                      <div className="mt-2 pt-2 border-t border-border/30 flex items-center gap-1.5 text-[10px] text-muted-foreground font-mono">
+                        <Clock className="h-3 w-3 shrink-0 opacity-70" />
+                        <span>{formattedTime}</span>
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </>
@@ -134,10 +132,10 @@ export const MemorySidebar: React.FC<MemorySidebarProps> = ({
         </div>
       </ScrollArea>
 
-      <div className="p-3 border-t border-border/70 bg-muted/30 dark:bg-[#121214] safe-pb">
-        <Button variant="ghost" size="sm" asChild className="w-full">
+      <div className="p-3 border-t border-border/40 bg-muted/20 dark:bg-[#121214] safe-pb">
+        <Button variant="outline" size="sm" asChild className="w-full rounded-full h-8 text-xs font-medium border-border/50 bg-background/80 hover:bg-background">
           <Link href="/memory" onClick={onClose}>
-            <span>查看完整记忆库 →</span>
+            <span>管理全部记忆库 →</span>
           </Link>
         </Button>
       </div>

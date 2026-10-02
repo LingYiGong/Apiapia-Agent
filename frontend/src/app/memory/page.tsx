@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { apiRequest, getToken, getApiBase } from "@/lib/api";
@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -28,15 +27,16 @@ import { FullPageSkeleton } from "@/components/common/PageSkeleton";
 import {
   Brain,
   Search,
-  Plus,
+  MessageSquare,
   Trash2,
-  Edit3,
+  Pencil,
   Download,
   Check,
   X,
-  Sparkles,
   Clock,
+  RotateCcw,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 function formatFullDateTime(val?: string): string {
   if (!val) return "";
@@ -65,22 +65,68 @@ export default function MemoryPage() {
   const [isSearching, setIsSearching] = useState(false);
   const [loadingMemories, setLoadingMemories] = useState(true);
 
-  // Modal States
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [newMemoryText, setNewMemoryText] = useState("");
 
+
+  // Inline Edit State
   const [editingItem, setEditingItem] = useState<MemoryItem | null>(null);
   const [editText, setEditText] = useState("");
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
-  // 删除确认框状态（替代原生 confirm）
+  // Delete Confirm State
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const sortedMemories = React.useMemo(() => {
-    return [...memories].sort((a, b) => {
-      const timeA = new Date(a.created_at || (a as any).metadata?.created_at || a.updated_at || (a as any).metadata?.timestamp || 0).getTime();
-      const timeB = new Date(b.created_at || (b as any).metadata?.created_at || b.updated_at || (b as any).metadata?.timestamp || 0).getTime();
-      return timeB - timeA;
+  interface MemorySection {
+    key: "today" | "pastWeek" | "earlier";
+    title: string;
+    items: MemoryItem[];
+  }
+
+  // 按 Apple HIG 规范将记忆按时间分组（今天、过去 7 天、更早之前）
+  // 若记忆被修改或更新过，其有效时间将立即更新为今天，实时归入「今天」分组
+  const groupedSections = useMemo<MemorySection[]>(() => {
+    const today: MemoryItem[] = [];
+    const pastWeek: MemoryItem[] = [];
+    const earlier: MemoryItem[] = [];
+
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const sevenDaysAgo = startOfToday - 6 * 24 * 60 * 60 * 1000;
+
+    const getEffectiveTime = (item: MemoryItem): number => {
+      const ts =
+        item.updated_at ||
+        (item as any).metadata?.updated_at ||
+        item.created_at ||
+        (item as any).metadata?.created_at ||
+        (item as any).metadata?.timestamp;
+      return ts ? new Date(ts).getTime() : 0;
+    };
+
+    memories.forEach((item) => {
+      const t = getEffectiveTime(item);
+      if (t >= startOfToday) {
+        today.push(item);
+      } else if (t >= sevenDaysAgo) {
+        pastWeek.push(item);
+      } else {
+        earlier.push(item);
+      }
     });
+
+    const sortByTimeDesc = (a: MemoryItem, b: MemoryItem) => {
+      return getEffectiveTime(b) - getEffectiveTime(a);
+    };
+
+    today.sort(sortByTimeDesc);
+    pastWeek.sort(sortByTimeDesc);
+    earlier.sort(sortByTimeDesc);
+
+    const sections: MemorySection[] = [];
+    if (today.length > 0) sections.push({ key: "today", title: "今天", items: today });
+    if (pastWeek.length > 0) sections.push({ key: "pastWeek", title: "过去 7 天", items: pastWeek });
+    if (earlier.length > 0) sections.push({ key: "earlier", title: "更早之前", items: earlier });
+
+    return sections;
   }, [memories]);
 
   useEffect(() => {
@@ -107,57 +153,67 @@ export default function MemoryPage() {
     }
   }, [user]);
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!searchQuery.trim()) {
-      fetchMemories();
-      setIsSearching(false);
+  const handleSearch = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const query = searchQuery.trim();
+    if (!query) {
+      handleResetSearch();
       return;
     }
     setIsSearching(true);
     setLoadingMemories(true);
     try {
       const res = await apiRequest<{ query: string; results: MemoryItem[] }>(
-        `/memories/search?q=${encodeURIComponent(searchQuery)}`
+        `/memories/search?q=${encodeURIComponent(query)}`
       );
       setMemories(res.results || []);
     } catch (err) {
       console.error("Search failed:", err);
+      toast.error("检索记忆库失败");
     } finally {
       setLoadingMemories(false);
     }
   };
 
-  const handleAddMemory = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newMemoryText.trim()) return;
-
-    try {
-      await apiRequest("/memories", {
-        method: "POST",
-        body: JSON.stringify({ data: newMemoryText.trim() }),
-      });
-      setNewMemoryText("");
-      setShowAddModal(false);
-      fetchMemories();
-      toast.success("已添加记忆");
-    } catch (err: any) {
-      toast.error(err.message || "添加记忆失败");
-    }
+  const handleResetSearch = () => {
+    setSearchQuery("");
+    setIsSearching(false);
+    fetchMemories();
   };
 
   const handleSaveEdit = async () => {
-    if (!editingItem || !editText.trim()) return;
+    if (!editingItem || !editText.trim() || isSavingEdit) return;
+    setIsSavingEdit(true);
+    const newText = editText.trim();
+    const targetId = editingItem.id;
     try {
-      await apiRequest(`/memories/${editingItem.id}`, {
+      await apiRequest(`/memories/${targetId}`, {
         method: "PATCH",
-        body: JSON.stringify({ data: editText.trim() }),
+        body: JSON.stringify({ data: newText }),
       });
+      const nowIso = new Date().toISOString();
+      setMemories((prev) =>
+        prev.map((m) =>
+          m.id === targetId
+            ? {
+                ...m,
+                memory: newText,
+                updated_at: nowIso,
+                metadata: {
+                  ...((m as any).metadata || {}),
+                  updated_at: nowIso,
+                },
+              }
+            : m
+        )
+      );
       setEditingItem(null);
+      toast.success("已更新记忆");
       fetchMemories();
-      toast.success("已保存修改");
     } catch (err: any) {
       toast.error(err.message || "修改记忆失败");
+    } finally {
+      setIsSavingEdit(false);
     }
   };
 
@@ -173,11 +229,33 @@ export default function MemoryPage() {
     }
   };
 
-  const handleExport = () => {
-    const token = getToken();
-    const base = getApiBase();
-    // Direct link to download export JSON
-    window.open(`${base}/memories/export?token=${token}`, "_blank");
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExport = async () => {
+    if (isExporting) return;
+    setIsExporting(true);
+    const toastId = toast.loading("正在导出记忆数据...");
+    try {
+      const data = await apiRequest("/memories/export");
+      const jsonString = JSON.stringify(data, null, 2);
+      const blob = new Blob([jsonString], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const username = user?.username || "export";
+      const dateStr = new Date().toISOString().slice(0, 10);
+      a.download = `apiapia_memories_${username}_${dateStr}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success("记忆数据已导出为 JSON 文件", { id: toastId });
+    } catch (err: any) {
+      console.error("Export failed:", err);
+      toast.error(err.message || "导出记忆数据失败", { id: toastId });
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   if (loading || !user) return <FullPageSkeleton variant="list" />;
@@ -188,228 +266,338 @@ export default function MemoryPage() {
       {/* ── Apple HIG Standard Mobile Navigation Bar (44pt) ── */}
       <MobileHeader title="记忆库" />
 
-      <div className="flex-1 overflow-y-auto">
-        <main className="max-w-5xl w-full mx-auto p-4 sm:p-6 md:p-8 pb-24 md:pb-8">
-        {/* Desktop Header Banner */}
-        <div className="hidden md:flex flex-row items-center justify-between gap-4 pb-6 border-b border-border/50">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 text-primary font-semibold mb-1 text-[13px] tracking-tight">
-              <Brain className="h-4 w-4 shrink-0" />
-              <span>长期记忆管理</span>
-            </div>
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">记忆库</h1>
-            <p className="text-[13px] text-muted-foreground mt-1.5 leading-relaxed max-w-2xl">
-              所有记忆均独立保存在本地向量数据库中，你可在此随时审查、修正或删除。
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2.5 shrink-0">
-            <Button onClick={() => setShowAddModal(true)} size="sm" className="h-9 px-3.5 rounded-xl font-medium">
-              <Plus className="h-4 w-4 shrink-0 mr-1" />
-              <span>新增记忆</span>
-            </Button>
-            <ActionTooltip label="导出所有记忆数据为 JSON 文件" side="bottom">
-              <Button
-                onClick={handleExport}
-                variant="outline"
-                size="sm"
-                className="h-9 px-3.5 rounded-xl font-medium"
-              >
-                <Download className="h-4 w-4 shrink-0 mr-1" />
-                <span>导出 JSON</span>
-              </Button>
-            </ActionTooltip>
-          </div>
-        </div>
-
-        {/* Mobile Action Sub-Bar */}
-        <div className="flex md:hidden items-center justify-between gap-2 pb-2">
-          <p className="text-xs text-muted-foreground font-mono">
-            共 {memories.length} 条记忆记录
-          </p>
-          <div className="flex items-center gap-2 shrink-0">
-            <Button
-              onClick={() => setShowAddModal(true)}
-              size="sm"
-              className="h-8 px-3 rounded-full text-xs font-semibold gap-1 active:scale-95 shadow-xs"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              <span>新增记忆</span>
-            </Button>
-            <Button
-              onClick={handleExport}
-              variant="outline"
-              size="sm"
-              className="h-8 px-2.5 rounded-full text-xs"
-              title="导出所有记忆数据"
-            >
-              <Download className="h-3.5 w-3.5" />
-            </Button>
-          </div>
-        </div>
-
-        {/* Search bar */}
-        <form onSubmit={handleSearch} className="mt-5 flex gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3.5 top-3 h-4 w-4 text-muted-foreground" />
+      {/* ── 顶部操作栏：完全遵循 Apple HIG 工具栏规范（高度统一 h-8，圆角 rounded-lg，层级分明） ── */}
+      <div className="px-3.5 sm:px-6 py-2 border-b border-border/40 bg-background/80 backdrop-blur-md shrink-0">
+        <form
+          onSubmit={handleSearch}
+          className="max-w-4xl mx-auto w-full flex items-center gap-2"
+        >
+          {/* 1. 搜索输入框：pl-9 确保充足内间距，彻底杜绝文字与左侧图标重叠 */}
+          <div className="relative flex-1 min-w-0">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
             <Input
               type="search"
-              placeholder="搜索记忆（如：笔记本、编程、生活习惯）..."
+              placeholder="搜索记忆..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 h-10 text-[16px] sm:text-sm rounded-xl bg-muted/40 border-border/60"
+              className="pr-8 h-8 text-[13px] rounded-lg bg-muted/60 dark:bg-muted/40 border-border/40 focus-visible:bg-background focus-visible:ring-1 focus-visible:ring-ring"
+              style={{ paddingLeft: "2.25rem" }}
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={handleResetSearch}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
-          <Button type="submit" variant="secondary" className="h-10 px-4 rounded-xl font-medium">
-            搜索
-          </Button>
-          {isSearching && (
+
+          {/* 2. 搜索按钮：纯图标按钮 */}
+          <ActionTooltip label="搜索记忆" side="bottom">
+            <Button
+              type="submit"
+              variant="secondary"
+              size="icon"
+              className="h-8 w-8 rounded-lg shrink-0 active:scale-95 border border-border/40 bg-muted/60 hover:bg-muted/90 text-foreground transition-all"
+            >
+              <Search className="h-4 w-4" />
+              <span className="sr-only">搜索</span>
+            </Button>
+          </ActionTooltip>
+
+          {/* 3. 下载/导出按钮：纯图标按钮 */}
+          <ActionTooltip label="导出所有记忆为 JSON" side="bottom">
             <Button
               type="button"
+              onClick={handleExport}
               variant="outline"
-              onClick={() => {
-                setSearchQuery("");
-                setIsSearching(false);
-                fetchMemories();
-              }}
+              size="icon"
+              className="h-8 w-8 rounded-lg shrink-0 active:scale-95 border-border/50 bg-muted/30 hover:bg-muted text-foreground transition-all"
             >
-              重置
+              <Download className="h-4 w-4" />
+              <span className="sr-only">导出 JSON</span>
             </Button>
-          )}
+          </ActionTooltip>
         </form>
+      </div>
 
-        {/* Memories List */}
-        <div className="mt-6">
+      {/* ── 记忆列表滚动容器：参考历史列表纯净流线设计 ── */}
+      <div className="flex-1 overflow-y-auto px-3.5 sm:px-6 py-3.5 pb-24 md:pb-8 overscroll-contain">
+        <div className="max-w-4xl mx-auto w-full space-y-3">
+          {/* 状态与统计小标 */}
+          <div className="flex items-center justify-between px-1 text-[12px] font-semibold text-muted-foreground uppercase tracking-wider select-none">
+            <div className="flex items-center gap-1.5">
+              <Brain className="h-3.5 w-3.5 text-primary" />
+              <span>{isSearching ? "搜索结果" : "全部记忆"}</span>
+              <span className="text-[10px] font-mono opacity-60">({memories.length})</span>
+            </div>
+
+            {isSearching && (
+              <button
+                type="button"
+                onClick={handleResetSearch}
+                className="flex items-center gap-1 text-[11px] font-normal tracking-normal normal-case text-primary hover:underline"
+              >
+                <RotateCcw className="h-3 w-3" />
+                <span>显示全部</span>
+              </button>
+            )}
+          </div>
+
+          {/* 列表渲染 */}
           {loadingMemories ? (
-            <div className="flex flex-col gap-3">
-              {[0, 1, 2].map((i) => (
-                <Card key={i}>
-                  <CardContent className="p-4 sm:p-5 space-y-2">
-                    <Skeleton className="h-3 w-24" />
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-2/3" />
-                  </CardContent>
-                </Card>
+            <div className="space-y-2.5">
+              {[0, 1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="p-4 rounded-xl border border-border/40 bg-card/60 space-y-2 animate-pulse"
+                >
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="h-3.5 w-12 rounded-md" />
+                    <Skeleton className="h-3.5 w-28 rounded-md" />
+                  </div>
+                  <Skeleton className="h-4 w-full rounded-md" />
+                  <Skeleton className="h-4 w-2/3 rounded-md" />
+                </div>
               ))}
             </div>
-          ) : sortedMemories.length === 0 ? (
-            <Card>
-              <CardContent className="p-12 text-center">
-                <Sparkles className="h-10 w-10 text-primary/50 mx-auto mb-3" />
-                <h3 className="text-sm font-semibold">
-                  {isSearching ? "未找到符合条件的记忆" : "记忆库为空"}
-                </h3>
-                <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
-                  在对话中提及关于你的事实，或点击上方“手动新增记忆”按钮直接添加。
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {sortedMemories.map((item, idx) => {
-                const text = item.memory || (item as any).text || JSON.stringify(item);
-                const itemId = item.id ? String(item.id) : (item as any).hash ? String((item as any).hash) : `mem-${idx}`;
-                const isEditing = editingItem?.id === item.id;
-                const createdAt = item.created_at || (item as any).metadata?.created_at || item.updated_at || (item as any).metadata?.timestamp;
-                const formattedTime = formatFullDateTime(createdAt);
-
-                return (
-                  <Card
-                    key={itemId}
-                    className="group hover:shadow-sm transition-all"
+          ) : memories.length === 0 ? (
+            /* 空状态：与历史对话保持一致的 Apple 风格居中布局 */
+            <div className="flex flex-col items-center justify-center py-16 text-center select-none">
+              <div className="h-14 w-14 rounded-2xl bg-muted/50 flex items-center justify-center text-muted-foreground mb-3">
+                <Brain className="h-7 w-7" />
+              </div>
+              <h3 className="text-base font-semibold text-foreground">
+                {isSearching ? "未找到匹配的记忆记录" : "暂无记忆记录"}
+              </h3>
+              <p className="text-xs text-muted-foreground mt-1 max-w-xs leading-relaxed">
+                {isSearching
+                  ? "换个关键词试试，或点击右上方清除搜索。"
+                  : "在与 AI 对话中提及关于你的背景、习惯或关键事实，模型将自动提炼并记录在此处。"}
+              </p>
+              <div className="mt-4">
+                {isSearching ? (
+                  <Button
+                    onClick={handleResetSearch}
+                    variant="outline"
+                    size="sm"
+                    className="rounded-xl px-4 text-xs font-medium"
                   >
-                    <CardContent className="p-4 sm:p-5">
-                      {isEditing ? (
-                        <div className="space-y-3">
-                          <Textarea
-                            rows={4}
-                            value={editText}
-                            onChange={(e) => setEditText(e.target.value)}
-                            className="leading-relaxed"
-                          />
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setEditingItem(null)}
-                            >
-                              <X className="h-3.5 w-3.5" />
-                              <span>取消</span>
-                            </Button>
-                            <Button
-                              size="sm"
-                              onClick={handleSaveEdit}
-                            >
-                              <Check className="h-3.5 w-3.5" />
-                              <span>保存修改</span>
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            {/* Metadata row */}
-                            <div className="flex flex-wrap items-center gap-2 mb-2 text-[11px] text-muted-foreground">
-                              <Badge variant="secondary" className="font-mono text-[10px]">
-                                #{idx + 1}
-                              </Badge>
-                              {formattedTime && (
-                                <Badge variant="outline" className="font-mono text-muted-foreground">
-                                  <Clock className="h-3 w-3 shrink-0 mr-1" />
-                                  <span>{formattedTime}</span>
-                                </Badge>
-                              )}
-                              <span className="font-mono text-[10px] text-muted-foreground hidden md:inline">
-                                ID: {itemId.slice(0, 12)}...
-                              </span>
+                    重置搜索
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => router.push("/chat")}
+                    size="sm"
+                    className="rounded-xl px-4 text-xs font-medium gap-1.5 shadow-xs bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-all"
+                  >
+                    <MessageSquare className="h-3.5 w-3.5" />
+                    <span>去新建对话</span>
+                  </Button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {(() => {
+                let globalCounter = 0;
+                return groupedSections.map((sec) => (
+                  <div key={sec.key} className="space-y-2.5">
+                    {/* Apple HIG 时间分组小标 */}
+                    <div className="flex items-center justify-between px-1 text-[12px] font-semibold text-muted-foreground/80 select-none">
+                      <div className="flex items-center gap-1.5">
+                        <span className="tracking-tight">{sec.title}</span>
+                        <span className="text-[10px] font-mono opacity-50">({sec.items.length})</span>
+                      </div>
+                    </div>
+
+                    {/* 分组内记忆卡片 */}
+                    <div className="space-y-3">
+                      {sec.items.map((item) => {
+                        const currentNum = ++globalCounter;
+                        const text =
+                          item.memory ||
+                          (item as any).data ||
+                          (item as any).text ||
+                          (typeof item === "string" ? item : JSON.stringify(item));
+                        const itemId = item.id
+                          ? String(item.id)
+                          : (item as any).hash
+                          ? String((item as any).hash)
+                          : `mem-${currentNum}`;
+                        const createdAt =
+                          item.updated_at ||
+                          item.created_at ||
+                          (item as any).metadata?.created_at ||
+                          (item as any).metadata?.timestamp;
+                        const formattedTime = formatFullDateTime(createdAt);
+
+                        return (
+                          <div
+                            key={itemId}
+                            className={cn(
+                              "group relative p-4 sm:p-4.5 rounded-2xl border border-border/50 bg-card/80 dark:bg-[#1C1C1E]/80 backdrop-blur-md shadow-2xs",
+                              "hover:border-border/80 hover:bg-card dark:hover:bg-[#1C1C1E] hover:shadow-xs transition-all duration-200"
+                            )}
+                          >
+                            {/* 顶部元信息栏与操作按钮 */}
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <div className="h-6 w-6 rounded-md bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                                  <Brain className="h-3.5 w-3.5" />
+                                </div>
+                                <span className="text-[12px] font-semibold text-foreground/80 tracking-tight shrink-0">
+                                  记忆 #{currentNum}
+                                </span>
+                                {formattedTime && (
+                                  <div className="flex items-center gap-1.5 min-w-0 text-muted-foreground/60 text-[11.5px]">
+                                    <span className="text-[10px] opacity-40">•</span>
+                                    <span className="inline-flex items-center gap-1 font-mono truncate">
+                                      <Clock className="h-3 w-3 shrink-0 opacity-70" />
+                                      <span>{formattedTime}</span>
+                                    </span>
+                                    {(item.updated_at || (item as any).metadata?.updated_at) && (
+                                      <span className="text-[10px] font-normal px-1.5 py-0.5 rounded-md bg-muted/60 text-muted-foreground/80 shrink-0 select-none">
+                                        已编辑
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Apple HIG 按钮组：编辑与删除 */}
+                              <div className="flex items-center gap-1 shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
+                                <ActionTooltip label="编辑记忆" side="top">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => {
+                                      setEditingItem(item);
+                                      setEditText(text);
+                                    }}
+                                    className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/80 active:scale-90 transition-all"
+                                  >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                    <span className="sr-only">编辑</span>
+                                  </Button>
+                                </ActionTooltip>
+
+                                <ActionTooltip label="删除记忆" side="top">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => setDeletingId(item.id)}
+                                    className="h-7 w-7 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 active:scale-90 transition-all"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                    <span className="sr-only">删除</span>
+                                  </Button>
+                                </ActionTooltip>
+                              </div>
                             </div>
 
-                            {/* Full memory content */}
-                            <p className="text-sm leading-relaxed break-words whitespace-pre-wrap select-text">
-                              {text}
-                            </p>
+                            {/* 记忆文本正文 */}
+                            <div className="mt-2.5">
+                              <p className="text-[14.5px] sm:text-[15px] leading-relaxed text-foreground/90 font-normal tracking-[-0.01em] break-words whitespace-pre-wrap select-text">
+                                {text}
+                              </p>
+                            </div>
                           </div>
-
-                          {/* Actions */}
-                          <div className="flex items-center gap-1 shrink-0 self-end sm:self-start pt-1 sm:pt-0 border-t sm:border-t-0 w-full sm:w-auto justify-end">
-                            <ActionTooltip label="编辑修正记忆" side="top">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => {
-                                  setEditingItem(item);
-                                  setEditText(text);
-                                }}
-                              >
-                                <Edit3 className="h-4 w-4" />
-                                <span className="sr-only">编辑记忆</span>
-                              </Button>
-                            </ActionTooltip>
-                            <ActionTooltip label="删除记忆" side="top">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => setDeletingId(item.id)}
-                                className="hover:text-destructive"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                                <span className="sr-only">删除记忆</span>
-                              </Button>
-                            </ActionTooltip>
-                          </div>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                );
-              })}
+                        );
+                      })}
+                    </div>
+                  </div>
+                ));
+              })()}
             </div>
           )}
         </div>
-      </main>
       </div>
 
-      {/* Delete Confirm Dialog */}
+      {/* ── Apple HIG 标准编辑记忆弹窗 ── */}
+      <Dialog
+        open={Boolean(editingItem)}
+        onOpenChange={(open) => {
+          if (!open) setEditingItem(null);
+        }}
+      >
+        <DialogContent
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          className="max-w-[480px] w-[92vw] rounded-[22px] border border-border/50 bg-background/95 dark:bg-[#1C1C1E]/95 backdrop-blur-2xl p-5 sm:p-6 shadow-2xl space-y-4"
+        >
+          <DialogHeader className="space-y-1.5 text-left">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                <Brain className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <DialogTitle className="text-[17px] font-semibold tracking-tight text-foreground">
+                  编辑长期记忆
+                </DialogTitle>
+                <DialogDescription className="text-[12.5px] text-muted-foreground leading-normal mt-0.5">
+                  修改此条记忆内容，AI 将在全站对话中以修改后的事实作为参考。
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSaveEdit();
+            }}
+            className="space-y-4"
+          >
+            {/* Apple Inset 文本输入容器 */}
+            <div className="rounded-xl border border-border/50 bg-muted/40 dark:bg-muted/20 focus-within:bg-background focus-within:ring-2 focus-within:ring-primary/20 transition-all p-3 space-y-2">
+              <Textarea
+                rows={4}
+                value={editText}
+                onChange={(e) => setEditText(e.target.value)}
+                onKeyDown={(e) => {
+                  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                    e.preventDefault();
+                    if (editText.trim() && !isSavingEdit) {
+                      handleSaveEdit();
+                    }
+                  }
+                }}
+                placeholder="修改记忆内容..."
+                className="w-full bg-transparent border-0 p-0 text-[14px] leading-relaxed resize-none focus-visible:outline-none focus-visible:ring-0 placeholder:text-muted-foreground/60 min-h-[100px]"
+              />
+              <div className="flex items-center justify-between text-[11px] text-muted-foreground/60 pt-2 border-t border-border/30">
+                <span>支持 ⌘ + 回车 完成修改</span>
+                <span>{editText.trim().length} 字</span>
+              </div>
+            </div>
+
+            {/* Apple HIG 标准操作按钮组 */}
+            <DialogFooter className="flex-row justify-end gap-2.5 pt-1 sm:space-x-0">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setEditingItem(null)}
+                className="h-9 px-4 rounded-xl text-[13px] font-medium border-border/50 bg-muted/30 hover:bg-muted text-muted-foreground hover:text-foreground active:scale-95 transition-all"
+              >
+                取消
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={isSavingEdit || !editText.trim()}
+                className="h-9 px-5 rounded-xl text-[13px] font-semibold shadow-xs bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 disabled:opacity-40 transition-all"
+              >
+                {isSavingEdit ? "正在保存..." : "完成"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Apple HIG 标准删除确认弹窗 ── */}
       {deletingId && (
         <ConfirmDialog
           open
@@ -417,45 +605,12 @@ export default function MemoryPage() {
             if (!open) setDeletingId(null);
           }}
           title="删除这条记忆"
-          description="确定要删除这条长期记忆吗？删除后 AI 将不再参考它，该操作不可恢复。"
+          description="确定要从记忆库中永久移除这条记录吗？删除后 AI 将不再参考该事实，此操作无法撤销。"
           confirmText="删除"
           danger
           onConfirm={() => handleDelete(deletingId)}
         />
       )}
-
-      {/* Add Memory Dialog */}      <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>新增记忆</DialogTitle>
-            <DialogDescription>
-              直接向记忆库写入一条事实。AI 将在后续回答中参考该信息。
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleAddMemory} className="space-y-4">
-            <Textarea
-              required
-              rows={4}
-              value={newMemoryText}
-              onChange={(e) => setNewMemoryText(e.target.value)}
-              placeholder="例如：我日常开发使用 Mac OS 和 Python，喜欢简洁的代码风格..."
-              className="text-xs"
-            />
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setShowAddModal(false)}
-              >
-                取消
-              </Button>
-              <Button type="submit">
-                确认添加
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

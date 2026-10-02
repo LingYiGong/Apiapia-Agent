@@ -6,18 +6,16 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Install system dependencies needed for compiling psycopg2 and C extensions
+# Only install curl for health checks (psycopg2-binary and packages use pre-compiled wheels)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    g++ \
-    libpq-dev \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install python dependencies
+# Install python dependencies with pip cache mount for fast rebuilds
 COPY requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --upgrade pip && \
+    pip install -r requirements.txt
 
 # Create directory for Mem0 history persistence
 RUN mkdir -p /app/data/mem0

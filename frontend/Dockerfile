@@ -2,8 +2,10 @@ FROM node:20-alpine AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-COPY package.json ./
-RUN npm install
+COPY package.json package-lock.json* ./
+# Cache npm modules to speed up subsequent installs
+RUN --mount=type=cache,target=/root/.npm \
+    npm install
 
 FROM node:20-alpine AS builder
 WORKDIR /app
@@ -13,7 +15,10 @@ COPY . .
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN npm run build
+
+# Cache Next.js build cache (.next/cache) to make repeated builds 3-5x faster
+RUN --mount=type=cache,target=/app/.next/cache \
+    npm run build
 
 FROM node:20-alpine AS runner
 WORKDIR /app

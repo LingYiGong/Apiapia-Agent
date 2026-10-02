@@ -1,12 +1,48 @@
+import logging
 from typing import List, Dict, Any, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Header, status
 from fastapi.responses import JSONResponse
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from app.models.user import User
-from app.schemas.memory import MemoryCreate, MemoryUpdate, MemoryResponse, MemorySearchResponse
+from app.schemas.memory import MemoryUpdate, MemoryResponse, MemorySearchResponse
 from app.api.v1.deps import get_current_user
+from app.core.database import get_db
+from app.core.security import decode_access_token
 from app.services.memory.service import memory_service
 
+logger = logging.getLogger("memories_api")
+
 router = APIRouter(prefix="/memories", tags=["memories"])
+
+
+async def get_user_for_export(
+    token: Optional[str] = Query(None),
+    authorization: Optional[str] = Header(None),
+    db: AsyncSession = Depends(get_db)
+) -> User:
+    raw_token = None
+    if authorization and authorization.startswith("Bearer "):
+        raw_token = authorization.split(" ", 1)[1].strip()
+    elif token:
+        raw_token = token.strip()
+
+    if not raw_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    user_id = decode_access_token(raw_token)
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+    stmt = select(User).where(User.id == user_id)
+    user = (await db.execute(stmt)).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    if hasattr(user, "is_active") and not user.is_active:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User deactivated")
+    return user
 
 
 @router.get("", response_model=List[Dict[str, Any]])
@@ -35,7 +71,7 @@ async def search_memories(
 
 @router.get("/export")
 async def export_memories(
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_user_for_export)
 ):
     """Export all user memories as JSON for data ownership and migration (Section 11 & 23)."""
     memories = memory_service.list_memories(user_id=current_user.id)
@@ -60,20 +96,6 @@ async def get_memory(
     if not memory:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Memory not found")
     return memory
-
-
-@router.post("", status_code=status.HTTP_201_CREATED)
-async def create_memory(
-    memory_in: MemoryCreate,
-    current_user: User = Depends(get_current_user)
-):
-    """Manually add a memory item."""
-    result = memory_service.add_memory(
-        user_id=current_user.id,
-        data=memory_in.data,
-        metadata=memory_in.metadata
-    )
-    return {"status": "success", "result": result}
 
 
 @router.patch("/{memory_id}")

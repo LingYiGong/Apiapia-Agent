@@ -208,6 +208,11 @@ async def chat_stream(
         created_at=user_created_at
     )
     db.add(user_msg_record)
+
+    conv_rec = await db.get(Conversation, conv_id)
+    if conv_rec:
+        conv_rec.last_message_at = user_created_at
+
     await db.commit()
 
 
@@ -359,6 +364,7 @@ async def chat_stream(
                 c_rec = (await save_db.execute(c_stmt)).scalar_one_or_none()
                 if c_rec:
                     c_rec.updated_at = reply_created_at
+                    c_rec.last_message_at = reply_created_at
 
                 assistant_msg_record = Message(
                     conversation_id=conv_id,

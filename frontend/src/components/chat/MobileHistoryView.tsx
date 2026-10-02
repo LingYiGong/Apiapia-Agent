@@ -531,7 +531,7 @@ export const MobileHistoryView = ({
         pinned.push(c);
         return;
       }
-      const t = new Date(c.updated_at || c.created_at || 0).getTime();
+      const t = new Date(c.last_message_at || c.created_at || 0).getTime();
       if (t >= startOfToday) {
         today.push(c);
       } else if (t >= sevenDaysAgo) {
@@ -543,6 +543,16 @@ export const MobileHistoryView = ({
 
     // 置顶会话严格按照 pin_order 升序排序
     pinned.sort((a, b) => (a.pin_order ?? 0) - (b.pin_order ?? 0));
+
+    // 各未置顶时间分组内部严格按照最后发送消息时间倒序排列
+    const sortByLastMsg = (a: Conversation, b: Conversation) => {
+      const timeA = new Date(a.last_message_at || a.created_at || 0).getTime();
+      const timeB = new Date(b.last_message_at || b.created_at || 0).getTime();
+      return timeB - timeA;
+    };
+    today.sort(sortByLastMsg);
+    pastWeek.sort(sortByLastMsg);
+    earlier.sort(sortByLastMsg);
 
     const sections = [];
     if (pinned.length > 0) sections.push({ key: "pinned", title: "置顶对话", items: pinned });
@@ -716,12 +726,6 @@ export const MobileHistoryView = ({
                     <span>{sec.title}</span>
                     <span className="text-[10px] font-mono opacity-60">({sec.items.length})</span>
                   </div>
-
-                  {sec.key === "pinned" && sec.items.length > 1 && onReorderPinned && (
-                    <span className="text-[11px] font-normal tracking-normal normal-case text-muted-foreground/70 select-none">
-                      按住右侧把手拖动排序
-                    </span>
-                  )}
                 </div>
 
                 {/* Section Cards List with iOS Swipe & Touch Drag Reorder Support */}
@@ -744,7 +748,7 @@ export const MobileHistoryView = ({
                         key={c.id}
                         conversation={c}
                         isSelected={c.id === activeId}
-                        timeStr={formatRelativeTime(c.updated_at || c.created_at)}
+                        timeStr={formatRelativeTime(c.last_message_at || c.created_at)}
                         onSelect={() => handleSelect(c.id)}
                         onDelete={() => setPendingDelete(c)}
                         onTogglePin={onTogglePin ? () => onTogglePin(c.id) : undefined}

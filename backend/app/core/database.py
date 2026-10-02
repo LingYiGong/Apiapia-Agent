@@ -61,11 +61,21 @@ async def init_db():
                     ALTER TABLE conversations ADD COLUMN IF NOT EXISTS deleted_at timestamp with time zone;
                     ALTER TABLE conversations ADD COLUMN IF NOT EXISTS is_pinned boolean DEFAULT false;
                     ALTER TABLE conversations ADD COLUMN IF NOT EXISTS pin_order integer DEFAULT 0;
+                    ALTER TABLE conversations ADD COLUMN IF NOT EXISTS last_message_at timestamp with time zone;
+
+                    -- Backfill last_message_at for existing conversations using max message created_at or fallback to created_at
+                    UPDATE conversations c
+                    SET last_message_at = COALESCE(
+                        (SELECT MAX(created_at) FROM messages m WHERE m.conversation_id = c.id),
+                        c.created_at
+                    )
+                    WHERE c.last_message_at IS NULL;
                 END IF;
 
                 -- Composite indexes for high-frequency queries and stats
                 CREATE INDEX IF NOT EXISTS idx_conversations_user_active ON conversations (user_id, is_deleted, updated_at DESC);
                 CREATE INDEX IF NOT EXISTS idx_conversations_user_pin ON conversations (user_id, is_deleted, is_pinned, pin_order);
+                CREATE INDEX IF NOT EXISTS idx_conversations_user_last_msg ON conversations (user_id, is_deleted, last_message_at DESC);
                 CREATE INDEX IF NOT EXISTS idx_messages_conv_created ON messages (conversation_id, created_at ASC);
                 CREATE INDEX IF NOT EXISTS idx_messages_role_created ON messages (role, created_at);
             END $$;

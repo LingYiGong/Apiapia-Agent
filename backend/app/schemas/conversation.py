@@ -51,6 +51,7 @@ class ConversationResponse(ConversationBase):
     username: Optional[str] = None  # Owner name, populated only by admin recycle-bin listing
     is_deleted: Optional[bool] = False
     deleted_at: Optional[datetime] = None
+    last_message_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
 

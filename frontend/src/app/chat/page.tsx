@@ -459,6 +459,13 @@ export default function ChatPage() {
     };
     setMessages((prev) => [...prev, userMsg]);
 
+    if (activeId) {
+      const nowIso = new Date().toISOString();
+      setConversations((list) =>
+        list.map((c) => (c.id === activeId ? { ...c, last_message_at: nowIso } : c))
+      );
+    }
+
     // Reset states
     setIsStreaming(true);
     setIsWaitingForFirstToken(true);

@@ -20,6 +20,7 @@ export interface Conversation {
   pin_order?: number;
   created_at: string;
   updated_at: string;
+  last_message_at?: string;
 }
 
 export interface AttachmentItem {

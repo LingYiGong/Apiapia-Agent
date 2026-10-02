@@ -10,6 +10,7 @@ class Conversation(Base):
     __table_args__ = (
         Index("idx_conversations_user_active", "user_id", "is_deleted", "updated_at"),
         Index("idx_conversations_user_pin", "user_id", "is_deleted", "is_pinned", "pin_order"),
+        Index("idx_conversations_user_last_msg", "user_id", "is_deleted", "last_message_at"),
     )
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
@@ -20,6 +21,7 @@ class Conversation(Base):
     deleted_at = Column(DateTime(timezone=True), nullable=True)
     is_pinned = Column(Boolean, default=False, nullable=False, index=True)
     pin_order = Column(Integer, default=0, nullable=False)
+    last_message_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 

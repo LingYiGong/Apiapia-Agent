@@ -34,23 +34,41 @@ async def list_conversations(
             detail="仅管理员可查看对话回收站"
         )
 
+    last_msg_subq = (
+        select(
+            Message.conversation_id,
+            func.max(Message.created_at).label("last_msg_time")
+        )
+        .group_by(Message.conversation_id)
+        .subquery()
+    )
+
+    effective_last_msg = func.coalesce(
+        Conversation.last_message_at,
+        last_msg_subq.c.last_msg_time,
+        Conversation.created_at
+    )
+
     if include_deleted:
         # Admin cross-user recycle bin: all soft-deleted conversations with owner names
         stmt = (
-            select(Conversation, User.username)
+            select(Conversation, User.username, effective_last_msg.label("computed_last_msg"))
             .join(User, User.id == Conversation.user_id)
+            .outerjoin(last_msg_subq, last_msg_subq.c.conversation_id == Conversation.id)
             .where(Conversation.is_deleted == True)
             .order_by(Conversation.deleted_at.desc().nullslast())
         )
         rows = (await db.execute(stmt)).all()
         trashed = []
-        for conv, username in rows:
+        for conv, username, comp_time in rows:
             conv.username = username
+            conv.last_message_at = comp_time
             trashed.append(conv)
         return trashed
 
     stmt = (
-        select(Conversation)
+        select(Conversation, effective_last_msg.label("computed_last_msg"))
+        .outerjoin(last_msg_subq, last_msg_subq.c.conversation_id == Conversation.id)
         .where(
             Conversation.user_id == current_user.id,
             Conversation.is_deleted == False
@@ -58,11 +76,15 @@ async def list_conversations(
         .order_by(
             Conversation.is_pinned.desc(),
             Conversation.pin_order.asc(),
-            Conversation.updated_at.desc()
+            effective_last_msg.desc()
         )
     )
-    result = await db.execute(stmt)
-    return result.scalars().all()
+    rows = (await db.execute(stmt)).all()
+    conversations = []
+    for conv, comp_time in rows:
+        conv.last_message_at = comp_time
+        conversations.append(conv)
+    return conversations
 
 
 class PinOrderUpdate(BaseModel):
@@ -101,6 +123,11 @@ async def reorder_pinned_conversations(
     await db.commit()
     for c in pinned:
         await db.refresh(c)
+        if not c.last_message_at:
+            last_msg_time = await db.scalar(
+                select(func.max(Message.created_at)).where(Message.conversation_id == c.id)
+            )
+            c.last_message_at = last_msg_time or c.created_at
     return sorted(pinned, key=lambda c: c.pin_order)
 
 
@@ -116,10 +143,12 @@ async def create_conversation(
         user_settings = (await db.execute(settings_stmt)).scalar_one_or_none()
         model_to_use = user_settings.default_model if user_settings else "gpt-4o-mini"
 
+    now = datetime.now(timezone.utc)
     conv = Conversation(
         user_id=current_user.id,
         title=conv_in.title or "新建对话",
-        model=model_to_use
+        model=model_to_use,
+        last_message_at=now
     )
     db.add(conv)
     await db.commit()
@@ -141,6 +170,11 @@ async def get_conversation(
     conv = (await db.execute(stmt)).scalar_one_or_none()
     if not conv:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+    if not conv.last_message_at:
+        last_msg_time = await db.scalar(
+            select(func.max(Message.created_at)).where(Message.conversation_id == conv.id)
+        )
+        conv.last_message_at = last_msg_time or conv.created_at
     return conv
 
 
@@ -182,6 +216,11 @@ async def update_conversation(
 
     await db.commit()
     await db.refresh(conv)
+    if not conv.last_message_at:
+        last_msg_time = await db.scalar(
+            select(func.max(Message.created_at)).where(Message.conversation_id == conv.id)
+        )
+        conv.last_message_at = last_msg_time or conv.created_at
     return conv
 
 
@@ -214,6 +253,11 @@ async def pin_conversation(
         conv.updated_at = datetime.now(timezone.utc)
         await db.commit()
         await db.refresh(conv)
+    if not conv.last_message_at:
+        last_msg_time = await db.scalar(
+            select(func.max(Message.created_at)).where(Message.conversation_id == conv.id)
+        )
+        conv.last_message_at = last_msg_time or conv.created_at
     return conv
 
 
@@ -238,6 +282,11 @@ async def unpin_conversation(
     conv.updated_at = datetime.now(timezone.utc)
     await db.commit()
     await db.refresh(conv)
+    if not conv.last_message_at:
+        last_msg_time = await db.scalar(
+            select(func.max(Message.created_at)).where(Message.conversation_id == conv.id)
+        )
+        conv.last_message_at = last_msg_time or conv.created_at
     return conv
 
 

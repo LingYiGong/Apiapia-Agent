@@ -319,46 +319,45 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       {/* ── Apple HIG Standard Mobile Navigation Bar (44pt + safe area) ── */}
       <div className="md:hidden sticky top-0 z-20 w-full bg-background/85 backdrop-blur-xl border-b border-border/40 pt-[env(safe-area-inset-top,0px)] shrink-0 select-none">
         <div className="h-11 px-3 sm:px-4 flex items-center justify-between gap-2 min-w-0">
-          {/* 1. Logo */}
-          <Link
-            href="/chat"
-            onClick={onNewChat}
-            className="flex items-center shrink-0 active:scale-95 transition-transform"
-            title="Apiapia 助理 / 新建对话"
-          >
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-xs shrink-0">
-              <Cat className="h-4 w-4" />
-            </div>
-          </Link>
+          {/* Left: Logo + ModelSelect (Left-aligned & close to logo) */}
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <Link
+              href="/chat"
+              onClick={onNewChat}
+              className="flex items-center shrink-0 active:scale-95 transition-transform"
+              title="Apiapia 助理 / 新建对话"
+            >
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-xs shrink-0">
+                <Cat className="h-4 w-4" />
+              </div>
+            </Link>
 
-          {/* 2. 模型选择器 */}
-          <div className="flex-1 min-w-0">
-            <ModelSelect
-              value={currentModel}
-              onChange={onModelChange}
-              models={availableModels}
-              variant="compact"
-              className="w-full"
-            />
+            <div className="min-w-0 max-w-[calc(100%-8px)]">
+              <ModelSelect
+                value={currentModel}
+                onChange={onModelChange}
+                models={availableModels}
+                variant="compact"
+              />
+            </div>
           </div>
 
-          {/* 3. 刷新模型按钮 */}
-          {onRefreshModels && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onRefreshModels}
-              disabled={isRefreshingModels}
-              title="向配置的提供商 API 手动同步最新模型"
-              className="h-8 w-8 rounded-full shrink-0 text-muted-foreground hover:text-foreground active:scale-95 transition-all"
-            >
-              <RotateCw className={cn("h-3.5 w-3.5", isRefreshingModels && "animate-spin text-primary")} />
-              <span className="sr-only">同步模型</span>
-            </Button>
-          )}
+          {/* Right: Refresh Button & Avatar */}
+          <div className="flex items-center gap-1 shrink-0">
+            {onRefreshModels && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onRefreshModels}
+                disabled={isRefreshingModels}
+                title="向配置的提供商 API 手动同步最新模型"
+                className="h-8 w-8 rounded-full shrink-0 text-muted-foreground hover:text-foreground active:scale-95 transition-all"
+              >
+                <RotateCw className={cn("h-3.5 w-3.5", isRefreshingModels && "animate-spin text-primary")} />
+                <span className="sr-only">同步模型</span>
+              </Button>
+            )}
 
-          {/* 4. 个人设置的头像 */}
-          <div className="shrink-0 flex items-center">
             <UserAvatarDropdown />
           </div>
         </div>
@@ -384,13 +383,12 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             当前模型：
           </span>
 
-          <div className="flex-1 min-w-0 flex">
+          <div className="flex items-center min-w-0">
             <ModelSelect
               value={currentModel}
               onChange={onModelChange}
               models={availableModels}
               variant="compact"
-              className="w-full"
             />
           </div>
 

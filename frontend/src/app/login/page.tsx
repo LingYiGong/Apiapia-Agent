@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth";
 import { apiRequest } from "@/lib/api";
 import { CURRENT_VERSION } from "@/lib/version";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
+import { BrandLogo } from "@/components/common/BrandLogo";
 import {
   Cat,
   KeyRound,
@@ -119,9 +120,7 @@ export default function LoginPage() {
       {/* Top Floating Bar */}
       <header className="relative z-10 flex w-full max-w-5xl items-center justify-between mx-auto pt-1 pb-2 sm:pt-2 sm:pb-3">
         <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <Cat className="h-4 w-4" />
-          </div>
+          <BrandLogo size={28} className="shadow-xs" />
           <span className="text-[14px] font-medium tracking-tight text-foreground/85">
             Apiapia
           </span>
@@ -136,9 +135,7 @@ export default function LoginPage() {
         <div className="relative w-full max-w-[390px] sm:max-w-[420px] rounded-[26px] sm:rounded-[28px] border border-black/[0.06] bg-white/80 p-5 sm:p-7 shadow-[0_16px_40px_rgba(0,0,0,0.05)] backdrop-blur-2xl dark:border-white/[0.09] dark:bg-[#1c1c1e]/85 dark:shadow-[0_24px_64px_rgba(0,0,0,0.65)] transition-all">
           {/* Brand Header */}
           <div className="flex flex-col items-center text-center mb-4 sm:mb-5">
-            <div className="relative mb-2.5 flex h-13 w-13 sm:h-15 sm:w-15 items-center justify-center rounded-[18px] sm:rounded-[20px] bg-gradient-to-b from-indigo-500 to-indigo-600 shadow-md shadow-indigo-500/25 ring-1 ring-inset ring-white/30 dark:ring-white/20 p-3">
-              <Cat className="h-full w-full text-white" />
-            </div>
+            <BrandLogo size={64} className="mb-2.5 drop-shadow-md transition-transform hover:scale-105" />
             <h1 className="text-[21px] sm:text-[24px] font-semibold tracking-[-0.025em] text-foreground">
               {isRegister ? "创建 Apiapia 账户" : "登录 Apiapia"}
             </h1>

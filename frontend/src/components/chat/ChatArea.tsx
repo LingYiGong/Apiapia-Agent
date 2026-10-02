@@ -56,6 +56,7 @@ import {
   LogOut,
   BarChart3,
 } from "lucide-react";
+import { BrandLogo } from "@/components/common/BrandLogo";
 
 
 
@@ -330,9 +331,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               className="flex items-center shrink-0 active:scale-95 transition-transform"
               title="Apiapia 助理 / 新建对话"
             >
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-xs shrink-0">
-                <Cat className="h-4 w-4" />
-              </div>
+              <BrandLogo size={28} className="shadow-xs" />
             </Link>
 
             <div className="min-w-0 max-w-[calc(100%-8px)]">
@@ -478,9 +477,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           </div>
         ) : messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center text-center px-4 py-2 select-none my-auto">
-            <div className="flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary mb-3 shadow-inner">
-              <Cat className="h-6 w-6 sm:h-8 sm:w-8" />
-            </div>
+            <BrandLogo size={68} className="mb-3.5 drop-shadow-md transition-transform hover:scale-105" />
             <h2 className="text-base sm:text-lg font-semibold">
               Apiapia 已就绪，开始新的对话吧
             </h2>

@@ -1,6 +1,81 @@
-# Apiapia 助理（一只有长期记忆的猫）
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="icons/apiapia-logo.svg">
+    <source media="(prefers-color-scheme: light)" srcset="icons/apiapia-logo.svg">
+    <img src="icons/apiapia-logo.svg" alt="Apiapia AI Logo" width="620">
+  </picture>
+</p>
 
-基于 **Next.js + FastAPI + Mem0 OSS (2.2.1) + PostgreSQL (pgvector) + Docker Compose** 的全功能助理系统，品牌形象是一只拥有长期记忆的猫咪 Apiapia。当前系统版本：**v2.7.0**。
+<p align="center">
+  <strong>一只有长期记忆的智能猫咪助理 · Personal AI Assistant with Long-Term Memory</strong>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/version-v2.7.0-indigo?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
+  <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
+  <img src="https://img.shields.io/badge/Mem0%20OSS-2.2.1-orange?style=flat-square" alt="Mem0">
+  <img src="https://img.shields.io/badge/PostgreSQL-17%20(pgvector)-336791?style=flat-square&logo=postgresql" alt="PostgreSQL">
+  <img src="https://img.shields.io/badge/iOS%20PWA-Ready-007AFF?style=flat-square&logo=apple" alt="iOS PWA">
+  <img src="https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker" alt="Docker">
+</p>
+
+---
+
+## 🐱 关于 Apiapia（品牌故事与灵感）
+
+> “她有一双清澈如绿宝石般的眼睛，安静地趴在键盘旁陪伴着日夜；而现在，她化身为你数字世界里永不忘事的智慧助理。”
+
+<p align="center">
+  <img src="icons/apiapia-real.jpg" alt="真实猫咪 Apiapia" width="220" style="border-radius: 24px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); margin: 0 10px;" />
+  <img src="icons/apiapia-app-icon.jpg" alt="Apiapia App 图标" width="220" style="border-radius: 24px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); margin: 0 10px;" />
+  <img src="icons/apiapia-avatar-circle.png" alt="Apiapia 品牌头像" width="220" style="border-radius: 50%; box-shadow: 0 8px 24px rgba(0,0,0,0.12); margin: 0 10px;" />
+</p>
+
+<p align="center">
+  <em>图左：原型小猫真实生活照 · 图中：iOS 原生质感 Web App 图标 · 图右：站内品牌圆形头像</em>
+</p>
+
+**Apiapia** 的原型是一只真实存在、有着可爱虎斑花纹与碧绿双眸的家养猫咪。在日常生活中，猫咪用敏锐的直觉和长久的陪伴给予家人温暖与安心；在 **Apiapia 助理系统** 中，这份陪伴被赋予了前沿 AI 的长期记忆与逻辑推理能力：
+
+- **永不遗忘的温度**：不同于常规大模型每次开启新对话就“失忆”的局限，Apiapia 借助自主向量记忆引擎（Mem0 OSS + pgvector），将你的工作偏好、生活习惯与事实碎片默默珍藏。
+- **越聊越懂你**：跨设备、跨时间段自动召回关联事实，无需反复自报家门，交流如同与相识已久的老友交谈般默契顺畅。
+- **全端优雅呈现**：不仅拥有精心手绘的猫咪品牌标识，更针对移动端与桌面端进行全套视觉重构，带来兼具科技质感与亲和力的使用体验。
+
+---
+
+## 📲 iOS 浏览器 Web App（PWA）全套图标体系
+
+系统现已全面适配 **Apple iOS Safari** 及现代主流浏览器的 Progressive Web App (PWA) 标准，支持从 Safari 一键「**添加到主屏幕**」，获得媲美原生 App 的沉浸式无边框独立运行体验（Standalone Mode）：
+
+<p align="center">
+  <img src="icons/apiapia-logo-dark.jpg" alt="Apiapia 品牌深色横幅" width="720" style="border-radius: 16px; box-shadow: 0 12px 36px rgba(0,0,0,0.25);" />
+</p>
+
+### 📱 1. 全套图标规格一览
+
+| 平台 / 场景 | 图标文件 | 尺寸 / 格式 | 用途说明与规范 |
+| :--- | :--- | :--- | :--- |
+| **iOS 主屏幕** | `apple-touch-icon.png` | 180×180 PNG | iOS 设备添加主屏幕的默认图标，适配 Retina 视网膜屏 |
+| **iPhone Retina @3x** | `apple-touch-icon-180x180.png` | 180×180 PNG | 适配 iPhone 14/15/16 Pro 等 @3x 超清视网膜屏幕 |
+| **iPad Pro @2x** | `apple-touch-icon-167x167.png` | 167×167 PNG | 专为 10.5" / 11" / 12.9" iPad Pro 定制的高清图标 |
+| **iPad / iPad mini** | `apple-touch-icon-152x152.png` | 152×152 PNG | 适配 iPad Air 与 iPad mini 的标准高清视网膜显示 |
+| **iPhone 标准 @2x** | `apple-touch-icon-120x120.png` | 120×120 PNG | 适配标准分辨率 iPhone 显示及 Spotlight 搜索结果 |
+| **Web App 启动图标** | `icon-192x192.png` | 192×192 PNG | PWA Manifest 标准通用图标，移动端启动画面与快捷方式 |
+| **Web App 高清图标** | `icon-512x512.png` | 512×512 PNG | PWA 高分辨率图标、应用商城展示及 Splash 加载页 |
+| **Android 自适应图标** | `icon-maskable-192x192.png` | 192×192 PNG | 自带 20% 安全边距，适配圆形、圆角矩形等任意裁切 |
+| **Android 高清自适应** | `icon-maskable-512x512.png` | 512×512 PNG | 遵循 W3C Maskable 规范，杜绝图标边缘被截断 |
+| **多分辨率 Favicon** | `favicon.ico` | 16/32/48 ICO | 桌面浏览器标签页标准 ICO 格式，内嵌 16/32/48 三合一数据 |
+| **现代浏览器 Favicon** | `favicon-32x32.png` / `16x16` | 32×32 / 16×16 | 现代化桌面与移动浏览器标签页高清位图 |
+| **矢量高保真 Favicon** | `icon.svg` | Scalable SVG | 现代 Safari / Chrome 原生矢量 Favicon，无限缩放不失真 |
+
+### 🛠️ 2. iOS 极速安装为 Web App 步骤
+
+1. 在 iPhone 或 iPad 上使用 **Safari 浏览器** 打开 Apiapia 网址（例如 `http://<your-server-ip>:3000`）。
+2. 点击屏幕底部（或顶部）导航栏的 **「分享」按钮（向上箭头图标 ⎋）**。
+3. 在弹出菜单中向下滑动，选择 **「添加到主屏幕」（Add to Home Screen）**。
+4. 确认应用名称为 **Apiapia** 并点击右上角「添加」。
+5. 返回手机桌面，即可看到带有官方猫咪图标的 **Apiapia App**。点击直接进入全屏沉浸模式，免去浏览器地址栏与底部工具栏干扰！
 
 ---
 
@@ -27,23 +102,13 @@
 4. **会话组织与置顶管理 (v2.6.0)**：
    - **置顶分组展示**：支持对重要历史会话进行一键置顶，置顶会话聚合在独立分组中高亮呈现。
    - **灵活排序调整**：置顶会话支持拖拽排序以及上移 / 下移快捷微调，方便按优先级排列任务。
-   - **轻量界面交互**：移除多余冗杂图标，操作按钮常驻可见，交互简洁直观。
+   - **轻量界面交互**：操作按钮常驻可见，交互简洁直观。
 
 5. **全站 shadcn/ui 组件规范与体验重构 (v2.7.0)**：
-   - **统一轻量 ActionTooltip**：彻底废除原生粗糙的 HTML `title` 属性，统一接入响应迅速（150ms 延时）、带缩放与淡入微动效的 `<ActionTooltip>`，覆盖全站侧边栏、工具栏、操作气泡与管理入口。
-   - **管理后台 (Usage & Audit) 规范化升级**：
-     - 数据表格由原生 `<tr>`/`<td>` 全量升级为标准 shadcn `<Table>`、`<TableHeader>`、`<TableRow>`、`<TableCell>`。
-     - 统计时间范围切换与模型排序过滤重构为现代化 shadcn `<Tabs>`。
-     - 用户状态管控与权限分配收敛至标准 `<DropdownMenu>`（三点菜单），界面更加规整专业。
-     - 对话安全审计抽屉与上下文消息检视弹窗升级为原生平滑滚动容器，完美适配触控与键鼠。
-   - **设置中心与无障碍体系 (A11y)**：
-     - 外观主题模式切换重构为 shadcn `<Tabs>`，严格对齐 Next.js 构建类型约束。
-     - 助手回复创意度（Temperature）引入符合 shadcn 规范的连续滑块 `<Slider>`，并与 3 档预设卡片无缝双向联动。
-     - AI 人设风格卡片补充 `role="radiogroup"` / `role="radio"` / `aria-checked` 等标准无障碍语义。
-   - **可搜索模型选择器 (Combobox)**：
-     - 严格遵循 shadcn/ui 官方推荐的 Popover Combobox 组合设计模式，支持多厂商、多模态及免费模型实时高亮过滤。
-     - 深度优化滚轮事件隔离（`onWheel stopPropagation`）与触控边界（`touch-pan-y` / `overscroll-contain`），彻底杜绝下拉列表无法滚动的顽疾。
-   - **工程极致轻量化**：清理未使用的废弃 CSS 样式与无用依赖导入，确保生产容器构建平滑高效。
+   - **统一轻量 ActionTooltip**：全站侧边栏、工具栏、操作气泡与管理入口统一接入响应迅速、带淡入微动效的 `<ActionTooltip>`。
+   - **管理后台 (Usage & Audit) 规范化升级**：数据表格由原生 `<tr>`/`<td>` 全量升级为标准 shadcn `<Table>` 系列组件，集成审计抽屉与平滑触控容器。
+   - **设置中心与无障碍体系 (A11y)**：引入符合标准规范的连续滑块 `<Slider>`，模型选择器采用 Popover Combobox，事件隔离优化，彻底杜绝下拉列表滚动穿透与卡顿。
+   - **官方品牌与头像系统**：全站导航栏、登录欢迎页、空状态引导及移动端顶栏全量接入 Apiapia 官方吉祥物徽标。
 
 6. **模型解耦 (LLM Adapter) 与多模态能力**：
    - 抽象 `LLMProvider` 统一接口，原生适配 **OpenAI、OpenRouter、Anthropic Claude、Google Gemini、本地 Ollama** 等。
@@ -61,31 +126,31 @@
 ## 🚀 架构设计
 
 ```text
-                         Browser / Mobile Web App
-                                    │
-                                    ▼
-                           ┌─────────────────┐
-                           │     Next.js     │ (Port 3000)
-                           │ React + TS 前端 │
-                           └────────┬────────┘
-                                    │ HTTP / SSE
-                                    ▼
-                           ┌─────────────────┐
-                           │     FastAPI     │ (Port 8000)
-                           │   Python 后端   │
-                           └────────┬────────┘
-                                    │
-                  ┌─────────────────┼─────────────────┐
-                  │                 │                 │
-                  ▼                 ▼                 ▼
-               LLM Layer         Mem0 Layer       PostgreSQL
-                  │                 │                 │
-           ┌──────┼──────┐          │           ┌─────┴─────┐
-           ▼      ▼      ▼          ▼           ▼           ▼
-          GPT   Claude  Gemini   pgvector    Chat Logs    Users
-                                    │
-                                    ▼
-                             Long-term Memory
+                         Browser / iOS Safari Web App
+                                     │
+                                     ▼
+                            ┌─────────────────┐
+                            │     Next.js     │ (Port 3000)
+                            │ React + TS 前端 │
+                            └────────┬────────┘
+                                     │ HTTP / SSE
+                                     ▼
+                            ┌─────────────────┐
+                            │     FastAPI     │ (Port 8000)
+                            │   Python 后端   │
+                            └────────┬────────┘
+                                     │
+                   ┌─────────────────┼─────────────────┐
+                   │                 │                 │
+                   ▼                 ▼                 ▼
+                LLM Layer         Mem0 Layer       PostgreSQL
+                   │                 │                 │
+            ┌──────┼──────┐          │           ┌─────┴─────┐
+            ▼      ▼      ▼          ▼           ▼           ▼
+           GPT   Claude  Gemini   pgvector    Chat Logs    Users
+                                     │
+                                     ▼
+                              Long-term Memory
 ```
 
 ---
@@ -137,7 +202,7 @@ Compose 将按序拉起并协同三个服务：
 
 | 页面路由 | 功能说明 |
 | :--- | :--- |
-| `/login` | 现代化登录与注册，基于安全哈希与 JWT 令牌认证。 |
+| `/login` | 现代化登录与注册，基于安全哈希与 JWT 令牌认证，呈现 Apiapia 官方徽标。 |
 | `/chat` | 核心对话界面。左侧会话置顶与排序、可搜索模型切换、**智能全自动全网检索 (v2.3.0)**、多模态附件上传、SSE 流式打字机渲染及右侧长期记忆抽屉。 |
 | `/memory` | **记忆库管理 (v2.2.0)**。单列列表展示、创建时间精确到秒、倒序排序、语义向量搜索、行内快速编辑、单条删除与 **JSON 一键导出**。 |
 | `/settings` | 偏好设置。自定义人设风格、创意度滑块连续调节、外观主题切换、长期记忆总开关及多厂商 API Key 安全托管。 |

@@ -8,6 +8,7 @@ import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { BrandLogo } from "@/components/common/BrandLogo";
 import { cn } from "@/lib/utils";
 import {
   Cat,
@@ -74,9 +75,7 @@ export const Navbar = ({
       >
         <div className="flex items-center gap-2 md:gap-3 lg:gap-6 min-w-0 shrink">
           <Link href="/chat" className="flex items-center gap-2 font-bold tracking-wide shrink-0">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-md shrink-0">
-              <Cat className="h-5 w-5" />
-            </div>
+            <BrandLogo size={32} className="shadow-xs" />
             <span className="text-base font-semibold bg-gradient-to-r from-indigo-600 to-violet-600 dark:from-indigo-200 dark:to-indigo-400 bg-clip-text text-transparent truncate max-w-[110px] sm:max-w-none">
               Apiapia 助理
             </span>

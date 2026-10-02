@@ -62,6 +62,7 @@ import {
   Cat,
   Layers,
 } from "lucide-react";
+import { BrandLogo } from "@/components/common/BrandLogo";
 
 interface InitialSettings {
   defaultModel: string;
@@ -868,9 +869,7 @@ export default function SettingsPage() {
                   {/* App Brand Header Row */}
                   <div className="p-4 sm:p-5 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-[10px] bg-primary text-primary-foreground flex items-center justify-center shrink-0 shadow-sm">
-                        <Cat className="h-5 w-5" />
-                      </div>
+                      <BrandLogo size={42} className="shadow-xs" />
                       <div>
                         <div className="text-[15px] font-semibold text-foreground flex items-center gap-1.5">
                           <span>Apiapia 智能助手</span>

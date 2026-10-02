@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { Cat } from "lucide-react";
+import { BrandLogo } from "@/components/common/BrandLogo";
 import { UserAvatarDropdown } from "@/components/layout/UserAvatarDropdown";
 import { cn } from "@/lib/utils";
 
@@ -43,9 +43,7 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
           className="flex items-center shrink-0 active:scale-95 transition-transform"
           title="Apiapia 助理"
         >
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-xs shrink-0">
-            <Cat className="h-4 w-4" />
-          </div>
+          <BrandLogo size={28} className="shadow-xs" />
         </Link>
 
         {/* Center / Content: Title or Custom elements */}

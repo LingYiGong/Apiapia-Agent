@@ -2,22 +2,10 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { useAuth } from "@/lib/auth";
-import { Message, ModelCatalogItem, AttachmentItem, SearchResultItem } from "@/types";
-import { ModelSelect } from "@/components/common/ModelSelect";
-import { ThemeToggle } from "@/components/common/ThemeToggle";
+import { Message, AttachmentItem, SearchResultItem } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -25,7 +13,6 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { ActionTooltip } from "@/components/common/ActionTooltip";
-import { UserAvatarDropdown } from "@/components/layout/UserAvatarDropdown";
 import { MessageListSkeleton } from "@/components/common/PageSkeleton";
 import { cn } from "@/lib/utils";
 import {
@@ -39,9 +26,7 @@ import {
   Square,
   Cat,
   Sparkles,
-  RotateCw,
   Clock,
-  Menu,
   Brain,
   Plus,
   Paperclip,
@@ -52,9 +37,7 @@ import {
   ExternalLink,
   Cpu,
   ChevronDown,
-  Settings,
-  LogOut,
-  BarChart3,
+  RotateCw,
 } from "lucide-react";
 import { BrandLogo } from "@/components/common/BrandLogo";
 
@@ -115,9 +98,7 @@ const readFileAsDataUrl = (file: File): Promise<string> => {
 
 interface ChatAreaProps {
   messages: Message[];
-  currentModel: string;
-  onModelChange: (model: string) => void;
-  availableModels: ModelCatalogItem[];
+  currentModel?: string;
   onSendMessage: (message: string, attachments?: AttachmentItem[]) => void;
   onStopGenerating?: () => void;
   isStreaming: boolean;
@@ -125,11 +106,6 @@ interface ChatAreaProps {
   thinkingDuration?: number | null;
   elapsedTime?: number;
   isWaitingForFirstToken?: boolean;
-  onRefreshModels?: () => void;
-  isRefreshingModels?: boolean;
-  onToggleSidebar?: () => void;
-  onToggleMemory?: () => void;
-  memoriesCount?: number;
   onNewChat?: () => void;
   webSearchMode?: "auto" | "on" | "off";
   onToggleWebSearchMode?: () => void;
@@ -145,8 +121,6 @@ interface ChatAreaProps {
 export const ChatArea: React.FC<ChatAreaProps> = ({
   messages,
   currentModel,
-  onModelChange,
-  availableModels,
   onSendMessage,
   onStopGenerating,
   isStreaming,
@@ -154,11 +128,6 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   thinkingDuration,
   elapsedTime = 0,
   isWaitingForFirstToken = false,
-  onRefreshModels,
-  isRefreshingModels = false,
-  onToggleSidebar,
-  onToggleMemory,
-  memoriesCount = 0,
   onNewChat,
   webSearchMode = "auto",
   onToggleWebSearchMode,
@@ -166,7 +135,6 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   streamingSearchResults = null,
   loadingMessages = false,
 }) => {
-  const { user, logout } = useAuth();
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -178,9 +146,6 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewImage, setPreviewImage] = useState<{ src: string; alt?: string } | null>(null);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
-
-  // If conversation has history messages and memories retrieved, show current memory button instead of refresh models button
-  const hasActiveMemories = (messages?.length ?? 0) > 0 && (memoriesCount ?? 0) > 0;
 
   const handleCopyMessage = (text: string, idx: number) => {
     if (!text) return;
@@ -320,145 +285,6 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
   return (
     <div className="flex-1 flex flex-col h-full bg-background relative overflow-hidden min-w-0 max-w-full">
-      {/* ── Apple HIG Standard Mobile Navigation Bar (44pt + safe area) ── */}
-      <div className="md:hidden sticky top-0 z-20 w-full bg-background/85 backdrop-blur-xl border-b border-border/40 pt-[env(safe-area-inset-top,0px)] shrink-0 select-none">
-        <div className="h-11 px-3 sm:px-4 flex items-center justify-between gap-2 min-w-0">
-          {/* Left: Logo + ModelSelect (Left-aligned & close to logo) */}
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            <Link
-              href="/chat"
-              onClick={onNewChat}
-              className="flex items-center shrink-0 active:scale-95 transition-transform"
-              title="Apiapia 助理 / 新建对话"
-            >
-              <BrandLogo size={28} className="shadow-xs" />
-            </Link>
-
-            <div className="min-w-0 max-w-[calc(100%-8px)]">
-              <ModelSelect
-                value={currentModel}
-                onChange={onModelChange}
-                models={availableModels}
-                variant="compact"
-              />
-            </div>
-          </div>
-
-          {/* Right: Refresh Button or Active Memory Button & Avatar */}
-          <div className="flex items-center gap-1 shrink-0">
-            {hasActiveMemories ? (
-              <ActionTooltip label={`查看当前对话使用的 ${memoriesCount} 条关联记忆`}>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={onToggleMemory}
-                  className="h-8 px-2.5 rounded-full shrink-0 text-primary bg-primary/10 hover:bg-primary/15 active:scale-95 transition-all gap-1.5 font-medium text-xs border border-primary/20"
-                >
-                  <Brain className="h-4 w-4 text-primary shrink-0" />
-                  <span className="text-[11px] font-semibold font-mono">{memoriesCount}</span>
-                  <span className="sr-only">当前使用的记忆</span>
-                </Button>
-              </ActionTooltip>
-            ) : onRefreshModels ? (
-              <ActionTooltip label="向配置的提供商 API 手动同步最新模型">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={onRefreshModels}
-                  disabled={isRefreshingModels}
-                  title="向配置的提供商 API 手动同步最新模型"
-                  className="h-8 w-8 rounded-full shrink-0 text-muted-foreground hover:text-foreground active:scale-95 transition-all"
-                >
-                  <RotateCw className={cn("h-3.5 w-3.5", isRefreshingModels && "animate-spin text-primary")} />
-                  <span className="sr-only">同步模型</span>
-                </Button>
-              </ActionTooltip>
-            ) : null}
-
-            <UserAvatarDropdown />
-          </div>
-        </div>
-      </div>
-
-      {/* ── Desktop / Tablet Top Bar (48px) ── */}
-      <div className="hidden md:flex border-b border-border/40 bg-background/80 backdrop-blur-xl px-4 items-center justify-between z-20 gap-2 flex-nowrap min-w-0 h-12 shrink-0">
-        <div className="flex items-center gap-2 min-w-0 flex-1">
-          {onToggleSidebar && (
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={onToggleSidebar}
-              title="展开历史对话"
-              className="shrink-0"
-            >
-              <Menu className="h-4 w-4" />
-              <span className="sr-only">展开历史对话</span>
-            </Button>
-          )}
-
-          <span className="hidden lg:inline text-xs text-muted-foreground font-medium shrink-0 whitespace-nowrap">
-            当前模型：
-          </span>
-
-          <div className="flex items-center min-w-0">
-            <ModelSelect
-              value={currentModel}
-              onChange={onModelChange}
-              models={availableModels}
-              variant="compact"
-            />
-          </div>
-
-          {onRefreshModels && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onRefreshModels}
-              disabled={isRefreshingModels}
-              title="向配置的提供商 API 手动同步最新模型"
-              className="shrink-0 text-primary border-primary/30 bg-primary/5 hover:bg-primary/10 hover:text-primary"
-            >
-              <RotateCw className={cn("h-3.5 w-3.5", isRefreshingModels && "animate-spin")} />
-              <span className="hidden lg:inline">{isRefreshingModels ? "正在同步..." : "同步模型"}</span>
-              <span className="sr-only">同步模型</span>
-            </Button>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          <ThemeToggle />
-
-          {onToggleMemory && (
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={onToggleMemory}
-              title="查看本次对话关联记忆"
-              className="lg:hidden relative"
-            >
-              <Brain className="h-4 w-4 text-primary" />
-              {typeof memoriesCount === "number" && memoriesCount > 0 && (
-                <Badge className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-1 items-center justify-center rounded-full text-[9px] font-bold">
-                  {memoriesCount > 9 ? "9+" : memoriesCount}
-                </Badge>
-              )}
-              <span className="sr-only">查看关联记忆</span>
-            </Button>
-          )}
-
-          {onNewChat && (
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={onNewChat}
-              title="新建对话"
-            >
-              <Plus className="h-4 w-4" />
-              <span className="sr-only">新建对话</span>
-            </Button>
-          )}
-        </div>
-      </div>
 
       {/* Messages Scroll Area */}
       <div
@@ -509,13 +335,13 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <div className="h-6 w-6 rounded-lg bg-gradient-to-tr from-sky-600 to-indigo-500 flex items-center justify-center text-white shadow-xs shrink-0">
-                          <Globe className="h-3.5 w-3.5 animate-spin" style={{ animationDuration: "3s" }} />
+                          <Globe className="h-3.5 w-3.5 animate-spin" />
                         </div>
                         <span className="text-xs font-semibold text-sky-700 dark:text-sky-300">
                           正在全网检索最新信息
                         </span>
                         <span className="inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded-full bg-sky-100 dark:bg-sky-900/60 text-sky-700 dark:text-sky-300 font-bold border border-sky-200/60 dark:border-sky-800/60 shadow-xs">
-                          <Clock className="h-3 w-3 animate-spin" style={{ animationDuration: "5s" }} />
+                          <Clock className="h-3 w-3 animate-spin" />
                           已耗时 {(elapsedTime || 0).toFixed(1)}s
                         </span>
                       </div>
@@ -527,13 +353,13 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <div className="h-6 w-6 rounded-lg bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-xs shrink-0">
-                          <Sparkles className="h-3 w-3 animate-spin" style={{ animationDuration: "3s" }} />
+                          <Sparkles className="h-3 w-3 animate-spin" />
                         </div>
                         <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
                           正在深入思考中
                         </span>
                         <span className="inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 font-bold border border-indigo-200/60 dark:border-indigo-800/60 shadow-xs">
-                          <Clock className="h-3 w-3 animate-spin" style={{ animationDuration: "5s" }} />
+                          <Clock className="h-3 w-3 animate-spin" />
                           已等待 {(elapsedTime || 0).toFixed(1)}s
                         </span>
                       </div>
@@ -649,8 +475,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         </div>
       )}
 
-      {/* Input Box Area — Apple HIG Floating Island style over 49pt bottom nav on mobile */}
-      <div className="px-3 pt-2 pb-[calc(49px+env(safe-area-inset-bottom,0px)+6px)] sm:px-4 sm:pt-3 md:pb-3 border-t-0 md:border-t md:border-border/60 bg-gradient-to-t from-background via-background/90 to-transparent md:bg-background/95 md:backdrop-blur-md shrink-0 z-20">
+      {/* Input Box Area — Naturally docked at the bottom of the chat window */}
+      <div className="p-2 sm:p-3 border-t border-border/40 bg-background/95 backdrop-blur-md shrink-0 z-10">
         <div
           onDragOver={(e) => e.preventDefault()}
           onDrop={(e) => {

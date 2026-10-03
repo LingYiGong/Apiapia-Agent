@@ -21,6 +21,7 @@ interface MemorySidebarProps {
   onToggleMemory: () => void;
   isOpen?: boolean;
   onClose?: () => void;
+  onSelectMobileTab?: (tab: "memory") => void;
 }
 
 function formatFullDateTime(val?: string): string {
@@ -47,6 +48,7 @@ export function MemorySidebar({
   onToggleMemory,
   isOpen = false,
   onClose,
+  onSelectMobileTab,
 }: MemorySidebarProps) {
   const sortedMemories = useMemo(() => {
     return [...memories].sort((a, b) => {
@@ -182,17 +184,34 @@ export function MemorySidebar({
 
       {/* ── Apple Footer Navigation Action ── */}
       <div className="p-3.5 border-t border-black/[0.06] dark:border-white/[0.08] bg-white/70 dark:bg-[#1C1C1E]/70 backdrop-blur-md pb-[max(0.75rem,env(safe-area-inset-bottom))] shrink-0">
-        <Button
-          variant="outline"
-          size="sm"
-          asChild
-          className="w-full rounded-full h-8 text-xs font-semibold border-black/[0.08] dark:border-white/[0.08] bg-[#767680]/10 hover:bg-[#767680]/15 text-foreground active:scale-95 transition-all shadow-none"
-        >
-          <Link href="/memory" onClick={onClose} className="flex items-center justify-center gap-1.5">
-            <span>前往长期记忆库管理全部</span>
-            <ExternalLink className="h-3 w-3" />
-          </Link>
-        </Button>
+        {onSelectMobileTab ? (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              onSelectMobileTab("memory");
+              onClose?.();
+            }}
+            className="w-full rounded-full h-8 text-xs font-semibold border-black/[0.08] dark:border-white/[0.08] bg-[#767680]/10 hover:bg-[#767680]/15 text-foreground active:scale-95 transition-all shadow-none cursor-pointer"
+          >
+            <div className="flex items-center justify-center gap-1.5">
+              <span>前往长期记忆库管理全部</span>
+              <ExternalLink className="h-3 w-3" />
+            </div>
+          </Button>
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            asChild
+            className="w-full rounded-full h-8 text-xs font-semibold border-black/[0.08] dark:border-white/[0.08] bg-[#767680]/10 hover:bg-[#767680]/15 text-foreground active:scale-95 transition-all shadow-none cursor-pointer"
+          >
+            <Link href="/memory" onClick={onClose} className="flex items-center justify-center gap-1.5">
+              <span>前往长期记忆库管理全部</span>
+              <ExternalLink className="h-3 w-3" />
+            </Link>
+          </Button>
+        )}
       </div>
     </div>
   );

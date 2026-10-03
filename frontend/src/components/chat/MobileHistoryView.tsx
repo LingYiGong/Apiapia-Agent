@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { MobileHeader } from "@/components/layout/MobileHeader";
+import { UserAvatarDropdown, MobileTab } from "@/components/layout/UserAvatarDropdown";
 
 interface MobileHistoryViewProps {
   conversations: Conversation[];
@@ -49,6 +50,7 @@ interface MobileHistoryViewProps {
   onRename?: (id: string, newTitle: string) => void;
   onMovePinned?: (id: string, direction: "up" | "down") => void;
   onReorderPinned?: (orderedIds: string[]) => void;
+  onSelectMobileTab?: (tab: MobileTab) => void;
 }
 
 function formatRelativeTime(dateStr?: string): string {
@@ -467,6 +469,7 @@ export const MobileHistoryView = ({
   onRename,
   onMovePinned,
   onReorderPinned,
+  onSelectMobileTab,
 }: MobileHistoryViewProps) => {
   const [search, setSearch] = useState("");
   const [pendingDelete, setPendingDelete] = useState<Conversation | null>(null);
@@ -664,7 +667,25 @@ export const MobileHistoryView = ({
   return (
     <div className="flex-1 flex flex-col h-full bg-background overflow-hidden relative">
       {/* ── Apple HIG Standard Navigation Header (44pt) ── */}
-      <MobileHeader title="历史会话" />
+      <MobileHeader
+        title="历史会话"
+        onSelectMobileTab={onSelectMobileTab}
+        right={
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onNewChat}
+              className="h-8 w-8 rounded-full text-foreground hover:bg-muted/80 active:scale-95 transition-all cursor-pointer"
+              title="新建对话"
+            >
+              <Plus className="h-4 w-4" />
+              <span className="sr-only">新建对话</span>
+            </Button>
+            <UserAvatarDropdown onSelectMobileTab={onSelectMobileTab} />
+          </div>
+        }
+      />
 
       {/* ── Apple Style Search Bar ── */}
       <div className="px-3.5 py-2 border-b border-border/30 bg-background/50 backdrop-blur-md shrink-0">
@@ -694,7 +715,7 @@ export const MobileHistoryView = ({
         onScroll={() => {
           if (activeOpenId) setActiveOpenId(null);
         }}
-        className="flex-1 overflow-y-auto px-4 pt-3 pb-[calc(49px+env(safe-area-inset-bottom,0px)+1.5rem)] overscroll-contain"
+        className="flex-1 overflow-y-auto px-4 pt-3 pb-6 overscroll-contain"
       >
         {filteredList.length === 0 ? (
           /* Empty State */

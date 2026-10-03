@@ -106,7 +106,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="fixed inset-0 flex h-dvh w-full flex-col justify-between overflow-hidden overscroll-none select-none touch-none bg-[#fbfbfd] p-3 sm:p-6 text-foreground selection:bg-primary/20 selection:text-primary dark:bg-black">
+    <div className="relative flex min-h-dvh w-full flex-col justify-between overflow-y-auto bg-[#fbfbfd] p-3 sm:p-6 text-foreground selection:bg-primary/20 selection:text-primary dark:bg-black">
       {/* Apple Subtle Ambient Lighting */}
       <div
         aria-hidden="true"

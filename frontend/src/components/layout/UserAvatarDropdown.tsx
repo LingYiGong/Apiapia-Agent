@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -23,6 +23,12 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+export type MobileTab = "chat" | "history" | "memory" | "usage" | "settings";
+
+export interface UserAvatarDropdownProps {
+  onSelectMobileTab?: (tab: MobileTab) => void;
+}
+
 /**
  * Apple HIG Standard User Profile Dropdown & Sheet
  * - 22px super-ellipse corner radius
@@ -32,11 +38,22 @@ import { cn } from "@/lib/utils";
  * - Rounded action cells with colored icon squircles and subtle chevrons
  * - Destructive Apple red sign-out button
  */
-export const UserAvatarDropdown: React.FC = () => {
+export const UserAvatarDropdown: React.FC<UserAvatarDropdownProps> = ({
+  onSelectMobileTab,
+}) => {
   const { user, logout } = useAuth();
   const { theme, setTheme } = useTheme();
+  const router = useRouter();
 
   if (!user) return null;
+
+  const handleNavigate = (tab: MobileTab, fallbackPath: string) => {
+    if (onSelectMobileTab) {
+      onSelectMobileTab(tab);
+    } else {
+      router.push(fallbackPath);
+    }
+  };
 
   return (
     <DropdownMenu>
@@ -147,49 +164,43 @@ export const UserAvatarDropdown: React.FC = () => {
 
         {/* ── 3. Navigation Links (Apple Table View Cell Style) ── */}
         <div className="space-y-0.5">
-          <DropdownMenuItem asChild className="p-0 focus:bg-transparent cursor-pointer">
-            <Link
-              href="/settings"
-              className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl hover:bg-muted/60 dark:hover:bg-[#2c2c2e]/60 active:scale-[0.98] transition-all cursor-pointer group"
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="h-7 w-7 rounded-lg bg-slate-500/10 text-slate-600 dark:text-slate-300 flex items-center justify-center shrink-0">
-                  <Settings className="h-3.5 w-3.5" />
-                </div>
-                <span className="text-[13px] font-medium text-foreground">偏好设置</span>
+          <DropdownMenuItem
+            onClick={() => handleNavigate("settings", "/settings")}
+            className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl hover:bg-muted/60 dark:hover:bg-[#2c2c2e]/60 active:scale-[0.98] transition-all cursor-pointer group"
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="h-7 w-7 rounded-lg bg-slate-500/10 text-slate-600 dark:text-slate-300 flex items-center justify-center shrink-0">
+                <Settings className="h-3.5 w-3.5" />
               </div>
-              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors shrink-0" />
-            </Link>
+              <span className="text-[13px] font-medium text-foreground">偏好设置</span>
+            </div>
+            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors shrink-0" />
           </DropdownMenuItem>
 
-          <DropdownMenuItem asChild className="p-0 focus:bg-transparent cursor-pointer">
-            <Link
-              href="/usage"
-              className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl hover:bg-muted/60 dark:hover:bg-[#2c2c2e]/60 active:scale-[0.98] transition-all cursor-pointer group"
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="h-7 w-7 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
-                  <BarChart3 className="h-3.5 w-3.5" />
-                </div>
-                <span className="text-[13px] font-medium text-foreground">用量与账单</span>
+          <DropdownMenuItem
+            onClick={() => handleNavigate("usage", "/usage")}
+            className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl hover:bg-muted/60 dark:hover:bg-[#2c2c2e]/60 active:scale-[0.98] transition-all cursor-pointer group"
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="h-7 w-7 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                <BarChart3 className="h-3.5 w-3.5" />
               </div>
-              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors shrink-0" />
-            </Link>
+              <span className="text-[13px] font-medium text-foreground">用量与账单</span>
+            </div>
+            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors shrink-0" />
           </DropdownMenuItem>
 
-          <DropdownMenuItem asChild className="p-0 focus:bg-transparent cursor-pointer">
-            <Link
-              href="/memory"
-              className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl hover:bg-muted/60 dark:hover:bg-[#2c2c2e]/60 active:scale-[0.98] transition-all cursor-pointer group"
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="h-7 w-7 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
-                  <Brain className="h-3.5 w-3.5" />
-                </div>
-                <span className="text-[13px] font-medium text-foreground">长期记忆库</span>
+          <DropdownMenuItem
+            onClick={() => handleNavigate("memory", "/memory")}
+            className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl hover:bg-muted/60 dark:hover:bg-[#2c2c2e]/60 active:scale-[0.98] transition-all cursor-pointer group"
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="h-7 w-7 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+                <Brain className="h-3.5 w-3.5" />
               </div>
-              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors shrink-0" />
-            </Link>
+              <span className="text-[13px] font-medium text-foreground">长期记忆库</span>
+            </div>
+            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors shrink-0" />
           </DropdownMenuItem>
         </div>
 

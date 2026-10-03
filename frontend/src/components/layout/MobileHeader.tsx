@@ -1,9 +1,9 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { BrandLogo } from "@/components/common/BrandLogo";
-import { UserAvatarDropdown } from "@/components/layout/UserAvatarDropdown";
+import { UserAvatarDropdown, MobileTab } from "@/components/layout/UserAvatarDropdown";
 import { cn } from "@/lib/utils";
 
 interface MobileHeaderProps {
@@ -15,6 +15,8 @@ interface MobileHeaderProps {
   right?: React.ReactNode;
   /** Optional extra classes */
   className?: string;
+  /** SPA tab navigation callback */
+  onSelectMobileTab?: (tab: MobileTab) => void;
 }
 
 /**
@@ -28,7 +30,10 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
   children,
   right,
   className,
+  onSelectMobileTab,
 }) => {
+  const router = useRouter();
+
   return (
     <header
       className={cn(
@@ -37,18 +42,25 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
       )}
     >
       <div className="h-11 px-3 sm:px-4 flex items-center justify-between gap-2.5 min-w-0">
-        {/* Left: App Cat Logo */}
-        <Link
-          href="/chat"
-          className="flex items-center shrink-0 active:scale-95 transition-transform"
+        {/* Left: App Cat Logo (Tapping switches to chat tab in SPA) */}
+        <button
+          type="button"
+          onClick={() => {
+            if (onSelectMobileTab) {
+              onSelectMobileTab("chat");
+            } else {
+              router.push("/chat");
+            }
+          }}
+          className="flex items-center shrink-0 active:scale-95 transition-transform cursor-pointer"
           title="Apiapia 助理"
         >
           <BrandLogo size={28} className="shadow-xs" />
-        </Link>
+        </button>
 
         {/* Center / Content: Title or Custom elements */}
         {title ? (
-          <h1 className="text-[17px] font-semibold text-foreground tracking-tight truncate flex-1 min-w-0">
+          <h1 className="text-[17px] font-semibold text-foreground tracking-tight truncate flex-1 min-w-0 text-center">
             {title}
           </h1>
         ) : (
@@ -57,7 +69,7 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
 
         {/* Right: Personal Settings Avatar Dropdown */}
         <div className="shrink-0 flex items-center">
-          {right ?? <UserAvatarDropdown />}
+          {right ?? <UserAvatarDropdown onSelectMobileTab={onSelectMobileTab} />}
         </div>
       </div>
     </header>

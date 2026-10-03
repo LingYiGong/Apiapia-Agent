@@ -271,7 +271,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
       <MobileHeader title="记忆库" onSelectMobileTab={onSelectMobileTab} />
 
       {/* ── 顶部操作栏：完全遵循 Apple HIG 工具栏规范 ── */}
-      <div className="px-3.5 sm:px-6 py-2 border-b border-border/40 bg-background/80 backdrop-blur-md shrink-0 select-none">
+      <div className="px-3.5 sm:px-6 pl-[max(0.875rem,env(safe-area-inset-left,0px))] pr-[max(0.875rem,env(safe-area-inset-right,0px))] py-2 border-b border-border/40 bg-background/80 backdrop-blur-md shrink-0 select-none">
         <form
           onSubmit={handleSearch}
           className="max-w-4xl mx-auto w-full flex items-center gap-2"
@@ -327,7 +327,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
       </div>
 
       {/* ── 记忆列表滚动容器 ── */}
-      <div className="flex-1 overflow-y-auto px-3.5 sm:px-6 py-3.5 pb-6 md:pb-8 overscroll-contain">
+      <div className="flex-1 overflow-y-auto px-3.5 sm:px-6 pl-[max(0.875rem,env(safe-area-inset-left,0px))] pr-[max(0.875rem,env(safe-area-inset-right,0px))] py-3.5 pb-8 md:pb-10 overscroll-contain">
         <div className="max-w-4xl mx-auto w-full space-y-3">
           {/* 状态与统计小标 */}
           <div className="flex items-center justify-between px-1 text-[12px] font-semibold text-muted-foreground uppercase tracking-wider select-none">

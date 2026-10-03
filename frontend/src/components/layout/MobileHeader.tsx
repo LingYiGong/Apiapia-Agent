@@ -41,7 +41,7 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
         className
       )}
     >
-      <div className="h-11 px-3 sm:px-4 flex items-center justify-between gap-2.5 min-w-0">
+      <div className="h-11 px-3 sm:px-4 pl-[max(0.75rem,env(safe-area-inset-left,0px))] pr-[max(0.75rem,env(safe-area-inset-right,0px))] flex items-center justify-between gap-2.5 min-w-0">
         {/* Left: App Cat Logo (Tapping switches to chat tab in SPA) */}
         <button
           type="button"

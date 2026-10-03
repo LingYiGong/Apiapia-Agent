@@ -178,88 +178,58 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
     }
   };
 
+  const navItems: { tab: MobileTab; label: string; icon: React.ElementType }[] = [
+    { tab: "chat", label: "对话", icon: MessageSquare },
+    { tab: "history", label: "历史", icon: AlignLeft },
+    { tab: "memory", label: "记忆", icon: Brain },
+    { tab: "usage", label: "用量", icon: BarChart3 },
+    { tab: "settings", label: "设置", icon: Settings },
+  ];
+
   return (
     <nav
       aria-label="移动端底部标签栏"
       className={cn(
-        "md:hidden shrink-0 w-full bg-background/80 dark:bg-[#121214]/85 backdrop-blur-2xl border-t border-border/40 flex items-stretch h-[calc(49px+env(safe-area-inset-bottom,0px))] pb-[env(safe-area-inset-bottom,0px)] shadow-[0_-1px_3px_rgba(0,0,0,0.03)] select-none z-30",
+        "md:hidden shrink-0 w-full bg-background/85 dark:bg-[#121214]/90 backdrop-blur-2xl border-t border-border/40 select-none z-30 transition-colors",
+        /* Apple HIG: Background extends to physical screen edges (including corners & home bar) */
+        "pb-[env(safe-area-inset-bottom,0px)]",
         className
       )}
     >
-      {/* 1. 对话 Tab */}
-      <button
-        type="button"
-        onClick={() => handleMobileTabClick("chat")}
-        className={cn(
-          "flex flex-col items-center justify-center flex-1 pt-1 pb-0.5 gap-0.5 text-[10px] tracking-tight transition-all active:scale-95 cursor-pointer",
-          activeMobileTab === "chat"
-            ? "text-primary font-semibold"
-            : "text-muted-foreground/70 hover:text-foreground font-medium"
-        )}
-      >
-        <MessageSquare className="h-[22px] w-[22px] shrink-0" />
-        <span>对话</span>
-      </button>
-
-      {/* 2. 历史 Tab */}
-      <button
-        type="button"
-        onClick={() => handleMobileTabClick("history")}
-        className={cn(
-          "flex flex-col items-center justify-center flex-1 pt-1 pb-0.5 gap-0.5 text-[10px] tracking-tight transition-all active:scale-95 cursor-pointer",
-          activeMobileTab === "history"
-            ? "text-primary font-semibold"
-            : "text-muted-foreground/70 hover:text-foreground font-medium"
-        )}
-      >
-        <AlignLeft className="h-[22px] w-[22px] shrink-0" />
-        <span>历史</span>
-      </button>
-
-      {/* 3. 记忆 Tab */}
-      <button
-        type="button"
-        onClick={() => handleMobileTabClick("memory")}
-        className={cn(
-          "flex flex-col items-center justify-center flex-1 pt-1 pb-0.5 gap-0.5 text-[10px] tracking-tight transition-all active:scale-95 cursor-pointer",
-          activeMobileTab === "memory"
-            ? "text-primary font-semibold"
-            : "text-muted-foreground/70 hover:text-foreground font-medium"
-        )}
-      >
-        <Brain className="h-[22px] w-[22px] shrink-0" />
-        <span>记忆</span>
-      </button>
-
-      {/* 4. 用量 Tab */}
-      <button
-        type="button"
-        onClick={() => handleMobileTabClick("usage")}
-        className={cn(
-          "flex flex-col items-center justify-center flex-1 pt-1 pb-0.5 gap-0.5 text-[10px] tracking-tight transition-all active:scale-95 cursor-pointer",
-          activeMobileTab === "usage"
-            ? "text-primary font-semibold"
-            : "text-muted-foreground/70 hover:text-foreground font-medium"
-        )}
-      >
-        <BarChart3 className="h-[22px] w-[22px] shrink-0" />
-        <span>用量</span>
-      </button>
-
-      {/* 5. 设置 Tab */}
-      <button
-        type="button"
-        onClick={() => handleMobileTabClick("settings")}
-        className={cn(
-          "flex flex-col items-center justify-center flex-1 pt-1 pb-0.5 gap-0.5 text-[10px] tracking-tight transition-all active:scale-95 cursor-pointer",
-          activeMobileTab === "settings"
-            ? "text-primary font-semibold"
-            : "text-muted-foreground/70 hover:text-foreground font-medium"
-        )}
-      >
-        <Settings className="h-[22px] w-[22px] shrink-0" />
-        <span>设置</span>
-      </button>
+      {/* Apple HIG: Standard 49pt Interactive Tab Bar Content */}
+      <div className="h-[49px] w-full flex items-center justify-around max-w-md mx-auto px-2 pl-[max(0.5rem,env(safe-area-inset-left,0px))] pr-[max(0.5rem,env(safe-area-inset-right,0px))]">
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = activeMobileTab === item.tab;
+          return (
+            <button
+              key={item.tab}
+              type="button"
+              onClick={() => handleMobileTabClick(item.tab)}
+              className={cn(
+                "relative flex flex-col items-center justify-center flex-1 h-full py-0.5 gap-0.5 text-[10.5px] tracking-tight transition-all active:scale-95 cursor-pointer touch-manipulation apple-touch-target",
+                isActive
+                  ? "text-primary font-semibold"
+                  : "text-muted-foreground/75 hover:text-foreground font-medium"
+              )}
+            >
+              <Icon
+                className={cn(
+                  "h-[22px] w-[22px] shrink-0 transition-transform",
+                  isActive ? "stroke-[2.3px] scale-105" : "stroke-[1.8px]"
+                )}
+              />
+              <span className="leading-tight">{item.label}</span>
+              {isActive && (
+                <span
+                  aria-hidden="true"
+                  className="absolute bottom-1 w-1 h-1 rounded-full bg-primary"
+                />
+              )}
+            </button>
+          );
+        })}
+      </div>
     </nav>
   );
 };

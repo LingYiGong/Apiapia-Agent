@@ -209,27 +209,22 @@
 }
 
 /*
- * Mobile & Web App Mode (Screen width <= 768px, or PWA standalone, or Touch devices):
- * Locks the root document completely so the whole page CANNOT be dragged, bounced,
- * or rubber-banded like a website. It behaves strictly as a native iOS/Android Web App.
- * Only internal scroll containers (e.g. chat messages, settings forms) scroll.
+ * Mobile & Web App Mode:
+ * Provides fluid full-height support for native iOS/Android Web App experience,
+ * preventing bounce/rubber-banding while ensuring pages with forms can naturally scroll.
  */
 @media (max-width: 768px), (display-mode: standalone), ((hover: none) and (pointer: coarse)) {
   html {
     width: 100%;
     height: 100%;
-    height: 100dvh;
-    overflow: hidden;
-    overscroll-behavior: none;
     -webkit-overflow-scrolling: touch;
   }
 
   body {
     width: 100%;
     height: 100%;
-    height: 100dvh;
-    overflow: hidden;
-    overscroll-behavior: none;
+    min-height: 100dvh;
+    overscroll-behavior-y: none;
     touch-action: pan-y;
   }
 }
@@ -284,9 +279,22 @@ button, a, input, textarea, select {
   min-height: 100dvh;
 }
 
-/* Safe area padding utilities */
+/* Apple HIG Safe Area & Screen Corner Utilities */
 .safe-pb {
-  padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+}
+.safe-pt {
+  padding-top: max(0.5rem, env(safe-area-inset-top, 0px));
+}
+.safe-px {
+  padding-left: max(0.75rem, env(safe-area-inset-left, 0px));
+  padding-right: max(0.75rem, env(safe-area-inset-right, 0px));
+}
+.safe-inset-all {
+  padding-top: max(0.5rem, env(safe-area-inset-top, 0px));
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+  padding-left: max(0.75rem, env(safe-area-inset-left, 0px));
+  padding-right: max(0.75rem, env(safe-area-inset-right, 0px));
 }
 
 /* Hide scrollbar utility */

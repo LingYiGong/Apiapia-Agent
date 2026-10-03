@@ -52,7 +52,7 @@ export const MobileChatHeader: React.FC<MobileChatHeaderProps> = ({
         className
       )}
     >
-      <div className="h-11 px-3 sm:px-4 flex items-center justify-between gap-2 min-w-0">
+      <div className="h-11 px-3 sm:px-4 pl-[max(0.75rem,env(safe-area-inset-left,0px))] pr-[max(0.75rem,env(safe-area-inset-right,0px))] flex items-center justify-between gap-2 min-w-0">
         {/* Left: Brand Logo (tap to new chat) + Compact ModelSelect */}
         <div className="flex items-center gap-2 min-w-0 flex-1">
           <button

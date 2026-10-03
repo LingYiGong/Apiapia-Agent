@@ -657,7 +657,7 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex flex-col h-dvh overflow-hidden bg-background">
+    <div className="flex flex-col h-full h-dvh overflow-hidden bg-background">
       {/* 桌面端顶部导航栏 */}
       <DesktopNavbar />
 

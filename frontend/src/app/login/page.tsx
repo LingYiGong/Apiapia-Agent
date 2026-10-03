@@ -106,19 +106,10 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative flex min-h-dvh w-full flex-col justify-between overflow-y-auto bg-[#fbfbfd] p-3 sm:p-6 text-foreground selection:bg-primary/20 selection:text-primary dark:bg-black">
-      {/* Apple Subtle Ambient Lighting */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -top-36 left-1/2 -translate-x-1/2 w-[540px] sm:w-[680px] h-[360px] bg-gradient-to-b from-indigo-500/15 via-primary/10 to-transparent blur-[120px] rounded-full opacity-80"
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -bottom-24 -right-24 w-[360px] h-[360px] bg-gradient-to-t from-violet-500/10 via-purple-500/5 to-transparent blur-[100px] rounded-full opacity-60"
-      />
+    <div className="relative flex-1 flex h-full min-h-full w-full flex-col justify-between overflow-x-hidden overflow-y-auto overscroll-contain bg-[#fbfbfd] px-4 sm:px-6 pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] pt-[max(0.75rem,env(safe-area-inset-top,0px))] pb-[max(1.25rem,calc(env(safe-area-inset-bottom,0px)+0.75rem))] text-foreground selection:bg-primary/20 selection:text-primary dark:bg-black">
 
       {/* Top Floating Bar */}
-      <header className="relative z-10 flex w-full max-w-5xl items-center justify-between mx-auto pt-1 pb-2 sm:pt-2 sm:pb-3">
+      <header className="relative z-10 flex w-full max-w-5xl items-center justify-between mx-auto pt-1 pb-2 sm:pt-2 sm:pb-3 shrink-0">
         <div className="flex items-center gap-2">
           <BrandLogo size={28} className="shadow-xs" />
           <span className="text-[14px] font-medium tracking-tight text-foreground/85">
@@ -131,7 +122,7 @@ export default function LoginPage() {
       </header>
 
       {/* Apple Frosted Glass Sign-in Card */}
-      <main className="relative z-10 flex-1 w-full flex items-center justify-center overflow-y-auto overscroll-contain touch-pan-y no-scrollbar py-1 sm:py-3">
+      <main className="relative z-10 flex-1 w-full flex items-center justify-center py-4 sm:py-8 my-auto shrink-0">
         <div className="relative w-full max-w-[390px] sm:max-w-[420px] rounded-[26px] sm:rounded-[28px] border border-black/[0.06] bg-white/80 p-5 sm:p-7 shadow-[0_16px_40px_rgba(0,0,0,0.05)] backdrop-blur-2xl dark:border-white/[0.09] dark:bg-[#1c1c1e]/85 dark:shadow-[0_24px_64px_rgba(0,0,0,0.65)] transition-all">
           {/* Brand Header */}
           <div className="flex flex-col items-center text-center mb-4 sm:mb-5">

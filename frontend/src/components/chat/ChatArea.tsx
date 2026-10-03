@@ -475,8 +475,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         </div>
       )}
 
-      {/* Input Box Area — Naturally docked at the bottom of the chat window */}
-      <div className="p-2 sm:p-3 border-t border-border/40 bg-background/95 backdrop-blur-md shrink-0 z-10">
+      {/* Input Box Area — Naturally docked at the bottom of the chat window with safe area corner protection */}
+      <div className="px-2 sm:px-3 py-2 sm:py-3 pl-[max(0.5rem,env(safe-area-inset-left,0px))] pr-[max(0.5rem,env(safe-area-inset-right,0px))] border-t border-border/40 bg-background/95 backdrop-blur-md shrink-0 z-10">
         <div
           onDragOver={(e) => e.preventDefault()}
           onDrop={(e) => {

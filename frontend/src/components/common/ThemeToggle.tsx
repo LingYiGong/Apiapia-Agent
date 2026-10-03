@@ -38,7 +38,7 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({
           <button
             type="button"
             className={cn(
-              "flex h-9 w-9 items-center justify-center rounded-full border border-black/[0.08] bg-white/80 text-foreground/80 shadow-sm backdrop-blur-xl transition-all hover:bg-black/[0.04] hover:text-foreground active:scale-95 dark:border-white/[0.12] dark:bg-white/10 dark:text-foreground/90 dark:hover:bg-white/[0.16]",
+              "flex h-9 w-9 items-center justify-center rounded-full border border-black/[0.08] bg-white text-foreground/80 shadow-2xs transition-all hover:bg-black/[0.04] hover:text-foreground active:scale-95 dark:border-white/[0.12] dark:bg-[#1c1c1e] dark:text-foreground/90 dark:hover:bg-white/[0.16]",
               className
             )}
             title={`切换界面外观 (当前: ${theme === "system" ? "跟随系统" : theme === "light" ? "浅色模式" : "深色模式"})`}

@@ -12,6 +12,8 @@ import { BrandLogo } from "@/components/common/BrandLogo";
 import { Brain, Plus, RotateCw, Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+import { MobileHeader } from "@/components/layout/MobileHeader";
+
 export interface MobileChatHeaderProps {
   currentModel: string;
   onModelChange: (model: string) => void;
@@ -28,7 +30,7 @@ export interface MobileChatHeaderProps {
 
 /**
  * ── Mobile Chat Navigation Bar (44pt + Safe Area Top) ──
- * Standalone top-level mobile header, completely isolated outside the chat container div.
+ * Unified with standard MobileHeader across all SPA tabs.
  */
 export const MobileChatHeader: React.FC<MobileChatHeaderProps> = ({
   currentModel,
@@ -46,35 +48,11 @@ export const MobileChatHeader: React.FC<MobileChatHeaderProps> = ({
   const hasActiveMemories = typeof memoriesCount === "number" && memoriesCount > 0;
 
   return (
-    <header
-      className={cn(
-        "md:hidden shrink-0 w-full bg-background/85 backdrop-blur-xl border-b border-border/40 pt-[env(safe-area-inset-top,0px)] select-none z-30",
-        className
-      )}
-    >
-      <div className="h-11 px-3 sm:px-4 pl-[max(0.75rem,env(safe-area-inset-left,0px))] pr-[max(0.75rem,env(safe-area-inset-right,0px))] flex items-center justify-between gap-2 min-w-0">
-        {/* Left: Brand Logo (tap to new chat) + Compact ModelSelect */}
-        <div className="flex items-center gap-2 min-w-0 flex-1">
-          <button
-            type="button"
-            onClick={onNewChat}
-            className="flex items-center shrink-0 active:scale-95 transition-transform cursor-pointer"
-            title="Apiapia 助理 / 新建对话"
-          >
-            <BrandLogo size={28} className="shadow-xs" />
-          </button>
-
-          <div className="min-w-0 max-w-[calc(100%-8px)]">
-            <ModelSelect
-              value={currentModel}
-              onChange={onModelChange}
-              models={availableModels}
-              variant="compact"
-            />
-          </div>
-        </div>
-
-        {/* Right: Actions & User Avatar */}
+    <MobileHeader
+      className={className}
+      onSelectMobileTab={onSelectMobileTab}
+      onLogoClick={onNewChat}
+      right={
         <div className="flex items-center gap-1 shrink-0">
           {hasActiveMemories ? (
             <ActionTooltip label={`查看当前对话使用的 ${memoriesCount} 条关联记忆`}>
@@ -121,8 +99,17 @@ export const MobileChatHeader: React.FC<MobileChatHeaderProps> = ({
 
           <UserAvatarDropdown onSelectMobileTab={onSelectMobileTab} />
         </div>
+      }
+    >
+      <div className="min-w-0 max-w-[calc(100%-8px)]">
+        <ModelSelect
+          value={currentModel}
+          onChange={onModelChange}
+          models={availableModels}
+          variant="compact"
+        />
       </div>
-    </header>
+    </MobileHeader>
   );
 };
 

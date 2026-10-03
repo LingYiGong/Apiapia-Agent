@@ -17,6 +17,8 @@ interface MobileHeaderProps {
   className?: string;
   /** SPA tab navigation callback */
   onSelectMobileTab?: (tab: MobileTab) => void;
+  /** Optional custom logo click callback (e.g. new chat) */
+  onLogoClick?: () => void;
 }
 
 /**
@@ -31,22 +33,25 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
   right,
   className,
   onSelectMobileTab,
+  onLogoClick,
 }) => {
   const router = useRouter();
 
   return (
     <header
       className={cn(
-        "sticky top-0 z-30 w-full bg-background/85 backdrop-blur-xl border-b border-border/40 pt-[env(safe-area-inset-top,0px)] shrink-0 select-none md:hidden",
+        "sticky top-0 z-30 w-full bg-background/90 backdrop-blur-xl border-b border-border/40 shrink-0 select-none md:hidden",
         className
       )}
     >
-      <div className="h-11 px-3 sm:px-4 pl-[max(0.75rem,env(safe-area-inset-left,0px))] pr-[max(0.75rem,env(safe-area-inset-right,0px))] flex items-center justify-between gap-2.5 min-w-0">
+      <div className="h-12 px-3 sm:px-4 flex items-center justify-between gap-2.5 min-w-0">
         {/* Left: App Cat Logo (Tapping switches to chat tab in SPA) */}
         <button
           type="button"
           onClick={() => {
-            if (onSelectMobileTab) {
+            if (onLogoClick) {
+              onLogoClick();
+            } else if (onSelectMobileTab) {
               onSelectMobileTab("chat");
             } else {
               router.push("/chat");

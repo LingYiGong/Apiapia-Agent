@@ -123,7 +123,7 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
             role="combobox"
             aria-expanded={open}
             className={cn(
-              "h-8 px-3 rounded-full bg-muted/50 hover:bg-muted/80 active:scale-95 border border-border/60 backdrop-blur-md transition-all flex items-center justify-between gap-1.5 select-none cursor-pointer shadow-2xs max-w-full group",
+              "h-8 px-3 rounded-full bg-muted/70 hover:bg-muted/90 active:scale-95 border border-border/60 transition-all flex items-center justify-between gap-1.5 select-none cursor-pointer shadow-2xs max-w-full group",
               open && "bg-muted/90 ring-2 ring-primary/20 border-primary/40",
               className
             )}

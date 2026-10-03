@@ -657,25 +657,9 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex flex-col h-full h-dvh overflow-hidden bg-background">
+    <div className="flex flex-col h-full w-full overflow-hidden bg-background">
       {/* 桌面端顶部导航栏 */}
       <DesktopNavbar />
-
-      {/* 移动端独立顶栏：完全独立于工作区与聊天窗口之外，置于最顶层，绝不与聊天窗口在同一个 div 容器里 */}
-      {mobileTab === "chat" && (
-        <MobileChatHeader
-          currentModel={currentModel}
-          onModelChange={handleModelChange}
-          availableModels={availableModels}
-          onRefreshModels={handleManualSyncModels}
-          isRefreshingModels={isRefreshingModels}
-          onToggleMemory={() => setIsMemoryOpen((prev) => !prev)}
-          memoriesCount={retrievedMemories.length}
-          onNewChat={handleNewChat}
-          hasMessages={messages.length > 0}
-          onSelectMobileTab={handleSelectMobileTab}
-        />
-      )}
 
       {/* 中间主视口区域（自适应尺寸，不被任何固定栏遮盖） */}
       <div className="flex flex-1 overflow-hidden relative min-h-0">
@@ -726,6 +710,20 @@ export default function ChatPage() {
 
         {/* ── Mobile Tab 1: Chat View (On mobile shown when mobileTab === 'chat', on desktop always visible) ── */}
         <div className={cn("flex-1 flex flex-col overflow-hidden relative min-w-0 max-w-full", mobileTab === "chat" ? "flex" : "hidden md:flex")}>
+          {/* 移动端专属导航条：对称置于 Tab 容器顶层，复用 MobileHeader */}
+          <MobileChatHeader
+            currentModel={currentModel}
+            onModelChange={handleModelChange}
+            availableModels={availableModels}
+            onRefreshModels={handleManualSyncModels}
+            isRefreshingModels={isRefreshingModels}
+            onToggleMemory={() => setIsMemoryOpen((prev) => !prev)}
+            memoriesCount={retrievedMemories.length}
+            onNewChat={handleNewChat}
+            hasMessages={messages.length > 0}
+            onSelectMobileTab={handleSelectMobileTab}
+          />
+
           {/* 桌面端专属工具条：仅在 md+ 桌面端显示，移动端完全不渲染 */}
           <DesktopChatHeader
             currentModel={currentModel}

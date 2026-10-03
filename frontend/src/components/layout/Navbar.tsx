@@ -190,14 +190,14 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
     <nav
       aria-label="移动端底部标签栏"
       className={cn(
-        "md:hidden shrink-0 w-full bg-background/85 dark:bg-[#121214]/90 backdrop-blur-2xl border-t border-border/40 select-none z-30 transition-colors",
-        /* Apple HIG: Background extends to physical screen edges (including corners & home bar) */
-        "pb-[env(safe-area-inset-bottom,0px)]",
+        "md:hidden shrink-0 w-full bg-background/90 dark:bg-[#121214]/90 backdrop-blur-xl border-t border-border/40 select-none z-30 transition-colors",
         className
       )}
+      style={{
+        paddingBottom: "max(24px, env(safe-area-inset-bottom, 34px))",
+      }}
     >
-      {/* Apple HIG: Standard 49pt Interactive Tab Bar Content */}
-      <div className="h-[49px] w-full flex items-center justify-around max-w-md mx-auto px-2 pl-[max(0.5rem,env(safe-area-inset-left,0px))] pr-[max(0.5rem,env(safe-area-inset-right,0px))]">
+      <div className="h-[49px] w-full flex items-center justify-around px-2">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeMobileTab === item.tab;
@@ -207,7 +207,7 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
               type="button"
               onClick={() => handleMobileTabClick(item.tab)}
               className={cn(
-                "relative flex flex-col items-center justify-center flex-1 h-full py-0.5 gap-0.5 text-[10.5px] tracking-tight transition-all active:scale-95 cursor-pointer touch-manipulation apple-touch-target",
+                "flex flex-col items-center justify-center flex-1 h-full py-0.5 gap-0.5 text-[10.5px] tracking-tight transition-all active:scale-95 cursor-pointer touch-manipulation",
                 isActive
                   ? "text-primary font-semibold"
                   : "text-muted-foreground/75 hover:text-foreground font-medium"
@@ -215,17 +215,11 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
             >
               <Icon
                 className={cn(
-                  "h-[22px] w-[22px] shrink-0 transition-transform",
-                  isActive ? "stroke-[2.3px] scale-105" : "stroke-[1.8px]"
+                  "h-5 w-5 shrink-0 transition-transform",
+                  isActive ? "stroke-[2.2px] scale-105" : "stroke-[1.8px]"
                 )}
               />
               <span className="leading-tight">{item.label}</span>
-              {isActive && (
-                <span
-                  aria-hidden="true"
-                  className="absolute bottom-1 w-1 h-1 rounded-full bg-primary"
-                />
-              )}
             </button>
           );
         })}

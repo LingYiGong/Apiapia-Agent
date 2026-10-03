@@ -106,10 +106,10 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative flex-1 flex h-full min-h-full w-full flex-col justify-between overflow-x-hidden overflow-y-auto overscroll-contain bg-[#fbfbfd] px-4 sm:px-6 pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] pt-[max(0.75rem,env(safe-area-inset-top,0px))] pb-[max(1.25rem,calc(env(safe-area-inset-bottom,0px)+0.75rem))] text-foreground selection:bg-primary/20 selection:text-primary dark:bg-black">
+    <div className="relative flex-1 flex h-full min-h-full w-full flex-col justify-between overflow-x-hidden overflow-y-auto overscroll-contain bg-[#fbfbfd] px-4 pb-4 sm:px-6 sm:pb-6 text-foreground selection:bg-primary/20 selection:text-primary dark:bg-black">
 
       {/* Top Floating Bar */}
-      <header className="relative z-10 flex w-full max-w-5xl items-center justify-between mx-auto pt-1 pb-2 sm:pt-2 sm:pb-3 shrink-0">
+      <header className="relative z-10 flex w-full max-w-5xl items-center justify-between mx-auto pt-[max(0.75rem,env(safe-area-inset-top,0px))] pb-2 sm:pt-4 sm:pb-3 shrink-0">
         <div className="flex items-center gap-2">
           <BrandLogo size={28} className="shadow-xs" />
           <span className="text-[14px] font-medium tracking-tight text-foreground/85">
@@ -117,7 +117,7 @@ export default function LoginPage() {
           </span>
         </div>
 
-        {/* Single-layer Apple Frosted Glass Theme Toggle */}
+        {/* Single-layer Apple Theme Toggle */}
         <ThemeToggle variant="apple" />
       </header>
 

@@ -258,7 +258,7 @@ export const UsageView: React.FC<UsageViewProps> = ({
       <MobileHeader title="用量与账单" onSelectMobileTab={onSelectMobileTab} />
 
       <div className="flex-1 overflow-y-auto overscroll-contain">
-        <main className="max-w-6xl w-full mx-auto px-4 sm:px-6 md:px-8 pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] py-4 space-y-5 pb-8 md:pb-12">
+        <main className="max-w-6xl w-full mx-auto p-4 sm:p-6 md:p-8 space-y-5 pb-6 md:pb-12">
           {/* ── Desktop Header ── */}
           <div className="hidden md:flex flex-row items-center justify-between gap-4 pb-5 border-b border-border/40">
             <div className="space-y-1">

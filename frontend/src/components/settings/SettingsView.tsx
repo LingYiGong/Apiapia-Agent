@@ -346,7 +346,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       <MobileHeader title="偏好设置" onSelectMobileTab={onSelectMobileTab} />
 
       <div className="flex-1 overflow-y-auto overscroll-contain">
-        <main className="max-w-3xl w-full mx-auto px-4 sm:px-6 md:px-8 pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] py-4 space-y-7 pb-8 md:pb-24">
+        <main className="max-w-3xl w-full mx-auto p-4 sm:p-6 md:p-8 space-y-7 pb-6 md:pb-24">
           {/* ── Apple macOS System Settings Header ── */}
           <div className="hidden md:flex items-center justify-between pb-4 border-b border-black/[0.08] dark:border-white/[0.08]">
             <div className="space-y-1">

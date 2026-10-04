@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { ModelCatalogItem } from "@/types";
 import { Cpu, ChevronDown, Search, Check, Zap, X, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -55,6 +55,152 @@ export function isMultimodalModel(m: ModelCatalogItem): boolean {
   );
 }
 
+/**
+ * 识别精选精品模型：
+ * 涵盖一线知名大厂的主力旗舰与稳定高品质模型，过滤掉数百个冷门测试/小众微调模型。
+ */
+export function isFeaturedModel(m: ModelCatalogItem): boolean {
+  const id = (m.id || "").toLowerCase();
+  const name = (m.name || "").toLowerCase();
+
+  // 1. 官方免费聚合模型
+  if (id === "openrouter/free" || id.includes("openrouter/free")) return true;
+
+  // 2. OpenAI 核心精品 (GPT-4o, 4o-mini, o1, o3-mini, 4.5)
+  if (
+    id.startsWith("openai/") ||
+    m.provider === "openai" ||
+    id.startsWith("gpt-") ||
+    id.startsWith("o1") ||
+    id.startsWith("o3")
+  ) {
+    if (
+      id.includes("4o") ||
+      id.includes("o1") ||
+      id.includes("o3") ||
+      id.includes("4.5")
+    ) {
+      if (!id.includes("ft:") && !id.includes("realtime") && !id.includes("audio")) {
+        return true;
+      }
+    }
+  }
+
+  // 3. Anthropic Claude 3.5 / 3.7 系列旗舰
+  if (id.startsWith("anthropic/") || m.provider === "anthropic" || id.includes("claude")) {
+    if (
+      id.includes("claude-3-5") ||
+      id.includes("claude-3.5") ||
+      id.includes("claude-3-7") ||
+      id.includes("claude-3.7") ||
+      id.includes("claude-3-opus") ||
+      id.includes("claude-3-haiku")
+    ) {
+      return true;
+    }
+  }
+
+  // 4. Google Gemini 2.5 / 2.0 / 1.5 系列主力
+  if (id.startsWith("google/") || m.provider === "gemini" || id.includes("gemini")) {
+    if (
+      id.includes("gemini-2.5") ||
+      id.includes("gemini-2.0") ||
+      id.includes("gemini-1.5-pro") ||
+      id.includes("gemini-1.5-flash")
+    ) {
+      return true;
+    }
+  }
+
+  // 5. DeepSeek 官方主力 (V3 & R1)
+  if (id.startsWith("deepseek/") || id.includes("deepseek")) {
+    if (
+      id.includes("chat") ||
+      id.includes("reasoner") ||
+      id.includes("v3") ||
+      id.includes("r1")
+    ) {
+      return true;
+    }
+  }
+
+  // 6. Meta Llama 官方主力 (3.3 70B, 3.1 70B/405B)
+  if (id.startsWith("meta-llama/") || id.includes("llama-3.3") || id.includes("llama-3.1-70b")) {
+    if (id.includes("instruct") || id.includes("70b") || id.includes("405b")) {
+      return true;
+    }
+  }
+
+  // 7. Qwen 阿里通义千问 2.5 官方主力
+  if (id.startsWith("qwen/") || id.includes("qwen-2.5") || id.includes("qwq")) {
+    if (id.includes("72b") || id.includes("coder") || id.includes("qwq")) {
+      return true;
+    }
+  }
+
+  // 8. Mistral 官方主力
+  if (id.startsWith("mistralai/") && (id.includes("mistral-large") || id.includes("codestral"))) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * 模型优先级排序评分：
+ * 越小越靠前，用于把精选精品模型与推荐模型排在最前
+ */
+export function getModelPriorityScore(m: ModelCatalogItem): number {
+  const id = (m.id || "").toLowerCase();
+
+  // 1. openrouter/free (新用户首选与免费体验)
+  if (id === "openrouter/free" || id.includes("openrouter/free")) return 0;
+
+  // 2. Anthropic Claude 顶级旗舰 (3.7 Sonnet / 3.5 Sonnet)
+  if (
+    id.includes("claude-3-7-sonnet") ||
+    id.includes("claude-3.7-sonnet") ||
+    id.includes("claude-3-5-sonnet") ||
+    id.includes("claude-3.5-sonnet")
+  ) {
+    return 1;
+  }
+
+  // 3. OpenAI 顶级旗舰 (GPT-4o, o3-mini, o1)
+  if (id.includes("gpt-4o") && !id.includes("mini")) return 2;
+  if (id.includes("o3-mini") || id.includes("o1")) return 3;
+  if (id.includes("gpt-4o-mini")) return 4;
+
+  // 4. DeepSeek 官方主力 (DeepSeek V3 / R1)
+  if (
+    id.includes("deepseek-chat") ||
+    id.includes("deepseek-r1") ||
+    id.includes("deepseek-v3") ||
+    id.includes("deepseek/deepseek-r1")
+  ) {
+    return 5;
+  }
+
+  // 5. Google Gemini 顶级旗舰 (Gemini 2.5 / 2.0 / 1.5 Pro)
+  if (
+    id.includes("gemini-2.5") ||
+    id.includes("gemini-2.0-pro") ||
+    id.includes("gemini-2.0-flash") ||
+    id.includes("gemini-1.5-pro")
+  ) {
+    return 6;
+  }
+
+  // 6. 其他精选模型 (Llama 3.3, Qwen 2.5, Mistral Large, etc.)
+  if (isFeaturedModel(m)) return 10;
+
+  // 7. 其他免费模型
+  if (isFreeModel(m)) return 20;
+
+  // 8. 其他海量模型
+  return 30;
+}
+
 interface ModelSelectProps {
   value: string;
   onChange: (modelId: string) => void;
@@ -74,18 +220,27 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
 }) => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const [providerFilter, setProviderFilter] = useState<string>("all");
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const selectedModel = models.find((m) => m.id === value);
-
-  // Distinct providers
-  const distinctProviders = Array.from(
-    new Set(models.map((m) => m.provider).filter(Boolean))
-  );
-
+  const featuredModelsCount = models.filter(isFeaturedModel).length;
+  const hasFeaturedModels = featuredModelsCount > 0;
   const hasFreeModels = models.some(isFreeModel);
   const freeModelsCount = models.filter(isFreeModel).length;
+
+  // 默认分类：第 1 个免费（如有），第 2 个精选（如有），否则全部
+  const [providerFilter, setProviderFilter] = useState<string>(() => {
+    return hasFreeModels ? "free" : (hasFeaturedModels ? "featured" : "all");
+  });
+  const hasAutoSwitchedToDefault = useRef(false);
+
+  useEffect(() => {
+    if (!hasAutoSwitchedToDefault.current && models.length > 0) {
+      setProviderFilter(hasFreeModels ? "free" : (hasFeaturedModels ? "featured" : "all"));
+      hasAutoSwitchedToDefault.current = true;
+    }
+  }, [models.length, hasFreeModels, hasFeaturedModels]);
+
+  const selectedModel = models.find((m) => m.id === value);
 
   // Filter
   const filtered = models.filter((m) => {
@@ -97,26 +252,28 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
       (m.provider && m.provider.toLowerCase().includes(query)) ||
       (m.description && m.description.toLowerCase().includes(query));
 
+    if (!matchesSearch) return false;
+
+    // 当用户主动输入关键词搜索时，在全局所有模型中搜索，最快找到所需模型
+    if (query) {
+      return true;
+    }
+
     const matchesProvider =
       providerFilter === "all" ||
       (providerFilter === "free" && isFreeModel(m)) ||
-      (providerFilter === "multimodal" && isMultimodalModel(m)) ||
-      (m.provider && m.provider.toLowerCase() === providerFilter.toLowerCase());
+      (providerFilter === "featured" && isFeaturedModel(m));
 
-    return matchesSearch && matchesProvider;
+    return matchesProvider;
   });
 
-  // Sort: openrouter/free first, then other free models, then paid models
+  // Sort: openrouter/free first, then flagship models, other featured, other free, then others
   const sorted = [...filtered].sort((a, b) => {
-    const aIsORFree = a.id === "openrouter/free";
-    const bIsORFree = b.id === "openrouter/free";
-    if (aIsORFree && !bIsORFree) return -1;
-    if (!aIsORFree && bIsORFree) return 1;
-
-    const aFree = isFreeModel(a);
-    const bFree = isFreeModel(b);
-    if (aFree && !bFree) return -1;
-    if (!aFree && bFree) return 1;
+    const scoreA = getModelPriorityScore(a);
+    const scoreB = getModelPriorityScore(b);
+    if (scoreA !== scoreB) {
+      return scoreA - scoreB;
+    }
     return a.name.localeCompare(b.name);
   });
 
@@ -237,69 +394,53 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
           )}
         </div>
 
-        {/* Apple Segmented / Pill Filter Buttons */}
-        {(distinctProviders.length > 1 || hasFreeModels) && (
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-2.5 pt-0.5 shrink-0">
+        {/* Apple Segmented / Pill Filter Buttons: 1.免费 2.精选 3.全部 */}
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-2.5 pt-0.5 shrink-0">
+          {hasFreeModels && (
             <button
               type="button"
-              onClick={() => setProviderFilter("all")}
-              className={cn(
-                "h-7 px-2.5 rounded-full text-[11px] font-medium transition-all shrink-0 active:scale-95",
-                providerFilter === "all"
-                  ? "bg-foreground text-background font-semibold shadow-xs"
-                  : "bg-muted/60 dark:bg-[#2c2c2e]/60 text-muted-foreground hover:text-foreground"
-              )}
-            >
-              全部 ({models.length})
-            </button>
-
-            {hasFreeModels && (
-              <button
-                type="button"
-                onClick={() => setProviderFilter("free")}
-                className={cn(
-                  "h-7 px-2.5 rounded-full text-[11px] font-medium transition-all shrink-0 active:scale-95 flex items-center gap-1",
-                  providerFilter === "free"
-                    ? "bg-emerald-600 text-white font-semibold shadow-xs"
-                    : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20"
-                )}
-              >
-                <Zap className="h-3 w-3" />
-                <span>免费 ({freeModelsCount})</span>
-              </button>
-            )}
-
-            <button
-              type="button"
-              onClick={() => setProviderFilter("multimodal")}
+              onClick={() => setProviderFilter("free")}
               className={cn(
                 "h-7 px-2.5 rounded-full text-[11px] font-medium transition-all shrink-0 active:scale-95 flex items-center gap-1",
-                providerFilter === "multimodal"
-                  ? "bg-violet-600 text-white font-semibold shadow-xs"
-                  : "bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/20 hover:bg-violet-500/20"
+                providerFilter === "free"
+                  ? "bg-emerald-600 text-white font-semibold shadow-xs"
+                  : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20"
+              )}
+            >
+              <Zap className="h-3 w-3" />
+              <span>免费 ({freeModelsCount})</span>
+            </button>
+          )}
+
+          {hasFeaturedModels && (
+            <button
+              type="button"
+              onClick={() => setProviderFilter("featured")}
+              className={cn(
+                "h-7 px-2.5 rounded-full text-[11px] font-medium transition-all shrink-0 active:scale-95 flex items-center gap-1",
+                providerFilter === "featured"
+                  ? "bg-amber-500 text-white font-semibold shadow-xs"
+                  : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 hover:bg-amber-500/20"
               )}
             >
               <Sparkles className="h-3 w-3" />
-              <span>多模态</span>
+              <span>精选 ({featuredModelsCount})</span>
             </button>
+          )}
 
-            {distinctProviders.map((prov) => (
-              <button
-                key={prov}
-                type="button"
-                onClick={() => setProviderFilter(prov!)}
-                className={cn(
-                  "h-7 px-2.5 rounded-full text-[11px] font-medium uppercase font-mono transition-all shrink-0 active:scale-95",
-                  providerFilter === prov
-                    ? "bg-foreground text-background font-semibold shadow-xs"
-                    : "bg-muted/60 dark:bg-[#2c2c2e]/60 text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {prov}
-              </button>
-            ))}
-          </div>
-        )}
+          <button
+            type="button"
+            onClick={() => setProviderFilter("all")}
+            className={cn(
+              "h-7 px-2.5 rounded-full text-[11px] font-medium transition-all shrink-0 active:scale-95",
+              providerFilter === "all"
+                ? "bg-foreground text-background font-semibold shadow-xs"
+                : "bg-muted/60 dark:bg-[#2c2c2e]/60 text-muted-foreground hover:text-foreground"
+            )}
+          >
+            全部 ({models.length})
+          </button>
+        </div>
 
         <div className="border-b border-border/40 mb-1.5" />
 
@@ -310,13 +451,23 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
         >
           {sorted.length === 0 ? (
             <div className="py-10 text-center text-xs text-muted-foreground">
-              未找到匹配的模型
+              <div>未找到匹配的模型</div>
+              {providerFilter !== "all" && (
+                <button
+                  type="button"
+                  onClick={() => setProviderFilter("all")}
+                  className="mt-2 text-primary underline text-xs hover:opacity-80 active:scale-95 inline-block cursor-pointer"
+                >
+                  在全部 {models.length} 个模型中查找
+                </button>
+              )}
             </div>
           ) : (
             sorted.map((m) => {
               const isSelected = m.id === value;
               const isFree = isFreeModel(m);
               const isMulti = isMultimodalModel(m);
+              const isFeatured = isFeaturedModel(m);
 
               return (
                 <div
@@ -337,6 +488,12 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
                       <span className={cn("font-semibold tracking-tight", isSelected ? "text-primary" : "text-foreground")}>
                         {m.name}
                       </span>
+                      {isFeatured && (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/25 font-medium flex items-center gap-0.5">
+                          <Sparkles className="h-2.5 w-2.5" />
+                          精选
+                        </span>
+                      )}
                       {isFree && (
                         <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25 font-medium">
                           免费

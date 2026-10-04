@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { apiRequest } from "@/lib/api";
@@ -33,8 +33,19 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  const passwordInputRef = useRef<HTMLInputElement>(null);
+
   const { login } = useAuth();
   const router = useRouter();
+
+  const handleAccountKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Tab" && !e.shiftKey) {
+      if (!isRegister) {
+        e.preventDefault();
+        passwordInputRef.current?.focus();
+      }
+    }
+  };
 
   const handleTabChange = (registerMode: boolean) => {
     setIsRegister(registerMode);
@@ -189,6 +200,7 @@ export default function LoginPage() {
                   required
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
+                  onKeyDown={handleAccountKeyDown}
                   placeholder={
                     isRegister ? "设置用户名 (例如 alex)" : "用户名或电子邮箱"
                   }
@@ -200,6 +212,7 @@ export default function LoginPage() {
                 {username && (
                   <button
                     type="button"
+                    tabIndex={-1}
                     onClick={() => setUsername("")}
                     className="ml-1 rounded-full p-1 text-muted-foreground/50 hover:bg-black/5 hover:text-muted-foreground dark:hover:bg-white/10"
                     title="清空"
@@ -236,6 +249,7 @@ export default function LoginPage() {
                   {email && (
                     <button
                       type="button"
+                      tabIndex={-1}
                       onClick={() => setEmail("")}
                       className="ml-1 rounded-full p-1 text-muted-foreground/50 hover:bg-black/5 hover:text-muted-foreground dark:hover:bg-white/10"
                       title="清空"
@@ -259,6 +273,7 @@ export default function LoginPage() {
                 <KeyRound className="h-4 w-4 shrink-0 text-muted-foreground/60 transition-colors group-focus-within:text-primary mr-2.5" />
                 <input
                   id="password-input"
+                  ref={passwordInputRef}
                   type={showPassword ? "text" : "password"}
                   required
                   value={password}
@@ -269,6 +284,7 @@ export default function LoginPage() {
                 />
                 <button
                   type="button"
+                  tabIndex={-1}
                   onClick={() => setShowPassword(!showPassword)}
                   className="ml-1 rounded-lg p-1.5 text-muted-foreground/50 hover:bg-black/5 hover:text-muted-foreground dark:hover:bg-white/10"
                   title={showPassword ? "隐藏密码" : "显示密码"}
@@ -305,6 +321,7 @@ export default function LoginPage() {
                   />
                   <button
                     type="button"
+                    tabIndex={-1}
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     className="ml-1 rounded-lg p-1.5 text-muted-foreground/50 hover:bg-black/5 hover:text-muted-foreground dark:hover:bg-white/10"
                     title={showConfirmPassword ? "隐藏密码" : "显示密码"}

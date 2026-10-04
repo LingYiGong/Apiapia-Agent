@@ -5,7 +5,10 @@ const { spawnSync } = require("child_process");
 const isExport =
   process.env.NEXT_EXPORT === "true" ||
   process.env.CF_PAGES === "1" ||
+  process.env.CLOUDFLARE === "1" ||
+  process.env.CI === "true" ||
   process.argv.includes("--export");
+
 
 const projectRoot = path.resolve(__dirname, "..");
 const apiDir = path.join(projectRoot, "src", "app", "api");

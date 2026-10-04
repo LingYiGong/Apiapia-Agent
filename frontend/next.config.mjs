@@ -1,5 +1,9 @@
 /** @type {import('next').NextConfig} */
-const isExport = process.env.NEXT_EXPORT === "true" || process.env.CF_PAGES === "1";
+const isExport =
+  process.env.NEXT_EXPORT === "true" ||
+  process.env.CF_PAGES === "1" ||
+  process.env.CLOUDFLARE === "1" ||
+  process.env.CI === "true";
 
 const nextConfig = {
   output: isExport ? "export" : "standalone",

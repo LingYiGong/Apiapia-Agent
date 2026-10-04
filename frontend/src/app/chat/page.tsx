@@ -796,6 +796,7 @@ export default function ChatPage() {
         hasActiveChat={messages.length > 0}
         activeMobileTab={mobileTab}
         onSelectMobileTab={handleSelectMobileTab}
+        onNewChat={handleNewChat}
       />
     </div>
   );

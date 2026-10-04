@@ -18,6 +18,7 @@ import {
   LogOut,
   BarChart3,
   AlignLeft,
+  Plus,
 } from "lucide-react";
 
 import {
@@ -156,6 +157,7 @@ export interface MobileTabBarProps {
   hasActiveChat?: boolean;
   activeMobileTab?: MobileTab;
   onSelectMobileTab?: (tab: MobileTab) => void;
+  onNewChat?: () => void;
   className?: string;
 }
 
@@ -166,20 +168,44 @@ export interface MobileTabBarProps {
 export const MobileTabBar: React.FC<MobileTabBarProps> = ({
   activeMobileTab = "chat",
   onSelectMobileTab,
+  onNewChat,
   className,
 }) => {
   const router = useRouter();
 
   const handleMobileTabClick = (tab: MobileTab) => {
+    if (tab === "chat") {
+      if (activeMobileTab === "chat") {
+        if (onNewChat) {
+          onNewChat();
+        } else {
+          router.push("/chat");
+        }
+        return;
+      }
+      if (onSelectMobileTab) {
+        onSelectMobileTab("chat");
+      } else {
+        router.push("/chat");
+      }
+      return;
+    }
+
     if (onSelectMobileTab) {
       onSelectMobileTab(tab);
     } else {
-      router.push(tab === "chat" ? "/chat" : `/chat?tab=${tab}`);
+      router.push(`/chat?tab=${tab}`);
     }
   };
 
+  const isChatActive = activeMobileTab === "chat";
+
   const navItems: { tab: MobileTab; label: string; icon: React.ElementType }[] = [
-    { tab: "chat", label: "对话", icon: MessageSquare },
+    {
+      tab: "chat",
+      label: isChatActive ? "新建" : "对话",
+      icon: isChatActive ? Plus : MessageSquare,
+    },
     { tab: "history", label: "历史", icon: AlignLeft },
     { tab: "memory", label: "记忆", icon: Brain },
     { tab: "usage", label: "用量", icon: BarChart3 },
@@ -206,6 +232,7 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
               key={item.tab}
               type="button"
               onClick={() => handleMobileTabClick(item.tab)}
+              title={item.label}
               className={cn(
                 "flex flex-col items-center justify-center flex-1 h-full py-0.5 gap-0.5 text-[10.5px] tracking-tight transition-all active:scale-95 cursor-pointer touch-manipulation",
                 isActive
@@ -241,6 +268,7 @@ export const Navbar: React.FC<NavbarProps> = (props) => {
         hasActiveChat={props.hasActiveChat}
         activeMobileTab={props.activeMobileTab}
         onSelectMobileTab={props.onSelectMobileTab}
+        onNewChat={props.onNewChat}
         className={props.className}
       />
     </>

@@ -221,7 +221,7 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
           <Input
             ref={searchInputRef}
             type="search"
-            placeholder="搜索模型（如：free, deepseek, 4o...）"
+            placeholder="搜索模型"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9 pr-8 h-8.5 text-[13px] rounded-xl bg-muted/60 dark:bg-[#2c2c2e]/70 border-0 focus-visible:ring-1 focus-visible:ring-primary/40 placeholder:text-muted-foreground/60"

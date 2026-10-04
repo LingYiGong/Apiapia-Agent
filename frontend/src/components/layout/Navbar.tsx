@@ -208,8 +208,6 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
     },
     { tab: "history", label: "历史", icon: AlignLeft },
     { tab: "memory", label: "记忆", icon: Brain },
-    { tab: "usage", label: "用量", icon: BarChart3 },
-    { tab: "settings", label: "设置", icon: Settings },
   ];
 
   return (

@@ -143,6 +143,7 @@ def run_dreaming_task(
 
     meta_base = {
         "source": "dreaming",
+        "type": "summary",
         "conversation_id": str(conv_id),
         "dreamed_at": datetime.now(timezone.utc).isoformat(),
     }

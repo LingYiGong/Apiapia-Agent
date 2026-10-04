@@ -180,9 +180,15 @@ def _add_single_fact(
     memory_model: str,
 ):
     """Add a single pre-vetted fact string to Mem0 with importance in metadata."""
+    if "type" not in meta_base:
+        meta_base = {
+            **meta_base,
+            "type": "profile" if importance >= 4 else ("temporary" if importance == 2 else "fact"),
+        }
     meta = {
         **meta_base,
         "importance": importance,
+        "confidence": float(meta_base.get("confidence", 0.7)),
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     try:
@@ -230,6 +236,15 @@ def upsert_facts_to_memory(
         return 0
 
     meta_base = (metadata or {}).copy()
+    if "evidence" not in meta_base:
+        source_messages = meta_base.pop("source_messages", []) or []
+        meta_base["evidence"] = "\n".join(
+            str(m.get("content", "")).strip()
+            for m in source_messages
+            if m.get("role") == "user" and str(m.get("content", "")).strip()
+        )[:2000]
+    else:
+        meta_base.pop("source_messages", None)
     processed_count = 0
 
     for fact in important_facts:
@@ -270,7 +285,14 @@ def upsert_facts_to_memory(
                 final_text = merged_text if decision == "MERGE" else fact_text
                 try:
                     memory_service.update_memory(
-                        user_id=user_id, memory_id=existing_id, data=final_text
+                        user_id=user_id,
+                        memory_id=existing_id,
+                        data=final_text,
+                        metadata={
+                            **meta_base,
+                            "importance": importance,
+                            "confidence": float(fact.get("confidence", 0.7)),
+                        },
                     )
                     logger.info("Updated memory %s for user %s (%s)", existing_id, user_id, decision)
                     processed_count += 1

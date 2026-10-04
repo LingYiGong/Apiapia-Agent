@@ -14,7 +14,7 @@ from app.models.setting import UserSetting
 from app.schemas.chat import ChatRequest
 from app.api.v1.deps import get_current_user
 from app.services.llm.factory import get_llm_provider
-from app.services.memory.retrieval import retrieve_relevant_memories
+from app.services.memory.retrieval import retrieve_relevant_memories, should_retrieve_memories
 from app.services.memory.extraction import schedule_memory_extraction
 from app.services.memory.dreaming import schedule_dreaming
 from app.services.document_parser import parse_attachment, fetch_and_parse_url, extract_urls
@@ -145,7 +145,7 @@ async def chat_stream(
         import re
         clean_mem_msg = re.sub(r"https?://[^\s<>\"'()]+", "", chat_req.message or "").strip()
         mem_query = clean_mem_msg if clean_mem_msg else (parsed_docs[0]['name'] if parsed_docs else "")
-        if mem_query:
+        if mem_query and should_retrieve_memories(mem_query):
             retrieved_memories, memory_context_str = retrieve_relevant_memories(
                 user_id=user_id,
                 query=mem_query,
@@ -410,7 +410,10 @@ async def chat_stream(
                 await schedule_memory_extraction(
                     user_id=user_id,
                     messages=conversation_pair,
-                    metadata={"conversation_id": conv_id},
+                    metadata={
+                        "conversation_id": conv_id,
+                        "source_messages": conversation_pair,
+                    },
                     memory_model=memory_model_to_use
                 )
 

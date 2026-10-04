@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v2.7.0-indigo?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/version-v2.8.0-indigo?style=flat-square" alt="Version">
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
   <img src="https://img.shields.io/badge/Mem0%20OSS-2.2.1-orange?style=flat-square" alt="Mem0">
@@ -21,6 +21,14 @@
 </p>
 
 ---
+
+## v2.8.0 发布说明
+
+- 长期记忆召回升级为“稳定用户档案 + 当前问题相关记忆”两层结构，并加入重要度、时间衰减、去重和上下文长度控制。
+- 记忆以不可执行的参考资料区块注入模型，降低记忆内容触发提示注入的风险。
+- 自动提炼记忆记录类型、置信度和用户原始证据；跨轮 Dreaming 摘要继续使用统一去重流程。
+- 流式输出改用标准 SSE 事件解析，处理跨网络分片、多行 `data:`、UTF-8 结束刷新、断流检测和结构化错误。
+- 统一处理 OpenAI/OpenRouter 的内容分片、reasoning 和 refusal 返回，提升多模型回答完整性。
 
 ## 🐱 关于 Apiapia（品牌故事与灵感）
 

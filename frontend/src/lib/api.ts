@@ -141,41 +141,94 @@ export async function streamChatResponse(
 
   const decoder = new TextDecoder();
   let buffer = "";
+  let eventName = "";
+  let eventData: string[] = [];
+  let sawDone = false;
+  let sawError = false;
+
+  // Parse the WHATWG/HTML SSE wire format instead of assuming one JSON event
+  // per network chunk. Events may be split across chunks and data may span
+  // multiple lines. See MDN's SSE event stream format.
+  const dispatchEvent = () => {
+    if (eventData.length === 0) {
+      eventName = "";
+      return;
+    }
+    const dataStr = eventData.join("\n");
+    eventData = [];
+    const type = eventName || "message";
+    eventName = "";
+    try {
+      const parsed = JSON.parse(dataStr);
+      if (parsed.type === "meta") {
+        callbacks.onMeta?.(parsed);
+      } else if (parsed.type === "search_start") {
+        callbacks.onSearchStart?.(parsed);
+      } else if (parsed.type === "search_results") {
+        callbacks.onSearchResults?.(parsed);
+      } else if (parsed.type === "content") {
+        if (typeof parsed.delta === "string") callbacks.onToken?.(parsed.delta);
+      } else if (parsed.type === "reasoning") {
+        if (typeof parsed.delta === "string") callbacks.onToken?.(`<think>${parsed.delta}</think>`);
+      } else if (parsed.type === "done") {
+        sawDone = true;
+        callbacks.onDone?.(parsed);
+      } else if (parsed.type === "error") {
+        sawError = true;
+        callbacks.onError?.(parsed.error || "Model stream failed.");
+      }
+    } catch (e) {
+      console.error(`Failed to parse SSE ${type} JSON:`, dataStr, e);
+    }
+  };
+
+  const consumeText = (text: string, flush = false) => {
+    buffer += text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+    for (const line of lines) {
+      if (line === "") {
+        dispatchEvent();
+        continue;
+      }
+      if (line.startsWith(":")) continue; // SSE keep-alive comment
+      const colon = line.indexOf(":");
+      const field = colon === -1 ? line : line.slice(0, colon);
+      let value = colon === -1 ? "" : line.slice(colon + 1);
+      if (value.startsWith(" ")) value = value.slice(1);
+      if (field === "event") eventName = value;
+      else if (field === "data") eventData.push(value);
+      // id/retry are valid SSE fields but are not needed for this POST stream.
+    }
+    if (flush) {
+      if (buffer) {
+        const line = buffer;
+        buffer = "";
+        if (!line.startsWith(":")) {
+          const colon = line.indexOf(":");
+          const field = colon === -1 ? line : line.slice(0, colon);
+          let value = colon === -1 ? "" : line.slice(colon + 1);
+          if (value.startsWith(" ")) value = value.slice(1);
+          if (field === "event") eventName = value;
+          else if (field === "data") eventData.push(value);
+        }
+      }
+      dispatchEvent();
+    }
+  };
 
   try {
     while (true) {
       if (opts?.signal?.aborted) break;
       const { done, value } = await reader.read();
-      if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n\n");
-    buffer = lines.pop() || "";
-
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed.startsWith("data:")) continue;
-
-      const dataStr = trimmed.replace(/^data:\s*/, "");
-      try {
-        const parsed = JSON.parse(dataStr);
-        if (parsed.type === "meta") {
-          callbacks.onMeta?.(parsed);
-        } else if (parsed.type === "search_start") {
-          callbacks.onSearchStart?.(parsed);
-        } else if (parsed.type === "search_results") {
-          callbacks.onSearchResults?.(parsed);
-        } else if (parsed.type === "content") {
-          callbacks.onToken?.(parsed.delta);
-        } else if (parsed.type === "done") {
-          callbacks.onDone?.(parsed);
-        } else if (parsed.type === "error") {
-          callbacks.onError?.(parsed.error);
-        }
-      } catch (e) {
-        console.error("Failed to parse SSE JSON:", dataStr, e);
+      if (done) {
+        consumeText(decoder.decode(), true);
+        break;
       }
+      consumeText(decoder.decode(value, { stream: true }));
     }
+    if (!sawDone && !sawError && !opts?.signal?.aborted) {
+      callbacks.onError?.("模型连接在完成事件前中断，回答可能不完整。 ");
     }
   } catch (e: any) {
     // Intentional stop via AbortController: exit silently without onError

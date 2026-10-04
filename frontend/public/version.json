@@ -1,7 +1,7 @@
 {
-  "version": "2.7.0",
+  "version": "2.8.0",
   "buildTime": "2026-09-30T08:00:00Z",
-  "title": "v2.7.0 全站 shadcn/ui 组件规范与体验重构",
+  "title": "v2.8.0 长期记忆与流式输出可靠性增强",
   "changelog": [
     "全站接入 shadcn/ui 设计规范与无障碍语义（A11y）",
     "统一轻量动画 ActionTooltip，废除原生 title 悬停提示",

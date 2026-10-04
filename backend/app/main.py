@@ -35,7 +35,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    version="2.7.0",
+    version="2.8.0",
     description="Apiapia 助理 API：多模型解耦调度与 Mem0 OSS 长期记忆",
     lifespan=lifespan
 )
@@ -58,7 +58,7 @@ app.add_middleware(
 async def root():
     return {
         "name": settings.PROJECT_NAME,
-        "version": "2.7.0",
+        "version": "2.8.0",
         "status": "online",
         "mem0_version": settings.MEM0_VERSION
     }

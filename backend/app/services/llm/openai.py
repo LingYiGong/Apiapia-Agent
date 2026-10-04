@@ -13,6 +13,23 @@ class OpenAIProvider(LLMProvider):
         self.client = AsyncOpenAI(api_key=self.api_key, base_url=self.base_url)
         self.last_usage: Optional[Dict[str, int]] = None
 
+    @staticmethod
+    def _text_part(value: Any) -> str:
+        """Normalize string or OpenAI content-part arrays to displayable text."""
+        if isinstance(value, str):
+            return value
+        if isinstance(value, list):
+            parts = []
+            for part in value:
+                if isinstance(part, str):
+                    parts.append(part)
+                elif isinstance(part, dict):
+                    text = part.get("text") or part.get("content")
+                    if isinstance(text, str):
+                        parts.append(text)
+            return "".join(parts)
+        return ""
+
     async def chat(
         self,
         messages: List[Dict[str, str]],
@@ -54,17 +71,20 @@ class OpenAIProvider(LLMProvider):
                     if not reasoning and hasattr(delta, "model_extra") and isinstance(delta.model_extra, dict):
                         reasoning = delta.model_extra.get("reasoning_content") or delta.model_extra.get("reasoning")
 
-                    if reasoning:
+                    reasoning_text = self._text_part(reasoning)
+                    if reasoning_text:
                         if not in_thinking:
                             in_thinking = True
                             yield "<think>\n"
-                        yield reasoning
+                        yield reasoning_text
 
-                    if delta.content:
+                    content_text = self._text_part(getattr(delta, "content", None))
+                    refusal_text = self._text_part(getattr(delta, "refusal", None))
+                    if content_text or refusal_text:
                         if in_thinking:
                             in_thinking = False
                             yield "\n</think>\n\n"
-                        yield delta.content
+                        yield content_text or refusal_text
 
             if in_thinking:
                 yield "\n</think>\n\n"

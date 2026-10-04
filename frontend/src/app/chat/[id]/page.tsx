@@ -1,7 +1,7 @@
 import ChatPage from "../page";
 
 export function generateStaticParams() {
-  return [];
+  return [{ id: "session" }];
 }
 
 export default function SpecificChatPage() {

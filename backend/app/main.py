@@ -40,10 +40,14 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS Middleware
+# CORS Middleware: 严格只允许 *.apiapia.com 以及本地开发调试端口
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins in container networking
+    allow_origin_regex=r"^https://([a-zA-Z0-9-]+\.)*apiapia\.com$",
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

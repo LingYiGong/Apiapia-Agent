@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/build-runner.js",
+    "build:export": "node scripts/build-runner.js --export",
     "start": "next start",
     "lint": "next lint",
     "cap:sync": "cap sync",

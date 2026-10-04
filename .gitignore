@@ -20,6 +20,7 @@ yarn-error.log*
 out/
 build/
 dist/
+_api_disabled/
 
 # Python
 venv/

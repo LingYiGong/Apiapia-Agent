@@ -8,7 +8,7 @@ import { Navbar } from "@/components/layout/Navbar";
 import { MobileHeader } from "@/components/layout/MobileHeader";
 import { ModelCatalogItem } from "@/types";
 import { useTheme } from "@/lib/theme";
-import { ModelSelect } from "@/components/common/ModelSelect";
+import { ModelSelect, isFreeModel, isMultimodalModel } from "@/components/common/ModelSelect";
 import { CURRENT_VERSION, triggerManualUpdateCheck } from "@/lib/version";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -61,6 +61,7 @@ import {
   Database,
   Cat,
   Layers,
+  Server,
 } from "lucide-react";
 import { BrandLogo } from "@/components/common/BrandLogo";
 
@@ -525,13 +526,76 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         size="sm"
                         onClick={handleSyncModels}
                         disabled={syncingModels}
-                        className="h-9 px-3 text-xs font-medium rounded-xl border-border/50 bg-muted/30 hover:bg-muted text-foreground transition-all active:scale-95 gap-1.5 shrink-0"
+                        className="h-9 sm:h-9.5 px-3 text-xs font-medium rounded-xl border-border/50 bg-muted/30 hover:bg-muted text-foreground transition-all active:scale-95 gap-1.5 shrink-0"
                       >
                         <RefreshCw className={cn("h-3.5 w-3.5", syncingModels && "animate-spin text-primary")} />
                         <span className="hidden sm:inline">{syncingModels ? "同步中..." : "同步列表"}</span>
                       </Button>
                     </ActionTooltip>
                   </div>
+
+                  {/* ── 选好模型后的详细信息面板 ── */}
+                  {(() => {
+                    const currentModelItem = availableModels.find((m) => m.id === defaultModel);
+                    if (!currentModelItem) {
+                      return defaultModel ? (
+                        <div className="pt-2.5 mt-2.5 border-t border-border/40 flex items-center justify-between text-[11px] font-mono text-muted-foreground">
+                          <span>模型 ID: {defaultModel}</span>
+                          <span className="text-[10px] text-amber-500 font-sans">未在已同步列表中</span>
+                        </div>
+                      ) : null;
+                    }
+
+                    const isFree = isFreeModel(currentModelItem);
+                    const isMulti = isMultimodalModel(currentModelItem);
+
+                    return (
+                      <div className="pt-3 mt-3 border-t border-border/40 space-y-2.5 animate-in fade-in duration-200">
+                        {/* 属性徽章行 */}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {currentModelItem.provider && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-mono font-medium uppercase bg-muted text-foreground border border-border/50">
+                              <Server className="h-3 w-3 text-muted-foreground" />
+                              <span>{currentModelItem.provider}</span>
+                            </span>
+                          )}
+
+                          {isFree ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">
+                              <Zap className="h-3 w-3" />
+                              <span>免费模型</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/25">
+                              <span>API 计费</span>
+                            </span>
+                          )}
+
+                          {isMulti ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/25">
+                              <Sparkles className="h-3 w-3" />
+                              <span>支持图文视觉</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-muted/60 text-muted-foreground border border-border/40">
+                              <span>文本模型</span>
+                            </span>
+                          )}
+
+                          <span className="sm:ml-auto font-mono text-[11px] text-muted-foreground/70 truncate select-all">
+                            ID: {currentModelItem.id}
+                          </span>
+                        </div>
+
+                        {/* 模型详细介绍 */}
+                        {currentModelItem.description && (
+                          <div className="p-2.5 rounded-xl bg-muted/30 border border-border/40 text-[12px] text-muted-foreground leading-relaxed">
+                            {currentModelItem.description}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 

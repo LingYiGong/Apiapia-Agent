@@ -148,56 +148,24 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
             />
           </button>
         ) : (
-          /* ── Settings Form Variant (iOS Grouped Cell Style) ── */
+          /* ── Modern Form Variant (Clean Single-line Select Trigger) ── */
           <button
             type="button"
             role="combobox"
             aria-expanded={open}
             className={cn(
-              "w-full h-auto justify-between gap-3 p-3.5 rounded-2xl border border-border/70 bg-card hover:bg-muted/40 transition-all active:scale-[0.99] flex items-center text-left shadow-2xs",
+              "w-full h-9 sm:h-9.5 justify-between px-3 rounded-xl border border-border/60 bg-muted/30 hover:bg-muted/60 transition-all active:scale-[0.99] flex items-center text-left shadow-2xs gap-2 select-none cursor-pointer group",
+              open && "bg-muted/60 ring-2 ring-primary/20 border-primary/40",
               className
             )}
           >
-            <div className="flex items-center gap-3 min-w-0 flex-1">
-              <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center border border-primary/20 shrink-0">
-                <Cpu className="h-4.5 w-4.5" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-sm font-semibold truncate text-foreground">
-                    {selectedModel ? selectedModel.name : value || placeholder}
-                  </span>
-                  {selectedModel && isFreeModel(selectedModel) && (
-                    <Badge className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10">
-                      免费
-                    </Badge>
-                  )}
-                  {selectedModel && isMultimodalModel(selectedModel) && (
-                    <Badge className="text-[10px] bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/30 hover:bg-violet-500/10">
-                      多模态
-                    </Badge>
-                  )}
-                  {selectedModel?.provider && (
-                    <Badge variant="secondary" className="text-[10px] uppercase font-mono">
-                      {selectedModel.provider}
-                    </Badge>
-                  )}
-                </div>
-                {selectedModel ? (
-                  <p className="text-[11px] text-muted-foreground font-mono truncate mt-0.5">
-                    {selectedModel.id} {selectedModel.description && `· ${selectedModel.description}`}
-                  </p>
-                ) : value ? (
-                  <p className="text-[11px] text-muted-foreground font-mono truncate mt-0.5">
-                    {value}
-                  </p>
-                ) : null}
-              </div>
-            </div>
+            <span className="text-[13px] font-medium truncate text-foreground min-w-0 flex-1">
+              {selectedModel ? selectedModel.name : value || placeholder}
+            </span>
 
             <ChevronDown
               className={cn(
-                "h-4 w-4 text-muted-foreground shrink-0 transition-transform duration-200",
+                "h-3.5 w-3.5 text-muted-foreground shrink-0 transition-transform duration-200 ml-1",
                 open && "rotate-180 text-foreground"
               )}
             />
@@ -207,7 +175,7 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
 
       {/* ── Apple HIG Standard Popover Sheet ── */}
       <PopoverContent
-        align={variant === "compact" ? "start" : "center"}
+        align="start"
         sideOffset={8}
         collisionPadding={12}
         onOpenAutoFocus={(e) => e.preventDefault()}

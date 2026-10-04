@@ -20,6 +20,7 @@ class UserResponse(BaseModel):
     email: EmailStr
     is_superuser: bool = False
     is_active: bool = True
+    can_access_all_models: bool = False
     created_at: datetime
     updated_at: datetime
 

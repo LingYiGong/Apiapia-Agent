@@ -59,7 +59,9 @@ import {
   CheckCircle2,
   Trash2,
   Activity,
+  Sparkles,
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 
 import { MobileTab } from "@/components/layout/UserAvatarDropdown";
 
@@ -181,6 +183,34 @@ export const UsageView: React.FC<UsageViewProps> = ({
           await apiRequest(`/stats/admin/users/${userId}/toggle-admin`, { method: "POST" });
           await fetchStats();
           toast.success(`已${currentAdmin ? "取消" : "授予"} [${username}] 的管理员权限`);
+        } catch (err: any) {
+          toast.error(err.message || "操作失败");
+        } finally {
+          setActionLoading(null);
+        }
+      },
+    });
+  };
+
+  const handleToggleAllModels = (userId: string, currentAccessAll: boolean, username: string) => {
+    const nextStatus = !currentAccessAll;
+    setPendingConfirm({
+      title: `${nextStatus ? "开通" : "限制"}模型访问权限`,
+      description: nextStatus
+        ? `确定为用户 [${username}] 开通全部模型访问权限吗？开通后该用户可使用系统内包括所有高级付费模型在内的全部可用模型。`
+        : `确定将用户 [${username}] 切换为仅限免费模型吗？切换后该用户将只能访问和调用免费模型。`,
+      confirmText: nextStatus ? "开通全部权限" : "限制为免费模型",
+      danger: !nextStatus,
+      onConfirm: async () => {
+        setPendingConfirm(null);
+        setActionLoading(`model-${userId}`);
+        try {
+          await apiRequest(`/stats/admin/users/${userId}/toggle-all-models`, {
+            method: "POST",
+            body: JSON.stringify({ can_access_all_models: nextStatus }),
+          });
+          await fetchStats();
+          toast.success(`已为 [${username}] ${nextStatus ? "开通全部模型权限" : "切换为仅限免费模型"}`);
         } catch (err: any) {
           toast.error(err.message || "操作失败");
         } finally {
@@ -529,6 +559,7 @@ export const UsageView: React.FC<UsageViewProps> = ({
                         <TableHead className="py-3 px-4 whitespace-nowrap text-[11px] font-medium text-muted-foreground">折算花费 (CNY / USD)</TableHead>
                         <TableHead className="py-3 px-4 whitespace-nowrap text-[11px] font-medium text-muted-foreground">常用模型</TableHead>
                         <TableHead className="py-3 px-4 whitespace-nowrap text-[11px] font-medium text-muted-foreground">状态</TableHead>
+                        <TableHead className="py-3 px-4 whitespace-nowrap text-[11px] font-medium text-muted-foreground">模型权限开关</TableHead>
                         <TableHead className="py-3 px-4 whitespace-nowrap text-[11px] font-medium text-muted-foreground text-right">操作</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -610,6 +641,35 @@ export const UsageView: React.FC<UsageViewProps> = ({
                                 </span>
                               )}
                             </TableCell>
+                            <TableCell className="py-3.5 px-4 whitespace-nowrap">
+                              {u.is_superuser ? (
+                                <div className="flex items-center gap-1.5">
+                                  <Badge className="text-[10px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded-full px-2 py-0.5 shadow-none">
+                                    全部模型 (管理员)
+                                  </Badge>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  <Switch
+                                    checked={!!u.can_access_all_models}
+                                    disabled={actionLoading === `model-${u.user_id}`}
+                                    onCheckedChange={() => handleToggleAllModels(u.user_id, !!u.can_access_all_models, u.username)}
+                                    aria-label={`切换用户 ${u.username} 模型访问权限`}
+                                  />
+                                  <span
+                                    className={cn(
+                                      "text-[11px] font-medium select-none cursor-pointer transition-colors",
+                                      u.can_access_all_models
+                                        ? "text-emerald-600 dark:text-emerald-400 font-semibold"
+                                        : "text-amber-600 dark:text-amber-400"
+                                    )}
+                                    onClick={() => handleToggleAllModels(u.user_id, !!u.can_access_all_models, u.username)}
+                                  >
+                                    {u.can_access_all_models ? "全部模型" : "仅免费模型"}
+                                  </span>
+                                </div>
+                              )}
+                            </TableCell>
                             <TableCell className="py-3.5 px-4 text-right space-x-1.5 whitespace-nowrap">
                               <ActionTooltip label="审查该用户全部对话记录（含已删除对话）" side="left">
                                 <Button
@@ -635,7 +695,19 @@ export const UsageView: React.FC<UsageViewProps> = ({
                                       <span className="sr-only">操作菜单</span>
                                     </Button>
                                   </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end" className="w-40 rounded-xl p-1 shadow-lg border border-border/50">
+                                  <DropdownMenuContent align="end" className="w-44 rounded-xl p-1 shadow-lg border border-border/50">
+                                    {!u.is_superuser && (
+                                      <>
+                                        <DropdownMenuItem
+                                          onClick={() => handleToggleAllModels(u.user_id, !!u.can_access_all_models, u.username)}
+                                          className="cursor-pointer text-xs rounded-lg px-2.5 py-1.5 text-foreground focus:bg-muted"
+                                        >
+                                          <Sparkles className="h-3.5 w-3.5 mr-2 text-indigo-500" />
+                                          <span>{u.can_access_all_models ? "限制仅免费模型" : "开通全部模型权限"}</span>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator className="my-1" />
+                                      </>
+                                    )}
                                     <DropdownMenuItem
                                       onClick={() => handleToggleActive(u.user_id, u.is_active, u.username)}
                                       className={cn(

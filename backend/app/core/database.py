@@ -54,6 +54,8 @@ async def init_db():
                 IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'users') THEN
                     ALTER TABLE users ADD COLUMN IF NOT EXISTS is_superuser boolean DEFAULT false;
                     ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true;
+                    ALTER TABLE users ADD COLUMN IF NOT EXISTS can_access_all_models boolean DEFAULT false;
+                    UPDATE users SET can_access_all_models = true WHERE is_superuser = true;
                 END IF;
 
                 IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'conversations') THEN

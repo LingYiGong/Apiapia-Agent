@@ -4,6 +4,7 @@ export interface User {
   email: string;
   is_superuser?: boolean;
   is_active?: boolean;
+  can_access_all_models?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -135,6 +136,7 @@ export interface AdminUserUsageItem {
   email: string;
   is_superuser: boolean;
   is_active: boolean;
+  can_access_all_models?: boolean;
   created_at: string;
   conversations_count: number;
   messages_count: number;

@@ -1,6 +1,7 @@
 import logging
 from datetime import datetime, timezone, timedelta
 from typing import List, Dict, Any, Optional
+from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc, or_
@@ -399,6 +400,7 @@ async def get_admin_overview_stats(
             "email": u.email,
             "is_superuser": getattr(u, "is_superuser", False),
             "is_active": getattr(u, "is_active", True),
+            "can_access_all_models": getattr(u, "can_access_all_models", False) or getattr(u, "is_superuser", False),
             "created_at": u.created_at.strftime("%Y-%m-%d %H:%M") if u.created_at else "",
             "conversations_count": convs,
             "messages_count": msgs,
@@ -592,13 +594,57 @@ async def toggle_user_admin(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="用户不存在")
 
     target.is_superuser = not target.is_superuser
+    if target.is_superuser:
+        target.can_access_all_models = True
     await db.commit()
     await db.refresh(target)
     return {
         "user_id": target.id,
         "username": target.username,
         "is_superuser": target.is_superuser,
+        "can_access_all_models": target.can_access_all_models,
         "message": f"用户 {target.username} 管理员权限已{'开启' if target.is_superuser else '取消'}"
+    }
+
+
+class ToggleAllModelsRequest(BaseModel):
+    can_access_all_models: Optional[bool] = None
+
+
+@router.post("/admin/users/{user_id}/toggle-all-models")
+async def toggle_user_all_models(
+    user_id: str,
+    payload: Optional[ToggleAllModelsRequest] = None,
+    admin_user: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Switch or set whether a user can access all models (including paid ones).
+    Superusers automatically have access to all models.
+    """
+    stmt = select(User).where(User.id == user_id)
+    target = (await db.execute(stmt)).scalar_one_or_none()
+    if not target:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="用户不存在")
+
+    if target.is_superuser:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="管理员账号默认拥有全部模型访问权限，无需修改"
+        )
+
+    if payload and payload.can_access_all_models is not None:
+        target.can_access_all_models = payload.can_access_all_models
+    else:
+        target.can_access_all_models = not bool(target.can_access_all_models)
+
+    await db.commit()
+    await db.refresh(target)
+    return {
+        "user_id": target.id,
+        "username": target.username,
+        "can_access_all_models": target.can_access_all_models,
+        "message": f"用户 {target.username} 已{'开通全部模型访问权限' if target.can_access_all_models else '切换为仅限免费模型'}"
     }
 
 

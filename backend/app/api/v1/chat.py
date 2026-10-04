@@ -57,6 +57,14 @@ async def chat_stream(
     temperature = chat_req.temperature if chat_req.temperature is not None else (user_settings.temperature if user_settings else 0.7)
     use_memory = chat_req.memory_enabled if chat_req.memory_enabled is not None else (user_settings.memory_enabled if user_settings else True)
 
+    # Validate model permission (new users only have access to free models until granted by admin)
+    from app.api.v1.models import check_user_can_use_model
+    if not check_user_can_use_model(current_user, model_to_use):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="当前账号权限仅支持访问免费模型。如需使用该模型，请联系管理员开通全部模型权限。"
+        )
+
     # 2. Fetch or create conversation
     conversation = None
     if chat_req.conversation_id:

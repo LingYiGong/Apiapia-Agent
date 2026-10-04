@@ -195,6 +195,11 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
             <span className="text-[11px] text-muted-foreground font-mono bg-muted/60 px-1.5 py-0.5 rounded-full">
               {sorted.length}
             </span>
+            {sorted.length > 0 && sorted.every(isFreeModel) && (
+              <Badge variant="outline" className="text-[10px] font-normal bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 px-1.5 py-0 rounded-full shadow-none" title="当前账号仅支持使用免费模型，联系管理员可开通全量模型">
+                免费体验模式
+              </Badge>
+            )}
           </div>
           {selectedModel && (
             <span className="text-[11px] text-muted-foreground font-mono truncate max-w-[170px]">

@@ -17,13 +17,31 @@ SYNCED_MODELS_FILE = Path(__file__).resolve().parent.parent.parent / "synced_mod
 
 
 def is_free_model(m: dict) -> bool:
+    mid = (m.get("id") or "").lower()
+    mname = (m.get("name") or "").lower()
     return bool(
         m.get("is_free")
-        or ":free" in m.get("id", "").lower()
-        or "(free)" in m.get("name", "").lower()
-        or "免费" in m.get("name", "")
+        or ":free" in mid
+        or "/free" in mid
+        or "-free" in mid
+        or "(free)" in mname
+        or "free" in mname
+        or "免费" in mname
         or m.get("provider") == "ollama"
     )
+
+
+def check_user_can_use_model(user: User, model_id: str) -> bool:
+    if getattr(user, "is_superuser", False) or getattr(user, "can_access_all_models", False):
+        return True
+    mid = (model_id or "").lower()
+    if ":free" in mid or "/free" in mid or "-free" in mid or "ollama" in mid or "免费" in mid:
+        return True
+    stored = load_stored_models()
+    matched = next((m for m in stored if m.get("id") == model_id), None)
+    if matched:
+        return is_free_model(matched)
+    return False
 
 
 def load_stored_models() -> List[Dict[str, Any]]:
@@ -284,12 +302,17 @@ async def list_configured_models(
         if m.get("provider") in active_providers
     ]
 
+    can_all = getattr(current_user, "is_superuser", False) or getattr(current_user, "can_access_all_models", False)
+    if not can_all:
+        configured_models = [m for m in configured_models if is_free_model(m)]
+
     configured_models.sort(key=lambda m: 0 if is_free_model(m) else 1)
 
     return {
         "active_providers": list(active_providers),
         "total": len(configured_models),
-        "models": configured_models
+        "models": configured_models,
+        "can_access_all_models": can_all
     }
 
 

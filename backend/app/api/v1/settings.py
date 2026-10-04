@@ -38,18 +38,15 @@ async def get_user_settings(
         await db.commit()
         await db.refresh(setting)
 
-    # For users restricted to free models, ensure default_model falls back to a free model if needed
+    # For users restricted to free models, ensure default_model falls back to openrouter/free if needed
     can_all = getattr(current_user, "is_superuser", False) or getattr(current_user, "can_access_all_models", False)
     if not can_all:
         try:
-            from app.api.v1.models import check_user_can_use_model, load_stored_models, is_free_model
+            from app.api.v1.models import check_user_can_use_model
             if not check_user_can_use_model(current_user, setting.default_model):
-                stored = load_stored_models()
-                free_models = [m["id"] for m in stored if is_free_model(m)]
-                if free_models:
-                    setting.default_model = free_models[0]
-                    await db.commit()
-                    await db.refresh(setting)
+                setting.default_model = "openrouter/free"
+                await db.commit()
+                await db.refresh(setting)
         except Exception:
             pass
 

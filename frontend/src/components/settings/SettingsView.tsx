@@ -235,7 +235,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       ]);
 
       if (settingsRes) {
-        const dModel = settingsRes.default_model || "gpt-4o-mini";
+        let dModel = settingsRes.default_model;
+        if (!user?.is_superuser && !user?.can_access_all_models) {
+          if (!dModel || !modelsRes?.models?.some((m) => m.id === dModel)) {
+            dModel = modelsRes?.models?.some((m) => m.id === "openrouter/free")
+              ? "openrouter/free"
+              : (modelsRes?.models?.[0]?.id || "openrouter/free");
+          }
+        } else {
+          dModel = dModel || "openrouter/free";
+        }
         const mModel = settingsRes.memory_model || "openai/gpt-4o-mini";
         const sPrompt = settingsRes.system_prompt || "";
         const temp = settingsRes.temperature ?? 0.7;

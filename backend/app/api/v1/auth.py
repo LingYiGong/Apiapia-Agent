@@ -46,17 +46,8 @@ async def register(user_in: UserCreate, db: AsyncSession = Depends(get_db)):
     db.add(user)
     await db.flush()  # to get user.id
 
-    # Determine default model: ordinary users default to first available free model if exists
-    default_model = settings.DEFAULT_MODEL
-    if not is_admin:
-        try:
-            from app.api.v1.models import load_stored_models, is_free_model
-            stored = load_stored_models()
-            free_models = [m["id"] for m in stored if is_free_model(m)]
-            if free_models:
-                default_model = free_models[0]
-        except Exception:
-            pass
+    # Determine default model: ordinary users default to "openrouter/free"
+    default_model = "openrouter/free" if not is_admin else settings.DEFAULT_MODEL
 
     # Create default settings for user
     user_setting = UserSetting(

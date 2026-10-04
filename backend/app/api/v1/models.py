@@ -21,6 +21,8 @@ def is_free_model(m: dict) -> bool:
     mname = (m.get("name") or "").lower()
     return bool(
         m.get("is_free")
+        or mid == "openrouter/free"
+        or "openrouter/free" in mid
         or ":free" in mid
         or "/free" in mid
         or "-free" in mid
@@ -35,7 +37,7 @@ def check_user_can_use_model(user: User, model_id: str) -> bool:
     if getattr(user, "is_superuser", False) or getattr(user, "can_access_all_models", False):
         return True
     mid = (model_id or "").lower()
-    if ":free" in mid or "/free" in mid or "-free" in mid or "ollama" in mid or "免费" in mid:
+    if mid == "openrouter/free" or "openrouter/free" in mid or ":free" in mid or "/free" in mid or "-free" in mid or "ollama" in mid or "免费" in mid:
         return True
     stored = load_stored_models()
     matched = next((m for m in stored if m.get("id") == model_id), None)
@@ -302,11 +304,31 @@ async def list_configured_models(
         if m.get("provider") in active_providers
     ]
 
+    # Ensure openrouter/free is always present if openrouter provider is active
+    if "openrouter" in active_providers or bool(settings.OPENROUTER_API_KEY):
+        if not any(m.get("id") == "openrouter/free" for m in configured_models):
+            configured_models.insert(0, {
+                "id": "openrouter/free",
+                "name": "OpenRouter Free (官方聚合免费模型)",
+                "provider": "openrouter",
+                "description": "由 OpenRouter 官方智能路由至当前最佳可用的免费大模型，稳定可靠",
+                "is_free": True,
+                "is_multimodal": True
+            })
+
     can_all = getattr(current_user, "is_superuser", False) or getattr(current_user, "can_access_all_models", False)
     if not can_all:
         configured_models = [m for m in configured_models if is_free_model(m)]
 
-    configured_models.sort(key=lambda m: 0 if is_free_model(m) else 1)
+    def get_model_sort_priority(m: dict):
+        mid = (m.get("id") or "").lower()
+        if mid == "openrouter/free":
+            return (0, 0, mid)
+        if is_free_model(m):
+            return (1, 0, mid)
+        return (2, 0, mid)
+
+    configured_models.sort(key=get_model_sort_priority)
 
     return {
         "active_providers": list(active_providers),

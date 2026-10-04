@@ -18,6 +18,8 @@ export function isFreeModel(m: ModelCatalogItem): boolean {
   const id = (m.id || "").toLowerCase();
   const name = (m.name || "").toLowerCase();
   return (
+    id === "openrouter/free" ||
+    id.includes("openrouter/free") ||
     id.endsWith(":free") ||
     id.includes(":free") ||
     id.includes("/free") ||
@@ -104,8 +106,13 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
     return matchesSearch && matchesProvider;
   });
 
-  // Sort with free models first
+  // Sort: openrouter/free first, then other free models, then paid models
   const sorted = [...filtered].sort((a, b) => {
+    const aIsORFree = a.id === "openrouter/free";
+    const bIsORFree = b.id === "openrouter/free";
+    if (aIsORFree && !bIsORFree) return -1;
+    if (!aIsORFree && bIsORFree) return 1;
+
     const aFree = isFreeModel(a);
     const bFree = isFreeModel(b);
     if (aFree && !bFree) return -1;

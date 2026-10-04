@@ -28,8 +28,8 @@ export default function ChatPage() {
   const activeIdRef = useRef<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [availableModels, setAvailableModels] = useState<ModelCatalogItem[]>([]);
-  const [currentModel, setCurrentModel] = useState("gpt-4o-mini");
-  const defaultModelRef = useRef<string>("gpt-4o-mini");
+  const [currentModel, setCurrentModel] = useState("openrouter/free");
+  const defaultModelRef = useRef<string>("openrouter/free");
   const [memoryEnabled, setMemoryEnabled] = useState(true);
   const [retrievedMemories, setRetrievedMemories] = useState<any[]>([]);
 
@@ -198,17 +198,22 @@ export default function ChatPage() {
       // Choose active model
       if (models.length > 0) {
         if (!activeIdRef.current) {
-          // Fresh new chat: ALWAYS prioritize user's configured default model
+          // Fresh new chat: ALWAYS prioritize user's configured default model or openrouter/free
           if (userDef && models.some((m) => m.id === userDef)) {
             setCurrentModel(userDef);
             try { localStorage.setItem("apiapia_preferred_model", userDef); } catch (e) {}
+          } else if (models.some((m) => m.id === "openrouter/free")) {
+            setCurrentModel("openrouter/free");
+            try { localStorage.setItem("apiapia_preferred_model", "openrouter/free"); } catch (e) {}
           } else if (!models.some((m) => m.id === currentModel)) {
             setCurrentModel(models[0].id);
           }
         } else {
           // Inside existing conversation: only fallback if current model is invalid
           if (!models.some((m) => m.id === currentModel)) {
-            const fallback = (userDef && models.some((m) => m.id === userDef)) ? userDef : models[0].id;
+            const fallback = (userDef && models.some((m) => m.id === userDef))
+              ? userDef
+              : (models.some((m) => m.id === "openrouter/free") ? "openrouter/free" : models[0].id);
             setCurrentModel(fallback);
           }
         }

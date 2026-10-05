@@ -49,6 +49,7 @@ async def init_db():
                     ALTER TABLE messages ADD COLUMN IF NOT EXISTS completion_tokens integer DEFAULT 0;
                     ALTER TABLE messages ADD COLUMN IF NOT EXISTS duration_ms integer DEFAULT 0;
                     ALTER TABLE messages ADD COLUMN IF NOT EXISTS search_results text;
+                    ALTER TABLE messages ADD COLUMN IF NOT EXISTS generated_images text;
                 END IF;
 
                 IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'users') THEN

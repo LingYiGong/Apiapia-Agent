@@ -16,8 +16,30 @@ import { SettingsView } from "@/components/settings/SettingsView";
 import { MobileTab } from "@/components/layout/UserAvatarDropdown";
 import { toast } from "sonner";
 import { FullPageSkeleton } from "@/components/common/PageSkeleton";
-import { Conversation, Message, ModelCatalogItem, AttachmentItem, SearchResultItem, ToolInvocation } from "@/types";
+import { Conversation, Message, ModelCatalogItem, AttachmentItem, SearchResultItem, ToolInvocation, GeneratedImage } from "@/types";
 import { cn } from "@/lib/utils";
+
+/**
+ * Rehydrate the artwork that the backend persisted alongside the reply text.
+ * The streaming path already holds these in memory, but after a reload only the
+ * raw JSON column is available, so it has to be parsed back into cards.
+ */
+function hydrateGeneratedImages(msg: Message): Message {
+  if (!msg.generated_images) return msg;
+  if (msg.generatedImages && msg.generatedImages.length > 0) return msg;
+
+  try {
+    const raw = typeof msg.generated_images === "string"
+      ? JSON.parse(msg.generated_images)
+      : msg.generated_images;
+    if (Array.isArray(raw) && raw.length > 0) {
+      return { ...msg, generatedImages: raw as GeneratedImage[] };
+    }
+  } catch (err) {
+    console.warn("Failed to parse generated_images for message", msg.id, err);
+  }
+  return msg;
+}
 
 export default function ChatPage() {
   const { user, loading } = useAuth();
@@ -287,7 +309,7 @@ export default function ChatPage() {
         apiRequest<any[]>(`/conversations/${id}/memories`).catch(() => []),
       ]);
       if (activeIdRef.current === id) {
-        setMessages(msgs || []);
+        setMessages((msgs || []).map(hydrateGeneratedImages));
         if (mems && mems.length > 0) {
           setRetrievedMemories(mems);
         }
@@ -593,6 +615,7 @@ export default function ChatPage() {
           },
           onImageResult: (data) => {
             currentGeneratedImagesRef.current.push({
+              id: data.imageId ?? undefined,
               url: data.url,
               prompt: data.prompt,
               provider: data.provider,

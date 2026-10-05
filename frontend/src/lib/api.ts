@@ -30,6 +30,23 @@ export function removeToken() {
   }
 }
 
+/**
+ * URL for a persisted generated image.
+ *
+ * The JWT travels as a query parameter because an <img src> request cannot carry
+ * an Authorization header, and lazy loading requires a plain URL. The backend
+ * responds with Referrer-Policy: no-referrer so the token cannot leak.
+ */
+export function getMediaImageUrl(imageId: string, download = false): string {
+  const base = getApiBase();
+  const token = getToken();
+  const params = new URLSearchParams();
+  if (token) params.set("token", token);
+  if (download) params.set("download", "1");
+  const qs = params.toString();
+  return `${base}/media/images/${imageId}${qs ? `?${qs}` : ""}`;
+}
+
 export async function apiRequest<T = any>(
   path: string,
   options: RequestInit = {}
@@ -97,7 +114,7 @@ export async function streamChatResponse(
     onSearchResults?: (data: { query: string; results: SearchResultItem[] }) => void;
     onToolCall?: (data: { toolCallId: string; toolName: string; args: any }) => void;
     onToolResult?: (data: { toolCallId: string; result: any }) => void;
-    onImageResult?: (data: { toolCallId: string; url: string; prompt: string; provider: string; model: string }) => void;
+    onImageResult?: (data: { toolCallId: string; imageId?: string | null; url: string; prompt: string; provider: string; model: string }) => void;
     onToken?: (token: string) => void;
     onError?: (error: string) => void;
     onDone?: (doneMeta: {

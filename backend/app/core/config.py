@@ -48,6 +48,11 @@ class Settings(BaseSettings):
     MEM0_EMBEDDER_PROVIDER: str = "openai"
     MEM0_DATA_DIR: str = "/app/data/mem0"
 
+    # Generated image storage. Images are written here as original bytes (never
+    # re-encoded or resized) and served back through an authenticated endpoint,
+    # so the database only ever holds a small metadata record.
+    MEDIA_DIR: str = "/app/data/media"
+
     # LLMs
     DEFAULT_MODEL: str = "gpt-4o-mini"
     DEFAULT_PROVIDER: str = "openai"

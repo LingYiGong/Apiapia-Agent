@@ -55,6 +55,7 @@ services:
       MEM0_LLM_PROVIDER: ${MEM0_LLM_PROVIDER:-openai}
       MEM0_EMBEDDER_PROVIDER: ${MEM0_EMBEDDER_PROVIDER:-openai}
       MEM0_DATA_DIR: /app/data/mem0
+      MEDIA_DIR: ${MEDIA_DIR:-/app/data/media}
       DEFAULT_MODEL: ${DEFAULT_MODEL:-gpt-4o-mini}
       DEFAULT_PROVIDER: ${DEFAULT_PROVIDER:-openai}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
@@ -77,6 +78,7 @@ services:
     volumes:
       - ./backend/app:/app/app
       - apiapia_mem0_data:/app/data/mem0
+      - apiapia_media:/app/data/media
     extra_hosts:
       - "host.docker.internal:host-gateway"
     logging:
@@ -112,4 +114,6 @@ volumes:
   apiapia_postgres_data:
     driver: local
   apiapia_mem0_data:
+    driver: local
+  apiapia_media:
     driver: local

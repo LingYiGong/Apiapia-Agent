@@ -20,6 +20,7 @@ from app.services.memory.dreaming import schedule_dreaming
 from app.services.document_parser import parse_attachment, fetch_and_parse_url, extract_urls
 from app.services.search import web_search_service, should_search_web
 from app.services.image_gen import should_generate_image, image_gen_service
+from app.services.media_storage import store_generated_image
 from app.services.prompt import build_system_prompt
 from app.services.deterministic import evaluate_deterministic_context
 from app.core.security import decrypt_api_key
@@ -326,6 +327,7 @@ async def chat_stream(
         provider = None
 
         search_results = []
+        generated_images = []
         search_mode = chat_req.web_search_mode or "auto"
         need_search, search_query, search_topic, search_time_range = should_search_web(chat_req.message, mode=search_mode)
         need_image_gen, img_prompt, img_size = should_generate_image(chat_req.message)
@@ -349,9 +351,26 @@ async def chat_stream(
                     img_provider = img_res.get("provider", "AI生图")
                     img_model = img_res.get("model", "unknown")
 
-                    # Emit dedicated image_result event — frontend renders this as a proper card
-                    # The url may be a data:image/...;base64,... URI or an https:// URL
-                    yield f"data: {json.dumps({'type': 'image_result', 'toolCallId': tool_call_id, 'url': img_url, 'prompt': img_prompt, 'provider': img_provider, 'model': img_model}, ensure_ascii=False)}\n\n"
+                    # Persist the original bytes to disk first, so the client is
+                    # pointed at a durable asset rather than a short-lived
+                    # provider URL or a multi-megabyte inline data URI.
+                    stored_meta = None
+                    try:
+                        stored_meta = await store_generated_image(
+                            url=img_url,
+                            prompt=img_prompt,
+                            provider=img_provider,
+                            model=img_model,
+                        )
+                    except Exception as se:
+                        logger.warning("Failed to persist generated image: %s", se)
+
+                    # Emit dedicated image_result event — frontend renders this as a
+                    # proper card and lazily loads it from /api/media/images/{id}
+                    image_id = stored_meta.get("id") if stored_meta else None
+                    if image_id:
+                        generated_images.append(stored_meta)
+                    yield f"data: {json.dumps({'type': 'image_result', 'toolCallId': tool_call_id, 'imageId': image_id, 'url': img_url, 'prompt': img_prompt, 'provider': img_provider, 'model': img_model}, ensure_ascii=False)}\n\n"
                     yield f"data: {json.dumps({'type': 'tool_result', 'toolCallId': tool_call_id, 'result': {'prompt': img_prompt, 'model': img_model, 'provider': img_provider}}, ensure_ascii=False)}\n\n"
 
                     # Content delta is just the caption text (no base64 embedded in markdown)
@@ -617,6 +636,7 @@ async def chat_stream(
                     completion_tokens=completion_tokens,
                     duration_ms=duration_ms,
                     search_results=json.dumps(search_results, ensure_ascii=False) if search_results else None,
+                    generated_images=json.dumps(generated_images, ensure_ascii=False) if generated_images else None,
                     created_at=reply_created_at
                 )
                 save_db.add(assistant_msg_record)

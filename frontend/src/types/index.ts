@@ -48,10 +48,15 @@ export interface ToolInvocation {
 }
 
 export interface GeneratedImage {
-  url: string;         // data: URI (base64) or https:// URL
+  id?: string;
+  // Only populated for the very first render of a freshly streamed image; the
+  // durable reference is `id`, resolved through /api/media/images/{id}.
+  url?: string;
   prompt: string;
   provider: string;
   model: string;
+  ext?: string;
+  bytes?: number;
 }
 
 export interface Message {
@@ -61,6 +66,7 @@ export interface Message {
   content: string;
   attachments?: AttachmentItem[];
   search_results?: SearchResultItem[] | string;
+  generated_images?: string | null;
   toolInvocations?: ToolInvocation[];
   generatedImages?: GeneratedImage[];
   model?: string;

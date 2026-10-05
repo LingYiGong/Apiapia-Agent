@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ActionTooltip } from "@/components/common/ActionTooltip";
 import { cn } from "@/lib/utils";
+import { getMediaImageUrl } from "@/lib/api";
 import {
   Brain,
   AlertTriangle,
@@ -204,21 +205,65 @@ function AiImageCard({
 }) {
   const [loaded, setLoaded] = React.useState(false);
   const [errored, setErrored] = React.useState(false);
+  const [visible, setVisible] = React.useState(false);
+  const holderRef = React.useRef<HTMLDivElement>(null);
+
+  // Prefer the durable asset URL; the inline url only exists for a freshly
+  // streamed image that has not been re-read from the API yet.
+  const src = image.id
+    ? getMediaImageUrl(image.id)
+    : image.url || "";
+
+  // Only start downloading once the card is close to the viewport, so opening a
+  // long conversation does not fetch every image at once.
+  React.useEffect(() => {
+    if (!src || visible) return;
+    const node = holderRef.current;
+    if (!node) {
+      setVisible(true);
+      return;
+    }
+    if (typeof IntersectionObserver === "undefined") {
+      setVisible(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "300px 0px" },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [src, visible]);
 
   const handleDownload = () => {
-    const { url, prompt } = image;
-    const filename = `ai-image-${Date.now()}.png`;
-    if (url.startsWith("data:")) {
+    const filename = `ai-image-${Date.now()}.${(image.ext || "png").toLowerCase()}`;
+    if (image.id) {
+      // Same-origin asset with Content-Disposition, so a plain navigation saves it.
+      const a = document.createElement("a");
+      a.href = getMediaImageUrl(image.id, true);
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      return;
+    }
+    if (!src) return;
+    if (src.startsWith("data:")) {
       // base64 data URI — create a temporary anchor
       const a = document.createElement("a");
-      a.href = url;
+      a.href = src;
       a.download = filename;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
     } else {
-      // https:// URL — open in new tab so user can save manually
-      window.open(url, "_blank", "noopener,noreferrer");
+      // remote URL — open in new tab so user can save manually
+      window.open(src, "_blank", "noopener,noreferrer");
     }
   };
 
@@ -246,7 +291,10 @@ function AiImageCard({
       </div>
 
       {/* Image Area */}
-      <div className="relative bg-muted/20 dark:bg-[#18181b]/60 flex items-center justify-center min-h-[200px]">
+      <div
+        ref={holderRef}
+        className="relative bg-muted/20 dark:bg-[#18181b]/60 flex items-center justify-center min-h-[200px]"
+      >
         {/* Shimmer skeleton while loading */}
         {!loaded && !errored && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-muted-foreground/60">
@@ -270,15 +318,17 @@ function AiImageCard({
         ) : (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={image.url}
+            src={visible ? src : undefined}
             alt={image.prompt}
+            loading="lazy"
+            decoding="async"
             className={cn(
               "max-w-full max-h-[520px] object-contain cursor-zoom-in transition-opacity duration-300",
               loaded ? "opacity-100" : "opacity-0"
             )}
             onLoad={() => setLoaded(true)}
             onError={() => { setLoaded(true); setErrored(true); }}
-            onClick={() => onImageClick?.(image.url, image.prompt)}
+            onClick={() => onImageClick?.(src, image.prompt)}
             title="点击放大查看原图"
           />
         )}

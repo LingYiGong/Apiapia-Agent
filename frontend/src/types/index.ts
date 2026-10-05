@@ -87,9 +87,25 @@ export interface UserSetting {
   user_id: string;
   default_model: string;
   memory_model?: string;
+  image_model?: string | null;
   system_prompt: string;
   temperature: number;
   memory_enabled: boolean;
+}
+
+export interface ImageModelItem {
+  id: string;
+  name: string;
+  provider: string;
+  description?: string;
+  is_free: boolean;
+}
+
+export interface ImageModelsResponse {
+  total: number;
+  models: ImageModelItem[];
+  can_access_all_models: boolean;
+  synced: boolean;
 }
 
 export interface ModelCatalogItem {

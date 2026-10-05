@@ -6,6 +6,7 @@ from typing import Optional
 class UserSettingUpdate(BaseModel):
     default_model: Optional[str] = None
     memory_model: Optional[str] = None
+    image_model: Optional[str] = None
     system_prompt: Optional[str] = None
     temperature: Optional[float] = None
     memory_enabled: Optional[bool] = None
@@ -16,6 +17,7 @@ class UserSettingResponse(BaseModel):
     user_id: str
     default_model: str
     memory_model: Optional[str] = "openai/gpt-4o-mini"
+    image_model: Optional[str] = None
     system_prompt: str
     temperature: float
     memory_enabled: bool

@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/auth";
 import { apiRequest } from "@/lib/api";
 import { Navbar } from "@/components/layout/Navbar";
 import { MobileHeader } from "@/components/layout/MobileHeader";
-import { ModelCatalogItem } from "@/types";
+import { ModelCatalogItem, ImageModelItem, ImageModelsResponse } from "@/types";
 import { useTheme } from "@/lib/theme";
 import { ModelSelect, isFreeModel, isMultimodalModel } from "@/components/common/ModelSelect";
 import { CURRENT_VERSION, triggerManualUpdateCheck } from "@/lib/version";
@@ -64,10 +64,12 @@ import {
   Server,
 } from "lucide-react";
 import { BrandLogo } from "@/components/common/BrandLogo";
+import { ImageModelSelect } from "@/components/settings/ImageModelSelect";
 
 interface InitialSettings {
   defaultModel: string;
   memoryModel: string;
+  imageModel: string | null;
   systemPrompt: string;
   temperature: number;
   memoryEnabled: boolean;
@@ -156,9 +158,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const router = useRouter();
   const { theme, setTheme } = useTheme();
 
+  // Accounts without full model access only ever see zero-cost options.
+  const isTrialMode = !user?.is_superuser && !user?.can_access_all_models;
+
   // User Settings State
   const [defaultModel, setDefaultModel] = useState("gpt-4o-mini");
   const [memoryModel, setMemoryModel] = useState("openai/gpt-4o-mini");
+  const [imageModel, setImageModel] = useState<string | null>(null);
   const [systemPrompt, setSystemPrompt] = useState("");
   const [personaId, setPersonaId] = useState<string>("default");
   const [temperature, setTemperature] = useState(0.7);
@@ -169,6 +175,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   // Model Catalog State
   const [availableModels, setAvailableModels] = useState<ModelCatalogItem[]>([]);
+  const [imageModels, setImageModels] = useState<ImageModelItem[]>([]);
+  const [imageModelsSynced, setImageModelsSynced] = useState(false);
+  const [loadingImageModels, setLoadingImageModels] = useState(true);
+  const [syncingImageModels, setSyncingImageModels] = useState(false);
   const [syncingModels, setSyncingModels] = useState(false);
   const [syncResultModal, setSyncResultModal] = useState<{
     isOpen: boolean;
@@ -187,11 +197,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     return (
       defaultModel !== initialSettings.defaultModel ||
       memoryModel !== initialSettings.memoryModel ||
+      imageModel !== initialSettings.imageModel ||
       systemPrompt !== initialSettings.systemPrompt ||
       Math.abs(temperature - initialSettings.temperature) > 0.001 ||
       memoryEnabled !== initialSettings.memoryEnabled
     );
-  }, [initialSettings, defaultModel, memoryModel, systemPrompt, temperature, memoryEnabled]);
+  }, [initialSettings, defaultModel, memoryModel, imageModel, systemPrompt, temperature, memoryEnabled]);
 
   const handleSyncModels = async () => {
     setSyncingModels(true);
@@ -220,6 +231,29 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
   };
 
+  const handleSyncImageModels = async () => {
+    setSyncingImageModels(true);
+    try {
+      const res = await apiRequest<{
+        success: boolean;
+        new_count: number;
+        total: number;
+        synced_providers: string[];
+        message: string;
+      }>("/models/sync-images", { method: "POST" });
+
+      const imageRes = await apiRequest<ImageModelsResponse>("/models/image-models");
+      if (imageRes?.models) setImageModels(imageRes.models);
+      setImageModelsSynced(imageRes?.synced ?? true);
+
+      toast.success(res.message || "绘图模型同步完成");
+    } catch (err: any) {
+      toast.error(err.message || "同步绘图模型失败，请检查后台 .env 是否配置了有效的生图服务密钥");
+    } finally {
+      setSyncingImageModels(false);
+    }
+  };
+
   useEffect(() => {
     if (!loading && !user) {
       router.push("/login");
@@ -228,15 +262,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const fetchSettingsAndConfigs = async () => {
     setLoadingSettings(true);
+    setLoadingImageModels(true);
     try {
-      const [settingsRes, modelsRes] = await Promise.all([
+      const [settingsRes, modelsRes, imageModelsRes] = await Promise.all([
         apiRequest<any>("/settings"),
         apiRequest<{ models: ModelCatalogItem[] }>("/models/configured"),
+        apiRequest<ImageModelsResponse>("/models/image-models").catch(() => null),
       ]);
 
       if (settingsRes) {
         let dModel = settingsRes.default_model;
-        if (!user?.is_superuser && !user?.can_access_all_models) {
+        if (isTrialMode) {
           if (!dModel || !modelsRes?.models?.some((m) => m.id === dModel)) {
             dModel = modelsRes?.models?.some((m) => m.id === "openrouter/free")
               ? "openrouter/free"
@@ -246,12 +282,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           dModel = dModel || "openrouter/free";
         }
         const mModel = settingsRes.memory_model || "openai/gpt-4o-mini";
+        // Mirror the chat model contract: an absent selection falls back to the
+        // zero-cost default rather than staying empty.
+        const freeImage =
+          imageModelsRes?.models?.find((m) => m.is_free) || imageModelsRes?.models?.[0];
+        let iModel = settingsRes.image_model || null;
+        if (!iModel || !imageModelsRes?.models?.some((m) => m.id === iModel)) {
+          iModel = freeImage?.id || iModel;
+        }
         const sPrompt = settingsRes.system_prompt || "";
         const temp = settingsRes.temperature ?? 0.7;
         const memEnabled = settingsRes.memory_enabled ?? true;
 
         setDefaultModel(dModel);
         setMemoryModel(mModel);
+        setImageModel(iModel);
         setSystemPrompt(sPrompt);
         setPersonaId(matchPersonaId(sPrompt));
         setTemperature(temp);
@@ -260,16 +305,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         setInitialSettings({
           defaultModel: dModel,
           memoryModel: mModel,
+          imageModel: iModel,
           systemPrompt: sPrompt,
           temperature: temp,
           memoryEnabled: memEnabled,
         });
       }
       if (modelsRes?.models) setAvailableModels(modelsRes.models);
+      if (imageModelsRes?.models) setImageModels(imageModelsRes.models);
+      if (imageModelsRes) setImageModelsSynced(!!imageModelsRes.synced);
     } catch (err) {
       console.error("Failed to load settings:", err);
     } finally {
       setLoadingSettings(false);
+      setLoadingImageModels(false);
     }
   };
 
@@ -284,6 +333,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     if (!initialSettings) return;
     setDefaultModel(initialSettings.defaultModel);
     setMemoryModel(initialSettings.memoryModel);
+    setImageModel(initialSettings.imageModel);
     setSystemPrompt(initialSettings.systemPrompt);
     setPersonaId(matchPersonaId(initialSettings.systemPrompt));
     setTemperature(initialSettings.temperature);
@@ -303,6 +353,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           body: JSON.stringify({
             default_model: defaultModel,
             ...(user?.is_superuser ? { memory_model: memoryModel } : {}),
+            image_model: imageModel,
             system_prompt: systemPrompt,
             temperature,
             memory_enabled: memoryEnabled,
@@ -316,6 +367,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         setInitialSettings({
           defaultModel,
           memoryModel,
+          imageModel,
           systemPrompt,
           temperature,
           memoryEnabled,
@@ -330,7 +382,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         setSavingSettings(false);
       }
     },
-    [defaultModel, memoryModel, systemPrompt, temperature, memoryEnabled, user, savingSettings]
+    [defaultModel, memoryModel, imageModel, systemPrompt, temperature, memoryEnabled, user, savingSettings]
   );
 
   // Apple Mac Shortcut: Command + S / Ctrl + S to save
@@ -509,25 +561,32 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </div>
               </div>
 
-              {/* ── GROUP 2: 语言模型 (Default Language Model) ── */}
+              {/* ── GROUP 2: 默认模型设置 (Language + Image) ── */}
               <div>
-                <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-1 pb-1.5 select-none flex items-center justify-between">
-                  <span>默认语言模型</span>
-                  <span className="font-mono text-[11px] font-normal text-muted-foreground">
-                    {availableModels.length} 个模型可用
-                  </span>
+                <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-1 pb-1.5 select-none flex items-center justify-between gap-2">
+                  <span>默认模型设置</span>
+                  <div className="flex items-center gap-2">
+                    {isTrialMode && (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium normal-case tracking-normal text-emerald-600 dark:text-emerald-400">
+                        <Zap className="h-2.5 w-2.5" />
+                        体验模式 · 仅免费
+                      </span>
+                    )}
+                    <span className="font-mono text-[11px] font-normal text-muted-foreground">
+                      {availableModels.length} 语言 · {imageModels.length} 绘图
+                    </span>
+                  </div>
                 </div>
 
                 <div className="rounded-2xl border border-border/50 bg-card/80 backdrop-blur-md shadow-2xs overflow-hidden p-3 sm:p-3.5">
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 min-w-0">
-                      <ModelSelect
-                        value={defaultModel}
-                        onChange={(mId) => setDefaultModel(mId)}
-                        models={availableModels}
-                        placeholder="选择会话初始模型"
-                      />
-                    </div>
+                  {/* ── 语言模型 ── */}
+                  <div className="flex items-center gap-2 px-0.5">
+                    <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary border border-primary/25">
+                      <Brain className="h-3.5 w-3.5" />
+                    </span>
+                    <span className="text-[12px] font-semibold text-foreground tracking-tight">
+                      语言模型
+                    </span>
                     <ActionTooltip label="向后台已配置 API 提供商同步最新可用模型列表">
                       <Button
                         type="button"
@@ -535,12 +594,23 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         size="sm"
                         onClick={handleSyncModels}
                         disabled={syncingModels}
-                        className="h-9 sm:h-9.5 px-3 text-xs font-medium rounded-xl border-border/50 bg-muted/30 hover:bg-muted text-foreground transition-all active:scale-95 gap-1.5 shrink-0"
+                        className="ml-auto h-7 px-2.5 text-[11px] font-medium rounded-lg border-border/50 bg-muted/30 hover:bg-muted text-foreground transition-all active:scale-95 gap-1.5 shrink-0"
                       >
-                        <RefreshCw className={cn("h-3.5 w-3.5", syncingModels && "animate-spin text-primary")} />
-                        <span className="hidden sm:inline">{syncingModels ? "同步中..." : "同步列表"}</span>
+                        <RefreshCw className={cn("h-3 w-3", syncingModels && "animate-spin text-primary")} />
+                        <span className="hidden sm:inline">
+                          {syncingModels ? "同步中..." : "同步列表"}
+                        </span>
                       </Button>
                     </ActionTooltip>
+                  </div>
+
+                  <div className="mt-2">
+                    <ModelSelect
+                      value={defaultModel}
+                      onChange={(mId) => setDefaultModel(mId)}
+                      models={availableModels}
+                      placeholder="选择会话初始模型"
+                    />
                   </div>
 
                   {/* ── 选好模型后的详细信息面板 ── */}
@@ -605,6 +675,98 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       </div>
                     );
                   })()}
+
+                  {/* ── 分隔：绘图模型 ── */}
+                  <div className="pt-4 mt-1">
+                    <div className="flex items-center gap-2 px-0.5">
+                      <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/25">
+                        <Palette className="h-3.5 w-3.5" />
+                      </span>
+                      <span className="text-[12px] font-semibold text-foreground tracking-tight">
+                        绘图模型
+                      </span>
+                      <ActionTooltip label="向后端已配置的生图服务同步最新可用绘图模型列表">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleSyncImageModels}
+                          disabled={syncingImageModels}
+                          className="ml-auto h-7 px-2.5 text-[11px] font-medium rounded-lg border-border/50 bg-muted/30 hover:bg-muted text-foreground transition-all active:scale-95 gap-1.5 shrink-0"
+                        >
+                          <RefreshCw className={cn("h-3 w-3", syncingImageModels && "animate-spin text-primary")} />
+                          <span className="hidden sm:inline">
+                            {syncingImageModels ? "同步中..." : "同步列表"}
+                          </span>
+                        </Button>
+                      </ActionTooltip>
+                    </div>
+
+                    <div className="mt-2">
+                      <ImageModelSelect
+                        value={imageModel}
+                        onChange={setImageModel}
+                        models={imageModels}
+                        loading={loadingImageModels}
+                        synced={imageModelsSynced}
+                        isTrialMode={isTrialMode}
+                      />
+                    </div>
+
+                    {/* ── 选好绘图模型后的详细信息面板（对照语言模型） ── */}
+                    {(() => {
+                      const currentImageItem = imageModels.find((m) => m.id === imageModel);
+                      if (!currentImageItem) {
+                        return imageModel ? (
+                          <div className="pt-2.5 mt-2.5 border-t border-border/40 flex items-center justify-between text-[11px] font-mono text-muted-foreground">
+                            <span>模型 ID: {imageModel}</span>
+                            <span className="text-[10px] text-amber-500 font-sans">未在已同步列表中</span>
+                          </div>
+                        ) : null;
+                      }
+
+                      return (
+                        <div className="pt-3 mt-3 border-t border-border/40 space-y-2.5 animate-in fade-in duration-200">
+                          {/* 属性徽章行 */}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {currentImageItem.provider && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-mono font-medium uppercase bg-muted text-foreground border border-border/50">
+                                <Server className="h-3 w-3 text-muted-foreground" />
+                                <span>{currentImageItem.provider}</span>
+                              </span>
+                            )}
+
+                            {currentImageItem.is_free ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">
+                                <Zap className="h-3 w-3" />
+                                <span>免费模型</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/25">
+                                <span>API 计费</span>
+                              </span>
+                            )}
+
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/25">
+                              <Sparkles className="h-3 w-3" />
+                              <span>位图生成</span>
+                            </span>
+
+                            <span className="sm:ml-auto font-mono text-[11px] text-muted-foreground/70 truncate select-all">
+                              ID: {currentImageItem.id}
+                            </span>
+                          </div>
+
+                          {/* 模型详细介绍 */}
+                          {currentImageItem.description && (
+                            <div className="p-2.5 rounded-xl bg-muted/30 border border-border/40 text-[12px] text-muted-foreground leading-relaxed">
+                              {currentImageItem.description}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
                 </div>
               </div>
 

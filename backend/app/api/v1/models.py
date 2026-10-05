@@ -348,6 +348,52 @@ async def list_configured_models(
     }
 
 
+@router.get("/image-models")
+async def list_image_models(
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Image generation catalog, read from the synced_image_models.json file that
+    POST /models/sync-images populates.
+
+    Accounts without full model access only ever see the zero-cost entries, which
+    are declared through FREE_IMAGE_MODELS because the OpenRouter images endpoint
+    exposes no pricing information.
+    """
+    from app.services.image_gen import image_gen_service
+
+    catalog = await image_gen_service.list_available_models()
+    can_all = has_full_model_access(current_user)
+    if not can_all:
+        catalog = [m for m in catalog if m.get("is_free")]
+
+    return {
+        "total": len(catalog),
+        "models": catalog,
+        "can_access_all_models": can_all,
+        "synced": bool(image_gen_service.load_stored_models()),
+    }
+
+
+@router.post("/sync-images")
+async def sync_image_models_from_providers(
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Query the configured image providers live and persist the result to
+    synced_image_models.json, mirroring POST /models/sync for chat models.
+    """
+    from app.services.image_gen import image_gen_service
+
+    if not image_gen_service.active_providers():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="后端 .env 中未配置任何生图服务凭证 (OPENROUTER_API_KEY / OPENAI_API_KEY / SILICONFLOW_API_KEY)"
+        )
+
+    return await image_gen_service.sync_models()
+
+
 @router.post("/sync")
 async def sync_models_from_providers(
     current_user: User = Depends(get_current_user)

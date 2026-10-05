@@ -58,6 +58,10 @@ async def init_db():
                     UPDATE users SET can_access_all_models = true WHERE is_superuser = true;
                 END IF;
 
+                IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'user_settings') THEN
+                    ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS image_model varchar(120);
+                END IF;
+
                 IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'conversations') THEN
                     ALTER TABLE conversations ADD COLUMN IF NOT EXISTS is_deleted boolean DEFAULT false;
                     ALTER TABLE conversations ADD COLUMN IF NOT EXISTS deleted_at timestamp with time zone;

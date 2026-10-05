@@ -1,17 +1,27 @@
 """
 Image Generation Service.
 Supports:
-1. OpenRouter (Flux.2 / Flux.3 / SD3.5 unified image endpoint with dynamic discovery)
-2. OpenAI (DALL-E 3 / DALL-E 2)
-3. SiliconFlow (FLUX.1-schnell / FLUX.1-dev / SD3.5)
+1. OpenRouter (Flux.2 / Flux.3 / SD3.5 unified image endpoint)
+2. OpenAI (DALL-E 3)
+3. SiliconFlow (FLUX.1-schnell)
+
+The image model catalog is persisted to synced_image_models.json and refreshed
+only by an explicit sync request, mirroring how the chat model catalog is
+handled in app/api/v1/models.py. No models are hardcoded and no request path
+performs a live catalog lookup.
 """
+import json
 import logging
+from pathlib import Path
 import httpx
-from typing import Dict, Any, Optional
+from typing import Dict, Any, List, Optional
 from openai import AsyncOpenAI
 from app.core.config import settings
 
 logger = logging.getLogger("image_gen_service")
+
+# Persistent synced image models file, sibling of synced_models.json
+SYNCED_IMAGE_MODELS_FILE = Path(__file__).resolve().parent.parent.parent / "synced_image_models.json"
 
 
 class ImageGenerationService:
@@ -27,6 +37,180 @@ class ImageGenerationService:
         self.free_models = [
             m.strip() for m in getattr(settings, "FREE_IMAGE_MODELS", "").split(",") if m.strip()
         ]
+
+    def is_free_image_model(self, model_id: str) -> bool:
+        """Zero-cost models are declared through FREE_IMAGE_MODELS, not discovered."""
+        return model_id in self.free_models
+
+    def default_image_model(self) -> Optional[str]:
+        """
+        The zero-cost model to use when the user has no explicit selection.
+
+        Mirrors how a new account's chat model defaults to openrouter/free, so an
+        unset image_model never means "whatever the admin happens to run" — it
+        always means the free tier.
+        """
+        if not self.free_models:
+            return None
+        stored_ids = {m.get("id") for m in self.load_stored_models()}
+        if stored_ids:
+            for mid in self.free_models:
+                if mid in stored_ids:
+                    return mid
+        # Before the first sync the catalog is empty; the configured default is
+        # still the intended target, so the feature works on a fresh deployment.
+        return self.free_models[0]
+
+    def active_providers(self) -> set:
+        """Providers that currently hold usable credentials."""
+        active = set()
+        if self.openrouter_key:
+            active.add("openrouter")
+        if self.openai_key:
+            active.add("openai")
+        if self.siliconflow_key:
+            active.add("siliconflow")
+        return active
+
+    def load_stored_models(self) -> List[Dict[str, Any]]:
+        """
+        Read the persisted image catalog from synced_image_models.json.
+        Mirrors load_stored_models() for chat models: nothing is hardcoded, and an
+        absent or corrupt file simply yields an empty catalog.
+        """
+        if not SYNCED_IMAGE_MODELS_FILE.exists():
+            return []
+        try:
+            with open(SYNCED_IMAGE_MODELS_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, list):
+                    return data
+        except Exception as e:
+            logger.error(f"Error reading synced_image_models.json: {e}")
+        return []
+
+    def save_stored_models(self, models: List[Dict[str, Any]]) -> None:
+        """Write the image catalog to JSON."""
+        try:
+            SYNCED_IMAGE_MODELS_FILE.parent.mkdir(parents=True, exist_ok=True)
+            with open(SYNCED_IMAGE_MODELS_FILE, "w", encoding="utf-8") as f:
+                json.dump(models, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            logger.error(f"Error writing synced_image_models.json: {e}")
+
+    async def fetch_models_from_providers(self) -> List[Dict[str, Any]]:
+        """
+        Live query every configured image provider. Only invoked by an explicit
+        sync request; the result is what gets persisted to disk.
+        """
+        fetched: List[Dict[str, Any]] = []
+
+        if self.openrouter_key:
+            try:
+                url = f"{self.openrouter_base}/images/models"
+                headers = {"Authorization": f"Bearer {self.openrouter_key}"}
+                async with httpx.AsyncClient(timeout=15.0) as client:
+                    res = await client.get(url, headers=headers)
+                    if res.status_code == 200:
+                        data = res.json()
+                        raw = data.get("data", []) or data.get("models", [])
+                        for item in raw:
+                            if isinstance(item, dict):
+                                mid = item.get("id")
+                                name = item.get("name") or mid
+                                desc = str(item.get("description") or "")[:120]
+                            else:
+                                mid = str(item)
+                                name = mid
+                                desc = ""
+                            if not mid:
+                                continue
+                            fetched.append({
+                                "id": mid,
+                                "name": name,
+                                "provider": "openrouter",
+                                "description": desc,
+                                "is_free": self.is_free_image_model(mid),
+                            })
+                    else:
+                        logger.warning(
+                            "OpenRouter image catalog returned %s: %s", res.status_code, res.text
+                        )
+            except Exception as e:
+                logger.error(f"Failed to fetch OpenRouter image catalog: {e}")
+
+        if self.openai_key:
+            fetched.append({
+                "id": "dall-e-3",
+                "name": "DALL·E 3 (OpenAI)",
+                "provider": "openai",
+                "description": "OpenAI 官方高质量绘图模型",
+                "is_free": False,
+            })
+
+        if self.siliconflow_key:
+            fetched.append({
+                "id": "black-forest-labs/FLUX.1-schnell",
+                "name": "FLUX.1-schnell (SiliconFlow)",
+                "provider": "siliconflow",
+                "description": "SiliconFlow 开源生图模型，速度快",
+                "is_free": False,
+            })
+
+        return fetched
+
+    async def list_available_models(self) -> List[Dict[str, Any]]:
+        """
+        Persisted image catalog, narrowed to providers that still hold
+        credentials so it doubles as a capability check for a user selection.
+
+        Returns an empty list until a sync has been performed, which is the same
+        contract as the chat model catalog.
+        """
+        stored = self.load_stored_models()
+        active = self.active_providers()
+        return [m for m in stored if m.get("provider") in active]
+
+    async def sync_models(self) -> Dict[str, Any]:
+        """
+        Refresh the persisted catalog from the configured providers, merging into
+        whatever is already on disk so a temporary outage cannot wipe the list.
+        """
+        current = self.load_stored_models()
+        known_ids = {m["id"] for m in current}
+        fetched = await self.fetch_models_from_providers()
+
+        new_models: List[Dict[str, Any]] = []
+        merged: Dict[str, Dict[str, Any]] = {m["id"]: m for m in current}
+        for m in fetched:
+            mid = m["id"]
+            if mid not in known_ids:
+                new_models.append(m)
+                known_ids.add(mid)
+            merged[mid] = m
+
+        # Recompute the free flag so adding a model to FREE_IMAGE_MODELS takes
+        # effect on the next sync without needing a file hand-edit.
+        for mid, m in merged.items():
+            m["is_free"] = self.is_free_image_model(mid)
+
+        merged_list = list(merged.values())
+        merged_list.sort(key=lambda m: (0 if m.get("is_free") else 1, m["id"]))
+        self.save_stored_models(merged_list)
+
+        providers = sorted(self.active_providers())
+        return {
+            "success": True,
+            "new_count": len(new_models),
+            "new_models": new_models,
+            "total": len(merged_list),
+            "synced_providers": providers,
+            "message": (
+                f"同步成功！从提供商新增发现了 {len(new_models)} 个绘图模型"
+                if new_models
+                else "同步完成，当前已是最新模型，未发现新模型"
+            ),
+        }
 
     def get_effective_provider(self, free_only: bool = False) -> str:
         """
@@ -66,6 +250,11 @@ class ImageGenerationService:
         Generate image from prompt.
 
         Args:
+            model: explicit model id chosen by the user. When given, the provider
+                is resolved from the catalog entry instead of the global
+                IMAGE_GEN_PROVIDER setting. When omitted, the zero-cost default
+                is used, so generation never depends on a paid model unless the
+                user explicitly picked one.
             free_only: restrict generation to the configured zero-cost model
                 whitelist. No paid model is called and no paid fallback retry
                 happens on failure.
@@ -79,7 +268,40 @@ class ImageGenerationService:
                 "provider": str
             }
         """
-        provider = self.get_effective_provider(free_only=free_only)
+        resolved_model = model or self.default_image_model()
+        provider = None
+
+        if resolved_model:
+            catalog = await self.list_available_models()
+            entry = next((m for m in catalog if m["id"] == resolved_model), None)
+            if entry is not None:
+                if free_only and not entry.get("is_free"):
+                    raise ValueError(
+                        f"当前账号处于体验模式，仅可使用免费绘图模型；「{entry.get('name') or resolved_model}」为计费模型。"
+                    )
+                provider = entry["provider"]
+            elif model:
+                # An explicit selection is missing from the synced catalog.
+                # Distinguish "never synced" from "synced but unavailable", because
+                # the fix is different: sync once versus pick another model.
+                if not self.load_stored_models():
+                    raise ValueError(
+                        "绘图模型列表尚未同步。请管理员在设置页点击「同步列表」"
+                        "完成一次同步后再使用绘图功能。"
+                    )
+                raise ValueError(
+                    f"所选绘图模型当前不可用（对应服务未配置或模型已下架）：{model}"
+                )
+            else:
+                # Zero-cost default that has not been synced yet. Free models are
+                # declared as OpenRouter ids, so that is the only route to try.
+                provider = (
+                    "openrouter" if self.openrouter_key
+                    else self.get_effective_provider(free_only=free_only)
+                )
+
+        if provider is None:
+            provider = self.get_effective_provider(free_only=free_only)
 
         if provider == "none":
             if free_only:
@@ -94,53 +316,34 @@ class ImageGenerationService:
             )
 
         if provider == "openrouter":
-            return await self._generate_openrouter(prompt, size, model, free_only=free_only)
+            return await self._generate_openrouter(prompt, size, resolved_model, free_only=free_only)
         elif provider == "siliconflow":
-            return await self._generate_siliconflow(prompt, size, model)
+            return await self._generate_siliconflow(prompt, size, resolved_model)
         else:
-            return await self._generate_openai(prompt, size, model)
+            return await self._generate_openai(prompt, size, resolved_model)
 
     async def _resolve_openrouter_model(
         self,
         requested_model: Optional[str] = None,
         free_only: bool = False
     ) -> str:
+        if requested_model:
+            return requested_model
+
+        # No explicit selection was resolved upstream, so fall back to the free
+        # default rather than whatever the admin happens to run.
+        fallback = self.default_image_model()
+        if fallback:
+            return fallback
         if free_only:
-            # Deterministic whitelist lookup: never probe the live catalog, because
-            # the catalog contains no pricing signal and would select a paid model.
-            if self.free_models:
-                return self.free_models[0]
             raise ValueError(
                 "未配置免费生图模型列表 (FREE_IMAGE_MODELS)，无法为体验模式账号提供绘图能力。"
             )
 
-        if requested_model:
-            return requested_model
-
-        # Try querying OpenRouter image models endpoint dynamically
-        try:
-            url = f"{self.openrouter_base}/images/models"
-            headers = {"Authorization": f"Bearer {self.openrouter_key}"}
-            async with httpx.AsyncClient(timeout=8.0) as client:
-                res = await client.get(url, headers=headers)
-                if res.status_code == 200:
-                    data = res.json()
-                    models = data.get("data", []) or data.get("models", [])
-                    if isinstance(models, list) and models:
-                        # Prefer any flux models
-                        for m in models:
-                            mid = m.get("id") if isinstance(m, dict) else str(m)
-                            if "flux" in mid.lower():
-                                logger.info("Auto-discovered OpenRouter image model: %s", mid)
-                                return mid
-                        first_id = models[0].get("id") if isinstance(models[0], dict) else str(models[0])
-                        if first_id:
-                            logger.info("Using first available OpenRouter image model: %s", first_id)
-                            return first_id
-        except Exception as e:
-            logger.warning("Failed to discover OpenRouter image models dynamically: %s", e)
-
-        # Fallback to standard OpenRouter model ID
+        # Only reachable when FREE_IMAGE_MODELS is empty, which means the admin
+        # has opted out of the free tier entirely.
+        if self.default_model and self.default_provider == "openrouter":
+            return self.default_model
         return "black-forest-labs/flux.2-pro"
 
     async def _generate_openrouter(

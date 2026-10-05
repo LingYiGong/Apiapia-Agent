@@ -145,6 +145,7 @@ async def chat_stream(
     model_to_use = chat_req.model or (user_settings.default_model if user_settings else "gpt-4o-mini")
     temperature = chat_req.temperature if chat_req.temperature is not None else (user_settings.temperature if user_settings else 0.7)
     use_memory = chat_req.memory_enabled if chat_req.memory_enabled is not None else (user_settings.memory_enabled if user_settings else True)
+    selected_image_model = user_settings.image_model if user_settings else None
 
     # Validate model permission (new users only have access to free models until granted by admin)
     from app.api.v1.models import check_user_can_use_model, has_full_model_access
@@ -339,7 +340,10 @@ async def chat_stream(
 
                 try:
                     img_res = await image_gen_service.generate(
-                        img_prompt, size=img_size, free_only=image_gen_free_only
+                        img_prompt,
+                        size=img_size,
+                        model=selected_image_model,
+                        free_only=image_gen_free_only,
                     )
                     img_url = img_res["url"]
                     img_provider = img_res.get("provider", "AI生图")

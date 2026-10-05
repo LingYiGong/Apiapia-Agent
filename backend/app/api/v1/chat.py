@@ -147,12 +147,16 @@ async def chat_stream(
     use_memory = chat_req.memory_enabled if chat_req.memory_enabled is not None else (user_settings.memory_enabled if user_settings else True)
 
     # Validate model permission (new users only have access to free models until granted by admin)
-    from app.api.v1.models import check_user_can_use_model
+    from app.api.v1.models import check_user_can_use_model, has_full_model_access
     if not check_user_can_use_model(current_user, model_to_use):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="当前账号权限仅支持访问免费模型。如需使用该模型，请联系管理员开通全部模型权限。"
+            detail="当前账号处于体验模式，仅支持访问免费模型。如需使用该模型，请联系管理员开通完整体验权限。"
         )
+
+    # Billable side features (currently AI image generation) are restricted to the
+    # same entitlement. Restricted accounts may only use the zero-cost image models.
+    image_gen_free_only = not has_full_model_access(current_user)
 
     # 2. Fetch or create conversation
     conversation = None
@@ -334,7 +338,9 @@ async def chat_stream(
                 yield f"data: {json.dumps({'type': 'tool_call', 'toolCallId': tool_call_id, 'toolName': 'image_generation', 'args': {'prompt': img_prompt, 'size': img_size}}, ensure_ascii=False)}\n\n"
 
                 try:
-                    img_res = await image_gen_service.generate(img_prompt, size=img_size)
+                    img_res = await image_gen_service.generate(
+                        img_prompt, size=img_size, free_only=image_gen_free_only
+                    )
                     img_url = img_res["url"]
                     img_provider = img_res.get("provider", "AI生图")
                     img_model = img_res.get("model", "unknown")
@@ -352,13 +358,20 @@ async def chat_stream(
                 except Exception as ie:
                     logger.warning("Image generation service failed: %s", str(ie))
                     yield f"data: {json.dumps({'type': 'tool_result', 'toolCallId': tool_call_id, 'result': {'error': str(ie)}}, ensure_ascii=False)}\n\n"
-                    image_reply = (
-                        f"⚠️ **生图服务提示**：\n\n{str(ie)}\n\n"
-                        f"💡 **配置指南**：\n"
-                        f"- 若使用 **DALL·E 3**：请在后端 `.env` 中配置 `OPENAI_API_KEY`；\n"
-                        f"- 若使用 **Flux.1**（开源生图之王）：可在 [SiliconFlow 官网](https://cloud.siliconflow.cn/) 免费获取并配置 `SILICONFLOW_API_KEY`。\n\n"
-                        f"*(提示：你也可以直接输入「用 SVG 画一个...」，无需任何生图 Key，由语言模型直接生成矢量画作！)*"
-                    )
+                    if image_gen_free_only:
+                        image_reply = (
+                            f"⚠️ **体验模式绘图提示**：\n\n{str(ie)}\n\n"
+                            "💡 当前账号处于体验模式，仅可使用免费绘图模型，尚未开通付费生图通道。\n\n"
+                            "*(小提示：直接输入「用 SVG 画一个...」也能出画，且不消耗任何生图额度！)*"
+                        )
+                    else:
+                        image_reply = (
+                            f"⚠️ **生图服务提示**：\n\n{str(ie)}\n\n"
+                            f"💡 **配置指南**：\n"
+                            f"- 若使用 **DALL·E 3**：请在后端 `.env` 中配置 `OPENAI_API_KEY`；\n"
+                            f"- 若使用 **Flux.1**（开源生图之王）：可在 [SiliconFlow 官网](https://cloud.siliconflow.cn/) 免费获取并配置 `SILICONFLOW_API_KEY`。\n\n"
+                            f"*(提示：你也可以直接输入「用 SVG 画一个...」，无需任何生图 Key，由语言模型直接生成矢量画作！)*"
+                        )
 
                 full_assistant_reply.append(image_reply)
                 delta_payload = {

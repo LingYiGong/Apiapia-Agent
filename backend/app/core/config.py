@@ -73,10 +73,15 @@ class Settings(BaseSettings):
     TAVILY_INCLUDE_ANSWER: bool = True
 
     # Image Generation (DALL-E 3, SiliconFlow / Flux.1)
-    IMAGE_GEN_PROVIDER: str = "auto"  # 'auto', 'openai', 'siliconflow'
+    IMAGE_GEN_PROVIDER: str = "auto"  # 'auto', 'openai', 'siliconflow', 'openrouter'
     IMAGE_GEN_MODEL: str = "dall-e-3"  # 'dall-e-3', 'black-forest-labs/FLUX.1-schnell'
     SILICONFLOW_API_KEY: Optional[str] = None
     SILICONFLOW_BASE_URL: str = "https://api.siliconflow.cn/v1"
+
+    # Zero-cost image models served through OpenRouter. Only these may be used by
+    # accounts WITHOUT full model access, and a failure here must never fall back
+    # to a paid model. Comma-separated, tried in order.
+    FREE_IMAGE_MODELS: str = "inclusionai/ming-image-0.1-design"
 
     class Config:
         case_sensitive = True

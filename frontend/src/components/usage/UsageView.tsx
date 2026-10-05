@@ -197,9 +197,9 @@ export const UsageView: React.FC<UsageViewProps> = ({
     setPendingConfirm({
       title: `${nextStatus ? "开通" : "限制"}模型访问权限`,
       description: nextStatus
-        ? `确定为用户 [${username}] 开通全部模型访问权限吗？开通后该用户可使用系统内包括所有高级付费模型在内的全部可用模型。`
-        : `确定将用户 [${username}] 切换为仅限免费模型吗？切换后该用户将只能访问和调用免费模型。`,
-      confirmText: nextStatus ? "开通全部权限" : "限制为免费模型",
+        ? `确定为用户 [${username}] 开通完整体验权限吗？开通后该用户可使用系统内包括所有高级付费模型在内的全部可用模型。`
+        : `确定将用户 [${username}] 切换为体验模式吗？切换后该用户将只能访问和调用免费模型。`,
+      confirmText: nextStatus ? "开通完整体验" : "切换为体验模式",
       danger: !nextStatus,
       onConfirm: async () => {
         setPendingConfirm(null);
@@ -210,7 +210,7 @@ export const UsageView: React.FC<UsageViewProps> = ({
             body: JSON.stringify({ can_access_all_models: nextStatus }),
           });
           await fetchStats();
-          toast.success(`已为 [${username}] ${nextStatus ? "开通全部模型权限" : "切换为仅限免费模型"}`);
+          toast.success(`已为 [${username}] ${nextStatus ? "开通完整体验" : "切换为体验模式"}`);
         } catch (err: any) {
           toast.error(err.message || "操作失败");
         } finally {
@@ -645,7 +645,7 @@ export const UsageView: React.FC<UsageViewProps> = ({
                               {u.is_superuser ? (
                                 <div className="flex items-center gap-1.5">
                                   <Badge className="text-[10px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded-full px-2 py-0.5 shadow-none">
-                                    全部模型 (管理员)
+                                    完整体验 (管理员)
                                   </Badge>
                                 </div>
                               ) : (
@@ -665,7 +665,7 @@ export const UsageView: React.FC<UsageViewProps> = ({
                                     )}
                                     onClick={() => handleToggleAllModels(u.user_id, !!u.can_access_all_models, u.username)}
                                   >
-                                    {u.can_access_all_models ? "全部模型" : "仅免费模型"}
+                                    {u.can_access_all_models ? "完整体验" : "体验模式"}
                                   </span>
                                 </div>
                               )}
@@ -703,7 +703,7 @@ export const UsageView: React.FC<UsageViewProps> = ({
                                           className="cursor-pointer text-xs rounded-lg px-2.5 py-1.5 text-foreground focus:bg-muted"
                                         >
                                           <Sparkles className="h-3.5 w-3.5 mr-2 text-indigo-500" />
-                                          <span>{u.can_access_all_models ? "限制仅免费模型" : "开通全部模型权限"}</span>
+                                          <span>{u.can_access_all_models ? "切换为体验模式" : "开通完整体验"}</span>
                                         </DropdownMenuItem>
                                         <DropdownMenuSeparator className="my-1" />
                                       </>

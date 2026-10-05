@@ -360,8 +360,8 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
               {sorted.length}
             </span>
             {sorted.length > 0 && sorted.every(isFreeModel) && (
-              <Badge variant="outline" className="text-[10px] font-normal bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 px-1.5 py-0 rounded-full shadow-none" title="当前账号仅支持使用免费模型，联系管理员可开通全量模型">
-                免费体验模式
+              <Badge variant="outline" className="text-[10px] font-normal bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 px-1.5 py-0 rounded-full shadow-none" title="当前账号处于体验模式，仅可使用免费模型，联系管理员可开通完整体验">
+                体验模式
               </Badge>
             )}
           </div>

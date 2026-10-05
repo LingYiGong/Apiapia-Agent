@@ -24,9 +24,21 @@ class ImageGenerationService:
         self.siliconflow_base = getattr(settings, "SILICONFLOW_BASE_URL", "https://api.siliconflow.cn/v1").rstrip("/")
         self.default_provider = getattr(settings, "IMAGE_GEN_PROVIDER", "auto")
         self.default_model = getattr(settings, "IMAGE_GEN_MODEL", "dall-e-3")
+        self.free_models = [
+            m.strip() for m in getattr(settings, "FREE_IMAGE_MODELS", "").split(",") if m.strip()
+        ]
 
-    def get_effective_provider(self) -> str:
-        """Determines which provider to use based on configuration."""
+    def get_effective_provider(self, free_only: bool = False) -> str:
+        """
+        Determines which provider to use based on configuration.
+
+        When free_only is set, only OpenRouter is considered, because the
+        zero-cost models are routed through it. DALL-E 3 and SiliconFlow Flux
+        are always billable and must never be reached by restricted accounts.
+        """
+        if free_only:
+            return "openrouter" if self.openrouter_key else "none"
+
         if self.default_provider == "openrouter" and self.openrouter_key:
             return "openrouter"
         if self.default_provider == "siliconflow" and self.siliconflow_key:
@@ -47,10 +59,17 @@ class ImageGenerationService:
         self,
         prompt: str,
         size: str = "1024x1024",
-        model: Optional[str] = None
+        model: Optional[str] = None,
+        free_only: bool = False
     ) -> Dict[str, Any]:
         """
         Generate image from prompt.
+
+        Args:
+            free_only: restrict generation to the configured zero-cost model
+                whitelist. No paid model is called and no paid fallback retry
+                happens on failure.
+
         Returns:
             {
                 "url": str,
@@ -60,22 +79,41 @@ class ImageGenerationService:
                 "provider": str
             }
         """
-        provider = self.get_effective_provider()
+        provider = self.get_effective_provider(free_only=free_only)
 
         if provider == "none":
+            if free_only:
+                raise ValueError(
+                    "免费生图暂不可用：当前账号处于体验模式，仅支持零成本绘图模型，"
+                    "而服务端未配置 OPENROUTER_API_KEY。"
+                    "你依然可以用「用 SVG 画一个 ...」让模型直接生成矢量画作。"
+                )
             raise ValueError(
                 "未配置生图 API Key。请在 .env 或设置中配置 OPENROUTER_API_KEY、"
                 "OPENAI_API_KEY (使用 DALL·E 3) 或 SILICONFLOW_API_KEY (使用 Flux.1)。"
             )
 
         if provider == "openrouter":
-            return await self._generate_openrouter(prompt, size, model)
+            return await self._generate_openrouter(prompt, size, model, free_only=free_only)
         elif provider == "siliconflow":
             return await self._generate_siliconflow(prompt, size, model)
         else:
             return await self._generate_openai(prompt, size, model)
 
-    async def _resolve_openrouter_model(self, requested_model: Optional[str] = None) -> str:
+    async def _resolve_openrouter_model(
+        self,
+        requested_model: Optional[str] = None,
+        free_only: bool = False
+    ) -> str:
+        if free_only:
+            # Deterministic whitelist lookup: never probe the live catalog, because
+            # the catalog contains no pricing signal and would select a paid model.
+            if self.free_models:
+                return self.free_models[0]
+            raise ValueError(
+                "未配置免费生图模型列表 (FREE_IMAGE_MODELS)，无法为体验模式账号提供绘图能力。"
+            )
+
         if requested_model:
             return requested_model
 
@@ -109,9 +147,10 @@ class ImageGenerationService:
         self,
         prompt: str,
         size: str = "1024x1024",
-        model: Optional[str] = None
+        model: Optional[str] = None,
+        free_only: bool = False
     ) -> Dict[str, Any]:
-        model_name = await self._resolve_openrouter_model(model)
+        model_name = await self._resolve_openrouter_model(model, free_only=free_only)
         url = f"{self.openrouter_base}/images"
         headers = {
             "Authorization": f"Bearer {self.openrouter_key}",
@@ -124,11 +163,11 @@ class ImageGenerationService:
             "prompt": prompt
         }
 
-        logger.info("Calling OpenRouter Image Gen: model=%s, prompt='%s'", model_name, prompt)
+        logger.info("Calling OpenRouter Image Gen: model=%s, free_only=%s, prompt='%s'", model_name, free_only, prompt)
 
         async with httpx.AsyncClient(timeout=90.0) as http_client:
             resp = await http_client.post(url, headers=headers, json=payload)
-            if resp.status_code != 200:
+            if resp.status_code != 200 and not free_only:
                 # If dynamic model or default model failed, try known fallback candidates
                 fallback_candidates = [
                     "black-forest-labs/flux.2-pro",
@@ -149,8 +188,14 @@ class ImageGenerationService:
                         break
                     last_err = resp.text
 
-                if resp.status_code != 200:
-                    raise RuntimeError(f"OpenRouter 生图接口调用失败 [{resp.status_code}]: {last_err}")
+            if resp.status_code != 200:
+                if free_only:
+                    # Deliberately no fallback retry: every remaining candidate is
+                    # billable, which a restricted account must never trigger.
+                    raise RuntimeError(
+                        f"免费生图模型不可用 [{resp.status_code}]: {resp.text}"
+                    )
+                raise RuntimeError(f"OpenRouter 生图接口调用失败 [{resp.status_code}]: {last_err}")
 
             data = resp.json()
 
@@ -163,13 +208,15 @@ class ImageGenerationService:
         if not img_url and first.get("b64_json"):
             media_type = first.get("media_type") or "image/png"
             img_url = f"data:{media_type};base64,{first['b64_json']}"
+        if not img_url:
+            raise RuntimeError(f"OpenRouter 返回的图片数据缺少可用 url: {first}")
 
         return {
             "url": img_url,
             "prompt": prompt,
             "revised_prompt": None,
             "model": model_name,
-            "provider": "OpenRouter"
+            "provider": "OpenRouter · 免费档" if free_only else "OpenRouter"
         }
 
     async def _generate_openai(

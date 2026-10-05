@@ -644,7 +644,7 @@ async def toggle_user_all_models(
         "user_id": target.id,
         "username": target.username,
         "can_access_all_models": target.can_access_all_models,
-        "message": f"用户 {target.username} 已{'开通全部模型访问权限' if target.can_access_all_models else '切换为仅限免费模型'}"
+        "message": f"用户 {target.username} 已{'开通完整体验' if target.can_access_all_models else '切换为体验模式'}"
     }
 
 

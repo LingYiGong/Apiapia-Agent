@@ -71,7 +71,7 @@ async def update_user_settings(
         if not check_user_can_use_model(current_user, update_data.default_model):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="当前账号权限仅支持使用免费模型，无法将默认模型设置为收费模型。"
+                detail="当前账号处于体验模式，仅支持使用免费模型，无法将默认模型设置为计费模型。"
             )
         setting.default_model = update_data.default_model
     if update_data.memory_model is not None:

@@ -33,8 +33,18 @@ def is_free_model(m: dict) -> bool:
     )
 
 
+def has_full_model_access(user: User) -> bool:
+    """
+    Whether the account is entitled to billable models at all.
+
+    Used both for chat model gating and for billable side features such as
+    AI image generation, so the rule stays defined in exactly one place.
+    """
+    return bool(getattr(user, "is_superuser", False) or getattr(user, "can_access_all_models", False))
+
+
 def check_user_can_use_model(user: User, model_id: str) -> bool:
-    if getattr(user, "is_superuser", False) or getattr(user, "can_access_all_models", False):
+    if has_full_model_access(user):
         return True
     mid = (model_id or "").lower()
     if mid == "openrouter/free" or "openrouter/free" in mid or ":free" in mid or "/free" in mid or "-free" in mid or "ollama" in mid or "免费" in mid:
@@ -316,7 +326,7 @@ async def list_configured_models(
                 "is_multimodal": True
             })
 
-    can_all = getattr(current_user, "is_superuser", False) or getattr(current_user, "can_access_all_models", False)
+    can_all = has_full_model_access(current_user)
     if not can_all:
         configured_models = [m for m in configured_models if is_free_model(m)]
 

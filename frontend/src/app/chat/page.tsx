@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { apiRequest, streamChatResponse } from "@/lib/api";
@@ -20,25 +20,44 @@ import { Conversation, Message, ModelCatalogItem, AttachmentItem, SearchResultIt
 import { cn } from "@/lib/utils";
 
 /**
- * Rehydrate the artwork that the backend persisted alongside the reply text.
+ * Rehydrate everything the backend persisted alongside the reply text.
+ *
  * The streaming path already holds these in memory, but after a reload only the
- * raw JSON column is available, so it has to be parsed back into cards.
+ * raw JSON columns are available, so they have to be parsed back into cards.
+ * Aborted turns keep their partial text plus finish_reason, which is what makes
+ * a stopped answer distinguishable from a complete one after a refresh.
  */
-function hydrateGeneratedImages(msg: Message): Message {
-  if (!msg.generated_images) return msg;
-  if (msg.generatedImages && msg.generatedImages.length > 0) return msg;
+function hydrateMessage(msg: Message): Message {
+  if (!msg.generated_images && !msg.tool_invocations) return msg;
+  const next: Message = { ...msg };
 
-  try {
-    const raw = typeof msg.generated_images === "string"
-      ? JSON.parse(msg.generated_images)
-      : msg.generated_images;
-    if (Array.isArray(raw) && raw.length > 0) {
-      return { ...msg, generatedImages: raw as GeneratedImage[] };
+  if (!next.generatedImages && msg.generated_images) {
+    try {
+      const raw = typeof msg.generated_images === "string"
+        ? JSON.parse(msg.generated_images)
+        : msg.generated_images;
+      if (Array.isArray(raw) && raw.length > 0) {
+        next.generatedImages = raw as GeneratedImage[];
+      }
+    } catch (err) {
+      console.warn("Failed to parse generated_images for message", msg.id, err);
     }
-  } catch (err) {
-    console.warn("Failed to parse generated_images for message", msg.id, err);
   }
-  return msg;
+
+  if (!next.toolInvocations && msg.tool_invocations) {
+    try {
+      const raw = typeof msg.tool_invocations === "string"
+        ? JSON.parse(msg.tool_invocations)
+        : msg.tool_invocations;
+      if (Array.isArray(raw) && raw.length > 0) {
+        next.toolInvocations = raw as ToolInvocation[];
+      }
+    } catch (err) {
+      console.warn("Failed to parse tool_invocations for message", msg.id, err);
+    }
+  }
+
+  return next;
 }
 
 export default function ChatPage() {
@@ -49,6 +68,13 @@ export default function ChatPage() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const activeIdRef = useRef<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  // Mirrors `messages` so callbacks can read the current list without being
+  // re-created on every render.
+  const messagesRef = useRef<Message[]>([]);
+  const [regenerating, setRegenerating] = useState(false);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
   const [availableModels, setAvailableModels] = useState<ModelCatalogItem[]>([]);
   const [currentModel, setCurrentModel] = useState("openrouter/free");
   const defaultModelRef = useRef<string>("openrouter/free");
@@ -59,6 +85,8 @@ export default function ChatPage() {
   const [mobileTab, setMobileTab] = useState<MobileTab>("chat");
 
   // Web search state: "auto" (default, smart auto-trigger) | "on" (force on) | "off" (disabled)
+  // Server-side so the preference follows the account across devices; the
+  // localStorage mirror is only a fallback for the very first paint.
   const [webSearchMode, setWebSearchMode] = useState<"auto" | "on" | "off">(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("apiapia_web_search_mode") as "auto" | "on" | "off" | null;
@@ -66,13 +94,22 @@ export default function ChatPage() {
     }
     return "auto";
   });
+  const webSearchModeRef = useRef<"auto" | "on" | "off">(webSearchMode);
 
   const handleToggleWebSearchMode = () => {
     setWebSearchMode((prev) => {
       const next = prev === "auto" ? "on" : prev === "on" ? "off" : "auto";
+      webSearchModeRef.current = next;
       try {
         localStorage.setItem("apiapia_web_search_mode", next);
       } catch (e) {}
+      // Persist to the account so it survives a device change.
+      apiRequest("/settings", {
+        method: "PATCH",
+        body: JSON.stringify({ web_search_mode: next }),
+      }).catch(() => {
+        /* preference still applies locally */
+      });
 
       if (next === "on") {
         toast.success("🌐 联网检索：强制开启", {
@@ -219,6 +256,14 @@ export default function ChatPage() {
         defaultModelRef.current = userDef;
       }
 
+      // Server-side web search preference wins over the local mirror.
+      const serverMode = settings?.web_search_mode;
+      if (serverMode && ["auto", "on", "off"].includes(serverMode)) {
+        webSearchModeRef.current = serverMode;
+        setWebSearchMode(serverMode);
+        try { localStorage.setItem("apiapia_web_search_mode", serverMode); } catch (e) {}
+      }
+
       // Choose active model
       if (models.length > 0) {
         if (!activeIdRef.current) {
@@ -309,7 +354,7 @@ export default function ChatPage() {
         apiRequest<any[]>(`/conversations/${id}/memories`).catch(() => []),
       ]);
       if (activeIdRef.current === id) {
-        setMessages((msgs || []).map(hydrateGeneratedImages));
+        setMessages((msgs || []).map(hydrateMessage));
         if (mems && mems.length > 0) {
           setRetrievedMemories(mems);
         }
@@ -460,11 +505,13 @@ export default function ChatPage() {
     const searchResults = currentSearchResultsRef.current || doneMeta?.search_results;
     const tools = currentToolInvocationsRef.current;
     const generatedImages = currentGeneratedImagesRef.current;
+    const finishReason = doneMeta?.finish_reason || (stopRequestedRef.current ? "abort" : "stop");
 
     setMessages((prev) => [
       ...prev,
       {
         role: "assistant",
+        id: doneMeta?.message_id,
         content: finalContent,
         model: doneMeta?.model || currentModel,
         duration_ms: totalDurationMs,
@@ -473,8 +520,10 @@ export default function ChatPage() {
         completion_tokens: doneMeta?.completion_tokens,
         token_usage: doneMeta?.total_tokens,
         search_results: searchResults && searchResults.length > 0 ? searchResults : undefined,
+        search_query: doneMeta?.search_query || undefined,
         toolInvocations: tools && tools.length > 0 ? [...tools] : undefined,
         generatedImages: generatedImages && generatedImages.length > 0 ? [...generatedImages] : undefined,
+        finish_reason: finishReason,
         created_at: doneMeta?.created_at || new Date().toISOString(),
       },
     ]);
@@ -572,7 +621,7 @@ export default function ChatPage() {
           message: text,
           model: currentModel,
           memory_enabled: memoryEnabled,
-          web_search_mode: webSearchMode,
+          web_search_mode: webSearchModeRef.current,
           attachments: attachments && attachments.length > 0 ? attachments : undefined,
         },
         {
@@ -584,6 +633,20 @@ export default function ChatPage() {
             }
             if (meta.retrieved_memories && meta.retrieved_memories.length > 0) {
               setRetrievedMemories(meta.retrieved_memories);
+            }
+            // Adopt the server-assigned id so per-message actions (edit,
+            // regenerate, delete) work without waiting for a reload.
+            if (meta.user_message_id) {
+              setMessages((prev) => {
+                for (let i = prev.length - 1; i >= 0; i--) {
+                  if (prev[i].role === "user" && !prev[i].id) {
+                    const next = prev.slice();
+                    next[i] = { ...next[i], id: meta.user_message_id };
+                    return next;
+                  }
+                }
+                return prev;
+              });
             }
           },
           onSearchStart: (data) => {
@@ -697,20 +760,95 @@ export default function ChatPage() {
       typewriterIntervalRef.current = null;
     }
 
-    // Backend never persists the cut-off assistant reply on disconnect,
-    // so drop the partial content locally to stay consistent with DB.
-    isStreamCompletedRef.current = false;
-    doneMetaRef.current = null;
-    targetContentRef.current = "";
-    displayedContentRef.current = "";
-    currentSearchResultsRef.current = null;
-    currentGeneratedImagesRef.current = [];
-    setStreamingContent("");
-    setStreamingSearchResults(null);
-    setSearchStatus({ state: "idle" });
-    setIsWaitingForFirstToken(false);
-    setIsStreaming(false);
+    // The backend now persists the partial reply with finish_reason='abort', so
+    // keep whatever was produced instead of discarding it.
+    doneMetaRef.current = {
+      finish_reason: "abort",
+      created_at: new Date().toISOString(),
+    };
+    isStreamCompletedRef.current = true;
+
+    finalizeAssistantMessage();
   };
+
+  // ── Per-message actions (regenerate / edit / delete) ──────────────
+  const handleDeleteMessage = useCallback(
+    async (messageId: string) => {
+      if (!activeId || !messageId) return;
+      try {
+        await apiRequest(`/conversations/${activeId}/messages/${messageId}`, {
+          method: "DELETE",
+        });
+        setMessages((prev) => prev.filter((m) => m.id !== messageId));
+        toast.success("已删除该条消息");
+      } catch (err: any) {
+        toast.error(err.message || "删除消息失败");
+      }
+    },
+    [activeId],
+  );
+
+  const handleEditMessage = useCallback(
+    async (messageId: string, newText: string) => {
+      if (!activeId || !messageId) return;
+      const clean = newText.trim();
+      if (!clean) {
+        toast.error("消息内容不能为空");
+        return;
+      }
+      try {
+        // Removing this turn and everything after it rebuilds the branch, the
+        // same way ChatGPT handles an edited prompt.
+        await apiRequest(`/conversations/${activeId}/messages/${messageId}/truncate`, {
+          method: "POST",
+        });
+        const kept = messagesRef.current.filter((m) => !(m.id === messageId));
+        const cutIndex = messagesRef.current.findIndex((m) => m.id === messageId);
+        setMessages(cutIndex >= 0 ? kept.slice(0, cutIndex) : kept);
+        await handleSendMessage(clean);
+      } catch (err: any) {
+        toast.error(err.message || "编辑消息失败");
+      }
+    },
+    // handleSendMessage intentionally omitted: it is recreated every render and
+    // reads the latest refs, so capturing it would only pin a stale closure.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [activeId],
+  );
+
+  const handleRegenerate = useCallback(
+    async (assistantId: string) => {
+      if (!activeId || isStreaming || !assistantId) return;
+
+      const list = messagesRef.current;
+      const idx = list.findIndex((m) => m.id === assistantId);
+      if (idx < 0) return;
+
+      // Walk back to the user turn that produced this reply.
+      let userIdx = idx - 1;
+      while (userIdx >= 0 && list[userIdx].role !== "user") userIdx--;
+      if (userIdx < 0) {
+        toast.error("找不到对应的提问，无法重新生成");
+        return;
+      }
+      const prompt = list[userIdx].content;
+
+      setRegenerating(true);
+      try {
+        await apiRequest(`/conversations/${activeId}/messages/${assistantId}`, {
+          method: "DELETE",
+        });
+        setMessages(list.slice(0, idx));
+        await handleSendMessage(prompt);
+      } catch (err: any) {
+        toast.error(err.message || "重新生成失败");
+      } finally {
+        setRegenerating(false);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [activeId, isStreaming],
+  );
 
   if (loading || !user) {
     return <FullPageSkeleton variant="chat" />;
@@ -723,9 +861,10 @@ export default function ChatPage() {
 
       {/* 中间主视口区域（自适应尺寸，不被任何固定栏遮盖） */}
       <div className="flex flex-1 overflow-hidden relative min-h-0">
-        <Sidebar
-          conversations={conversations}
-          activeId={activeId}
+<Sidebar
+            conversations={conversations}
+            activeId={activeId}
+            onRename={handleRenameConversation}
           onSelect={(id) => {
             selectConversation(id);
             handleSelectMobileTab("chat");
@@ -814,6 +953,10 @@ export default function ChatPage() {
             searchStatus={searchStatus}
             streamingSearchResults={streamingSearchResults}
             loadingMessages={loadingMessages}
+            regenerating={regenerating}
+            onRegenerate={handleRegenerate}
+            onEditMessage={handleEditMessage}
+            onDeleteMessage={handleDeleteMessage}
           />
         </div>
 

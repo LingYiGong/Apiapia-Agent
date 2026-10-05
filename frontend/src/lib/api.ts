@@ -92,7 +92,7 @@ export async function apiRequest<T = any>(
   return response.json();
 }
 
-import { AttachmentItem, SearchResultItem } from "../types";
+import { AttachmentItem, SearchResultItem, ToolInvocation, GeneratedImage } from "../types";
 
 /**
  * Handle Server-Sent Events (SSE) streaming for chat
@@ -109,14 +109,20 @@ export async function streamChatResponse(
     attachments?: AttachmentItem[];
   },
   callbacks: {
-    onMeta?: (meta: { conversation_id: string; model: string; retrieved_memories: any[] }) => void;
+    onMeta?: (meta: {
+      conversation_id: string;
+      user_message_id?: string;
+      model: string;
+      retrieved_memories: any[];
+      search_query?: string | null;
+    }) => void;
     onSearchStart?: (data: { query: string }) => void;
     onSearchResults?: (data: { query: string; results: SearchResultItem[] }) => void;
     onToolCall?: (data: { toolCallId: string; toolName: string; args: any }) => void;
     onToolResult?: (data: { toolCallId: string; result: any }) => void;
     onImageResult?: (data: { toolCallId: string; imageId?: string | null; url: string; prompt: string; provider: string; model: string }) => void;
     onToken?: (token: string) => void;
-    onError?: (error: string) => void;
+    onError?: (error: string, info?: { finishReason?: "stop" | "abort" | "error" }) => void;
     onDone?: (doneMeta: {
       conversation_id: string;
       model?: string;
@@ -127,6 +133,10 @@ export async function streamChatResponse(
       total_tokens?: number;
       created_at?: string;
       search_results?: SearchResultItem[];
+      search_query?: string | null;
+      finish_reason?: "stop" | "abort" | "error";
+      tool_invocations?: ToolInvocation[];
+      generated_images?: GeneratedImage[];
     }) => void;
   },
   opts?: {
@@ -201,7 +211,9 @@ export async function streamChatResponse(
         callbacks.onDone?.(parsed);
       } else if (parsed.type === "error") {
         sawError = true;
-        callbacks.onError?.(parsed.error || "Model stream failed.");
+        callbacks.onError?.(parsed.error || "Model stream failed.", {
+          finishReason: parsed.finish_reason,
+        });
       }
     } catch (e) {
       console.error(`Failed to parse SSE ${type} JSON:`, dataStr, e);

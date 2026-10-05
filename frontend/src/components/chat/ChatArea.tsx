@@ -116,6 +116,10 @@ interface ChatAreaProps {
   };
   streamingSearchResults?: SearchResultItem[] | null;
   loadingMessages?: boolean;
+  regenerating?: boolean;
+  onRegenerate?: (assistantMessageId: string) => void;
+  onEditMessage?: (messageId: string, newText: string) => void;
+  onDeleteMessage?: (messageId: string) => void;
 }
 
 export const ChatArea: React.FC<ChatAreaProps> = ({
@@ -134,6 +138,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   searchStatus = { state: "idle" },
   streamingSearchResults = null,
   loadingMessages = false,
+  regenerating = false,
+  onRegenerate,
+  onEditMessage,
+  onDeleteMessage,
 }) => {
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -144,6 +152,32 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   const [attachments, setAttachments] = useState<AttachmentItem[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Composer draft persistence ──────────────────────────────────
+  // An unsent prompt should survive a reload or an accidental navigation.
+  const DRAFT_KEY = "apiapia_chat_draft";
+  React.useEffect(() => {
+    try {
+      const saved = localStorage.getItem(DRAFT_KEY);
+      if (saved) setInput(saved);
+    } catch (_) {}
+    // Restore only once, on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const updateInput = React.useCallback((next: string) => {
+    setInput(next);
+    try {
+      if (next) localStorage.setItem(DRAFT_KEY, next);
+      else localStorage.removeItem(DRAFT_KEY);
+    } catch (_) {}
+  }, []);
+
+  const clearDraft = React.useCallback(() => {
+    try {
+      localStorage.removeItem(DRAFT_KEY);
+    } catch (_) {}
+  }, []);
   const [previewImage, setPreviewImage] = useState<{ src: string; alt?: string } | null>(null);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
 
@@ -266,6 +300,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     setShowScrollBottomBtn(false);
     onSendMessage(input.trim(), attachments);
     setInput("");
+    clearDraft();
     setAttachments([]);
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
@@ -276,7 +311,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInput(e.target.value);
+    updateInput(e.target.value);
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
       textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 180)}px`;
@@ -321,6 +356,13 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 isCopied={copiedIdx === idx}
                 onCopy={handleCopyMessage}
                 onImageClick={(src, alt) => setPreviewImage({ src, alt })}
+                canRegenerate={
+                  !!onRegenerate && !isStreaming && !regenerating && msg.role === "assistant" && !!msg.id
+                }
+                regenerating={regenerating}
+                onRegenerate={onRegenerate}
+                onEditMessage={onEditMessage}
+                onDeleteMessage={onDeleteMessage}
               />
             ))}
           </div>

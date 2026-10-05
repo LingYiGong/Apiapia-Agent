@@ -1,5 +1,6 @@
 from typing import List
 from datetime import datetime, timezone
+import json
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,6 +18,7 @@ from app.schemas.conversation import (
 from app.api.v1.deps import get_current_user, get_current_admin
 from app.services.memory.retrieval import retrieve_relevant_memories
 from app.services.memory.service import memory_service
+from app.services.media_storage import media_storage
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
 
@@ -357,6 +359,106 @@ async def list_messages(
     )
     result = await db.execute(msg_stmt)
     return result.scalars().all()
+
+
+@router.delete("/{conversation_id}/messages/{message_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_message(
+    conversation_id: str,
+    message_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Delete a single message. Used by the per-message delete affordance."""
+    conv_stmt = select(Conversation).where(
+        Conversation.id == conversation_id,
+        Conversation.user_id == current_user.id
+    )
+    if not (await db.execute(conv_stmt)).scalar_one_or_none():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+
+    msg = await db.get(Message, message_id)
+    if not msg or msg.conversation_id != conversation_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message not found")
+
+    _purge_message_media(msg)
+    await db.delete(msg)
+    await _sync_conversation_timestamp(db, conversation_id)
+    await db.commit()
+    return None
+
+
+@router.post("/{conversation_id}/messages/{message_id}/truncate")
+async def truncate_from_message(
+    conversation_id: str,
+    message_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Delete ``message_id`` and every message after it.
+
+    This is what backs "edit and resend": the edited turn and the assistant reply
+    that followed it are removed so the branch can be rebuilt cleanly.
+    """
+    conv_stmt = select(Conversation).where(
+        Conversation.id == conversation_id,
+        Conversation.user_id == current_user.id
+    )
+    if not (await db.execute(conv_stmt)).scalar_one_or_none():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+
+    anchor = await db.get(Message, message_id)
+    if not anchor or anchor.conversation_id != conversation_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message not found")
+
+    doomed = (
+        await db.execute(
+            select(Message).where(
+                Message.conversation_id == conversation_id,
+                Message.created_at >= anchor.created_at
+            )
+        )
+    ).scalars().all()
+
+    removed = 0
+    for m in doomed:
+        _purge_message_media(m)
+        await db.delete(m)
+        removed += 1
+
+    await _sync_conversation_timestamp(db, conversation_id)
+    await db.commit()
+    return {"deleted": removed}
+
+
+def _purge_message_media(msg: Message) -> None:
+    """Delete image files referenced by a message that is being removed."""
+    raw = getattr(msg, "generated_images", None)
+    if not raw:
+        return
+    try:
+        entries = json.loads(raw) if isinstance(raw, str) else raw
+    except (TypeError, ValueError):
+        return
+    if not isinstance(entries, list):
+        return
+    for entry in entries:
+        if isinstance(entry, dict) and entry.get("path"):
+            media_storage.delete(entry["path"])
+
+
+async def _sync_conversation_timestamp(db: AsyncSession, conversation_id: str) -> None:
+    """Keep last_message_at pointing at the newest surviving message."""
+    conv = await db.get(Conversation, conversation_id)
+    if not conv:
+        return
+    last = (
+        await db.execute(
+            select(func.max(Message.created_at)).where(Message.conversation_id == conversation_id)
+        )
+    ).scalar() or conv.created_at
+    conv.last_message_at = last
+    conv.updated_at = last
 
 
 @router.get("/{conversation_id}/memories", response_model=List[dict])

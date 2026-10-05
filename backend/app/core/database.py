@@ -50,6 +50,15 @@ async def init_db():
                     ALTER TABLE messages ADD COLUMN IF NOT EXISTS duration_ms integer DEFAULT 0;
                     ALTER TABLE messages ADD COLUMN IF NOT EXISTS search_results text;
                     ALTER TABLE messages ADD COLUMN IF NOT EXISTS generated_images text;
+                    ALTER TABLE messages ADD COLUMN IF NOT EXISTS tool_invocations text;
+                    ALTER TABLE messages ADD COLUMN IF NOT EXISTS thinking_duration_ms integer DEFAULT 0;
+                    ALTER TABLE messages ADD COLUMN IF NOT EXISTS finish_reason varchar(20) DEFAULT 'stop';
+                    ALTER TABLE messages ADD COLUMN IF NOT EXISTS search_query varchar(255);
+                END IF;
+
+                IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'user_settings') THEN
+                    ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS image_model varchar(120);
+                    ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS web_search_mode varchar(10) DEFAULT 'auto';
                 END IF;
 
                 IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'users') THEN
@@ -57,10 +66,6 @@ async def init_db():
                     ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true;
                     ALTER TABLE users ADD COLUMN IF NOT EXISTS can_access_all_models boolean DEFAULT false;
                     UPDATE users SET can_access_all_models = true WHERE is_superuser = true;
-                END IF;
-
-                IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'user_settings') THEN
-                    ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS image_model varchar(120);
                 END IF;
 
                 IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'conversations') THEN

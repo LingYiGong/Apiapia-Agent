@@ -137,6 +137,14 @@ async def update_user_settings(
         setting.temperature = update_data.temperature
     if update_data.memory_enabled is not None:
         setting.memory_enabled = update_data.memory_enabled
+    if update_data.web_search_mode is not None:
+        mode = update_data.web_search_mode.strip().lower()
+        if mode not in ("auto", "on", "off"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"无效的联网检索模式：{update_data.web_search_mode}（可选 auto / on / off）"
+            )
+        setting.web_search_mode = mode
 
     setting.updated_at = datetime.now(timezone.utc)
     await db.commit()

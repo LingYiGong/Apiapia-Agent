@@ -50,6 +50,15 @@ class Message(Base):
     # JSON array of {url, prompt, provider, model}; url may be a base64 data URI
     # so that generated art survives conversation reloads.
     generated_images = Column(Text, nullable=True)
+    # JSON array of tool invocations, so the tool-call cards survive a reload.
+    tool_invocations = Column(Text, nullable=True)
+    # Time to first token in ms; kept separately from duration_ms so the UI can
+    # show how long the model "thought" before answering.
+    thinking_duration_ms = Column(Integer, nullable=True, default=0)
+    # Why the reply ended: 'stop' | 'abort' (user stopped) | 'error'
+    finish_reason = Column(String(20), nullable=True, default="stop")
+    # The query that was actually sent to the web search provider
+    search_query = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
     # Relationships

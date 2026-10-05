@@ -22,6 +22,10 @@ class MessageResponse(MessageBase):
     duration_ms: Optional[int] = 0
     search_results: Optional[str] = None
     generated_images: Optional[str] = None
+    tool_invocations: Optional[str] = None
+    thinking_duration_ms: Optional[int] = 0
+    finish_reason: Optional[str] = "stop"
+    search_query: Optional[str] = None
     created_at: datetime
 
     class Config:

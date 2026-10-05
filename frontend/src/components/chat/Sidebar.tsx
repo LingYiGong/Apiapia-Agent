@@ -19,6 +19,7 @@ import {
   ChevronUp,
   ChevronDown,
   GripVertical,
+  Pencil,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -30,6 +31,7 @@ interface SidebarProps {
   onTogglePin: (id: string, nextPinned: boolean) => void;
   onMovePinned: (id: string, direction: "up" | "down") => void;
   onReorderPinned: (orderedIds: string[]) => void;
+  onRename: (id: string, newTitle: string) => void;
   isOpen?: boolean;
   onClose?: () => void;
   loading?: boolean;
@@ -76,6 +78,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onTogglePin,
   onMovePinned,
   onReorderPinned,
+  onRename,
   isOpen = false,
   onClose,
   loading = false,
@@ -85,6 +88,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [dropId, setDropId] = useState<string | null>(null);
   // 待删除会话（二次确认框状态，点击删除按钮后先弹窗，不直接删除）
   const [pendingDelete, setPendingDelete] = useState<Conversation | null>(null);
+const [renamingId, setRenamingId] = useState<string | null>(null);
 
   const sorted = sortConversations(conversations);
 
@@ -173,13 +177,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </ActionTooltip>
         )}
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          <span
-            className="flex min-w-0 items-center gap-1.5 leading-snug"
-            title={c.title || "新建对话"}
-          >
-            {pinnedActive && <Pin className="h-3 w-3 shrink-0 text-primary" />}
-            <span className="min-w-0 flex-1 truncate font-normal">{c.title || "新建对话"}</span>
-          </span>
+          {renamingId === c.id ? (
+            <input
+              autoFocus
+              defaultValue={c.title || ""}
+              onClick={(e) => e.stopPropagation()}
+              onBlur={(e) => {
+                const next = e.target.value.trim();
+                setRenamingId(null);
+                if (next && next !== c.title) onRename(c.id, next);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") e.currentTarget.blur();
+                if (e.key === "Escape") setRenamingId(null);
+              }}
+              className="w-full bg-transparent border-b border-primary/50 outline-none text-[13px] text-foreground px-0 py-0.5"
+              aria-label="重命名对话"
+            />
+          ) : (
+            <span
+              className="flex min-w-0 items-center gap-1.5 leading-snug"
+              title={c.title || "新建对话"}
+            >
+              {pinnedActive && <Pin className="h-3 w-3 shrink-0 text-primary" />}
+              <span className="min-w-0 flex-1 truncate font-normal">{c.title || "新建对话"}</span>
+            </span>
+          )}
           {timeDisplay && (
             <span className="text-[11px] text-muted-foreground font-mono mt-0.5 select-none truncate tracking-tight">
               {timeDisplay}
@@ -236,6 +259,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <Pin className="h-4 w-4" />
               )}
               <span className="sr-only">{pinnedActive ? "取消置顶" : "置顶"}</span>
+            </Button>
+          </ActionTooltip>
+          <ActionTooltip label="重命名对话" side="top">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={(e) => {
+                e.stopPropagation();
+                setRenamingId(c.id);
+              }}
+              className="h-7 w-7 shrink-0 opacity-60 hover:opacity-100 hover:text-primary"
+            >
+              <Pencil className="h-4 w-4" />
+              <span className="sr-only">重命名对话</span>
             </Button>
           </ActionTooltip>
           <ActionTooltip label="删除对话" side="top">

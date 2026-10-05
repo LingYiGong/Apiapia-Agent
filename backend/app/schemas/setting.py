@@ -10,6 +10,7 @@ class UserSettingUpdate(BaseModel):
     system_prompt: Optional[str] = None
     temperature: Optional[float] = None
     memory_enabled: Optional[bool] = None
+    web_search_mode: Optional[str] = None
 
 
 class UserSettingResponse(BaseModel):
@@ -21,6 +22,7 @@ class UserSettingResponse(BaseModel):
     system_prompt: str
     temperature: float
     memory_enabled: bool
+    web_search_mode: str = "auto"
     created_at: datetime
     updated_at: datetime
 

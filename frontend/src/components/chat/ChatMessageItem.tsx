@@ -25,6 +25,9 @@ import {
   Palette,
   Download,
   ImageOff,
+  Square,
+  Trash2,
+  PenLine,
 } from "lucide-react";
 
 export function formatFileSize(bytes?: number) {
@@ -621,12 +624,30 @@ export function parseUserMessage(content: string): ParsedUserMessage {
   return { text: cleanText, images, docs };
 }
 
+/**
+ * Plain-text view of a stored user turn, used to seed the inline editor so the
+ * markdown/base64 attachment syntax never lands in the textarea.
+ */
+function stripAttachmentMarkup(content: string): string {
+  if (!content) return "";
+  return content
+    .replace(/!\[([^\]]*)\]\(((?:data:image\/[^;)]+;base64,[A-Za-z0-9+/=]+)|(?:https?:\/\/[^\s)]+))\)/gi, "")
+    .replace(/📄\s*\*{0,2}\[?(?:附件文件|附件文档|附带文件):\s*([^\]\*\n]+)\]?\*{0,2}/gi, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 interface ChatMessageItemProps {
   msg: Message;
   idx: number;
   isCopied: boolean;
   onCopy: (text: string, idx: number) => void;
   onImageClick: (src: string, alt?: string) => void;
+  canRegenerate?: boolean;
+  regenerating?: boolean;
+  onRegenerate?: (assistantMessageId: string) => void;
+  onEditMessage?: (messageId: string, newText: string) => void;
+  onDeleteMessage?: (messageId: string) => void;
 }
 
 export const ChatMessageItem = memo(function ChatMessageItem({
@@ -635,12 +656,36 @@ export const ChatMessageItem = memo(function ChatMessageItem({
   isCopied,
   onCopy,
   onImageClick,
+  canRegenerate,
+  regenerating,
+  onRegenerate,
+  onEditMessage,
+  onDeleteMessage,
 }: ChatMessageItemProps) {
   const isUser = msg.role === "user";
   const isErrorMsg =
     !isUser &&
     typeof msg.content === "string" &&
     (msg.content.includes("❌ 后端未知错误") || msg.content.includes("HTTP 500"));
+
+  const [editing, setEditing] = React.useState(false);
+  const [draft, setDraft] = React.useState("");
+
+  const startEdit = () => {
+    setDraft(stripAttachmentMarkup(msg.content || ""));
+    setEditing(true);
+  };
+
+  const commitEdit = () => {
+    if (!msg.id || !onEditMessage) {
+      setEditing(false);
+      return;
+    }
+    const next = draft.trim();
+    setEditing(false);
+    if (!next || next === stripAttachmentMarkup(msg.content || "").trim()) return;
+    onEditMessage(msg.id, next);
+  };
 
   return (
     <div className={`w-full flex ${isUser ? "justify-end" : "justify-start"} group`}>
@@ -663,7 +708,44 @@ export const ChatMessageItem = memo(function ChatMessageItem({
         >
           {isUser ? (
             <div>
-              {msg.attachments && msg.attachments.length > 0 && (
+              {editing ? (
+                <div className="flex flex-col gap-2 min-w-[260px] max-w-full">
+                  <textarea
+                    autoFocus
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        commitEdit();
+                      }
+                      if (e.key === "Escape") setEditing(false);
+                    }}
+                    rows={3}
+                    className="w-full resize-none rounded-2xl border border-primary/40 bg-background px-4 py-3 text-[15px] leading-relaxed focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                  <div className="flex items-center gap-2 justify-end">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setEditing(false)}
+                      className="h-7 px-2.5 text-[11px] rounded-lg"
+                    >
+                      取消
+                    </Button>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={commitEdit}
+                      className="h-7 px-2.5 text-[11px] rounded-lg"
+                    >
+                      发送
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {msg.attachments && msg.attachments.length > 0 && (
                 <div className="flex flex-wrap gap-2 mb-2 justify-end">
                   {msg.attachments.map((att) =>
                     att.type === "image" ? (
@@ -750,9 +832,38 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                   </>
                 );
               })()}
+
+              {/* User turn actions */}
+              {!editing && msg.id && onEditMessage && (
+                <div className="flex items-center gap-1 justify-end mt-1.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                  <ActionTooltip label="编辑这条提问并重新发送" side="top">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={startEdit}
+                      className="h-6 px-1.5 text-muted-foreground hover:text-foreground hover:bg-muted/80 rounded-md transition-colors"
+                    >
+                      <PenLine className="h-3 w-3" />
+                      <span className="text-[10px]">编辑</span>
+                    </Button>
+                  </ActionTooltip>
+                  <ActionTooltip label="删除这条消息" side="top">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+onClick={() => msg.id && onDeleteMessage?.(msg.id)}
+                      className="h-6 px-1.5 text-muted-foreground hover:text-red-600 dark:hover:text-red-400 hover:bg-muted/80 rounded-md transition-colors"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                      <span className="text-[10px]">删除</span>
+                    </Button>
+                  </ActionTooltip>
+                </div>
+              )}
+                </>
+              )}
             </div>
-          ) : isErrorMsg ? (
-            <div>
+          ) : isErrorMsg ? (            <div>
               <div className="flex items-center gap-1.5 font-bold text-destructive mb-1">
                 <AlertTriangle className="h-4 w-4 shrink-0" />
                 <span>生成出错：</span>
@@ -898,6 +1009,52 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                 )}
               </Button>
             </ActionTooltip>
+
+            {msg.finish_reason === "abort" && (
+              <ActionTooltip label="你在生成过程中点击了停止，此处为已生成的部分内容" side="bottom">
+                <span className="inline-flex items-center gap-1 h-7 px-2 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/25 text-[11px] font-medium cursor-default">
+                  <Square className="h-2.5 w-2.5 fill-current" />
+                  <span>已停止</span>
+                </span>
+              </ActionTooltip>
+            )}
+            {msg.finish_reason === "error" && (
+              <ActionTooltip label="本次回复生成失败" side="bottom">
+                <span className="inline-flex items-center gap-1 h-7 px-2 rounded-lg bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/25 text-[11px] font-medium cursor-default">
+                  <AlertTriangle className="h-2.5 w-2.5" />
+                  <span>生成失败</span>
+                </span>
+              </ActionTooltip>
+            )}
+
+            {canRegenerate && onRegenerate && (
+              <ActionTooltip label="用相同提问重新生成回答" side="bottom">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={regenerating}
+                  onClick={() => msg.id && onRegenerate(msg.id)}
+                  className="h-7 px-2 text-muted-foreground hover:text-foreground hover:bg-muted/80 rounded-lg transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <RotateCw className={cn("h-3.5 w-3.5", regenerating && "animate-spin")} />
+                  <span className="text-[11px]">重新生成</span>
+                </Button>
+              </ActionTooltip>
+            )}
+
+            {msg.id && onDeleteMessage && (
+              <ActionTooltip label="删除这条消息" side="bottom">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onDeleteMessage(msg.id!)}
+                  className="h-7 px-2 text-muted-foreground hover:text-red-600 dark:hover:text-red-400 hover:bg-muted/80 rounded-lg transition-colors flex items-center gap-1.5"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  <span className="text-[11px]">删除</span>
+                </Button>
+              </ActionTooltip>
+            )}
 
             <div className="flex items-center gap-2 flex-wrap text-[11px] font-mono opacity-50 hover:opacity-100 transition-opacity">
               {msg.created_at && (

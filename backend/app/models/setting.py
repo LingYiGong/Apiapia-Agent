@@ -16,6 +16,8 @@ class UserSetting(Base):
     system_prompt = Column(Text, default="你是一个智能、真诚、有洞察力的个人智能助理。请根据用户提供的历史背景和长期记忆为用户提供高质量服务。", nullable=False)
     temperature = Column(Float, default=0.7, nullable=False)
     memory_enabled = Column(Boolean, default=True, nullable=False)
+    # 'auto' | 'on' | 'off' — server-side so the preference follows the account
+    web_search_mode = Column(String(10), default="auto", nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 

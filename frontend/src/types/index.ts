@@ -67,6 +67,10 @@ export interface Message {
   attachments?: AttachmentItem[];
   search_results?: SearchResultItem[] | string;
   generated_images?: string | null;
+  tool_invocations?: ToolInvocation[] | string | null;
+  search_query?: string | null;
+  /** 'stop' = complete, 'abort' = user stopped it, 'error' = provider failed */
+  finish_reason?: "stop" | "abort" | "error" | null;
   toolInvocations?: ToolInvocation[];
   generatedImages?: GeneratedImage[];
   model?: string;
@@ -97,6 +101,7 @@ export interface UserSetting {
   system_prompt: string;
   temperature: number;
   memory_enabled: boolean;
+  web_search_mode?: "auto" | "on" | "off";
 }
 
 export interface ImageModelItem {

@@ -1,8 +1,10 @@
+import asyncio
 import json
 import logging
+import re
 import time
 from datetime import datetime, timezone
-from typing import AsyncGenerator, List, Dict, Any
+from typing import AsyncGenerator, List, Dict, Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,7 +15,7 @@ from app.models.conversation import Conversation, Message
 from app.models.setting import UserSetting
 from app.schemas.chat import ChatRequest
 from app.api.v1.deps import get_current_user
-from app.services.llm.factory import get_llm_provider
+from app.services.llm.factory import get_llm_provider, detect_provider
 from app.services.memory.retrieval import retrieve_relevant_memories, should_retrieve_memories
 from app.services.memory.extraction import schedule_memory_extraction
 from app.services.memory.dreaming import schedule_dreaming
@@ -28,6 +30,43 @@ from app.core.security import decrypt_api_key
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 logger = logging.getLogger("chat_api")
+
+TITLE_GENERATION_PROMPT = (
+    "你是一个对话标题生成器。根据用户的第一句提问和助手的回答，"
+    "为这段对话拟一个简短准确的中文标题。\n"
+    "要求：不超过 20 个字，直接输出标题本身，不要引号、标点结尾、解释或任何前缀。\n\n"
+    "用户提问：{user}\n\n助手回答（截断）：{assistant}\n\n标题："
+)
+
+
+async def _generate_conversation_title(user_text: str, assistant_text: str, model: str) -> str:
+    """
+    Ask the same model for a short conversation title.
+
+    Uses the non-streaming ``complete`` path so it cannot interfere with the SSE
+    stream, and falls back silently (the truncated first message stays as title).
+    """
+    provider_name = detect_provider(model)
+    provider = get_llm_provider(provider=provider_name, model=model)
+    prompt = TITLE_GENERATION_PROMPT.format(
+        user=(user_text or "")[:500],
+        assistant=(assistant_text or "")[:500],
+    )
+    raw = await provider.complete(
+        messages=[{"role": "user", "content": prompt}],
+        model=model,
+        temperature=0.2,
+    )
+    if not raw:
+        return ""
+
+    title = sanitize_llm_output(str(raw)).strip()
+    # Strip common decorations the model may still add. lstrip/rstrip with an
+    # explicit character set (rather than a quote-heavy regex) keeps the intent
+    # obvious and avoids quoting pitfalls.
+    title = title.lstrip(" \t\r\n\"'“”‘’《「『:：-—").rstrip(" \t\r\n\"'“”‘’》」』。，,;；:：")
+    title = title.splitlines()[0].strip() if title else ""
+    return title if 1 < len(title) <= 40 else ""
 
 
 def estimate_token_count(text: str) -> int:
@@ -178,6 +217,7 @@ async def chat_stream(
             conversation.model = chat_req.model
         conversation.updated_at = datetime.now(timezone.utc)
         await db.commit()
+        is_first_turn = False
     else:
         # Create new conversation with title generated from user input
         first_input = chat_req.message.strip() if chat_req.message else ""
@@ -192,6 +232,7 @@ async def chat_stream(
         db.add(conversation)
         await db.commit()
         await db.refresh(conversation)
+        is_first_turn = True
 
     conv_id = conversation.id
 
@@ -328,9 +369,17 @@ async def chat_stream(
 
         search_results = []
         generated_images = []
+        tool_invocations = []
         search_mode = chat_req.web_search_mode or "auto"
         need_search, search_query, search_topic, search_time_range = should_search_web(chat_req.message, mode=search_mode)
         need_image_gen, img_prompt, img_size = should_generate_image(chat_req.message)
+        # 'stop' | 'abort' | 'error' — persisted so the UI can tell a complete
+        # reply apart from one the user cut short or that failed.
+        finish_reason = "stop"
+        error_text: Optional[str] = None
+        # Flipped off when the iterator itself is being torn down, where any
+        # further yield would raise "async generator ignored GeneratorExit".
+        yield_allowed = True
 
         try:
             # Check and execute AI Image Generation if requested
@@ -339,6 +388,12 @@ async def chat_stream(
                 tool_call_id = f"img_{int(time.time() * 1000)}"
                 logger.info("Executing image generation for prompt: '%s' (size=%s)", img_prompt, img_size)
                 yield f"data: {json.dumps({'type': 'tool_call', 'toolCallId': tool_call_id, 'toolName': 'image_generation', 'args': {'prompt': img_prompt, 'size': img_size}}, ensure_ascii=False)}\n\n"
+                tool_invocations.append({
+                    "toolCallId": tool_call_id,
+                    "toolName": "image_generation",
+                    "args": {"prompt": img_prompt, "size": img_size},
+                    "state": "call",
+                })
 
                 try:
                     img_res = await image_gen_service.generate(
@@ -381,6 +436,9 @@ async def chat_stream(
                 except Exception as ie:
                     logger.warning("Image generation service failed: %s", str(ie))
                     yield f"data: {json.dumps({'type': 'tool_result', 'toolCallId': tool_call_id, 'result': {'error': str(ie)}}, ensure_ascii=False)}\n\n"
+                    if tool_invocations:
+                        tool_invocations[-1]["state"] = "result"
+                        tool_invocations[-1]["result"] = {"error": str(ie)}
                     if image_gen_free_only:
                         image_reply = (
                             f"⚠️ **体验模式绘图提示**：\n\n{str(ie)}\n\n"
@@ -414,6 +472,12 @@ async def chat_stream(
                     )
                     yield f"data: {json.dumps({'type': 'search_start', 'query': search_query}, ensure_ascii=False)}\n\n"
                     yield f"data: {json.dumps({'type': 'tool_call', 'toolCallId': tool_call_id, 'toolName': 'web_search', 'args': {'query': search_query}}, ensure_ascii=False)}\n\n"
+                    tool_invocations.append({
+                        "toolCallId": tool_call_id,
+                        "toolName": "web_search",
+                        "args": {"query": search_query},
+                        "state": "call",
+                    })
                     try:
                         search_results = await web_search_service.search(
                             search_query, max_results=5, topic=search_topic, time_range=search_time_range
@@ -421,6 +485,10 @@ async def chat_stream(
                     except Exception as se:
                         logger.warning("Web search service failed for '%s': %s", search_query, str(se))
                         search_results = []
+
+                    if tool_invocations:
+                        tool_invocations[-1]["state"] = "result"
+                        tool_invocations[-1]["result"] = search_results
 
                     yield f"data: {json.dumps({'type': 'search_results', 'query': search_query, 'results': search_results}, ensure_ascii=False)}\n\n"
                     yield f"data: {json.dumps({'type': 'tool_result', 'toolCallId': tool_call_id, 'result': search_results}, ensure_ascii=False)}\n\n"
@@ -443,9 +511,11 @@ async def chat_stream(
                 meta_chunk = {
                     "type": "meta",
                     "conversation_id": conv_id,
+                    "user_message_id": user_msg_record.id,
                     "model": model_to_use,
                     "retrieved_memories": retrieved_memories,
                     "search_results": search_results if search_results else None,
+                    "search_query": search_query if need_search else None,
                     "created_at": user_created_at.isoformat()
                 }
                 yield f"data: {json.dumps(meta_chunk, ensure_ascii=False, default=str)}\n\n"
@@ -553,7 +623,23 @@ async def chat_stream(
                     }
                     yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
 
+        except asyncio.CancelledError:
+            # The browser aborted the stream (stop button or navigation).
+            # Keep whatever was produced so the partial answer is not lost.
+            # Deliberately not re-raised: falling through lets the persist block
+            # below save the partial reply with finish_reason='abort'.
+            finish_reason = "abort"
+            logger.info("Stream cancelled by client for conversation %s; persisting partial reply", conv_id)
+
+        except GeneratorExit:
+            # The response iterator itself is being closed. Persist the partial
+            # reply as above, but never yield again from this path.
+            finish_reason = "abort"
+            yield_allowed = False
+            logger.info("Stream iterator closing for conversation %s; persisting partial reply", conv_id)
+
         except Exception as e:
+            finish_reason = "error"
             # EXTRACT ALL BACKEND ERROR DETAILS
             error_type = type(e).__name__
             error_message = str(e)
@@ -570,16 +656,16 @@ async def chat_stream(
             elif hasattr(e, "message") and getattr(e, "message") != error_message:
                 details.append(f"**详细描述**: {getattr(e, 'message')}")
 
-            full_error_text = "\n\n".join(details)
-            logger.error("Error during LLM streaming for user %s: %s", user_id, full_error_text, exc_info=True)
+            error_text = "\n\n".join(details)
+            logger.error("Error during LLM streaming for user %s: %s", user_id, error_text, exc_info=True)
 
             error_payload = {
                 "type": "error",
                 "conversation_id": conv_id,
-                "error": full_error_text
+                "error": error_text,
+                "finish_reason": finish_reason,
             }
             yield f"data: {json.dumps(error_payload, ensure_ascii=False)}\n\n"
-            return
 
         # 9. Calculate latency, reply time and accurate token stats
         duration_ms = max(20, int((time.time() - start_time) * 1000))
@@ -601,6 +687,11 @@ async def chat_stream(
 
         total_tokens = prompt_tokens + completion_tokens
 
+        # A failed turn with no partial text still deserves a durable record,
+        # otherwise the conversation silently loses the attempt on reload.
+        if not assistant_content.strip() and error_text:
+            assistant_content = error_text
+
         # Signal completion with complete metadata
         done_payload = {
             "type": "done",
@@ -612,9 +703,14 @@ async def chat_stream(
             "completion_tokens": completion_tokens,
             "total_tokens": total_tokens,
             "created_at": reply_created_at.isoformat(),
-            "search_results": search_results if search_results else None
+            "finish_reason": finish_reason,
+            "search_results": search_results if search_results else None,
+            "search_query": search_query if need_search else None,
+            "tool_invocations": tool_invocations if tool_invocations else None,
+            "generated_images": generated_images if generated_images else None,
         }
-        yield f"data: {json.dumps(done_payload, ensure_ascii=False)}\n\n"
+        if yield_allowed:
+            yield f"data: {json.dumps(done_payload, ensure_ascii=False)}\n\n"
 
         # 10. Persist assistant reply to DB & trigger background memory extraction
         if assistant_content.strip():
@@ -635,15 +731,36 @@ async def chat_stream(
                     prompt_tokens=prompt_tokens,
                     completion_tokens=completion_tokens,
                     duration_ms=duration_ms,
+                    thinking_duration_ms=thinking_duration_ms,
+                    finish_reason=finish_reason,
                     search_results=json.dumps(search_results, ensure_ascii=False) if search_results else None,
+                    search_query=search_query if need_search else None,
+                    tool_invocations=json.dumps(tool_invocations, ensure_ascii=False) if tool_invocations else None,
                     generated_images=json.dumps(generated_images, ensure_ascii=False) if generated_images else None,
                     created_at=reply_created_at
                 )
                 save_db.add(assistant_msg_record)
                 await save_db.commit()
 
-            # Schedule Mem0 extraction in non-blocking background executor
-            if use_memory:
+                # ── First turn of a conversation: replace the truncated first
+                #    message with an LLM-written title so the sidebar reads well.
+                if is_first_turn and assistant_content.strip():
+                    try:
+                        new_title = await _generate_conversation_title(
+                            chat_req.message or "(附件)",
+                            assistant_content,
+                            model_to_use,
+                        )
+                        if new_title:
+                            c_rec.title = new_title[:40]
+                            await save_db.commit()
+                    except Exception as title_err:
+                        logger.warning("Failed to generate conversation title: %s", title_err)
+
+            # Schedule Mem0 extraction in non-blocking background executor.
+            # Skipped for aborted turns: a cut-off answer can be a half-formed
+            # sentence and must not become a long-term fact.
+            if use_memory and finish_reason != "abort":
                 # Strip reasoning thoughts (<think>...</think>) so scratchpad does not pollute user memory
                 clean_assistant = assistant_content
                 if "<think>" in clean_assistant:

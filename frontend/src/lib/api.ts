@@ -97,6 +97,7 @@ export async function streamChatResponse(
     onSearchResults?: (data: { query: string; results: SearchResultItem[] }) => void;
     onToolCall?: (data: { toolCallId: string; toolName: string; args: any }) => void;
     onToolResult?: (data: { toolCallId: string; result: any }) => void;
+    onImageResult?: (data: { toolCallId: string; url: string; prompt: string; provider: string; model: string }) => void;
     onToken?: (token: string) => void;
     onError?: (error: string) => void;
     onDone?: (doneMeta: {
@@ -172,6 +173,8 @@ export async function streamChatResponse(
         callbacks.onToolCall?.(parsed);
       } else if (parsed.type === "tool_result") {
         callbacks.onToolResult?.(parsed);
+      } else if (parsed.type === "image_result") {
+        callbacks.onImageResult?.(parsed);
       } else if (parsed.type === "content") {
         if (typeof parsed.delta === "string") callbacks.onToken?.(parsed.delta);
       } else if (parsed.type === "reasoning") {

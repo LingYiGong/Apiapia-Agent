@@ -19,6 +19,7 @@ from app.services.memory.extraction import schedule_memory_extraction
 from app.services.memory.dreaming import schedule_dreaming
 from app.services.document_parser import parse_attachment, fetch_and_parse_url, extract_urls
 from app.services.search import web_search_service, should_search_web
+from app.services.image_gen import should_generate_image, image_gen_service
 from app.services.prompt import build_system_prompt
 from app.services.deterministic import evaluate_deterministic_context
 from app.core.security import decrypt_api_key
@@ -34,7 +35,45 @@ def estimate_token_count(text: str) -> int:
         return 0
     zh_chars = sum(1 for c in text if '\u4e00' <= c <= '\u9fff')
     other_chars = len(text) - zh_chars
-    return max(1, int(zh_chars * 1.3 + other_chars / 4))
+    return zh_chars + other_chars // 4
+
+
+LEAK_TRIGGERS = [
+    "<tool",
+    "<func",
+    "<action",
+    "<invoke",
+    "<call",
+    "<plugin",
+    "<code_interpreter",
+    "[SEARCH:",
+    "[ACTION:",
+    "[TOOL:",
+    "User Safety:",
+    "Response Safety:",
+    "Input Safety:",
+    "Output Safety:",
+    "Thus both are safe",
+    "Thus all are safe",
+    "We must output exactly that format",
+    "Safety Assessment:",
+    "Content Moderation:",
+    "\nUser:",
+    "\nHuman:"
+]
+
+LEAK_CLOSING = [
+    "</tool_call>",
+    "</tool>",
+    "</function>",
+    "</action>",
+    "</invoke>",
+    "</call>",
+    "</code_interpreter>",
+    "</plugin>",
+    "]",
+    "\n\n"
+]
 
 
 def sanitize_llm_output(text: str) -> str:
@@ -284,157 +323,199 @@ async def chat_stream(
         search_results = []
         search_mode = chat_req.web_search_mode or "auto"
         need_search, search_query, search_topic, search_time_range = should_search_web(chat_req.message, mode=search_mode)
+        need_image_gen, img_prompt, img_size = should_generate_image(chat_req.message)
 
         try:
-            # Check and execute automatic search before streaming LLM tokens
-            if need_search and search_query:
-                tool_call_id = f"call_{int(time.time() * 1000)}"
-                logger.info(
-                    "Executing web search for query: '%s' (mode=%s, topic=%s, time_range=%s)",
-                    search_query, search_mode, search_topic, search_time_range
-                )
-                yield f"data: {json.dumps({'type': 'search_start', 'query': search_query}, ensure_ascii=False)}\n\n"
-                yield f"data: {json.dumps({'type': 'tool_call', 'toolCallId': tool_call_id, 'toolName': 'web_search', 'args': {'query': search_query}}, ensure_ascii=False)}\n\n"
+            # Check and execute AI Image Generation if requested
+            if need_image_gen and img_prompt:
+                first_token_time = time.time()
+                tool_call_id = f"img_{int(time.time() * 1000)}"
+                logger.info("Executing image generation for prompt: '%s' (size=%s)", img_prompt, img_size)
+                yield f"data: {json.dumps({'type': 'tool_call', 'toolCallId': tool_call_id, 'toolName': 'image_generation', 'args': {'prompt': img_prompt, 'size': img_size}}, ensure_ascii=False)}\n\n"
+
                 try:
-                    search_results = await web_search_service.search(
-                        search_query, max_results=5, topic=search_topic, time_range=search_time_range
+                    img_res = await image_gen_service.generate(img_prompt, size=img_size)
+                    img_url = img_res["url"]
+                    img_provider = img_res.get("provider", "AI生图")
+                    img_model = img_res.get("model", "unknown")
+
+                    # Emit dedicated image_result event — frontend renders this as a proper card
+                    # The url may be a data:image/...;base64,... URI or an https:// URL
+                    yield f"data: {json.dumps({'type': 'image_result', 'toolCallId': tool_call_id, 'url': img_url, 'prompt': img_prompt, 'provider': img_provider, 'model': img_model}, ensure_ascii=False)}\n\n"
+                    yield f"data: {json.dumps({'type': 'tool_result', 'toolCallId': tool_call_id, 'result': {'prompt': img_prompt, 'model': img_model, 'provider': img_provider}}, ensure_ascii=False)}\n\n"
+
+                    # Content delta is just the caption text (no base64 embedded in markdown)
+                    image_reply = (
+                        f"🎨 已为您生成画作：**{img_prompt}**\n\n"
+                        f"> **绘图引擎**：`{img_provider}` · `{img_model}`"
                     )
-                except Exception as se:
-                    logger.warning("Web search service failed for '%s': %s", search_query, str(se))
-                    search_results = []
+                except Exception as ie:
+                    logger.warning("Image generation service failed: %s", str(ie))
+                    yield f"data: {json.dumps({'type': 'tool_result', 'toolCallId': tool_call_id, 'result': {'error': str(ie)}}, ensure_ascii=False)}\n\n"
+                    image_reply = (
+                        f"⚠️ **生图服务提示**：\n\n{str(ie)}\n\n"
+                        f"💡 **配置指南**：\n"
+                        f"- 若使用 **DALL·E 3**：请在后端 `.env` 中配置 `OPENAI_API_KEY`；\n"
+                        f"- 若使用 **Flux.1**（开源生图之王）：可在 [SiliconFlow 官网](https://cloud.siliconflow.cn/) 免费获取并配置 `SILICONFLOW_API_KEY`。\n\n"
+                        f"*(提示：你也可以直接输入「用 SVG 画一个...」，无需任何生图 Key，由语言模型直接生成矢量画作！)*"
+                    )
 
-                yield f"data: {json.dumps({'type': 'search_results', 'query': search_query, 'results': search_results}, ensure_ascii=False)}\n\n"
-                yield f"data: {json.dumps({'type': 'tool_result', 'toolCallId': tool_call_id, 'result': search_results}, ensure_ascii=False)}\n\n"
+                full_assistant_reply.append(image_reply)
+                delta_payload = {
+                    "type": "content",
+                    "conversation_id": conv_id,
+                    "delta": image_reply
+                }
+                yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
 
-                if search_results:
-                    search_lines = [
-                        f"\n\n【🌐 实时网络检索最新参考资料 (搜索词: {search_query})】",
-                        "系统已自动联网检索到以下最新网页内容，请参考这些实时资料全面、准确、客观地回答用户，并在涉及具体事实时引用参考来源（例如 [1]、[2]）：",
-                    ]
-                    for idx, r in enumerate(search_results, 1):
-                        search_lines.append(f"[{idx}] 《{r['title']}》\n    网址: {r['url']}\n    内容摘要: {r['snippet']}")
-                    search_context_str = "\n".join(search_lines)
+            else:
+                # Check and execute automatic search before streaming LLM tokens
+                if need_search and search_query:
+                    tool_call_id = f"call_{int(time.time() * 1000)}"
+                    logger.info(
+                        "Executing web search for query: '%s' (mode=%s, topic=%s, time_range=%s)",
+                        search_query, search_mode, search_topic, search_time_range
+                    )
+                    yield f"data: {json.dumps({'type': 'search_start', 'query': search_query}, ensure_ascii=False)}\n\n"
+                    yield f"data: {json.dumps({'type': 'tool_call', 'toolCallId': tool_call_id, 'toolName': 'web_search', 'args': {'query': search_query}}, ensure_ascii=False)}\n\n"
+                    try:
+                        search_results = await web_search_service.search(
+                            search_query, max_results=5, topic=search_topic, time_range=search_time_range
+                        )
+                    except Exception as se:
+                        logger.warning("Web search service failed for '%s': %s", search_query, str(se))
+                        search_results = []
 
-                    if messages_payload and messages_payload[0].get("role") == "system":
-                        messages_payload[0]["content"] += search_context_str
-                    else:
-                        messages_payload.insert(0, {"role": "system", "content": search_context_str})
+                    yield f"data: {json.dumps({'type': 'search_results', 'query': search_query, 'results': search_results}, ensure_ascii=False)}\n\n"
+                    yield f"data: {json.dumps({'type': 'tool_result', 'toolCallId': tool_call_id, 'result': search_results}, ensure_ascii=False)}\n\n"
 
-            # First send metadata chunk containing conversation_id and retrieved memories
-            meta_chunk = {
-                "type": "meta",
-                "conversation_id": conv_id,
-                "model": model_to_use,
-                "retrieved_memories": retrieved_memories,
-                "search_results": search_results if search_results else None,
-                "created_at": user_created_at.isoformat()
-            }
-            yield f"data: {json.dumps(meta_chunk, ensure_ascii=False, default=str)}\n\n"
+                    if search_results:
+                        search_lines = [
+                            f"\n\n【🌐 实时网络检索最新参考资料 (搜索词: {search_query})】",
+                            "系统已自动联网检索到以下最新网页内容，请参考这些实时资料全面、准确、客观地回答用户，并在涉及具体事实时引用参考来源（例如 [1]、[2]）：",
+                        ]
+                        for idx, r in enumerate(search_results, 1):
+                            search_lines.append(f"[{idx}] 《{r['title']}》\n    网址: {r['url']}\n    内容摘要: {r['snippet']}")
+                        search_context_str = "\n".join(search_lines)
 
-            # Obtain LLM Provider (uses backend .env configuration strictly)
-            provider = get_llm_provider(
-                provider=chat_req.provider,
-                model=model_to_use
-            )
+                        if messages_payload and messages_payload[0].get("role") == "system":
+                            messages_payload[0]["content"] += search_context_str
+                        else:
+                            messages_payload.insert(0, {"role": "system", "content": search_context_str})
 
-            # Stream LLM generation tokens with real-time leak filter
-            stream_window = ""
-            suppressed = False
-            LEAK_TRIGGERS = [
-                "<tool",
-                "<func",
-                "<action",
-                "<invoke",
-                "<call",
-                "<plugin",
-                "<code_interpreter",
-                "[SEARCH:",
-                "[ACTION:",
-                "[TOOL:",
-                "User Safety:",
-                "Response Safety:",
-                "Input Safety:",
-                "Output Safety:",
-                "Thus both are safe",
-                "Thus all are safe",
-                "We must output exactly that format",
-                "Safety Assessment:",
-                "Content Moderation:",
-                "\nUser:",
-                "\nHuman:"
-            ]
+                # First send metadata chunk containing conversation_id and retrieved memories
+                meta_chunk = {
+                    "type": "meta",
+                    "conversation_id": conv_id,
+                    "model": model_to_use,
+                    "retrieved_memories": retrieved_memories,
+                    "search_results": search_results if search_results else None,
+                    "created_at": user_created_at.isoformat()
+                }
+                yield f"data: {json.dumps(meta_chunk, ensure_ascii=False, default=str)}\n\n"
 
-            async for token in provider.chat(
-                messages=messages_payload,
-                model=model_to_use,
-                stream=True,
-                temperature=temperature
-            ):
-                if first_token_time is None:
-                    first_token_time = time.time()
-                full_assistant_reply.append(token)
+                # Obtain LLM Provider (uses backend .env configuration strictly)
+                provider = get_llm_provider(
+                    provider=chat_req.provider,
+                    model=model_to_use
+                )
 
-                if suppressed:
-                    continue
+                # Stream LLM generation tokens with real-time leak filter
+                stream_window = ""
+                suppressed = False
+                in_thinking = False
 
-                stream_window += token
+                async for token in provider.chat(
+                    messages=messages_payload,
+                    model=model_to_use,
+                    stream=True,
+                    temperature=temperature
+                ):
+                    if first_token_time is None:
+                        first_token_time = time.time()
+                    full_assistant_reply.append(token)
 
-                # 1. Check if any trigger is fully inside the window
-                matched_trigger = False
-                for trig in LEAK_TRIGGERS:
-                    if trig in stream_window:
-                        trig_pos = stream_window.find(trig)
-                        safe_part = stream_window[:trig_pos]
-                        if safe_part:
-                            delta_payload = {
-                                "type": "content",
-                                "conversation_id": conv_id,
-                                "delta": safe_part
-                            }
-                            yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
-                        stream_window = ""
-                        suppressed = True
-                        matched_trigger = True
-                        break
-                if matched_trigger:
-                    continue
+                    if "<think>" in token:
+                        in_thinking = True
+                    if "</think>" in token:
+                        in_thinking = False
 
-                # 2. Check if stream_window ends with a prefix of any trigger
-                hold_back = 0
-                for trig in LEAK_TRIGGERS:
-                    for i in range(len(trig) - 1, 0, -1):
-                        if stream_window.endswith(trig[:i]):
-                            hold_back = max(hold_back, i)
-                            break
+                    if suppressed:
+                        # Recover when closing tag is encountered
+                        if any(close_tag in token for close_tag in LEAK_CLOSING):
+                            suppressed = False
+                            stream_window = ""
+                        continue
 
-                if hold_back > 0:
-                    safe_len = len(stream_window) - hold_back
-                    if safe_len > 0:
-                        to_send = stream_window[:safe_len]
-                        stream_window = stream_window[safe_len:]
+                    stream_window += token
+
+                    # Inside <think>...</think>, reasoning models must be allowed to think freely
+                    if in_thinking:
                         delta_payload = {
                             "type": "content",
                             "conversation_id": conv_id,
-                            "delta": to_send
+                            "delta": stream_window
                         }
                         yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
-                else:
+                        stream_window = ""
+                        continue
+
+                    # 1. Check if any trigger is fully inside the window
+                    matched_trigger = False
+                    for trig in LEAK_TRIGGERS:
+                        if trig in stream_window:
+                            trig_pos = stream_window.find(trig)
+                            safe_part = stream_window[:trig_pos]
+                            if safe_part:
+                                delta_payload = {
+                                    "type": "content",
+                                    "conversation_id": conv_id,
+                                    "delta": safe_part
+                                }
+                                yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
+                            stream_window = ""
+                            suppressed = True
+                            matched_trigger = True
+                            break
+                    if matched_trigger:
+                        continue
+
+                    # 2. Check if stream_window ends with a prefix of any trigger
+                    hold_back = 0
+                    for trig in LEAK_TRIGGERS:
+                        for i in range(len(trig) - 1, 0, -1):
+                            if stream_window.endswith(trig[:i]):
+                                hold_back = max(hold_back, i)
+                                break
+
+                    if hold_back > 0:
+                        safe_len = len(stream_window) - hold_back
+                        if safe_len > 0:
+                            to_send = stream_window[:safe_len]
+                            stream_window = stream_window[safe_len:]
+                            delta_payload = {
+                                "type": "content",
+                                "conversation_id": conv_id,
+                                "delta": to_send
+                            }
+                            yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
+                    else:
+                        delta_payload = {
+                            "type": "content",
+                            "conversation_id": conv_id,
+                            "delta": stream_window
+                        }
+                        yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
+                        stream_window = ""
+
+                # Flush remaining window if not suppressed
+                if stream_window and not suppressed:
                     delta_payload = {
                         "type": "content",
                         "conversation_id": conv_id,
                         "delta": stream_window
                     }
                     yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
-                    stream_window = ""
-
-            # Flush remaining window if not suppressed
-            if stream_window and not suppressed:
-                delta_payload = {
-                    "type": "content",
-                    "conversation_id": conv_id,
-                    "delta": stream_window
-                }
-                yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
 
         except Exception as e:
             # EXTRACT ALL BACKEND ERROR DETAILS

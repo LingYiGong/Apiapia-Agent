@@ -3,7 +3,7 @@
 import React, { memo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Message, SearchResultItem } from "@/types";
+import { Message, SearchResultItem, GeneratedImage } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ActionTooltip } from "@/components/common/ActionTooltip";
@@ -21,6 +21,9 @@ import {
   ZoomIn,
   FileText,
   RotateCw,
+  Palette,
+  Download,
+  ImageOff,
 } from "lucide-react";
 
 export function formatFileSize(bytes?: number) {
@@ -99,11 +102,206 @@ function renderWithBreaks(node: React.ReactNode): React.ReactNode {
   return node;
 }
 
+function SvgRenderer({ svgCode }: { svgCode: string }) {
+  const [viewMode, setViewMode] = React.useState<"preview" | "code">("preview");
+  const [copied, setCopied] = React.useState(false);
+
+  const cleanSvg = React.useMemo(() => {
+    return svgCode.replace(/<script[\s\S]*?<\/script>/gi, "");
+  }, [svgCode]);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(svgCode);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleDownload = () => {
+    const blob = new Blob([svgCode], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `vector-artwork-${Date.now()}.svg`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="my-4 rounded-2xl overflow-hidden border border-border/80 bg-card shadow-sm">
+      <div className="flex items-center justify-between px-3.5 py-2 bg-muted/60 border-b border-border/60 text-xs select-none flex-wrap gap-2">
+        <div className="flex items-center gap-1.5 font-medium text-foreground">
+          <Palette className="h-3.5 w-3.5 text-primary" />
+          <span>SVG 矢量画作</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="bg-background/80 border border-border/60 rounded-lg p-0.5 flex text-[11px]">
+            <button
+              onClick={() => setViewMode("preview")}
+              className={cn(
+                "px-2 py-0.5 rounded-md transition-colors",
+                viewMode === "preview"
+                  ? "bg-primary text-primary-foreground font-medium shadow-2xs"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              预览图形
+            </button>
+            <button
+              onClick={() => setViewMode("code")}
+              className={cn(
+                "px-2 py-0.5 rounded-md transition-colors",
+                viewMode === "code"
+                  ? "bg-primary text-primary-foreground font-medium shadow-2xs"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              查看代码
+            </button>
+          </div>
+          <button
+            onClick={handleCopy}
+            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-border/60 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors text-[11px]"
+            title="复制代码"
+          >
+            {copied ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
+            <span>{copied ? "已复制" : "复制"}</span>
+          </button>
+          <button
+            onClick={handleDownload}
+            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-[11px] font-medium"
+            title="下载 SVG 矢量文件"
+          >
+            <Download className="h-3 w-3" />
+            <span>下载 SVG</span>
+          </button>
+        </div>
+      </div>
+
+      {viewMode === "preview" ? (
+        <div className="p-4 sm:p-6 flex items-center justify-center bg-muted/20 dark:bg-[#18181b]/60 min-h-[220px] overflow-hidden">
+          <div
+            className="max-w-full max-h-[460px] flex items-center justify-center [&>svg]:max-w-full [&>svg]:h-auto [&>svg]:drop-shadow-sm"
+            dangerouslySetInnerHTML={{ __html: cleanSvg }}
+          />
+        </div>
+      ) : (
+        <div className="p-4 overflow-x-auto text-[13px] font-mono leading-[1.65] bg-[#0d0d0d] text-[#ececec]">
+          <code>{svgCode}</code>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AiImageCard({
+  image,
+  onImageClick,
+}: {
+  image: GeneratedImage;
+  onImageClick?: (src: string, alt?: string) => void;
+}) {
+  const [loaded, setLoaded] = React.useState(false);
+  const [errored, setErrored] = React.useState(false);
+
+  const handleDownload = () => {
+    const { url, prompt } = image;
+    const filename = `ai-image-${Date.now()}.png`;
+    if (url.startsWith("data:")) {
+      // base64 data URI — create a temporary anchor
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } else {
+      // https:// URL — open in new tab so user can save manually
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
+  };
+
+  return (
+    <div className="my-4 rounded-2xl overflow-hidden border border-border/80 bg-card shadow-sm">
+      {/* Card Header */}
+      <div className="flex items-center justify-between px-3.5 py-2 bg-muted/60 border-b border-border/60 text-xs select-none flex-wrap gap-2">
+        <div className="flex items-center gap-1.5 font-medium text-foreground">
+          <Palette className="h-3.5 w-3.5 text-primary" />
+          <span>AI 生成画作</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Badge variant="secondary" className="text-[10px] font-mono font-normal py-0 px-1.5 h-4.5">
+            {image.provider} · {image.model}
+          </Badge>
+          <button
+            onClick={handleDownload}
+            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-[11px] font-medium"
+            title="下载图片"
+          >
+            <Download className="h-3 w-3" />
+            <span>下载</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Image Area */}
+      <div className="relative bg-muted/20 dark:bg-[#18181b]/60 flex items-center justify-center min-h-[200px]">
+        {/* Shimmer skeleton while loading */}
+        {!loaded && !errored && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-muted-foreground/60">
+            <div className="w-full h-full absolute inset-0 bg-gradient-to-r from-muted/40 via-muted/80 to-muted/40 animate-shimmer bg-[length:200%_100%]" />
+            <Palette className="relative h-8 w-8 text-primary/40 animate-pulse" />
+            <span className="relative text-xs">图片加载中…</span>
+          </div>
+        )}
+
+        {errored ? (
+          <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground/60">
+            <ImageOff className="h-8 w-8" />
+            <span className="text-xs">图片加载失败，请尝试下载查看</span>
+            <button
+              onClick={handleDownload}
+              className="text-xs text-primary hover:underline mt-1"
+            >
+              点击下载
+            </button>
+          </div>
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={image.url}
+            alt={image.prompt}
+            className={cn(
+              "max-w-full max-h-[520px] object-contain cursor-zoom-in transition-opacity duration-300",
+              loaded ? "opacity-100" : "opacity-0"
+            )}
+            onLoad={() => setLoaded(true)}
+            onError={() => { setLoaded(true); setErrored(true); }}
+            onClick={() => onImageClick?.(image.url, image.prompt)}
+            title="点击放大查看原图"
+          />
+        )}
+      </div>
+
+      {/* Caption */}
+      <div className="px-3.5 py-2 text-[12px] text-muted-foreground border-t border-border/40 truncate" title={image.prompt}>
+        💡 {image.prompt}
+      </div>
+    </div>
+  );
+}
+
 function CodeBlock({ children, className }: any) {
   const [copied, setCopied] = React.useState(false);
   const match = /language-(\w+)/.exec(className || "");
   const lang = match ? match[1] : "";
   const codeText = typeof children === "string" ? children.replace(/\n$/, "") : String(children || "").replace(/\n$/, "");
+
+  const isSvg = lang === "svg" || (codeText.trim().startsWith("<svg") && codeText.trim().includes("</svg>"));
+  if (isSvg) {
+    return <SvgRenderer svgCode={codeText} />;
+  }
 
   const handleCopy = () => {
     navigator.clipboard.writeText(codeText);
@@ -285,7 +483,7 @@ export function renderMessageBody(
         {thought && (
           <details
             className="rounded-xl border border-border/70 bg-muted/40 dark:bg-[#1c1c1e]/80 p-2.5 text-xs group transition-all min-w-0 max-w-full overflow-hidden"
-            open={isStreaming && !displayMainContent}
+            open={!displayMainContent || isStreaming}
           >
             <summary className="cursor-pointer select-none font-medium text-primary flex items-center justify-between">
               <span className="flex items-center gap-1.5">
@@ -300,13 +498,17 @@ export function renderMessageBody(
           </details>
         )}
 
-        {displayMainContent && (
+        {displayMainContent ? (
           <div className="prose prose-sm dark:prose-invert max-w-none break-words [overflow-wrap:anywhere] leading-relaxed">
             <ReactMarkdown remarkPlugins={[remarkGfm]} components={dynamicComponents}>
               {displayMainContent}
             </ReactMarkdown>
           </div>
-        )}
+        ) : !isStreaming ? (
+          <div className="text-xs text-muted-foreground/75 italic py-1 px-1">
+            （模型仅输出了思考过程，未生成正式正文。这通常是因为该问题推理链较长耗尽了单次最大 Token 截断限制，或上游服务提前中断。）
+          </div>
+        ) : null}
       </div>
     );
   }
@@ -577,12 +779,16 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                         <div className="flex items-center gap-2">
                           {tool.state === "call" ? (
                             <RotateCw className="h-3.5 w-3.5 animate-spin text-primary" />
+                          ) : tool.toolName === "image_generation" ? (
+                            <Palette className="h-3.5 w-3.5 text-primary" />
                           ) : (
                             <Cpu className="h-3.5 w-3.5 text-primary" />
                           )}
                           <span className="font-semibold text-foreground">
                             {tool.toolName === "search" || tool.toolName === "web_search"
                               ? "执行联网检索"
+                              : tool.toolName === "image_generation"
+                              ? "执行 AI 图像绘制"
                               : `调用工具: ${tool.toolName}`}
                           </span>
                         </div>
@@ -596,6 +802,19 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                         </div>
                       )}
                     </div>
+                  ))}
+                </div>
+              )}
+
+              {/* AI Generated Images — rendered as proper image cards */}
+              {msg.generatedImages && msg.generatedImages.length > 0 && (
+                <div className="space-y-3 mb-2">
+                  {msg.generatedImages.map((img, imgIdx) => (
+                    <AiImageCard
+                      key={imgIdx}
+                      image={img}
+                      onImageClick={onImageClick}
+                    />
                   ))}
                 </div>
               )}

@@ -81,6 +81,7 @@ export default function ChatPage() {
   const [streamingSearchResults, setStreamingSearchResults] = useState<SearchResultItem[] | null>(null);
   const currentSearchResultsRef = useRef<SearchResultItem[] | null>(null);
   const currentToolInvocationsRef = useRef<ToolInvocation[]>([]);
+  const currentGeneratedImagesRef = useRef<import("@/types").GeneratedImage[]>([]);
 
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
@@ -436,6 +437,7 @@ export default function ChatPage() {
 
     const searchResults = currentSearchResultsRef.current || doneMeta?.search_results;
     const tools = currentToolInvocationsRef.current;
+    const generatedImages = currentGeneratedImagesRef.current;
 
     setMessages((prev) => [
       ...prev,
@@ -450,6 +452,7 @@ export default function ChatPage() {
         token_usage: doneMeta?.total_tokens,
         search_results: searchResults && searchResults.length > 0 ? searchResults : undefined,
         toolInvocations: tools && tools.length > 0 ? [...tools] : undefined,
+        generatedImages: generatedImages && generatedImages.length > 0 ? [...generatedImages] : undefined,
         created_at: doneMeta?.created_at || new Date().toISOString(),
       },
     ]);
@@ -461,6 +464,7 @@ export default function ChatPage() {
     setStreamingSearchResults(null);
     currentSearchResultsRef.current = null;
     currentToolInvocationsRef.current = [];
+    currentGeneratedImagesRef.current = [];
     targetContentRef.current = "";
     displayedContentRef.current = "";
     loadConversations(false);
@@ -587,6 +591,14 @@ export default function ChatPage() {
               currentToolInvocationsRef.current[idx].result = data.result;
             }
           },
+          onImageResult: (data) => {
+            currentGeneratedImagesRef.current.push({
+              url: data.url,
+              prompt: data.prompt,
+              provider: data.provider,
+              model: data.model,
+            });
+          },
           onToken: (token) => {
             // Record Time to First Token (TTFT) when first chunk arrives
             if (firstTokenTimeRef.current === null) {
@@ -669,6 +681,7 @@ export default function ChatPage() {
     targetContentRef.current = "";
     displayedContentRef.current = "";
     currentSearchResultsRef.current = null;
+    currentGeneratedImagesRef.current = [];
     setStreamingContent("");
     setStreamingSearchResults(null);
     setSearchStatus({ state: "idle" });

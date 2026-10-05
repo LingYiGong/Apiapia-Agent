@@ -72,6 +72,12 @@ class Settings(BaseSettings):
     TAVILY_MAX_RESULTS: int = 5
     TAVILY_INCLUDE_ANSWER: bool = True
 
+    # Image Generation (DALL-E 3, SiliconFlow / Flux.1)
+    IMAGE_GEN_PROVIDER: str = "auto"  # 'auto', 'openai', 'siliconflow'
+    IMAGE_GEN_MODEL: str = "dall-e-3"  # 'dall-e-3', 'black-forest-labs/FLUX.1-schnell'
+    SILICONFLOW_API_KEY: Optional[str] = None
+    SILICONFLOW_BASE_URL: str = "https://api.siliconflow.cn/v1"
+
     class Config:
         case_sensitive = True
         env_file = ".env"

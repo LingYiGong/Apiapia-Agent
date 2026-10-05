@@ -47,6 +47,13 @@ export interface ToolInvocation {
   result?: any;
 }
 
+export interface GeneratedImage {
+  url: string;         // data: URI (base64) or https:// URL
+  prompt: string;
+  provider: string;
+  model: string;
+}
+
 export interface Message {
   id?: string;
   conversation_id?: string;
@@ -55,6 +62,7 @@ export interface Message {
   attachments?: AttachmentItem[];
   search_results?: SearchResultItem[] | string;
   toolInvocations?: ToolInvocation[];
+  generatedImages?: GeneratedImage[];
   model?: string;
   token_usage?: number;
   prompt_tokens?: number;

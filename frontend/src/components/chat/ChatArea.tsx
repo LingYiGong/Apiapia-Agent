@@ -298,7 +298,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         )}
       >
         {loadingMessages && messages.length === 0 ? (
-          <div className="max-w-4xl w-full mx-auto">
+          <div className="max-w-3xl w-full mx-auto">
             <MessageListSkeleton rows={4} />
           </div>
         ) : messages.length === 0 ? (
@@ -312,79 +312,47 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             </p>
           </div>
         ) : (
-          messages.map((msg, idx) => (
-            <ChatMessageItem
-              key={msg.id || idx}
-              msg={msg}
-              idx={idx}
-              isCopied={copiedIdx === idx}
-              onCopy={handleCopyMessage}
-              onImageClick={(src, alt) => setPreviewImage({ src, alt })}
-            />
-          ))
+          <div className="max-w-3xl w-full mx-auto space-y-6 sm:space-y-8">
+            {messages.map((msg, idx) => (
+              <ChatMessageItem
+                key={msg.id || idx}
+                msg={msg}
+                idx={idx}
+                isCopied={copiedIdx === idx}
+                onCopy={handleCopyMessage}
+                onImageClick={(src, alt) => setPreviewImage({ src, alt })}
+              />
+            ))}
+          </div>
         )}
 
-        {/* Current Streaming Message */}
+        {/* Current Streaming Message (ChatGPT style seamless container) */}
         {isStreaming && (
-          <div className="w-full max-w-full sm:max-w-3xl mr-auto min-w-0">
-            <div className="rounded-2xl px-3.5 sm:px-4 py-2.5 sm:py-3.5 text-[15px] sm:text-sm leading-relaxed bg-card border text-card-foreground shadow-sm w-full min-w-0 break-words [overflow-wrap:anywhere]">
+          <div className="max-w-3xl w-full mx-auto">
+            <div className="w-full bg-transparent border-0 shadow-none px-0 py-0.5 text-foreground leading-[1.75] text-[15px] sm:text-base min-w-0 break-words [overflow-wrap:anywhere]">
               {isWaitingForFirstToken || !streamingContent ? (
-                /* Stage 1: Waiting / Thinking Live Timer Box */
-                <div className="space-y-1.5 py-0.5">
+                /* Stage 1: Waiting / Thinking Live Indicator */
+                <div className="py-1">
                   {searchStatus?.state === "searching" ? (
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <div className="h-6 w-6 rounded-lg bg-gradient-to-tr from-sky-600 to-indigo-500 flex items-center justify-center text-white shadow-xs shrink-0">
-                          <Globe className="h-3.5 w-3.5 animate-spin" />
-                        </div>
-                        <span className="text-xs font-semibold text-sky-700 dark:text-sky-300">
-                          正在全网检索最新信息
-                        </span>
-                        <span className="inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded-full bg-sky-100 dark:bg-sky-900/60 text-sky-700 dark:text-sky-300 font-bold border border-sky-200/60 dark:border-sky-800/60 shadow-xs">
-                          <Clock className="h-3 w-3 animate-spin" />
-                          已耗时 {(elapsedTime || 0).toFixed(1)}s
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-normal pl-8 font-mono">
-                        检索词：&ldquo;{searchStatus.query}&rdquo;
-                      </p>
+                    <div className="inline-flex items-center gap-2 text-xs sm:text-sm text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/40 px-3 py-1.5 rounded-full border border-sky-200/50 dark:border-sky-800/50">
+                      <Globe className="h-3.5 w-3.5 animate-spin shrink-0" />
+                      <span>正在检索：&ldquo;{searchStatus.query}&rdquo;</span>
+                      <span className="text-[10px] font-mono opacity-70">({(elapsedTime || 0).toFixed(1)}s)</span>
                     </div>
                   ) : (
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <div className="h-6 w-6 rounded-lg bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-xs shrink-0">
-                          <Sparkles className="h-3 w-3 animate-spin" />
-                        </div>
-                        <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
-                          正在深入思考中
-                        </span>
-                        <span className="inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 font-bold border border-indigo-200/60 dark:border-indigo-800/60 shadow-xs">
-                          <Clock className="h-3 w-3 animate-spin" />
-                          已等待 {(elapsedTime || 0).toFixed(1)}s
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-normal pl-8">
-                        正在分析问题并组织逻辑，准备逐字为你呈现回答...
-                      </p>
+                    <div className="inline-flex items-center gap-2 text-xs sm:text-sm text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-full border border-border/60">
+                      <Sparkles className="h-3.5 w-3.5 animate-spin text-primary shrink-0" />
+                      <span>思考中...</span>
+                      <span className="text-[10px] font-mono opacity-70">({(elapsedTime || 0).toFixed(1)}s)</span>
                     </div>
                   )}
                 </div>
               ) : (
-                /* Stage 2: Streaming Typewriter Output */
+                /* Stage 2: Streaming Output with Typing Cursor */
                 <div>
-                  {thinkingDuration !== null && thinkingDuration !== undefined && (
-                    <div className="flex items-center gap-1.5 mb-2.5 pb-1.5 border-b border-slate-200/70 dark:border-slate-800/80 text-[11px] font-mono">
-                      <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-200/50 dark:border-emerald-800/50">
-                        <Clock className="h-3 w-3" />
-                        思考耗时 {thinkingDuration.toFixed(1)}s
-                      </span>
-                      <span className="text-[10px] text-slate-400">· 逐字回复中</span>
-                    </div>
-                  )}
-
                   {/* Realtime reference sources during streaming */}
                   {streamingSearchResults && streamingSearchResults.length > 0 && (
-                    <div className="mb-2.5">
+                    <div className="mb-3">
                       <details className="group rounded-xl border border-border bg-muted/40 text-xs overflow-hidden transition-all">
                         <summary className="cursor-pointer select-none font-medium text-foreground flex items-center justify-between p-2 sm:p-2.5 hover:bg-muted/70 transition-colors">
                           <span className="flex items-center gap-1.5">
@@ -433,16 +401,22 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                     </div>
                   )}
 
-                  {renderMessageBody(streamingContent, true, (src, alt) => setPreviewImage({ src, alt }))}
+                  <div className="relative">
+                    {renderMessageBody(streamingContent, true, (src, alt) => setPreviewImage({ src, alt }))}
+                    <span className="inline-block w-2 h-4.5 bg-primary/80 ml-1.5 translate-y-0.5 animate-pulse rounded-xs" />
+                  </div>
 
-                  <div className="mt-2.5 pt-1.5 border-t border-border flex items-center justify-between gap-1.5 text-[10px] text-primary font-mono">
+                  <div className="mt-3 pt-2 flex items-center justify-between gap-1.5 text-[11px] text-muted-foreground font-mono opacity-60">
                     <div className="flex items-center gap-1.5">
-                      <Cpu className="h-3 w-3 animate-spin" />
+                      <Cpu className="h-3 w-3 animate-spin text-primary" />
                       <span>{currentModel}</span>
                     </div>
                     <div className="flex items-center gap-1 text-muted-foreground font-mono">
+                      {thinkingDuration !== null && thinkingDuration !== undefined && (
+                        <span>思考 {(thinkingDuration).toFixed(1)}s · </span>
+                      )}
                       <Clock className="h-3 w-3" />
-                      <span>总耗时 {(elapsedTime || 0).toFixed(1)}s</span>
+                      <span>{(elapsedTime || 0).toFixed(1)}s</span>
                     </div>
                   </div>
                 </div>

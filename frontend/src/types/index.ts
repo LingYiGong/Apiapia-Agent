@@ -39,6 +39,14 @@ export interface SearchResultItem {
   snippet: string;
 }
 
+export interface ToolInvocation {
+  toolCallId: string;
+  toolName: string;
+  args: any;
+  state: "call" | "result";
+  result?: any;
+}
+
 export interface Message {
   id?: string;
   conversation_id?: string;
@@ -46,6 +54,7 @@ export interface Message {
   content: string;
   attachments?: AttachmentItem[];
   search_results?: SearchResultItem[] | string;
+  toolInvocations?: ToolInvocation[];
   model?: string;
   token_usage?: number;
   prompt_tokens?: number;

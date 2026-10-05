@@ -16,7 +16,7 @@ import { SettingsView } from "@/components/settings/SettingsView";
 import { MobileTab } from "@/components/layout/UserAvatarDropdown";
 import { toast } from "sonner";
 import { FullPageSkeleton } from "@/components/common/PageSkeleton";
-import { Conversation, Message, ModelCatalogItem, AttachmentItem, SearchResultItem } from "@/types";
+import { Conversation, Message, ModelCatalogItem, AttachmentItem, SearchResultItem, ToolInvocation } from "@/types";
 import { cn } from "@/lib/utils";
 
 export default function ChatPage() {
@@ -80,6 +80,7 @@ export default function ChatPage() {
   }>({ state: "idle" });
   const [streamingSearchResults, setStreamingSearchResults] = useState<SearchResultItem[] | null>(null);
   const currentSearchResultsRef = useRef<SearchResultItem[] | null>(null);
+  const currentToolInvocationsRef = useRef<ToolInvocation[]>([]);
 
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
@@ -434,6 +435,7 @@ export default function ChatPage() {
       (startTimeRef.current ? Math.max(20, Date.now() - startTimeRef.current) : 0);
 
     const searchResults = currentSearchResultsRef.current || doneMeta?.search_results;
+    const tools = currentToolInvocationsRef.current;
 
     setMessages((prev) => [
       ...prev,
@@ -447,6 +449,7 @@ export default function ChatPage() {
         completion_tokens: doneMeta?.completion_tokens,
         token_usage: doneMeta?.total_tokens,
         search_results: searchResults && searchResults.length > 0 ? searchResults : undefined,
+        toolInvocations: tools && tools.length > 0 ? [...tools] : undefined,
         created_at: doneMeta?.created_at || new Date().toISOString(),
       },
     ]);
@@ -457,6 +460,7 @@ export default function ChatPage() {
     setSearchStatus({ state: "idle" });
     setStreamingSearchResults(null);
     currentSearchResultsRef.current = null;
+    currentToolInvocationsRef.current = [];
     targetContentRef.current = "";
     displayedContentRef.current = "";
     loadConversations(false);
@@ -567,6 +571,21 @@ export default function ChatPage() {
               query: data.query,
               count: data.results?.length || 0,
             });
+          },
+          onToolCall: (data) => {
+            currentToolInvocationsRef.current.push({
+              toolCallId: data.toolCallId,
+              toolName: data.toolName,
+              args: data.args,
+              state: "call",
+            });
+          },
+          onToolResult: (data) => {
+            const idx = currentToolInvocationsRef.current.findIndex((t) => t.toolCallId === data.toolCallId);
+            if (idx !== -1) {
+              currentToolInvocationsRef.current[idx].state = "result";
+              currentToolInvocationsRef.current[idx].result = data.result;
+            }
           },
           onToken: (token) => {
             // Record Time to First Token (TTFT) when first chunk arrives

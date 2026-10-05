@@ -37,6 +37,56 @@ def estimate_token_count(text: str) -> int:
     return max(1, int(zh_chars * 1.3 + other_chars / 4))
 
 
+def sanitize_llm_output(text: str) -> str:
+    """
+    Universal LLM output sanitizer.
+    Handles all 4 major classes of non-user leaks across any model:
+    1. Unexecuted Agent/Tool calls (<tool...>, <func...>, <action...>, <invoke...>, [ACTION:...])
+    2. Guardrail & Content Moderation leaks (User/Response Safety, Safety Assessment, etc.)
+    3. Multi-turn role bleeding (model hallucinating next turn User:/Human:)
+    4. Internal scratchpad & reflection tags (<scratchpad>, <internal>, etc.)
+    """
+    if not text:
+        return ""
+    import re
+    cleaned = text
+
+    # 1. Strip raw tool/function call containers and dangling arguments
+    cleaned = re.sub(
+        r'<\/?(?:tool(?:_call)?|func(?:tion)?(?:_call)?|action|invoke|plugin_call|code_interpreter|call)[\s\S]*?(?:<\/(?:tool(?:_call)?|func(?:tion)?(?:_call)?|action|invoke|plugin_call|code_interpreter|call)>|$)',
+        '',
+        cleaned,
+        flags=re.IGNORECASE
+    )
+    cleaned = re.sub(r'<\/?(?:arg_key|arg_value|parameter|parameters|arguments)[\s\S]*?>', '', cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r'\[(?:ACTION|SEARCH|TOOL|CALL|OBSERVATION):\s*[^\]]+\]', '', cleaned, flags=re.IGNORECASE)
+
+    # 2. Strip ReAct-style leftover traces if present without execution
+    cleaned = re.sub(r'\n\s*(?:Action|Action Input|Observation):\s*[\s\S]*?(?=\n\s*(?:Thought|Final Answer)|$)', '', cleaned, flags=re.IGNORECASE)
+
+    # 3. Strip Guardrail / Moderation classifier output
+    cleaned = re.sub(
+        r'(?:Thus (?:both|all) are safe|We must output exactly that format|Safety Assessment:|Content Moderation:)[\s\S]*',
+        '',
+        cleaned,
+        flags=re.IGNORECASE
+    )
+    cleaned = re.sub(
+        r'(?:(?:User|Input|Prompt|Response|Output|Assistant)\s*(?:Safety|Moderation|Guard|Risk|Category|Harm)\s*[:=]\s*\w+[\s\n\r]*)+',
+        '',
+        cleaned,
+        flags=re.IGNORECASE
+    )
+
+    # 4. Strip turn hallucination (model simulating subsequent User:/Human: turns at the end)
+    cleaned = re.sub(r'\n+\s*(?:(?:User|Human|System)\s*:[^\n]+[\s\n\r]*)+$', '', cleaned, flags=re.IGNORECASE)
+
+    # 5. Strip stray internal scratchpad / reflection tags
+    cleaned = re.sub(r'<\/?(?:scratchpad|internal|reflection|antThinking)>', '', cleaned, flags=re.IGNORECASE)
+
+    return cleaned.strip()
+
+
 @router.post("")
 async def chat_stream(
     chat_req: ChatRequest,
@@ -238,11 +288,13 @@ async def chat_stream(
         try:
             # Check and execute automatic search before streaming LLM tokens
             if need_search and search_query:
+                tool_call_id = f"call_{int(time.time() * 1000)}"
                 logger.info(
                     "Executing web search for query: '%s' (mode=%s, topic=%s, time_range=%s)",
                     search_query, search_mode, search_topic, search_time_range
                 )
                 yield f"data: {json.dumps({'type': 'search_start', 'query': search_query}, ensure_ascii=False)}\n\n"
+                yield f"data: {json.dumps({'type': 'tool_call', 'toolCallId': tool_call_id, 'toolName': 'web_search', 'args': {'query': search_query}}, ensure_ascii=False)}\n\n"
                 try:
                     search_results = await web_search_service.search(
                         search_query, max_results=5, topic=search_topic, time_range=search_time_range
@@ -252,6 +304,7 @@ async def chat_stream(
                     search_results = []
 
                 yield f"data: {json.dumps({'type': 'search_results', 'query': search_query, 'results': search_results}, ensure_ascii=False)}\n\n"
+                yield f"data: {json.dumps({'type': 'tool_result', 'toolCallId': tool_call_id, 'result': search_results}, ensure_ascii=False)}\n\n"
 
                 if search_results:
                     search_lines = [
@@ -284,7 +337,33 @@ async def chat_stream(
                 model=model_to_use
             )
 
-            # Stream LLM generation tokens
+            # Stream LLM generation tokens with real-time leak filter
+            stream_window = ""
+            suppressed = False
+            LEAK_TRIGGERS = [
+                "<tool",
+                "<func",
+                "<action",
+                "<invoke",
+                "<call",
+                "<plugin",
+                "<code_interpreter",
+                "[SEARCH:",
+                "[ACTION:",
+                "[TOOL:",
+                "User Safety:",
+                "Response Safety:",
+                "Input Safety:",
+                "Output Safety:",
+                "Thus both are safe",
+                "Thus all are safe",
+                "We must output exactly that format",
+                "Safety Assessment:",
+                "Content Moderation:",
+                "\nUser:",
+                "\nHuman:"
+            ]
+
             async for token in provider.chat(
                 messages=messages_payload,
                 model=model_to_use,
@@ -294,10 +373,66 @@ async def chat_stream(
                 if first_token_time is None:
                     first_token_time = time.time()
                 full_assistant_reply.append(token)
+
+                if suppressed:
+                    continue
+
+                stream_window += token
+
+                # 1. Check if any trigger is fully inside the window
+                matched_trigger = False
+                for trig in LEAK_TRIGGERS:
+                    if trig in stream_window:
+                        trig_pos = stream_window.find(trig)
+                        safe_part = stream_window[:trig_pos]
+                        if safe_part:
+                            delta_payload = {
+                                "type": "content",
+                                "conversation_id": conv_id,
+                                "delta": safe_part
+                            }
+                            yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
+                        stream_window = ""
+                        suppressed = True
+                        matched_trigger = True
+                        break
+                if matched_trigger:
+                    continue
+
+                # 2. Check if stream_window ends with a prefix of any trigger
+                hold_back = 0
+                for trig in LEAK_TRIGGERS:
+                    for i in range(len(trig) - 1, 0, -1):
+                        if stream_window.endswith(trig[:i]):
+                            hold_back = max(hold_back, i)
+                            break
+
+                if hold_back > 0:
+                    safe_len = len(stream_window) - hold_back
+                    if safe_len > 0:
+                        to_send = stream_window[:safe_len]
+                        stream_window = stream_window[safe_len:]
+                        delta_payload = {
+                            "type": "content",
+                            "conversation_id": conv_id,
+                            "delta": to_send
+                        }
+                        yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
+                else:
+                    delta_payload = {
+                        "type": "content",
+                        "conversation_id": conv_id,
+                        "delta": stream_window
+                    }
+                    yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
+                    stream_window = ""
+
+            # Flush remaining window if not suppressed
+            if stream_window and not suppressed:
                 delta_payload = {
                     "type": "content",
                     "conversation_id": conv_id,
-                    "delta": token
+                    "delta": stream_window
                 }
                 yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
 
@@ -333,7 +468,7 @@ async def chat_stream(
         duration_ms = max(20, int((time.time() - start_time) * 1000))
         thinking_duration_ms = max(0, int((first_token_time - start_time) * 1000)) if first_token_time else duration_ms
         reply_created_at = datetime.now(timezone.utc)
-        assistant_content = "".join(full_assistant_reply)
+        assistant_content = sanitize_llm_output("".join(full_assistant_reply))
 
         usage = getattr(provider, "last_usage", None) or {}
         prompt_tokens = usage.get("prompt_tokens")

@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v2.8.0-indigo?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/version-v2.9.0-indigo?style=flat-square" alt="Version">
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
   <img src="https://img.shields.io/badge/Mem0%20OSS-2.2.1-orange?style=flat-square" alt="Mem0">
@@ -22,7 +22,15 @@
 
 ---
 
-## v2.8.0 发布说明
+## v2.9.0 发布说明
+
+- **ChatGPT 级沉浸式排版交互**：AI 回答全面采用沉浸式无边框排版，加入打字机呼吸光标（`animate-pulse`），提问气泡采用软灰圆角药丸质感，居中黄金阅读宽度（`max-w-3xl`）带来舒适体验。
+- **现代化代码块与一键复制**：全面升级代码渲染组件，配备独立暗色语言标识顶栏与右上角一键复制代码按键，支持高亮与快速复制反馈。
+- **工业级 Vercel AI SDK 架构对接**：前端引入 `@ai-sdk` 规范，实现标准数据流（Data Stream）与 Tool Invocations 协议，状态卡片优雅呈现工具调用中与完成态。
+- **全方位大模型幻觉与泄露防御**：新增通用多级输出清洗引擎，彻底阻断模型输出中可能残留的未执行工具伪代码（如 `<tool_call>`）、ReAct 思维草稿及安全审核标签（`User Safety: safe` 等）。
+- **智能意图评估器优化**：放宽对金融市场、汇率与代码数学混合查询（如 QQQ、标普500、USD/CNY）的判定规则，并强化 LaTeX 语法清洗，确保行情事实检索精准触发。
+
+### 历史版本：v2.8.0 发布说明
 
 - 长期记忆召回升级为“稳定用户档案 + 当前问题相关记忆”两层结构，并加入重要度、时间衰减、去重和上下文长度控制。
 - 记忆以不可执行的参考资料区块注入模型，降低记忆内容触发提示注入的风险。

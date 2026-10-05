@@ -20,6 +20,7 @@ import {
   ExternalLink,
   ZoomIn,
   FileText,
+  RotateCw,
 } from "lucide-react";
 
 export function formatFileSize(bytes?: number) {
@@ -54,6 +55,25 @@ export function parseSearchResults(raw: any): SearchResultItem[] {
   return [];
 }
 
+export function sanitizeDisplayContent(raw: string): string {
+  if (!raw) return "";
+  return raw
+    // 1. Strip raw tool/function call containers and dangling arguments
+    .replace(/<\/?(?:tool(?:_call)?|func(?:tion)?(?:_call)?|action|invoke|plugin_call|code_interpreter|call)[\s\S]*?(?:<\/(?:tool(?:_call)?|func(?:tion)?(?:_call)?|action|invoke|plugin_call|code_interpreter|call)>|$)/gi, "")
+    .replace(/<\/?(?:arg_key|arg_value|parameter|parameters|arguments)[\s\S]*?>/gi, "")
+    .replace(/\[(?:ACTION|SEARCH|TOOL|CALL|OBSERVATION):\s*[^\]]+\]/gi, "")
+    // 2. Strip ReAct-style leftover traces
+    .replace(/\n\s*(?:Action|Action Input|Observation):\s*[\s\S]*?(?=\n\s*(?:Thought|Final Answer)|$)/gi, "")
+    // 3. Strip Guardrail / Moderation classifier output
+    .replace(/(?:Thus (?:both|all) are safe|We must output exactly that format|Safety Assessment:|Content Moderation:)[\s\S]*/gi, "")
+    .replace(/(?:(?:User|Input|Prompt|Response|Output|Assistant)\s*(?:Safety|Moderation|Guard|Risk|Category|Harm)\s*[:=]\s*\w+[\s\n\r]*)+/gi, "")
+    // 4. Strip turn hallucination (User:/Human: at the end)
+    .replace(/\n+\s*(?:(?:User|Human|System)\s*:[^\n]+[\s\n\r]*)+$/gi, "")
+    // 5. Strip stray internal scratchpad / reflection tags
+    .replace(/<\/?(?:scratchpad|internal|reflection|antThinking)>/gi, "")
+    .trim();
+}
+
 function renderWithBreaks(node: React.ReactNode): React.ReactNode {
   if (typeof node === "string") {
     if (!/<\s*br\s*\/?>|&lt;\s*br\s*\/?&gt;/i.test(node)) return node;
@@ -79,6 +99,48 @@ function renderWithBreaks(node: React.ReactNode): React.ReactNode {
   return node;
 }
 
+function CodeBlock({ children, className }: any) {
+  const [copied, setCopied] = React.useState(false);
+  const match = /language-(\w+)/.exec(className || "");
+  const lang = match ? match[1] : "";
+  const codeText = typeof children === "string" ? children.replace(/\n$/, "") : String(children || "").replace(/\n$/, "");
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(codeText);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="my-3.5 rounded-2xl overflow-hidden border border-border/70 bg-[#0d0d0d] shadow-xs">
+      <div className="flex items-center justify-between px-4 py-2 bg-[#1f1f23] text-xs text-muted-foreground border-b border-white/5 select-none">
+        <span className="font-mono text-[11px] font-medium tracking-wide uppercase text-slate-300">
+          {lang || "code"}
+        </span>
+        <button
+          onClick={handleCopy}
+          className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md hover:bg-white/10 text-slate-300 hover:text-white transition-colors text-[11px] font-medium"
+        >
+          {copied ? (
+            <>
+              <Check className="h-3.5 w-3.5 text-emerald-400" />
+              <span className="text-emerald-400">已复制</span>
+            </>
+          ) : (
+            <>
+              <Copy className="h-3.5 w-3.5" />
+              <span>复制代码</span>
+            </>
+          )}
+        </button>
+      </div>
+      <div className="p-4 overflow-x-auto text-[13px] sm:text-[13.5px] font-mono leading-[1.65] text-[#ececec]">
+        <code>{children}</code>
+      </div>
+    </div>
+  );
+}
+
 const markdownComponents = {
   img: ({ node, ...props }: any) => (
     <img
@@ -96,18 +158,18 @@ const markdownComponents = {
     />
   ),
   p: ({ node, children, ...props }: any) => (
-    <p {...props} className="break-words [overflow-wrap:anywhere] leading-[1.62] my-2 text-[16px] sm:text-[15px] tracking-[-0.012em] text-foreground/95">
+    <p {...props} className="break-words [overflow-wrap:anywhere] leading-[1.72] my-2 text-[15px] sm:text-[15.5px] tracking-[-0.01em] text-foreground/95">
       {renderWithBreaks(children)}
     </p>
   ),
   h1: ({ node, ...props }: any) => (
-    <h1 {...props} className="text-[22px] sm:text-[24px] font-bold mt-4 mb-2 text-foreground tracking-tight" />
+    <h1 {...props} className="text-[20px] sm:text-[22px] font-bold mt-5 mb-2.5 text-foreground tracking-tight" />
   ),
   h2: ({ node, ...props }: any) => (
-    <h2 {...props} className="text-[18px] sm:text-[19px] font-bold mt-3 mb-1.5 text-foreground tracking-tight" />
+    <h2 {...props} className="text-[17px] sm:text-[18px] font-bold mt-4 mb-2 text-foreground tracking-tight" />
   ),
   h3: ({ node, ...props }: any) => (
-    <h3 {...props} className="text-[16px] sm:text-[16px] font-semibold mt-2.5 mb-1 text-foreground" />
+    <h3 {...props} className="text-[15px] sm:text-[16px] font-semibold mt-3 mb-1 text-foreground" />
   ),
   table: ({ node, ...props }: any) => (
     <div className="w-full max-w-full my-3 overflow-x-auto rounded-xl border border-border/70 shadow-2xs">
@@ -127,12 +189,7 @@ const markdownComponents = {
       {renderWithBreaks(children)}
     </td>
   ),
-  pre: ({ node, ...props }: any) => (
-    <pre
-      {...props}
-      className="my-2.5 max-w-full overflow-x-auto rounded-xl bg-[#161618] p-3 sm:p-4 text-[13px] leading-relaxed text-[#f5f5f7] font-mono shadow-inner border border-border/70"
-    />
-  ),
+  pre: ({ children }: any) => <>{children}</>,
   code: ({ node, inline, className, children, ...props }: any) => {
     const isInline = inline || !className;
     if (isInline) {
@@ -145,11 +202,7 @@ const markdownComponents = {
         </code>
       );
     }
-    return (
-      <code {...props} className={`${className || ""} font-mono text-[13px] sm:text-xs`}>
-        {children}
-      </code>
-    );
+    return <CodeBlock className={className}>{children}</CodeBlock>;
   },
   ul: ({ node, ...props }: any) => (
     <ul {...props} className="list-disc list-outside pl-4 sm:pl-5 my-1.5 space-y-1 break-words [overflow-wrap:anywhere]" />
@@ -225,12 +278,14 @@ export function renderMessageBody(
       mainContent = "";
     }
 
+    const displayMainContent = sanitizeDisplayContent(mainContent);
+
     return (
       <div className="space-y-2.5">
         {thought && (
           <details
             className="rounded-xl border border-border/70 bg-muted/40 dark:bg-[#1c1c1e]/80 p-2.5 text-xs group transition-all min-w-0 max-w-full overflow-hidden"
-            open={isStreaming && !mainContent}
+            open={isStreaming && !displayMainContent}
           >
             <summary className="cursor-pointer select-none font-medium text-primary flex items-center justify-between">
               <span className="flex items-center gap-1.5">
@@ -241,14 +296,14 @@ export function renderMessageBody(
                 ▼
               </span>
             </summary>
-            <ThoughtBox thought={thought} autoScroll={isStreaming && !mainContent} />
+            <ThoughtBox thought={thought} autoScroll={isStreaming && !displayMainContent} />
           </details>
         )}
 
-        {mainContent && (
+        {displayMainContent && (
           <div className="prose prose-sm dark:prose-invert max-w-none break-words [overflow-wrap:anywhere] leading-relaxed">
             <ReactMarkdown remarkPlugins={[remarkGfm]} components={dynamicComponents}>
-              {mainContent}
+              {displayMainContent}
             </ReactMarkdown>
           </div>
         )}
@@ -256,10 +311,12 @@ export function renderMessageBody(
     );
   }
 
+  const cleanFallbackContent = sanitizeDisplayContent(content);
+
   return (
     <div className="prose prose-sm dark:prose-invert max-w-none break-words [overflow-wrap:anywhere] leading-relaxed">
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={dynamicComponents}>
-        {content}
+        {cleanFallbackContent}
       </ReactMarkdown>
     </div>
   );
@@ -334,22 +391,22 @@ export const ChatMessageItem = memo(function ChatMessageItem({
     (msg.content.includes("❌ 后端未知错误") || msg.content.includes("HTTP 500"));
 
   return (
-    <div className={`w-full flex ${isUser ? "justify-end" : "justify-start"}`}>
+    <div className={`w-full flex ${isUser ? "justify-end" : "justify-start"} group`}>
       <div
         className={`flex flex-col min-w-0 ${
           isUser
-            ? "items-end max-w-[88%] sm:max-w-[78%]"
-            : "items-start w-full max-w-full sm:max-w-3xl"
+            ? "items-end max-w-[85%] sm:max-w-[75%]"
+            : "items-start w-full max-w-full"
         }`}
       >
         <div
           className={cn(
-            "rounded-2xl px-3.5 sm:px-4 py-2 sm:py-2.5 text-[16px] sm:text-[15px] leading-relaxed tracking-[-0.011em] min-w-0 max-w-full break-words [overflow-wrap:anywhere]",
+            "min-w-0 max-w-full break-words [overflow-wrap:anywhere]",
             isUser
-              ? "bg-primary text-primary-foreground shadow-sm font-normal"
+              ? "rounded-[24px] px-5 py-3 bg-[#f4f4f4] dark:bg-[#2f2f2f] text-foreground text-[15px] sm:text-[15px] leading-relaxed shadow-2xs font-normal"
               : isErrorMsg
-              ? "bg-destructive/5 border border-destructive/30 shadow-sm w-full py-2.5 sm:py-3.5"
-              : "bg-card border text-card-foreground shadow-sm w-full py-2.5 sm:py-3.5"
+              ? "rounded-2xl bg-destructive/5 border border-destructive/30 shadow-sm w-full p-3.5"
+              : "w-full bg-transparent border-0 shadow-none px-0 py-0.5 text-foreground leading-[1.75]"
           )}
         >
           {isUser ? (
@@ -507,15 +564,73 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                   </div>
                 );
               })()}
+
+              {/* Tool Invocations (Vercel AI SDK Standard) */}
+              {msg.toolInvocations && msg.toolInvocations.length > 0 && (
+                <div className="mb-2.5 space-y-1.5">
+                  {msg.toolInvocations.map((tool) => (
+                    <div
+                      key={tool.toolCallId}
+                      className="rounded-xl border border-border/70 bg-muted/30 p-2.5 text-xs transition-all"
+                    >
+                      <div className="flex items-center justify-between font-medium">
+                        <div className="flex items-center gap-2">
+                          {tool.state === "call" ? (
+                            <RotateCw className="h-3.5 w-3.5 animate-spin text-primary" />
+                          ) : (
+                            <Cpu className="h-3.5 w-3.5 text-primary" />
+                          )}
+                          <span className="font-semibold text-foreground">
+                            {tool.toolName === "search" || tool.toolName === "web_search"
+                              ? "执行联网检索"
+                              : `调用工具: ${tool.toolName}`}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-muted-foreground font-mono">
+                          {tool.state === "call" ? "运行中..." : "已完成"}
+                        </span>
+                      </div>
+                      {tool.state === "result" && tool.result && (
+                        <div className="mt-1.5 pt-1.5 border-t border-border/40 font-mono text-[11px] text-muted-foreground break-words">
+                          {typeof tool.result === "string" ? tool.result : JSON.stringify(tool.result)}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {renderMessageBody(msg.content, false, onImageClick)}
             </>
           )}
         </div>
 
-        {/* Message Meta Info & Mobile Action Bar */}
+        {/* Message Meta Info & Action Bar */}
         {!isUser && !isErrorMsg && (
-          <div className="flex items-center justify-between gap-1.5 flex-wrap text-[10px] text-muted-foreground mt-1.5 px-0.5 font-mono">
-            <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="flex items-center justify-between gap-2 flex-wrap text-[11px] text-muted-foreground mt-2 px-0.5 select-none">
+            {/* Copy Message Button (ChatGPT style) */}
+            <ActionTooltip label={isCopied ? "已复制到剪贴板" : "复制回答"} side="bottom">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onCopy(msg.content, idx)}
+                className="h-7 px-2 text-muted-foreground hover:text-foreground hover:bg-muted/80 rounded-lg transition-colors flex items-center gap-1.5"
+              >
+                {isCopied ? (
+                  <>
+                    <Check className="h-3.5 w-3.5 text-emerald-500" />
+                    <span className="text-emerald-500 text-[11px] font-medium">已复制</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-3.5 w-3.5" />
+                    <span className="text-[11px]">复制</span>
+                  </>
+                )}
+              </Button>
+            </ActionTooltip>
+
+            <div className="flex items-center gap-2 flex-wrap text-[11px] font-mono opacity-50 hover:opacity-100 transition-opacity">
               {msg.created_at && (
                 <ActionTooltip label="回复时间" side="top">
                   <span className="flex items-center gap-1 cursor-default">
@@ -527,8 +642,8 @@ export const ChatMessageItem = memo(function ChatMessageItem({
 
               {msg.model && (
                 <ActionTooltip label="回复模型" side="top">
-                  <Badge variant="secondary" className="text-[10px] font-mono font-normal cursor-default">
-                    <Cpu className="h-3 w-3 text-primary mr-1" />
+                  <Badge variant="secondary" className="text-[10px] font-mono font-normal cursor-default py-0 px-1.5 h-4.5">
+                    <Cpu className="h-2.5 w-2.5 text-primary mr-1" />
                     <span>{msg.model}</span>
                   </Badge>
                 </ActionTooltip>
@@ -537,7 +652,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
               {typeof msg.thinking_duration_ms === "number" && msg.thinking_duration_ms > 0 && (
                 <ActionTooltip label="思考耗时（到首字输出时间）" side="top">
                   <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium cursor-default">
-                    <Clock className="h-3 w-3 text-emerald-500" />
+                    <Clock className="h-2.5 w-2.5 text-emerald-500" />
                     <span>思考 {(msg.thinking_duration_ms / 1000).toFixed(1)}s</span>
                   </span>
                 </ActionTooltip>
@@ -546,8 +661,8 @@ export const ChatMessageItem = memo(function ChatMessageItem({
               {typeof msg.duration_ms === "number" && msg.duration_ms > 0 && (
                 <ActionTooltip label="总生成耗时" side="top">
                   <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 font-medium cursor-default">
-                    <Zap className="h-3 w-3 text-amber-500" />
-                    <span>总用时 {(msg.duration_ms / 1000).toFixed(2)}s</span>
+                    <Zap className="h-2.5 w-2.5 text-amber-500" />
+                    <span>{(msg.duration_ms / 1000).toFixed(2)}s</span>
                   </span>
                 </ActionTooltip>
               )}
@@ -555,36 +670,11 @@ export const ChatMessageItem = memo(function ChatMessageItem({
               {(msg.prompt_tokens || msg.completion_tokens || msg.token_usage) ? (
                 <ActionTooltip label="Token 消耗（输入+输出）" side="top">
                   <span className="flex items-center gap-1 text-slate-500 dark:text-slate-400 text-[10px] cursor-default">
-                    <span className="text-slate-400 dark:text-slate-500">Tokens:</span>
-                    <span className="text-slate-700 dark:text-slate-300 font-medium">
-                      {msg.token_usage || (msg.prompt_tokens || 0) + (msg.completion_tokens || 0)}
-                    </span>
+                    <span>Tokens: {msg.token_usage || (msg.prompt_tokens || 0) + (msg.completion_tokens || 0)}</span>
                   </span>
                 </ActionTooltip>
               ) : null}
             </div>
-
-            {/* Copy Message Button */}
-            <ActionTooltip label={isCopied ? "已复制到剪贴板" : "复制回答内容"} side="top">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onCopy(msg.content, idx)}
-                className="h-6 px-2 text-muted-foreground hover:text-foreground shrink-0 select-none"
-              >
-                {isCopied ? (
-                  <>
-                    <Check className="h-3 w-3 text-emerald-500" />
-                    <span className="text-emerald-500 font-sans text-[11px] font-medium">已复制</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="h-3 w-3" />
-                    <span className="font-sans text-[11px]">复制</span>
-                  </>
-                )}
-              </Button>
-            </ActionTooltip>
           </div>
         )}
       </div>

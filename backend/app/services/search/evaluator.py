@@ -7,11 +7,18 @@ EXPLICIT_SEARCH_PREFIXES = [
     r"^(?:search|google|look up|find out)\s*(?:for\s*)?",
 ]
 
+# Patterns that indicate financial market data inquiry (requires web search even if containing math/numbers)
+FINANCIAL_MARKET_PATTERNS = [
+    r"(?:QQQ|SPY|DIA|IWM|VOO|纳斯达克|标普|道琼斯|美股|A股|港股|ETF|比特币|BTC|ETH|加密货币)",
+    r"(?:股价|股票|行情|汇率|USD\s*/\s*CNY|USDCNY|美元兑人民币|外汇|金价|油价|大盘|首个交易日|历史价格)",
+]
+
 # Time-sensitive patterns mapped to Tavily official search params
 # (pattern, topic, time_range): topic in {general, news, finance}, time_range in {day, week, month, year} or None
 TIME_SENSITIVE_PATTERNS = [
     (r"(?:今天|今日|现在|目前|近期|最近|本周|本月|今年|2025|2026|2027|实时).*(?:天气|气温|温度|下雨|阴晴)", "general", "day"),
-    (r"(?:今天|今日|现在|目前|实时|最新).*(?:股价|股票|行情|汇率|金价|油价|指数|涨跌|市值|比特币|btc|eth|大盘)", "finance", "day"),
+    (r"(?:今天|今日|现在|目前|实时|最新|历史).*(?:股价|股票|行情|汇率|金价|油价|指数|涨跌|市值|比特币|btc|eth|大盘|首个交易日)", "finance", "year"),
+    (r"(?:QQQ|SPY|纳指|标普|道指|美股|A股|港股|ETF|比特币|BTC|ETH).*(?:价格|行情|走势|汇率|收益|定投|市值|历史)", "finance", "year"),
     (r"(?:最新|最近|近期|今天|昨晚|刚刚).*(?:新闻|大事件|发布会|动态|通告|消息|爆料)", "news", "week"),
     (r"(?:比赛结果|比分|谁赢了|战况|总决赛|淘汰赛|奥运会|世界杯|欧冠|英超|nba)", "news", "week"),
     (r"(?:最新版本|什么时候发布|什么时候出|更新了什么|发布时间|发售日期|上线时间)", "general", "month"),
@@ -27,7 +34,7 @@ NON_SEARCH_PATTERNS = [
     r"^(?:现在|今天|明天|后天|昨天)?(?:是)?(?:几点|几点了|几号|几月几号|几月几日|哪一年|什么时间|什么日子)[\?？\s]*$",
     r"(?:写一首|作一首|写一篇|写一段|写个故事|编一个|翻译|润色|改写|总结上述|概括以上)",
     r"(?:编写代码|实现一个|写代码|写一个函数|写个脚本|debug|分析这段代码)",
-    r"(?:解方程|计算一下|\d+\s*[\+\-\*\/]\s*\d+)",
+    r"^(?:解方程|计算一下|\d+\s*[\+\-\*\/]\s*\d+)$",
 ]
 
 
@@ -62,7 +69,21 @@ def should_search_web(user_message: str, mode: str = "auto") -> Tuple[bool, str,
     if mode == "on":
         return True, clean_query or msg, "general", None
 
-    # Auto mode: check non-search exclusions first
+    # Auto mode: Check financial market data intent first (never blocked by math)
+    is_financial = any(re.search(p, msg, re.IGNORECASE) for p in FINANCIAL_MARKET_PATTERNS)
+    if is_financial:
+        # Check if financial patterns match
+        for time_pattern, topic, time_range in TIME_SENSITIVE_PATTERNS:
+            if re.search(time_pattern, msg, re.IGNORECASE):
+                # Clean LaTeX math syntax from search query if present
+                search_q = clean_query or msg
+                if "\\" in search_q:
+                    # Strip complex LaTeX symbols for clean search engine query
+                    search_q = re.sub(r"\\[a-zA-Z]+|\{|\}|_|\^", " ", search_q)
+                    search_q = re.sub(r"\s+", " ", search_q).strip()
+                return True, search_q or msg, topic, time_range
+
+    # Auto mode: check non-search exclusions
     for non_pattern in NON_SEARCH_PATTERNS:
         if re.search(non_pattern, msg, re.IGNORECASE):
             return False, "", "general", None

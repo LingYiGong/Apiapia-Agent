@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v2.9.0-indigo?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/version-v2.10.0-indigo?style=flat-square" alt="Version">
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
   <img src="https://img.shields.io/badge/Mem0%20OSS-2.2.1-orange?style=flat-square" alt="Mem0">
@@ -22,7 +22,17 @@
 
 ---
 
-## v2.9.0 发布说明
+## v2.10.0 发布说明
+
+- **跨设备无缝接力（切端自动刷新）**：新增 `lib/appResume.ts` 前台回前台事件总线与 `lib/useRefreshOnResume.ts` 统一刷新钩子，一次性覆盖「原生 App 切后台回前台 / 浏览器切标签页与切回窗口 / 移动端 SPA 切页签」三类场景。在电脑上聊完天再拿起手机，消息与历史记录自动补齐，无需杀掉进程重开。刷新带完整保护：流式输出中、正在重新生成、正在编辑记忆、偏好设置有未保存改动时自动跳过，绝不打断当前操作或覆盖未提交的草稿（`messageEditingRef` 内联编辑守卫）。
+- **全应用统一确认弹窗 (ConfirmDialog)**：新增带语义图标与危险态红色按钮的标准确认弹窗，全面替换原生 `confirm()` 与各页面手写弹层；主题切换、新版本更新提示、消息操作、删除记忆、会话管理、模型同步等入口全部收敛到同一套视觉与文案规范。
+- **交互反馈准则落地 (Dialog vs Toast)**：新增 `lib/feedback.ts` 确立全站判定口诀——**要决策或要读 → Dialog；只是回报结果 → Toast**，并在代码注释中固化判定依据；「同步模型列表」在设置页语言模型、绘图模型与聊天页三处统一为同一提示形式与文案。
+- **消息操作栏重排 + 流式结束即时可用**：后端将助手回复的持久化提前到 `done` 事件之前，并把新分配的 `message_id` 随 `done` 载荷下发，AI 回答刚生成完即可重生成 / 复制 / 查看，无需重新加载会话才解锁按钮；用户提问的「编辑重发 / 复制」与助手回答操作栏统一为同一套位置、字号与图标规格。
+- **移动端输入体验回归原生**：输入框按 `pointer: coarse` 判定主输入设备（而非窗口宽度，避免桌面窗口缩窄误判），手机 / 平板软键盘回车恢复为换行、点击按钮发送，桌面端保持回车发送、Shift+回车换行；同时正确避开中文输入法候选上屏（`isComposing` / `keyCode 229`），彻底消除「打完字回车没反应」的困惑。
+- **Tooltip 体验与细节打磨**：新增全局单例 `TooltipProvider`（`delayDuration=200` / `skipDelayDuration=300`），在一排图标按钮上划过时提示连续接力而非逐个重新计时；主题切换与新版本提示重写为统一 popover 形态；底部标签栏移除与 `ActionTooltip` 重复的原生 `title` 提示。
+- **历史页删除行为修正**：在历史记录中删除当前正在查看的会话后，停留在历史页而不是被强制跳回对话页。
+
+### 历史版本：v2.9.0 发布说明
 
 - **全新双轨智能画图引擎**：系统同时支持两种画图体验。① 专业 AI 位图生图：无缝兼容 OpenAI DALL·E 3 与 SiliconFlow（开源生图之王 Flux.1 / SD3.5），聊天中直接自动生成真实插画与高清大图；② 矢量代码绘图：针对 SVG 矢量画作，提供聊天气泡内即时原生图形渲染容器，支持「预览图形 / 查看代码」切换与一键下载 `.svg` 文件。
 - **ChatGPT 级沉浸式排版交互**：AI 回答全面采用沉浸式无边框排版，加入打字机呼吸光标（`animate-pulse`），提问气泡采用软灰圆角药丸质感，居中黄金阅读宽度（`max-w-3xl`）带来舒适体验。

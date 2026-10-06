@@ -1042,7 +1042,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           className={cn(
             "absolute left-1/2 -translate-x-1/2 z-40 w-[92%] max-w-lg transition-all animate-in fade-in slide-in-from-bottom-3 duration-200",
             isMobileSpa
-              ? "bottom-[calc(49px+max(24px,env(safe-area-inset-bottom,34px))+12px)]"
+              ? "bottom-[calc(49px+var(--sab)+12px)]"
               : "bottom-5"
           )}
         >

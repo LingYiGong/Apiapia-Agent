@@ -162,7 +162,11 @@ export interface MobileTabBarProps {
 }
 
 /**
- * Apple HIG Standard Mobile Bottom Tab Bar (5 Tabs, 49pt + safe area)
+ * Apple HIG Standard Mobile Bottom Tab Bar
+ * - 49pt content row (HIG)
+ * - bottom padding = raw safe-area inset only (--sab): Face ID iPhone -> 34pt, total 83pt (HIG)
+ * - never add a minimum/fallback inset: MD3 / Android edge-to-edge also stretch the bar behind
+ *   the system navigation bar, so any extra floor shows up as dead space on inset-less devices.
  * Naturally sits in document flow at the bottom of the container (shrink-0, no fixed overlay).
  */
 export const MobileTabBar: React.FC<MobileTabBarProps> = ({
@@ -214,12 +218,9 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
     <nav
       aria-label="移动端底部标签栏"
       className={cn(
-        "md:hidden shrink-0 w-full bg-background/90 dark:bg-[#121214]/90 backdrop-blur-xl border-t border-border/40 select-none z-30 transition-colors",
+        "md:hidden shrink-0 w-full bg-background/90 dark:bg-[#121214]/90 backdrop-blur-xl border-t border-border/40 select-none z-30 transition-colors pb-[var(--sab)]",
         className
       )}
-      style={{
-        paddingBottom: "max(24px, env(safe-area-inset-bottom, 34px))",
-      }}
     >
       <div className="h-[49px] w-full flex items-center justify-around px-2">
         {navItems.map((item) => {

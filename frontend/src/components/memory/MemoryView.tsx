@@ -156,10 +156,13 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
   };
 
   useEffect(() => {
+    // 同 UsageView：SPA 里五个页签同时挂载，这里按 active 收口，
+    // 避免桌面端打开 /chat 时把 /memories 也请求掉（此时它被 `md:hidden` 盖住）。
+    if (isMobileSpa && !active) return;
     if (user) {
       fetchMemories();
     }
-  }, [user]);
+  }, [user, isMobileSpa, active]);
 
   // 切后台 / 切回本页签时刷新，避免看到别的设备写入的旧记忆。
   // 正在编辑某条记忆时必须跳过，否则会丢掉未保存的改动。
@@ -458,7 +461,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
                           <div
                             key={itemId}
                             className={cn(
-                              "group relative p-4 sm:p-4.5 rounded-2xl border border-border/50 bg-card/80 dark:bg-[#1C1C1E]/80 backdrop-blur-md shadow-2xs",
+                              "group relative p-4 sm:p-[18px] rounded-2xl border border-border/50 bg-card/80 dark:bg-[#1C1C1E]/80 backdrop-blur-md shadow-2xs",
                               "hover:border-border/80 hover:bg-card dark:hover:bg-[#1C1C1E] hover:shadow-xs transition-all duration-200"
                             )}
                           >

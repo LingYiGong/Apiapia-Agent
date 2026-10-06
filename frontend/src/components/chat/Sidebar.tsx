@@ -4,7 +4,6 @@ import React, { useState } from "react";
 import { Conversation } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { ConversationListSkeleton } from "@/components/common/PageSkeleton";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { ActionTooltip } from "@/components/common/ActionTooltip";
@@ -13,7 +12,6 @@ import {
   Plus,
   Trash2,
   Search,
-  X,
   Pin,
   PinOff,
   ChevronUp,
@@ -32,8 +30,6 @@ interface SidebarProps {
   onMovePinned: (id: string, direction: "up" | "down") => void;
   onReorderPinned: (orderedIds: string[]) => void;
   onRename: (id: string, newTitle: string) => void;
-  isOpen?: boolean;
-  onClose?: () => void;
   loading?: boolean;
 }
 
@@ -79,8 +75,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onMovePinned,
   onReorderPinned,
   onRename,
-  isOpen = false,
-  onClose,
   loading = false,
 }) => {
   const [search, setSearch] = useState("");
@@ -100,14 +94,15 @@ const [renamingId, setRenamingId] = useState<string | null>(null);
   const pinned = filtered.filter((c) => c.is_pinned);
   const unpinned = filtered.filter((c) => !c.is_pinned);
 
+  // 这两个 handler 原先还会调 onClose?.() 去关掉移动端抽屉；
+  // 抽屉随 Sheet 分支一起移除后（移动端历史已是独立全屏页签），
+  // 桌面侧栏不需要关闭动作，所以去掉了这两个调用。
   const handleSelectConv = (id: string) => {
     onSelect(id);
-    onClose?.();
   };
 
   const handleNewChatClick = () => {
     onNewChat();
-    onClose?.();
   };
 
   const handleDropOnPinned = (targetId: string) => {
@@ -120,6 +115,14 @@ const [renamingId, setRenamingId] = useState<string | null>(null);
     onReorderPinned(ids);
   };
 
+  // 键盘可达性：整行的 onClick 只服务鼠标，此前键盘用户**完全无法打开任何会话**
+  // （只有右侧 4 个操作按钮可聚焦）。所以重命名态之外，标题渲染成一个真正的
+  // <button>：Enter / Space 由原生行为处理，aria-current 标记当前会话。
+  // 外层 div 仍保留 onClick，以维持「点行内任意处都能打开」的鼠标手感；
+  // button 侧 stopPropagation 避免同一次点击触发两次。
+  //
+  // 为什么不给外层加 role="button"：行内还嵌着 4 个操作按钮，而 button 角色
+  // 不允许交互后代，那样会破坏 a11y 树。
   const renderRow = (
     c: Conversation,
     opts: { showSortControls: boolean; isFirst: boolean; isLast: boolean }
@@ -195,13 +198,19 @@ const [renamingId, setRenamingId] = useState<string | null>(null);
               aria-label="重命名对话"
             />
           ) : (
-            <span
-              className="flex min-w-0 items-center gap-1.5 leading-snug"
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleSelectConv(c.id);
+              }}
+              aria-current={isSelected ? "true" : undefined}
+              className="flex w-full min-w-0 items-center gap-1.5 text-left leading-snug"
               title={c.title || "新建对话"}
             >
               {pinnedActive && <Pin className="h-3 w-3 shrink-0 text-primary" />}
               <span className="min-w-0 flex-1 truncate font-normal">{c.title || "新建对话"}</span>
-            </span>
+            </button>
           )}
           {timeDisplay && (
             <span className="text-[11px] text-muted-foreground font-mono mt-0.5 select-none truncate tracking-tight">
@@ -294,26 +303,10 @@ const [renamingId, setRenamingId] = useState<string | null>(null);
     );
   };
 
-  const sidebarBody = (isMobile: boolean) => (
+  const sidebarBody = () => (
     <>
       {/* Header with Search */}
-      <div className="p-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:pt-3 border-b border-border/50 flex flex-col gap-2">
-        {isMobile && (
-          <div className="flex flex-col gap-1 pb-1 border-b border-border/40">
-            {/* iOS Bottom Sheet Grabber Handle */}
-            <div className="w-9 h-1 rounded-full bg-muted-foreground/25 mx-auto mb-1 shrink-0" />
-            <div className="flex items-center justify-between px-0.5">
-              <span className="text-[17px] font-semibold tracking-tight text-foreground">
-                历史对话
-              </span>
-              <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7 rounded-full bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground">
-                <X className="h-3.5 w-3.5" />
-                <span className="sr-only">关闭</span>
-              </Button>
-            </div>
-          </div>
-        )}
-
+      <div className="p-3 border-b border-border/50 flex flex-col gap-2">
         <Button onClick={handleNewChatClick} className="w-full">
           <Plus className="h-4 w-4" />
           <span>新建对话</span>
@@ -377,17 +370,13 @@ const [renamingId, setRenamingId] = useState<string | null>(null);
 
   return (
     <>
-      {/* Desktop Persistent Sidebar */}
+      {/* Desktop Persistent Sidebar.
+          移动端历史是独立的全屏页签（MobileHistoryView），不再走 Sheet 抽屉 ——
+          之前这条分支的 isOpen 被 chat/page.tsx 硬编码成 false，永远打不开，
+          连同 sidebarBody(true) 里的抓手与关闭按钮一起都是不可达代码。 */}
       <aside className="hidden md:flex md:w-64 lg:w-72 flex-col border-r border-border/70 bg-muted/30 dark:bg-[#121214] h-full shrink-0">
-        {sidebarBody(false)}
+        {sidebarBody()}
       </aside>
-
-      {/* Mobile Drawer — slides up from the bottom (Apple HIG Modal Sheet style) */}
-      <Sheet open={isOpen} onOpenChange={(open) => !open && onClose?.()}>
-        <SheetContent side="bottom" className="p-0 w-full h-[82dvh] flex flex-col bg-background/95 dark:bg-[#121214]/95 backdrop-blur-2xl border-t border-border/40 rounded-t-[22px] shadow-2xl [&>button]:hidden">
-          {sidebarBody(true)}
-        </SheetContent>
-      </Sheet>
 
       {/* 删除历史会话二次确认 */}
       {pendingDelete && (

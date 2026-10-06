@@ -222,6 +222,14 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const listboxId = useRef(`model-listbox-${Math.random().toString(36).slice(2)}`);
+  // 选项 id 用**下标**而非模型 id：模型 id 含 `/` `:` 等字符，即便做过字符替换，
+  // `a/b` 与 `a_b` 也会撞成同一个 id，进而让 aria-activedescendant 指错元素。
+  // 下标在当前列表内天然唯一。
+  const optionId = (idx: number) => `${listboxId.current}-opt-${idx}`;
+  // aria-activedescendant 指向的当前高亮项下标。选项本身不可聚焦，
+  // 焦点始终留在搜索框（ARIA combobox 模式），靠这个下标传达「当前项」。
+  const [activeIndex, setActiveIndex] = useState(-1);
 
   const featuredModelsCount = models.filter(isFeaturedModel).length;
   const hasFeaturedModels = featuredModelsCount > 0;
@@ -278,6 +286,65 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
     return a.name.localeCompare(b.name);
   });
 
+  /**
+   * 打开时把焦点交给搜索框，并把高亮项对齐到当前选中模型。
+   * 此前 searchInputRef 从未被 focus，且 onOpenAutoFocus 又 preventDefault 掉了
+   * 焦点管理 —— 两者叠加的结果是键盘用户打开弹层后焦点无处可去，
+   * 必须一路 Tab 过筛选胶囊才能碰到搜索框。
+   * 依赖刻意只写 [open]：sorted / value 变化不应在用户浏览列表时抢走焦点。
+   */
+  useEffect(() => {
+    if (!open) return;
+    setSearch("");
+    setActiveIndex(sorted.findIndex((m) => m.id === value));
+    const t = window.setTimeout(() => searchInputRef.current?.focus(), 0);
+    return () => window.clearTimeout(t);
+  }, [open]);
+
+  const commitActive = (idx: number) => {
+    const m = sorted[idx];
+    if (!m) return;
+    onChange(m.id);
+    setOpen(false);
+  };
+
+  /**
+   * combobox 键盘交互：↑/↓ 移动高亮，Home/End 跳首尾，Enter 选中，
+   * Escape 交还给 Popover（Radix 已处理，这里不拦截）。
+   */
+  const handleListKeyDown = (e: React.KeyboardEvent) => {
+    if (sorted.length === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIndex((prev) => Math.min(sorted.length - 1, prev + 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIndex((prev) => Math.max(0, prev <= 0 ? 0 : prev - 1));
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      setActiveIndex(0);
+    } else if (e.key === "End") {
+      e.preventDefault();
+      setActiveIndex(sorted.length - 1);
+    } else if (e.key === "Enter") {
+      if (activeIndex >= 0 && activeIndex < sorted.length) {
+        e.preventDefault();
+        commitActive(activeIndex);
+      }
+    }
+  };
+
+  // 高亮项滚动进可视区，否则 ↑ 移到列表外时用户看不到自己在哪
+  useEffect(() => {
+    if (!open || activeIndex < 0) return;
+    document.getElementById(optionId(activeIndex))?.scrollIntoView({ block: "nearest" });
+  }, [activeIndex, open]);
+
+  const activeOptionId =
+    open && activeIndex >= 0 && activeIndex < sorted.length
+      ? optionId(activeIndex)
+      : undefined;
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -287,6 +354,9 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
             type="button"
             role="combobox"
             aria-expanded={open}
+            aria-haspopup="listbox"
+            aria-controls={open ? listboxId.current : undefined}
+            aria-label="选择语言模型"
             className={cn(
               "h-8 px-3 rounded-full bg-muted/70 hover:bg-muted/90 active:scale-95 border border-border/60 transition-all flex items-center justify-between gap-1.5 select-none cursor-pointer shadow-2xs max-w-full group",
               open && "bg-muted/90 ring-2 ring-primary/20 border-primary/40",
@@ -324,8 +394,11 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
             type="button"
             role="combobox"
             aria-expanded={open}
+            aria-haspopup="listbox"
+            aria-controls={open ? listboxId.current : undefined}
+            aria-label="选择语言模型"
             className={cn(
-              "w-full h-9 sm:h-9.5 justify-between px-3 rounded-xl border border-border/60 bg-muted/30 hover:bg-muted/60 transition-all active:scale-[0.99] flex items-center text-left shadow-2xs gap-2 select-none cursor-pointer group",
+              "w-full h-9 sm:h-[38px] justify-between px-3 rounded-xl border border-border/60 bg-muted/30 hover:bg-muted/60 transition-all active:scale-[0.99] flex items-center text-left shadow-2xs gap-2 select-none cursor-pointer group",
               open && "bg-muted/60 ring-2 ring-primary/20 border-primary/40",
               className
             )}
@@ -391,10 +464,20 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
           <Input
             ref={searchInputRef}
             type="search"
+            role="combobox"
+            aria-expanded={open}
+            aria-controls={listboxId.current}
+            aria-autocomplete="list"
+            aria-activedescendant={activeOptionId}
+            aria-label="搜索模型"
             placeholder="搜索模型"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 pr-8 h-8.5 text-[13px] rounded-xl bg-muted/60 dark:bg-[#2c2c2e]/70 border-0 focus-visible:ring-1 focus-visible:ring-primary/40 placeholder:text-muted-foreground/60"
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setActiveIndex(e.target.value ? 0 : sorted.findIndex((m) => m.id === value));
+            }}
+            onKeyDown={handleListKeyDown}
+            className="pl-9 pr-8 h-[34px] text-[13px] rounded-xl bg-muted/60 dark:bg-[#2c2c2e]/70 border-0 focus-visible:ring-1 focus-visible:ring-primary/40 placeholder:text-muted-foreground/60"
           />
           {search && (
             <button
@@ -457,8 +540,14 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
 
         <div className="border-b border-border/40 mb-1.5" />
 
-        {/* Apple Table View Model List */}
+        {/* Apple Table View Model List —— 此前整段是没有任何 role 的 div，
+            加上外层选项也没有 tabIndex / onKeyDown，键盘用户根本无法选中模型。
+            现在按 ARIA combobox 模式：焦点留在搜索框，用 aria-activedescendant
+            指向高亮项，选项本身保持不可聚焦。 */}
         <div
+          id={listboxId.current}
+          role="listbox"
+          aria-label="语言模型列表"
           className="overflow-y-auto flex-1 min-h-0 max-h-[50vh] space-y-1 pr-1 overscroll-contain touch-pan-y"
           onWheel={(e) => e.stopPropagation()}
         >
@@ -476,24 +565,30 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
               )}
             </div>
           ) : (
-            sorted.map((m) => {
+            sorted.map((m, mIdx) => {
               const isSelected = m.id === value;
               const isFree = isFreeModel(m);
               const isMulti = isMultimodalModel(m);
               const isFeatured = isFeaturedModel(m);
+              const isActive = mIdx === activeIndex;
 
               return (
                 <div
                   key={m.id}
+                  id={optionId(mIdx)}
+                  role="option"
+                  aria-selected={isSelected}
                   onClick={() => {
                     onChange(m.id);
                     setOpen(false);
                   }}
+                  onMouseMove={() => setActiveIndex(mIdx)}
                   className={cn(
                     "p-2.5 sm:px-3 rounded-xl cursor-pointer text-xs transition-all flex items-center justify-between gap-2.5 active:scale-[0.99]",
+                    isActive && !isSelected && "bg-muted/60 dark:bg-[#2c2c2e]/50",
                     isSelected
                       ? "bg-primary/10 dark:bg-primary/15 text-primary font-medium border border-primary/25"
-                      : "hover:bg-muted/60 dark:hover:bg-[#2c2c2e]/50 border border-transparent"
+                      : "border border-transparent"
                   )}
                 >
                   <div className="min-w-0 flex-1">

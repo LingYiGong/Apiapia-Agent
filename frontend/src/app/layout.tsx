@@ -11,8 +11,11 @@ import "./globals.css";
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  // 此前这里设了 `maximumScale: 1` + `userScalable: false` 锁死缩放，
+  // 违反 WCAG 2.1 SC 1.4.4（Resize Text）：Android Chrome 会真的禁止双指放大，
+  // 低视力用户无法放大任何内容。iOS 忽略这两个字段，但 Android 会遵守。
+  // 保留 viewportFit: "cover" —— globals.css 里的 env(safe-area-inset-*)
+  // 依赖它才能拿到刘海与底部安全区数值。
   viewportFit: "cover",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#ffffff" },

@@ -40,11 +40,15 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
   return (
     <header
       className={cn(
-        "sticky top-0 z-30 w-full bg-background/90 backdrop-blur-xl border-b border-border/40 shrink-0 select-none md:hidden",
+        // pt-[var(--sat)] keeps the row below the iOS status bar / notch. Padding
+        // sits inside the border box, so the border-b still tracks the bottom of
+        // the row rather than the top of the header. pl/pr follow --sal/--sar so
+        // landscape notch and Android edge-to-edge don't clip the logo or avatar.
+        "sticky top-0 z-30 w-full bg-background/90 backdrop-blur-xl border-b border-border/40 shrink-0 select-none pt-[var(--sat)] md:hidden",
         className
       )}
     >
-      <div className="h-12 px-3 sm:px-4 flex items-center justify-between gap-2.5 min-w-0">
+      <div className="h-12 pl-[max(0.75rem,var(--sal))] pr-[max(0.75rem,var(--sar))] sm:pl-[max(1rem,var(--sal))] sm:pr-[max(1rem,var(--sar))] flex items-center justify-between gap-2.5 min-w-0">
         {/* Left: App Cat Logo (Tapping switches to chat tab in SPA) */}
         <button
           type="button"

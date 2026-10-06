@@ -76,7 +76,7 @@ export function MemorySidebar({
               本次关联记忆
             </h3>
             {sortedMemories.length > 0 && (
-              <span className="text-[11px] font-mono px-2 py-0.2 rounded-full bg-[#34C759]/10 text-[#34C759] dark:text-[#30D158] font-medium border border-[#34C759]/20 shrink-0">
+              <span className="text-[11px] font-mono px-2 py-px rounded-full bg-[#34C759]/10 text-[#34C759] dark:text-[#30D158] font-medium border border-[#34C759]/20 shrink-0">
                 {sortedMemories.length} 条
               </span>
             )}
@@ -170,7 +170,7 @@ export function MemorySidebar({
                             <Clock className="h-3 w-3 shrink-0 opacity-70" />
                             <span>{formattedTime}</span>
                           </div>
-                          <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-black/[0.04] dark:bg-white/[0.04]">
+                          <span className="text-[10px] px-1.5 py-px rounded-md bg-black/[0.04] dark:bg-white/[0.04]">
                             已向量化
                           </span>
                         </div>
@@ -220,12 +220,16 @@ export function MemorySidebar({
 
   return (
     <>
-      {/* Desktop Persistent Memory Sidebar (Screen width >= lg) */}
-      <aside className="hidden lg:flex lg:w-72 flex-col border-l border-border/70 bg-white/70 dark:bg-[#121214] h-full shrink-0">
+      {/* Desktop Persistent Memory Sidebar (Screen width >= md, matching every other
+          chrome breakpoint). This MUST stay in lockstep with the `md:hidden`
+          trigger button in ChatHeader.tsx — while the aside was `lg:flex` and the
+          trigger `lg:hidden`, the whole 768–1023px band had neither one, so the
+          memory panel was unreachable at exactly tablet widths. */}
+      <aside className="hidden md:flex md:w-72 flex-col border-l border-border/70 bg-white/70 dark:bg-[#121214] h-full shrink-0">
         {renderMemoryContent(false)}
       </aside>
 
-      {/* ── Apple HIG iOS Bottom Sheet (Screen width < lg: Mobile & Tablet) ── */}
+      {/* ── Apple HIG iOS Bottom Sheet (Screen width < md: Mobile) ── */}
       <Sheet open={isOpen} onOpenChange={(open) => !open && onClose?.()}>
         <SheetContent
           side="bottom"

@@ -140,10 +140,14 @@ export const UsageView: React.FC<UsageViewProps> = ({
   };
 
   useEffect(() => {
+    // 移动端 SPA 里五个页签是同时挂载、只切换 CSS 显隐的。若这里不按 active 收口，
+    // 桌面端打开 /chat 时用量统计也会跟着请求一遍（此时它被 `md:hidden` 完全盖住）。
+    // 把 active 放进依赖后，用户切到本标签时会自动补上首次加载。
+    if (isMobileSpa && !active) return;
     if (user) {
       fetchStats();
     }
-  }, [user]);
+  }, [user, isMobileSpa, active]);
 
   // 切后台 / 切回本页签时刷新，让用量数字跟上别的设备产生的新消耗。
   // 正在执行管理操作时跳过，避免和操作反馈抢状态。
@@ -429,7 +433,7 @@ export const UsageView: React.FC<UsageViewProps> = ({
                     <Users className="h-3.5 w-3.5 text-indigo-500" />
                     <span>全部用户</span>
                     {adminStats && (
-                      <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-primary/10 text-primary font-semibold">
+                      <span className="text-[10px] font-mono px-1.5 py-px rounded-full bg-primary/10 text-primary font-semibold">
                         {adminStats.total_users}
                       </span>
                     )}
@@ -1236,17 +1240,17 @@ export const UsageView: React.FC<UsageViewProps> = ({
                                 {conv.title || "未命名对话"}
                               </h4>
                               {conv.is_deleted ? (
-                                <Badge variant="destructive" className="text-[10px] font-medium bg-destructive/10 text-destructive border-destructive/20 rounded-full px-2 py-0.2 shadow-none">
+                                <Badge variant="destructive" className="text-[10px] font-medium bg-destructive/10 text-destructive border-destructive/20 rounded-full px-2 py-px shadow-none">
                                   <Trash2 className="h-2.5 w-2.5 mr-1" />
                                   已删除 ({conv.deleted_at || "回收站"})
                                 </Badge>
                               ) : (
-                                <Badge className="text-[10px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded-full px-2 py-0.2 shadow-none">
+                                <Badge className="text-[10px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded-full px-2 py-px shadow-none">
                                   <CheckCircle2 className="h-2.5 w-2.5 mr-1" />
                                   正常活跃
                                 </Badge>
                               )}
-                              <Badge variant="secondary" className="text-[10px] font-mono rounded-full px-2 py-0.2">
+                              <Badge variant="secondary" className="text-[10px] font-mono rounded-full px-2 py-px">
                                 {conv.model}
                               </Badge>
                             </div>

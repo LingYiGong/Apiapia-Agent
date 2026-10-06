@@ -317,10 +317,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   useEffect(() => {
+    // 同 UsageView：SPA 里五个页签同时挂载，这里按 active 收口，
+    // 避免桌面端打开 /chat 时把 /settings 与两份模型目录一起请求掉。
+    if (isMobileSpa && !active) return;
     if (user) {
       fetchSettingsAndConfigs();
     }
-  }, [user]);
+  }, [user, isMobileSpa, active]);
 
   // 切后台 / 切回本页签时刷新，让后台改过的配置同步过来。
   // 有未保存改动时必须跳过：fetchSettingsAndConfigs 会重置表单，直接吞掉用户的输入。

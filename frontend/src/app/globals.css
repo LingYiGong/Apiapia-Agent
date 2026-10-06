@@ -228,10 +228,13 @@ button, a, input, textarea, select {
   touch-action: manipulation;
 }
 
-/* Prevent iOS auto-zoom on input focus */
+/* Prevent iOS auto-zoom on input focus.
+   iOS zooms whenever a text field computes to < 16px, so every *typable* input
+   must be forced up — this has to cover email/password too, and inputs with no
+   explicit `type` attribute. Controls that are not text entry (checkbox, radio,
+   button, file, range, color, image) are excluded so their sizing is untouched. */
 @media screen and (max-width: 640px) {
-  input[type="text"],
-  input[type="search"],
+  input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="file"]):not([type="range"]):not([type="color"]):not([type="image"]),
   textarea {
     font-size: 16px !important;
   }

@@ -52,7 +52,7 @@ export const DesktopNavbar: React.FC<DesktopNavbarProps> = ({ className }) => {
   return (
     <header
       className={cn(
-        "hidden md:flex md:h-14 border-b border-border/70 bg-background/80 backdrop-blur-xl px-3 sm:px-4 items-center justify-between shrink-0 z-30 flex-nowrap min-w-0",
+        "hidden md:flex md:h-14 border-b border-border/70 bg-background/80 backdrop-blur-xl pl-[max(0.75rem,var(--sal))] pr-[max(0.75rem,var(--sar))] sm:pl-[max(1rem,var(--sal))] sm:pr-[max(1rem,var(--sar))] items-center justify-between shrink-0 z-30 flex-nowrap min-w-0",
         className
       )}
     >
@@ -76,10 +76,15 @@ export const DesktopNavbar: React.FC<DesktopNavbarProps> = ({ className }) => {
                 asChild
                 className={cn("shrink-0 whitespace-nowrap", isActive && "font-semibold")}
               >
-                <Link href={item.href}>
+                <Link href={item.href} aria-current={isActive ? "page" : undefined}>
                   <Icon className="h-4 w-4 shrink-0" />
+                  {/* 两个 span 始终同时存在于 DOM，屏幕阅读器会把
+                      「对话对话」「记忆库记忆」连着念两遍；给短标签加
+                      aria-hidden，只让完整标签参与无障碍名称。 */}
                   <span className="hidden lg:inline">{item.label}</span>
-                  <span className="lg:hidden">{item.shortLabel}</span>
+                  <span className="lg:hidden" aria-hidden="true">
+                    {item.shortLabel}
+                  </span>
                 </Link>
               </Button>
             );
@@ -222,7 +227,7 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
         className
       )}
     >
-      <div className="h-[49px] w-full flex items-center justify-around px-2">
+      <div className="h-[49px] w-full flex items-center justify-around pl-[max(0.5rem,var(--sal))] pr-[max(0.5rem,var(--sar))]">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeMobileTab === item.tab;
@@ -230,6 +235,7 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
             <button
               key={item.tab}
               type="button"
+              aria-current={isActive ? "page" : undefined}
               onClick={() => handleMobileTabClick(item.tab)}
               className={cn(
                 "flex flex-col items-center justify-center flex-1 h-full py-0.5 gap-0.5 text-[10.5px] tracking-tight transition-all active:scale-95 cursor-pointer touch-manipulation",

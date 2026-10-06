@@ -37,17 +37,10 @@ export const ImageModelSelect: React.FC<ImageModelSelectProps> = ({
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (!open) setSearch("");
-  }, [open]);
-
-  useEffect(() => {
-    if (open) {
-      const t = setTimeout(() => searchInputRef.current?.focus(), 60);
-      return () => clearTimeout(t);
-    }
-  }, [open]);
+  const listboxId = useRef(`image-model-listbox-${Math.random().toString(36).slice(2)}`);
+  // 同 ModelSelect：用下标做选项 id，避免模型 id 字符替换后撞 id
+  const optionId = (idx: number) => `${listboxId.current}-opt-${idx}`;
+  const [activeIndex, setActiveIndex] = useState(-1);
 
   const sorted = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -74,6 +67,47 @@ export const ImageModelSelect: React.FC<ImageModelSelectProps> = ({
     setOpen(false);
   };
 
+  // 打开时清空搜索、把焦点交给搜索框，并把高亮对齐到当前选中项
+  // （同 ModelSelect 的 ARIA combobox 模式）。
+  // 依赖刻意只写 [open]：sorted / value 变化不应在用户浏览列表时抢走焦点。
+  useEffect(() => {
+    if (!open) return;
+    setSearch("");
+    setActiveIndex(sorted.findIndex((m) => m.id === value));
+    const t = setTimeout(() => searchInputRef.current?.focus(), 60);
+    return () => clearTimeout(t);
+  }, [open]);
+
+  const handleListKeyDown = (e: React.KeyboardEvent) => {
+    if (sorted.length === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIndex((prev) => Math.min(sorted.length - 1, prev + 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIndex((prev) => Math.max(0, prev <= 0 ? 0 : prev - 1));
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      setActiveIndex(0);
+    } else if (e.key === "End") {
+      e.preventDefault();
+      setActiveIndex(sorted.length - 1);
+    } else if (e.key === "Enter" && activeIndex >= 0 && activeIndex < sorted.length) {
+      e.preventDefault();
+      handleSelect(sorted[activeIndex].id);
+    }
+  };
+
+  useEffect(() => {
+    if (!open || activeIndex < 0) return;
+    document.getElementById(optionId(activeIndex))?.scrollIntoView({ block: "nearest" });
+  }, [activeIndex, open]);
+
+  const activeOptionId =
+    open && activeIndex >= 0 && activeIndex < sorted.length
+      ? optionId(activeIndex)
+      : undefined;
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -84,7 +118,7 @@ export const ImageModelSelect: React.FC<ImageModelSelectProps> = ({
           aria-label="选择绘图模型"
           disabled={loading}
           className={cn(
-            "w-full h-9 sm:h-9.5 justify-between px-3 rounded-xl border border-border/60 bg-muted/30 hover:bg-muted/60 transition-all active:scale-[0.99] flex items-center text-left shadow-2xs gap-2 select-none cursor-pointer group",
+            "w-full h-9 sm:h-[38px] justify-between px-3 rounded-xl border border-border/60 bg-muted/30 hover:bg-muted/60 transition-all active:scale-[0.99] flex items-center text-left shadow-2xs gap-2 select-none cursor-pointer group",
             open && "bg-muted/60 ring-2 ring-primary/20 border-primary/40",
             loading && "opacity-60 cursor-not-allowed",
             className,
@@ -172,10 +206,22 @@ export const ImageModelSelect: React.FC<ImageModelSelectProps> = ({
           <Input
             ref={searchInputRef}
             type="search"
+            role="combobox"
+            aria-expanded={open}
+            aria-controls={listboxId.current}
+            aria-autocomplete="list"
+            aria-activedescendant={activeOptionId}
+            aria-label="搜索绘图模型"
             placeholder="搜索绘图模型"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 pr-8 h-8.5 text-[13px] rounded-xl bg-muted/60 dark:bg-[#2c2c2e]/70 border-0 focus-visible:ring-1 focus-visible:ring-primary/40 placeholder:text-muted-foreground/60"
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setActiveIndex(
+                e.target.value ? 0 : sorted.findIndex((m) => m.id === value)
+              );
+            }}
+            onKeyDown={handleListKeyDown}
+            className="pl-9 pr-8 h-[34px] text-[13px] rounded-xl bg-muted/60 dark:bg-[#2c2c2e]/70 border-0 focus-visible:ring-1 focus-visible:ring-primary/40 placeholder:text-muted-foreground/60"
           />
           {search && (
             <button
@@ -188,8 +234,14 @@ export const ImageModelSelect: React.FC<ImageModelSelectProps> = ({
           )}
         </div>
 
-        {/* Model List */}
-        <div className="overflow-y-auto overscroll-contain flex-1 -mx-1 px-1 no-scrollbar">
+        {/* 此前选项行有 role="option" 却没有 role="listbox" 父容器，
+            也没有 tabIndex / 方向键处理，键盘用户无法选模型。 */}
+        <div
+          id={listboxId.current}
+          role="listbox"
+          aria-label="绘图模型列表"
+          className="overflow-y-auto overscroll-contain flex-1 -mx-1 px-1 no-scrollbar"
+        >
           {models.length === 0 ? (
             <p className="px-3 py-8 text-center text-xs text-muted-foreground leading-relaxed">
               {!synced
@@ -203,20 +255,24 @@ export const ImageModelSelect: React.FC<ImageModelSelectProps> = ({
               未找到匹配的绘图模型
             </p>
           ) : (
-            sorted.map((m) => {
+            sorted.map((m, mIdx) => {
               const isSelected = m.id === value;
+              const isActive = mIdx === activeIndex;
 
               return (
                 <div
                   key={m.id}
+                  id={optionId(mIdx)}
                   onClick={() => handleSelect(m.id)}
+                  onMouseMove={() => setActiveIndex(mIdx)}
                   role="option"
                   aria-selected={isSelected}
                   className={cn(
                     "p-2.5 sm:px-3 rounded-xl cursor-pointer text-xs transition-all flex items-center justify-between gap-2.5 active:scale-[0.99]",
+                    isActive && !isSelected && "bg-muted/60 dark:bg-[#2c2c2e]/50",
                     isSelected
                       ? "bg-primary/10 dark:bg-primary/15 text-primary font-medium border border-primary/25"
-                      : "hover:bg-muted/60 dark:hover:bg-[#2c2c2e]/50 border border-transparent",
+                      : "border border-transparent",
                   )}
                 >
                   <div className="min-w-0 flex-1">

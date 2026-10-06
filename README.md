@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v2.10.0-indigo?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/version-v2.11.0-indigo?style=flat-square" alt="Version">
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
   <img src="https://img.shields.io/badge/Mem0%20OSS-2.2.1-orange?style=flat-square" alt="Mem0">
@@ -22,7 +22,47 @@
 
 ---
 
-## v2.10.0 发布说明
+## v2.11.0 发布说明
+
+本版本是一次以**安全**与**可访问性**为核心的修复版本。前端经历了一次全量审计，共修复 3 项安全缺陷、3 项功能性故障与 40 余项无障碍、移动端适配与样式失效问题。
+
+### 安全
+
+- **SVG 代码块 XSS 彻底封堵**：模型输出的 ` ```svg ` 代码块此前经 `dangerouslySetInnerHTML` 直接注入页面，仅过滤 `<script>` 标签。由于模型会原样回显用户粘贴的内容，等同于将外部文本直接写入 DOM，`<img onerror>` / `<svg onload>` / `<foreignObject><iframe src="javascript:">` / `xlink:href="javascript:"` 均可执行。现改为 `sandbox=""` 空沙箱 iframe 渲染（脚本、表单、弹窗全部禁用，SVG 仅可作为静态图像显示），并从 `viewBox` 推断宽高比以完全保持原有预览观感。
+- **解除移动端缩放锁定**：移除 `viewport` 的 `maximumScale: 1` 与 `userScalable: false`，修复 Android Chrome 下违反 WCAG 2.1 SC 1.4.4（Resize Text）的问题——低视力用户此前无法放大任何内容。保留 `viewportFit: "cover"`，安全区数值仍可正常获取。
+- **登录态不再被网络抖动摧毁**：`refreshUser` 原先在**任意**异常分支下都无条件删除本地 token，一次后端 5xx、网关超时或瞬时断网即造成不可恢复的登出（登录页无法解释原因，用户只能重新输密码）。新增 `ApiError` 携带 HTTP 状态码，现在仅 401 / 403 才清除凭据，5xx 与网络故障保留登录态并静默重试。
+
+### 稳定性
+
+- **三层错误边界**：补齐 `error.tsx`（路由级，含重试与错误编号）、`global-error.tsx`（根布局级，兜住全局 Provider 抛错）、`not-found.tsx`。此前聊天页（1000+ 行、30 余处状态更新、手写 SSE 解析）任一处渲染异常即导致整站白屏且无任何恢复入口。
+- **流式输出不再被覆盖**：`useRefreshOnResume` 的「页面重新可见」触发路径此前绕过了 `enabled` 判断，导致**流式生成过程中切回对话页会用服务端快照覆盖正在生成的内容**。现已将守卫下沉到两个触发点共用的执行函数。
+- **清理失效控件**：移除桌面工具栏中调用 `md:hidden` 容器、在桌面端可见可点却毫无反应的汉堡按钮（它还会顺手改写 URL）；移除 `Sidebar` 中永不打开的移动端抽屉分支及其抓手、关闭按钮等约 40 行不可达代码。
+
+### 无障碍（此前键盘操作大面积不可用）
+
+- **会话列表键盘可达**：会话行此前是 `<div onClick>`，无 `role` / `tabIndex` / 键盘事件，**键盘用户一个会话都打不开**。现标题渲染为真实 `<button>` 并配 `aria-current`，同时保留整行可点击的鼠标手感。刻意未给外层加 `role="button"`，因为行内还嵌有 4 个操作按钮，而 button 角色不允许交互后代。
+- **模型选择器按 ARIA combobox 重写**：此前选项是纯 `<div onClick>`，无 `role`、无 `tabIndex`、无方向键处理，**键盘完全无法切换模型**。现两个选择器均补齐 `aria-haspopup` / `aria-controls` / `aria-autocomplete` / `aria-activedescendant`，支持 ↑↓ Home End Enter 并自动滚动高亮项进可视区；焦点在打开时直达搜索框（此前 `searchInputRef` 声明后从未被 focus）。同时修复关闭时搜索词未清空导致「重开只见旧结果」的缺陷。
+- **流式输出可被读屏感知**：消息区接入 `role="log"` + `aria-live` + `aria-busy`，并新增独立状态播报区（正在思考 → 正在生成回答 → 回答已完成）。其中 `aria-relevant="additions"` 是关键——若不限定，流式气泡内逐字变化的文本会被反复朗读，实际效果比完全不播报更糟。
+- **导航当前位置语义**：桌面与移动导航补 `aria-current="page"`；修复导航项两个标签 `span` 同时存在于 DOM 导致读屏念出「对话对话」「记忆库记忆」的重复朗读。聊天输入框补 `aria-label`（此前仅靠会随输入消失的 placeholder）。
+
+### 移动端与响应式
+
+- **刘海与安全区适配**：移动端顶栏此前完全没有 `env(safe-area-inset-top)` 补偿，标题与头像被 iOS 状态栏压住（注释声称已适配但实现缺失）。全局补齐 `--sat` / `--sal` / `--sar` 三个安全区变量的实际使用——它们此前定义了却零引用，横屏刘海与 Android edge-to-edge 下左右两端也会钻到圆角里。
+- **修复平板记忆面板死区**：记忆侧栏此前需 ≥1024px 才显示，而它的触发按钮却在 ≥1024px 隐藏——**768–1023px 区间两者都不渲染**，关联记忆面板完全无法打开，且该区间内它以底部弹层形态出现在桌面布局上。现统一为 `md` 断点。
+- **修复断点判定口径**：`/memory`、`/usage`、`/settings` 使用 `window.innerWidth < 768` 判断移动端，但该值**包含滚动条**而 Tailwind `md` 媒体查询不包含，导致 768px 宽的桌面窗口下同时出现移动端外壳与桌面视图、却没有任何导航。已抽出 `lib/mediaQuery.ts` 统一走 `matchMedia`，并让 768 这个数字只有一处定义。
+- **修复 iOS 输入聚焦缩放**：全局仅对 `input[type=text|search]` 与 `textarea` 强制 16px，**邮箱与密码字段仍会触发 Safari 聚焦缩放且不回退**，撑破登录页居中布局。改为覆盖全部可输入控件（排除复选框、单选、按钮等非文本控件，尺寸不受影响）。
+
+### 样式与性能
+
+- **修复 79 处失效阴影类**：Tailwind v3 的阴影刻度不含 `shadow-xs` / `shadow-2xs` / `drop-shadow-xs`（均为 v4 新增），共 53 + 24 + 1 处静默不渲染，**其中包括全站每一处品牌 logo**。已在 `tailwind.config.ts` 补出这两级，其中 `xs` 取值与 v3 的 `shadow-sm` 一致，使 logo、头像与徽章和 shadcn 基础件处于同一高度。
+- **修复 15 处非法间距类**：`h-4.5`、`h-8.5`、`sm:h-9.5`、`sm:p-4.5`、`py-0.2`、`border-l-3` 均不在 Tailwind v3 刻度内，导致**流式打字光标高度为 0（完全不可见）**、**markdown 引用块没有左边框**、**两个模型选择器触发器在 sm+ 断点丢失高度**。已按原设计意图精确替换为等效任意值，不做近似取整。
+- **桌面端请求精简**：移动端五个页签同时挂载、仅切换 CSS 显隐，导致桌面端打开 `/chat` 时会额外请求记忆、设置与用量数据（此时它们被 `md:hidden` 完全盖住）。现已按页签激活状态收口，切到该页签时再自动补载。
+
+### 工程
+
+- **版本号来源统一为 v2.11.0**：此前 `VERSION` 与 `README` 标记为 v2.10.0，而 `package.json`、`lib/version.ts`、`public/version.json` 三处仍是 `2.9.0`——即 v2.10.0 的功能已全部合入但前端版本号从未跟进，**应用内更新提示一直拿 2.9.0 比对 2.9.0，从未触发过**，线上应用对外自报 2.9.0。本次五处统一，更新提示恢复生效。（彻底根治需改为构建时从单一来源注入，计划在后续版本处理。）
+
+### 历史版本：v2.10.0 发布说明
 
 - **跨设备无缝接力（切端自动刷新）**：新增 `lib/appResume.ts` 前台回前台事件总线与 `lib/useRefreshOnResume.ts` 统一刷新钩子，一次性覆盖「原生 App 切后台回前台 / 浏览器切标签页与切回窗口 / 移动端 SPA 切页签」三类场景。在电脑上聊完天再拿起手机，消息与历史记录自动补齐，无需杀掉进程重开。刷新带完整保护：流式输出中、正在重新生成、正在编辑记忆、偏好设置有未保存改动时自动跳过，绝不打断当前操作或覆盖未提交的草稿（`messageEditingRef` 内联编辑守卫）。
 - **全应用统一确认弹窗 (ConfirmDialog)**：新增带语义图标与危险态红色按钮的标准确认弹窗，全面替换原生 `confirm()` 与各页面手写弹层；主题切换、新版本更新提示、消息操作、删除记忆、会话管理、模型同步等入口全部收敛到同一套视觉与文案规范。
@@ -109,7 +149,7 @@
 ## 🌟 核心理念与架构特点
 
 1. **前后端分离与解耦**：
-   - 前端采用 **Next.js (React 18 + TypeScript + Tailwind CSS + shadcn/ui)**，基于 Radix 原语与 CSS 变量主题，负责 UI、交互、流式 SSE 渲染、移动端 Web App 适配及版本自动更新检测，移动端抽屉与桌面端三栏共用同一套响应式布局。
+   - 前端采用 **Next.js (React 18 + TypeScript + Tailwind CSS + shadcn/ui)**，基于 Radix 原语与 CSS 变量主题，负责 UI、交互、流式 SSE 渲染、移动端 Web App 适配及版本自动更新检测。移动端为独立全屏页签（含 iOS 安全区补偿），桌面端为「导航栏 + 常驻会话侧栏 + 对话区 + 关联记忆栏」布局。
    - 后端采用 **FastAPI (Python 3.12)**，统一负责 LLM 路由调度、长期记忆提取生命周期、全网实时检索、文档解析、会话数据库及敏感 API Key 加密。
 
 2. **全模型通用智能全自动联网检索 (Web Search Engine, v2.3.0)**：
@@ -230,7 +270,7 @@ Compose 将按序拉起并协同三个服务：
 | 页面路由 | 功能说明 |
 | :--- | :--- |
 | `/login` | 现代化登录与注册，基于安全哈希与 JWT 令牌认证，呈现 Apiapia 官方徽标。 |
-| `/chat` | 核心对话界面。左侧会话置顶与排序、可搜索模型切换、**智能全自动全网检索 (v2.3.0)**、多模态附件上传、SSE 流式打字机渲染及右侧长期记忆抽屉。 |
+| `/chat` | 核心对话界面。左侧会话置顶与排序、可搜索模型切换、**智能全自动全网检索 (v2.3.0)**、多模态附件上传、SSE 流式打字机渲染及关联记忆面板。移动端以底部标签栏切换「对话 / 历史 / 记忆」独立页签，设置与用量经右上角头像菜单进入。 |
 | `/memory` | **记忆库管理 (v2.2.0)**。单列列表展示、创建时间精确到秒、倒序排序、语义向量搜索、行内快速编辑、单条删除与 **JSON 一键导出**。 |
 | `/settings` | 偏好设置。自定义人设风格、创意度滑块连续调节、外观主题切换、长期记忆总开关及多厂商 API Key 安全托管。 |
 | `/usage` | **用量与成本审计看板 (v2.7.0)**。统计多模型/多时段调用明细、Token 消耗分布，管理员支持多用户会话审计、回收站消息检视与一键恢复。 |

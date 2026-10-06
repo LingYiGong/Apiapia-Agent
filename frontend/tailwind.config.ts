@@ -93,6 +93,19 @@ const config: Config = {
           "monospace",
         ],
       },
+      // Tailwind v3 ships no `xs` / `2xs` shadow step (they arrived in v4), so every
+      // `shadow-2xs` / `shadow-xs` / `drop-shadow-xs` in the codebase silently
+      // emitted nothing. Both are re-declared here as a sub-`sm` tier:
+      // `2xs` is the hairline used by the glass cards whose depth comes from
+      // backdrop-blur + border, `xs` matches v3's `shadow-sm` value so chips,
+      // logos and avatars sit at the same elevation as the shadcn primitives.
+      boxShadow: {
+        "2xs": "0 1px 1px 0 rgb(0 0 0 / 0.04)",
+        xs: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
+      },
+      dropShadow: {
+        xs: "0 1px 1px 0 rgb(0 0 0 / 0.06)",
+      },
       fontSize: {
         // Apple HIG Dynamic Type Scale (pt / px)
         "apple-large-title": ["34px", { lineHeight: "41px", letterSpacing: "0.37px", fontWeight: "700" }],

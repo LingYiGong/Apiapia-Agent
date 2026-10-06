@@ -47,6 +47,22 @@ export function getMediaImageUrl(imageId: string, download = false): string {
   return `${base}/media/images/${imageId}${qs ? `?${qs}` : ""}`;
 }
 
+/**
+ * Error carrying the HTTP status, so callers can tell an auth failure apart
+ * from a transient one. A bare `Error` is deliberately left ambiguous: network
+ * failures reject with a `TypeError` before any status exists, so
+ * `err instanceof ApiError` is the reliable "we got a response" test.
+ */
+export class ApiError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
 export async function apiRequest<T = any>(
   path: string,
   options: RequestInit = {}
@@ -73,7 +89,7 @@ export async function apiRequest<T = any>(
     if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
       window.location.href = "/login";
     }
-    throw new Error("Unauthorized");
+    throw new ApiError("Unauthorized", 401);
   }
 
   if (!response.ok) {
@@ -82,7 +98,7 @@ export async function apiRequest<T = any>(
       const err = await response.json();
       errorMsg = err.detail || err.message || errorMsg;
     } catch (_) {}
-    throw new Error(errorMsg);
+    throw new ApiError(errorMsg, response.status);
   }
 
   if (response.status === 204) {

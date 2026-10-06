@@ -366,10 +366,31 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   return (
     <div className="flex-1 flex flex-col h-full bg-background relative overflow-hidden min-w-0 max-w-full">
 
+      {/* 屏幕阅读器状态播报。
+          role="log" 上的 aria-live 让新消息被自动朗读；aria-relevant 限定为
+          "additions" 是关键 —— 否则流式气泡里逐字变化的文本会被反复朗读，
+          实际效果是屏幕阅读器完全无法使用。aria-busy 则在生成期间整体挂起播报。
+          「思考中 → 生成中 → 完成」这三个状态跃迁视觉上只有动画，对 AT 不可见，
+          所以单独用一个 status 区补上。 */}
+      <span className="sr-only" role="status" aria-live="polite">
+        {isStreaming
+          ? isWaitingForFirstToken
+            ? "正在思考…"
+            : "正在生成回答…"
+          : messages.length > 0
+          ? "回答已完成"
+          : ""}
+      </span>
+
       {/* Messages Scroll Area */}
       <div
         ref={scrollContainerRef}
         onScroll={handleScroll}
+        role="log"
+        aria-label="对话消息"
+        aria-live="polite"
+        aria-relevant="additions"
+        aria-busy={isStreaming}
         className={cn(
           "flex-1 overflow-x-hidden px-3.5 sm:px-5 md:px-8 relative min-w-0",
           messages.length > 0 || isStreaming
@@ -489,7 +510,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
                   <div className="relative">
                     {renderMessageBody(streamingContent, true, (src, alt) => setPreviewImage({ src, alt }))}
-                    <span className="inline-block w-2 h-4.5 bg-primary/80 ml-1.5 translate-y-0.5 animate-pulse rounded-xs" />
+                    <span className="inline-block w-2 h-[18px] bg-primary/80 ml-1.5 translate-y-0.5 animate-pulse rounded-xs" />
                   </div>
 
                   <div className="mt-3 pt-2 flex items-center justify-between gap-1.5 text-[11px] text-muted-foreground font-mono opacity-60">
@@ -604,6 +625,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               multiple
               accept="image/*,.pdf,.doc,.docx,.txt,.md,.json,.csv,.py,.js,.ts,.tsx,.jsx,.html,.css,.sql"
               className="hidden"
+              tabIndex={-1}
+              aria-hidden="true"
               onChange={(e) => {
                 if (e.target.files) {
                   handleFiles(e.target.files);
@@ -669,6 +692,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
               placeholder="询问 Apiapia"
+              // 此前输入框既无 <label> 也无 aria-label，屏幕阅读器只会念出
+              // placeholder，且 placeholder 一输入就消失。
+              aria-label="向 Apiapia 发送消息"
               className="border-0 bg-transparent shadow-none focus-visible:ring-0 px-2.5 sm:px-3 py-2 text-[16px] sm:text-[15px] tracking-[-0.011em] max-h-32 sm:max-h-44 leading-relaxed resize-none min-h-[36px]"
             />
             {isStreaming ? (

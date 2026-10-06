@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { ActionTooltip } from "@/components/common/ActionTooltip";
 import { UserAvatarDropdown, MobileTab } from "@/components/layout/UserAvatarDropdown";
 import { BrandLogo } from "@/components/common/BrandLogo";
-import { Brain, Plus, RotateCw, Menu } from "lucide-react";
+import { Brain, Plus, RotateCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 import { MobileHeader } from "@/components/layout/MobileHeader";
@@ -118,7 +118,6 @@ export interface DesktopChatHeaderProps {
   availableModels: ModelCatalogItem[];
   onRefreshModels?: () => void;
   isRefreshingModels?: boolean;
-  onToggleSidebar?: () => void;
   onToggleMemory?: () => void;
   memoriesCount?: number;
   onNewChat?: () => void;
@@ -135,7 +134,6 @@ export const DesktopChatHeader: React.FC<DesktopChatHeaderProps> = ({
   availableModels,
   onRefreshModels,
   isRefreshingModels = false,
-  onToggleSidebar,
   onToggleMemory,
   memoriesCount = 0,
   onNewChat,
@@ -151,19 +149,13 @@ export const DesktopChatHeader: React.FC<DesktopChatHeaderProps> = ({
       )}
     >
       <div className="flex items-center gap-2 min-w-0 flex-1">
-        {onToggleSidebar && (
-          <ActionTooltip label="展开历史对话">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={onToggleSidebar}
-              className="shrink-0"
-            >
-              <Menu className="h-4 w-4" />
-              <span className="sr-only">展开历史对话</span>
-            </Button>
-          </ActionTooltip>
-        )}
+        {/*
+          这里原本有一个汉堡按钮调用 onToggleSidebar → handleSelectMobileTab("history")，
+          而目标容器是 `md:hidden` —— 这个按钮只存在于 `hidden md:flex` 的桌面头部里，
+          于是桌面上可见、可聚焦、点了毫无反应，还会顺手改写 URL。
+          桌面侧栏本身就是常驻的（Sidebar 的 `hidden md:flex`），没有可折叠的状态，
+          所以正确做法是把按钮和 onToggleSidebar 整条链路一起删掉。
+        */}
 
         <span className="hidden lg:inline text-xs text-muted-foreground font-medium shrink-0 whitespace-nowrap">
           当前模型：
@@ -204,7 +196,7 @@ export const DesktopChatHeader: React.FC<DesktopChatHeaderProps> = ({
               variant="outline"
               size="icon"
               onClick={onToggleMemory}
-              className="lg:hidden relative cursor-pointer"
+              className="md:hidden relative cursor-pointer"
             >
               <Brain className="h-4 w-4 text-primary" />
               {hasActiveMemories && (

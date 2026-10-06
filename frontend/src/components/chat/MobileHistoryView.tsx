@@ -347,7 +347,18 @@ const SwipeableConversationCard = ({
           </div>
 
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5">
+            {/* 键盘可达性同 Sidebar：整卡 onClick 只服务鼠标与滑动，
+                这里给标题加真正的 <button> 让 Enter/Space 能打开会话，
+                并用 aria-current 标记当前会话。 */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCardClick();
+              }}
+              aria-current={isSelected ? "true" : undefined}
+              className="flex w-full min-w-0 items-center gap-1.5 text-left"
+            >
               <span
                 className={cn(
                   "text-[15px] font-medium truncate leading-snug",
@@ -356,7 +367,7 @@ const SwipeableConversationCard = ({
               >
                 {c.title || "新建对话"}
               </span>
-            </div>
+            </button>
             <div className="flex items-center gap-2 mt-1 text-[11px] text-muted-foreground font-mono">
               {timeStr && (
                 <span className="flex items-center gap-1 shrink-0">

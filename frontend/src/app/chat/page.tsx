@@ -885,8 +885,6 @@ const refreshFromServer = async () => {
           onTogglePin={handleTogglePin}
           onMovePinned={handleMovePinned}
           onReorderPinned={handleReorderPinned}
-          isOpen={false}
-          onClose={() => {}}
           loading={loadingConversations}
         />
 
@@ -941,7 +939,6 @@ const refreshFromServer = async () => {
             availableModels={availableModels}
             onRefreshModels={handleManualSyncModels}
             isRefreshingModels={isRefreshingModels}
-            onToggleSidebar={() => handleSelectMobileTab("history")}
             onToggleMemory={() => setIsMemoryOpen((prev) => !prev)}
             memoriesCount={retrievedMemories.length}
             onNewChat={handleNewChat}

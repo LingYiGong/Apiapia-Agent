@@ -41,6 +41,22 @@ import {
 } from "lucide-react";
 import { BrandLogo } from "@/components/common/BrandLogo";
 
+// 移动端（触摸设备）检测：主指针为 coarse，即手机 / 平板这类触屏设备。
+// 不用视口宽度判断，避免桌面浏览器窗口变窄时误判成移动端而丢掉回车发送。
+// 触屏笔记本主指针通常是 fine，依然保留回车发送的习惯。
+const useIsTouchPrimary = () => {
+  const [isTouchPrimary, setIsTouchPrimary] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia("(pointer: coarse)");
+    const sync = () => setIsTouchPrimary(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+  return isTouchPrimary;
+};
+
 
 
 
@@ -143,6 +159,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   onEditMessage,
   onDeleteMessage,
 }) => {
+  const isTouchPrimary = useIsTouchPrimary();
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -287,11 +304,16 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     scrollToBottom(true, true);
   }, [messages.length]);
 
+  // 移动端：软键盘的回车不发送消息，交给 textarea 默认行为插入换行，
+  // 只有点击发送按钮才真正发出；桌面端保持回车发送、Shift+回车换行。
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
+    if (e.key !== "Enter") return;
+    // 输入法组字过程中的回车属于候选上屏，绝不能当作发送。
+    if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+    if (isTouchPrimary) return;
+    if (e.shiftKey || e.altKey || e.metaKey || e.ctrlKey) return;
+    e.preventDefault();
+    handleSend();
   };
 
   const handleSend = () => {
@@ -640,7 +662,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 </Button>
               </ActionTooltip>
             ) : (
-              <ActionTooltip label="发送消息 (Enter)" side="top">
+              <ActionTooltip
+                label={isTouchPrimary ? "发送消息" : "发送消息 (Enter)"}
+                side="top"
+              >
                 <Button
                   onClick={handleSend}
                   disabled={(!input.trim() && attachments.length === 0) || isStreaming || isUploading}

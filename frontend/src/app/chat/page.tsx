@@ -967,6 +967,7 @@ const refreshFromServer = async () => {
             regenerating={regenerating}
             onRegenerate={handleRegenerate}
             onEditMessage={handleEditMessage}
+            conversationId={activeId}
           />
         </div>
 

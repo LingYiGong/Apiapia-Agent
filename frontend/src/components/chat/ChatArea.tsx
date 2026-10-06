@@ -135,6 +135,8 @@ interface ChatAreaProps {
   regenerating?: boolean;
   onRegenerate?: (assistantMessageId: string) => void;
   onEditMessage?: (messageId: string, newText: string) => void;
+  /** 当前会话 id，新建对话时为 null。用于在会话整体替换时复位滚动状态。 */
+  conversationId?: string | null;
 }
 
 export const ChatArea: React.FC<ChatAreaProps> = ({
@@ -156,6 +158,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   regenerating = false,
   onRegenerate,
   onEditMessage,
+  conversationId = null,
 }) => {
   const isTouchPrimary = useIsTouchPrimary();
   const [input, setInput] = useState("");
@@ -263,8 +266,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     }
   };
 
-  // Monitor user scrolling to detect if user has scrolled away from the bottom
-  const handleScroll = () => {
+  // Recompute "am I at the bottom" from the live DOM instead of trusting a
+  // previously stored value. Safe to call any time; it writes no DOM itself.
+  const syncAtBottomState = () => {
     const container = scrollContainerRef.current;
     if (!container) return;
     const threshold = 120; // distance from bottom in px considered "at bottom"
@@ -273,6 +277,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     isAtBottomRef.current = atBottom;
     setShowScrollBottomBtn(!atBottom);
   };
+
+  // Monitor user scrolling to detect if user has scrolled away from the bottom
+  const handleScroll = () => syncAtBottomState();
 
   const scrollToBottom = (force = false, smooth = true) => {
     // If not forced and user has scrolled up to read history, DO NOT pull them down!
@@ -299,8 +306,26 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
   // When a new message is added or conversation switched, scroll to bottom
   useEffect(() => {
+    // An empty list cannot be "scrolled away from": drop the floating button
+    // immediately instead of waiting for a scroll event that never comes.
+    if (messages.length === 0) {
+      isAtBottomRef.current = true;
+      setShowScrollBottomBtn(false);
+      return;
+    }
     scrollToBottom(true, true);
   }, [messages.length]);
+
+  // 切换 / 新建对话时整块内容被替换，浏览器不会为此派发 scroll 事件，
+  // 所以必须主动复位，否则"回到最新"按钮会残留在空白的对话上。
+  useEffect(() => {
+    isAtBottomRef.current = true;
+    setShowScrollBottomBtn(false);
+    const container = scrollContainerRef.current;
+    if (container) container.scrollTop = 0;
+    // Content is loaded async; the [messages.length] effect above handles the
+    // final scroll-to-bottom once the new messages land.
+  }, [conversationId]);
 
   // 移动端：软键盘的回车不发送消息，交给 textarea 默认行为插入换行，
   // 只有点击发送按钮才真正发出；桌面端保持回车发送、Shift+回车换行。

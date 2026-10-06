@@ -7,6 +7,7 @@ import { Message, SearchResultItem, GeneratedImage } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ActionTooltip } from "@/components/common/ActionTooltip";
+import { messageEditingRef } from "@/lib/messageEditGuard";
 import { cn } from "@/lib/utils";
 import { getMediaImageUrl } from "@/lib/api";
 import {
@@ -664,6 +665,16 @@ export const ChatMessageItem = memo(function ChatMessageItem({
 
   const [editing, setEditing] = React.useState(false);
   const [draft, setDraft] = React.useState("");
+
+  // Tell the page not to overwrite messages while this one is being edited —
+  // a resume/tab-switch refresh would otherwise discard the unsubmitted draft.
+  React.useEffect(() => {
+    if (!editing) return;
+    messageEditingRef.current = true;
+    return () => {
+      messageEditingRef.current = false;
+    };
+  }, [editing]);
 
   const startEdit = () => {
     setDraft(stripAttachmentMarkup(msg.content || ""));

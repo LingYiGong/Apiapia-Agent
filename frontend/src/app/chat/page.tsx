@@ -16,6 +16,8 @@ import { SettingsView } from "@/components/settings/SettingsView";
 import { MobileTab } from "@/components/layout/UserAvatarDropdown";
 import { toast } from "sonner";
 import { notifyModelSyncResult } from "@/lib/feedback";
+import { useRefreshOnResume } from "@/lib/useRefreshOnResume";
+import { messageEditingRef } from "@/lib/messageEditGuard";
 import { FullPageSkeleton } from "@/components/common/PageSkeleton";
 import { Conversation, Message, ModelCatalogItem, AttachmentItem, SearchResultItem, ToolInvocation, GeneratedImage } from "@/types";
 import { cn } from "@/lib/utils";
@@ -326,6 +328,33 @@ export default function ChatPage() {
       loadConfiguredModels();
     }
   }, [user]);
+
+// ── 切后台 / 切页签回来后刷新 ──────────────────────────────────────
+// 移动端切后台不会卸载页面，不主动重拉就会一直显示旧数据（必须杀进程才更新）。
+// 这里刻意做「静默刷新」：不走 selectConversation，避免清空消息区、切页签、
+// 以及覆盖掉刚刚流式生成出来的内容。
+// 不用 useCallback —— useRefreshOnResume 内部用 ref 持有最新函数，无需稳定引用。
+const refreshFromServer = async () => {
+  await loadConversations(false);
+
+  const id = activeIdRef.current;
+  // 正在内联编辑某条消息时不要覆盖，否则用户没提交的内容会被冲掉。
+  if (!id || messageEditingRef.current) return;
+
+  try {
+    const msgs = await apiRequest<Message[]>(`/conversations/${id}/messages`);
+    if (activeIdRef.current === id) {
+      setMessages((msgs || []).map(hydrateMessage));
+    }
+  } catch (err) {
+    console.error("Failed to refresh conversation on resume:", err);
+  }
+};
+
+  useRefreshOnResume(refreshFromServer, {
+    enabled: !isStreaming && !regenerating,
+    visible: mobileTab === "chat",
+  });
 
   const selectConversation = async (id: string, customList?: Conversation[]) => {
     setActiveId(id);
@@ -946,6 +975,7 @@ export default function ChatPage() {
           <MemoryView
             isMobileSpa={true}
             onSelectMobileTab={handleSelectMobileTab}
+            active={mobileTab === "memory"}
           />
         </div>
 
@@ -954,6 +984,7 @@ export default function ChatPage() {
           <UsageView
             isMobileSpa={true}
             onSelectMobileTab={handleSelectMobileTab}
+            active={mobileTab === "usage"}
           />
         </div>
 
@@ -962,6 +993,7 @@ export default function ChatPage() {
           <SettingsView
             isMobileSpa={true}
             onSelectMobileTab={handleSelectMobileTab}
+            active={mobileTab === "settings"}
           />
         </div>
 

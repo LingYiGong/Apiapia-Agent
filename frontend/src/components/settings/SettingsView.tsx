@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
 import { ActionTooltip } from "@/components/common/ActionTooltip";
+import { useRefreshOnResume } from "@/lib/useRefreshOnResume";
 import {
   Select,
   SelectContent,
@@ -141,11 +142,14 @@ import { MobileTab } from "@/components/layout/UserAvatarDropdown";
 export interface SettingsViewProps {
   isMobileSpa?: boolean;
   onSelectMobileTab?: (tab: MobileTab) => void;
+  /** 移动端 SPA 里该页签当前是否可见；用于切回时补一次刷新 */
+  active?: boolean;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
   isMobileSpa = false,
   onSelectMobileTab,
+  active = true,
 }) => {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -317,6 +321,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       fetchSettingsAndConfigs();
     }
   }, [user]);
+
+  // 切后台 / 切回本页签时刷新，让后台改过的配置同步过来。
+  // 有未保存改动时必须跳过：fetchSettingsAndConfigs 会重置表单，直接吞掉用户的输入。
+  useRefreshOnResume(fetchSettingsAndConfigs, {
+    enabled: !!user && !isDirty && !savingSettings,
+    visible: active,
+  });
 
   // Apple HIG Discard / Reset Action
   const handleResetSettings = () => {

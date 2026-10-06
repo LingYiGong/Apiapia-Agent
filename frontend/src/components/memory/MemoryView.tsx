@@ -23,6 +23,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { ActionTooltip } from "@/components/common/ActionTooltip";
+import { useRefreshOnResume } from "@/lib/useRefreshOnResume";
 import { FullPageSkeleton } from "@/components/common/PageSkeleton";
 import {
   Brain,
@@ -64,11 +65,14 @@ interface MemorySection {
 export interface MemoryViewProps {
   isMobileSpa?: boolean;
   onSelectMobileTab?: (tab: MobileTab) => void;
+  /** 移动端 SPA 里该页签当前是否可见；用于切回时补一次刷新 */
+  active?: boolean;
 }
 
 export const MemoryView: React.FC<MemoryViewProps> = ({
   isMobileSpa = false,
   onSelectMobileTab,
+  active = true,
 }) => {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -156,6 +160,13 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
       fetchMemories();
     }
   }, [user]);
+
+  // 切后台 / 切回本页签时刷新，避免看到别的设备写入的旧记忆。
+  // 正在编辑某条记忆时必须跳过，否则会丢掉未保存的改动。
+  useRefreshOnResume(fetchMemories, {
+    enabled: !editingItem && !isSearching,
+    visible: active,
+  });
 
   const handleSearch = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();

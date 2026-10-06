@@ -33,6 +33,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ActionTooltip } from "@/components/common/ActionTooltip";
+import { useRefreshOnResume } from "@/lib/useRefreshOnResume";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
@@ -70,11 +71,14 @@ type PeriodType = "today" | "month" | "year" | "all";
 export interface UsageViewProps {
   isMobileSpa?: boolean;
   onSelectMobileTab?: (tab: MobileTab) => void;
+  /** 移动端 SPA 里该页签当前是否可见；用于切回时补一次刷新 */
+  active?: boolean;
 }
 
 export const UsageView: React.FC<UsageViewProps> = ({
   isMobileSpa = false,
   onSelectMobileTab,
+  active = true,
 }) => {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -140,6 +144,13 @@ export const UsageView: React.FC<UsageViewProps> = ({
       fetchStats();
     }
   }, [user]);
+
+  // 切后台 / 切回本页签时刷新，让用量数字跟上别的设备产生的新消耗。
+  // 正在执行管理操作时跳过，避免和操作反馈抢状态。
+  useRefreshOnResume(() => fetchStats(), {
+    enabled: !!user && actionLoading === null,
+    visible: active,
+  });
 
   const handlePeriodChange = (newPeriod: PeriodType) => {
     setPeriod(newPeriod);

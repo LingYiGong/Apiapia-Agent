@@ -135,7 +135,6 @@ interface ChatAreaProps {
   regenerating?: boolean;
   onRegenerate?: (assistantMessageId: string) => void;
   onEditMessage?: (messageId: string, newText: string) => void;
-  onDeleteMessage?: (messageId: string) => void;
 }
 
 export const ChatArea: React.FC<ChatAreaProps> = ({
@@ -157,7 +156,6 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   regenerating = false,
   onRegenerate,
   onEditMessage,
-  onDeleteMessage,
 }) => {
   const isTouchPrimary = useIsTouchPrimary();
   const [input, setInput] = useState("");
@@ -384,7 +382,6 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 regenerating={regenerating}
                 onRegenerate={onRegenerate}
                 onEditMessage={onEditMessage}
-                onDeleteMessage={onDeleteMessage}
               />
             ))}
           </div>

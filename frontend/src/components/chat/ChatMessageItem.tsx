@@ -26,7 +26,6 @@ import {
   Download,
   ImageOff,
   Square,
-  Trash2,
   PenLine,
 } from "lucide-react";
 
@@ -647,7 +646,6 @@ interface ChatMessageItemProps {
   regenerating?: boolean;
   onRegenerate?: (assistantMessageId: string) => void;
   onEditMessage?: (messageId: string, newText: string) => void;
-  onDeleteMessage?: (messageId: string) => void;
 }
 
 export const ChatMessageItem = memo(function ChatMessageItem({
@@ -660,7 +658,6 @@ export const ChatMessageItem = memo(function ChatMessageItem({
   regenerating,
   onRegenerate,
   onEditMessage,
-  onDeleteMessage,
 }: ChatMessageItemProps) {
   const isUser = msg.role === "user";
   const isErrorMsg =
@@ -833,34 +830,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                 );
               })()}
 
-              {/* User turn actions */}
-              {!editing && msg.id && onEditMessage && (
-                <div className="flex items-center gap-1 justify-end mt-1.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-                  <ActionTooltip label="编辑这条提问并重新发送" side="top">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={startEdit}
-                      className="h-6 px-1.5 text-muted-foreground hover:text-foreground hover:bg-muted/80 rounded-md transition-colors"
-                    >
-                      <PenLine className="h-3 w-3" />
-                      <span className="text-[10px]">编辑</span>
-                    </Button>
-                  </ActionTooltip>
-                  <ActionTooltip label="删除这条消息" side="top">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-onClick={() => msg.id && onDeleteMessage?.(msg.id)}
-                      className="h-6 px-1.5 text-muted-foreground hover:text-red-600 dark:hover:text-red-400 hover:bg-muted/80 rounded-md transition-colors"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                      <span className="text-[10px]">删除</span>
-                    </Button>
-                  </ActionTooltip>
-                </div>
-              )}
-                </>
+              </>
               )}
             </div>
           ) : isErrorMsg ? (            <div>
@@ -1042,20 +1012,6 @@ onClick={() => msg.id && onDeleteMessage?.(msg.id)}
               </ActionTooltip>
             )}
 
-            {msg.id && onDeleteMessage && (
-              <ActionTooltip label="删除这条消息" side="bottom">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onDeleteMessage(msg.id!)}
-                  className="h-7 px-2 text-muted-foreground hover:text-red-600 dark:hover:text-red-400 hover:bg-muted/80 rounded-lg transition-colors flex items-center gap-1.5"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  <span className="text-[11px]">删除</span>
-                </Button>
-              </ActionTooltip>
-            )}
-
             <div className="flex items-center gap-2 flex-wrap text-[11px] font-mono opacity-50 hover:opacity-100 transition-opacity">
               {msg.created_at && (
                 <ActionTooltip label="回复时间" side="top">
@@ -1101,6 +1057,43 @@ onClick={() => msg.id && onDeleteMessage?.(msg.id)}
                 </ActionTooltip>
               ) : null}
             </div>
+          </div>
+        )}
+
+        {/* User turn actions — same placement as the assistant action bar */}
+        {isUser && !editing && msg.id && onEditMessage && (
+          <div className="flex items-center justify-end gap-1 flex-wrap text-[11px] text-muted-foreground mt-2 px-0.5 select-none">
+            <ActionTooltip label="编辑这条提问并重新发送" side="bottom">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={startEdit}
+                className="h-7 px-2 text-muted-foreground hover:text-foreground hover:bg-muted/80 rounded-lg transition-colors flex items-center gap-1.5"
+              >
+                <PenLine className="h-3.5 w-3.5" />
+                <span className="text-[11px]">编辑</span>
+              </Button>
+            </ActionTooltip>
+            <ActionTooltip label={isCopied ? "已复制到剪贴板" : "复制提问"} side="bottom">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onCopy(stripAttachmentMarkup(msg.content || ""), idx)}
+                className="h-7 px-2 text-muted-foreground hover:text-foreground hover:bg-muted/80 rounded-lg transition-colors flex items-center gap-1.5"
+              >
+                {isCopied ? (
+                  <>
+                    <Check className="h-3.5 w-3.5 text-emerald-500" />
+                    <span className="text-emerald-500 text-[11px] font-medium">已复制</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-3.5 w-3.5" />
+                    <span className="text-[11px]">复制</span>
+                  </>
+                )}
+              </Button>
+            </ActionTooltip>
           </div>
         )}
       </div>

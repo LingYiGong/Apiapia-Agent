@@ -774,23 +774,7 @@ export default function ChatPage() {
     finalizeAssistantMessage();
   };
 
-  // ── Per-message actions (regenerate / edit / delete) ──────────────
-  const handleDeleteMessage = useCallback(
-    async (messageId: string) => {
-      if (!activeId || !messageId) return;
-      try {
-        await apiRequest(`/conversations/${activeId}/messages/${messageId}`, {
-          method: "DELETE",
-        });
-        setMessages((prev) => prev.filter((m) => m.id !== messageId));
-        toast.success("已删除该条消息");
-      } catch (err: any) {
-        toast.error(err.message || "删除消息失败");
-      }
-    },
-    [activeId],
-  );
-
+  // ── Per-message actions (regenerate / edit) ─────────────────────────
   const handleEditMessage = useCallback(
     async (messageId: string, newText: string) => {
       if (!activeId || !messageId) return;
@@ -959,7 +943,6 @@ export default function ChatPage() {
             regenerating={regenerating}
             onRegenerate={handleRegenerate}
             onEditMessage={handleEditMessage}
-            onDeleteMessage={handleDeleteMessage}
           />
         </div>
 

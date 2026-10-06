@@ -692,10 +692,52 @@ async def chat_stream(
         if not assistant_content.strip() and error_text:
             assistant_content = error_text
 
+        # Persist the assistant reply BEFORE signalling completion. The client
+        # needs the row id to enable per-message actions (regenerate / delete)
+        # right away; otherwise those buttons stay hidden until the conversation
+        # is reloaded from the messages endpoint.
+        assistant_message_id = None
+        if assistant_content.strip():
+            try:
+                async with AsyncSessionLocal() as save_db:
+                    # Update conversation updated_at so latest chat is at the top
+                    c_stmt = select(Conversation).where(Conversation.id == conv_id)
+                    c_rec = (await save_db.execute(c_stmt)).scalar_one_or_none()
+                    if c_rec:
+                        c_rec.updated_at = reply_created_at
+                        c_rec.last_message_at = reply_created_at
+
+                    assistant_msg_record = Message(
+                        conversation_id=conv_id,
+                        role="assistant",
+                        content=assistant_content,
+                        model=model_to_use,
+                        token_usage=total_tokens,
+                        prompt_tokens=prompt_tokens,
+                        completion_tokens=completion_tokens,
+                        duration_ms=duration_ms,
+                        thinking_duration_ms=thinking_duration_ms,
+                        finish_reason=finish_reason,
+                        search_results=json.dumps(search_results, ensure_ascii=False) if search_results else None,
+                        search_query=search_query if need_search else None,
+                        tool_invocations=json.dumps(tool_invocations, ensure_ascii=False) if tool_invocations else None,
+                        generated_images=json.dumps(generated_images, ensure_ascii=False) if generated_images else None,
+                        created_at=reply_created_at
+                    )
+                    save_db.add(assistant_msg_record)
+                    await save_db.commit()
+                    assistant_message_id = assistant_msg_record.id
+            except Exception as persist_err:
+                logger.error(
+                    "Failed to persist assistant reply for conversation %s: %s",
+                    conv_id, persist_err, exc_info=True,
+                )
+
         # Signal completion with complete metadata
         done_payload = {
             "type": "done",
             "conversation_id": conv_id,
+            "message_id": assistant_message_id,
             "model": model_to_use,
             "duration_ms": duration_ms,
             "thinking_duration_ms": thinking_duration_ms,
@@ -712,50 +754,26 @@ async def chat_stream(
         if yield_allowed:
             yield f"data: {json.dumps(done_payload, ensure_ascii=False)}\n\n"
 
-        # 10. Persist assistant reply to DB & trigger background memory extraction
+        # 10. Background housekeeping: conversation title + memory extraction
         if assistant_content.strip():
-            async with AsyncSessionLocal() as save_db:
-                # Update conversation updated_at so latest chat is at the top
-                c_stmt = select(Conversation).where(Conversation.id == conv_id)
-                c_rec = (await save_db.execute(c_stmt)).scalar_one_or_none()
-                if c_rec:
-                    c_rec.updated_at = reply_created_at
-                    c_rec.last_message_at = reply_created_at
-
-                assistant_msg_record = Message(
-                    conversation_id=conv_id,
-                    role="assistant",
-                    content=assistant_content,
-                    model=model_to_use,
-                    token_usage=total_tokens,
-                    prompt_tokens=prompt_tokens,
-                    completion_tokens=completion_tokens,
-                    duration_ms=duration_ms,
-                    thinking_duration_ms=thinking_duration_ms,
-                    finish_reason=finish_reason,
-                    search_results=json.dumps(search_results, ensure_ascii=False) if search_results else None,
-                    search_query=search_query if need_search else None,
-                    tool_invocations=json.dumps(tool_invocations, ensure_ascii=False) if tool_invocations else None,
-                    generated_images=json.dumps(generated_images, ensure_ascii=False) if generated_images else None,
-                    created_at=reply_created_at
-                )
-                save_db.add(assistant_msg_record)
-                await save_db.commit()
-
-                # ── First turn of a conversation: replace the truncated first
-                #    message with an LLM-written title so the sidebar reads well.
-                if is_first_turn and assistant_content.strip():
-                    try:
-                        new_title = await _generate_conversation_title(
-                            chat_req.message or "(附件)",
-                            assistant_content,
-                            model_to_use,
-                        )
-                        if new_title:
-                            c_rec.title = new_title[:40]
-                            await save_db.commit()
-                    except Exception as title_err:
-                        logger.warning("Failed to generate conversation title: %s", title_err)
+            # ── First turn of a conversation: replace the truncated first
+            #    message with an LLM-written title so the sidebar reads well.
+            if is_first_turn:
+                try:
+                    new_title = await _generate_conversation_title(
+                        chat_req.message or "(附件)",
+                        assistant_content,
+                        model_to_use,
+                    )
+                    if new_title:
+                        async with AsyncSessionLocal() as title_db:
+                            t_stmt = select(Conversation).where(Conversation.id == conv_id)
+                            t_rec = (await title_db.execute(t_stmt)).scalar_one_or_none()
+                            if t_rec:
+                                t_rec.title = new_title[:40]
+                                await title_db.commit()
+                except Exception as title_err:
+                    logger.warning("Failed to generate conversation title: %s", title_err)
 
             # Schedule Mem0 extraction in non-blocking background executor.
             # Skipped for aborted turns: a cut-off answer can be a half-formed

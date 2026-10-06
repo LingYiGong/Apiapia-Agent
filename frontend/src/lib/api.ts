@@ -125,6 +125,8 @@ export async function streamChatResponse(
     onError?: (error: string, info?: { finishReason?: "stop" | "abort" | "error" }) => void;
     onDone?: (doneMeta: {
       conversation_id: string;
+      /** Server-assigned id of the persisted assistant row; powers regenerate/delete. */
+      message_id?: string | null;
       model?: string;
       duration_ms?: number;
       thinking_duration_ms?: number;

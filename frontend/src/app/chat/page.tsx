@@ -392,12 +392,15 @@ export default function ChatPage() {
       await apiRequest(`/conversations/${id}`, { method: "DELETE" });
       const updated = conversations.filter((c) => c.id !== id);
       setConversations(updated);
-      if (activeId === id) {
-        if (updated.length > 0) {
-          selectConversation(updated[0].id);
-        } else {
-          handleNewChat();
-        }
+      // 删掉的正是当前选中会话时，只清空当前选中状态，
+      // 不再自动切到别的会话，也不切换标签页 —— 用户应停留在历史页面。
+      if (activeIdRef.current === id) {
+        activeIdRef.current = null;
+        setActiveId(null);
+        setMessages([]);
+        setStreamingContent("");
+        setRetrievedMemories([]);
+        setLoadingMessages(false);
       }
     } catch (err) {
       console.error("Failed to delete conversation:", err);

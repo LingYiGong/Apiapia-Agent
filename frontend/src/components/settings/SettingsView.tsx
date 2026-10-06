@@ -1,14 +1,14 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { apiRequest } from "@/lib/api";
 import { Navbar } from "@/components/layout/Navbar";
 import { MobileHeader } from "@/components/layout/MobileHeader";
 import { ModelCatalogItem, ImageModelItem, ImageModelsResponse } from "@/types";
 import { useTheme } from "@/lib/theme";
-import { ModelSelect, isFreeModel, isMultimodalModel } from "@/components/common/ModelSelect";
+import { ModelSelect } from "@/components/common/ModelSelect";
+import { isFreeModel, isMultimodalModel } from "@/lib/models";
 import { CURRENT_VERSION, triggerManualUpdateCheck } from "@/lib/version";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
 import { ActionTooltip } from "@/components/common/ActionTooltip";
 import { useRefreshOnResume } from "@/lib/useRefreshOnResume";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
 import {
   Select,
   SelectContent,
@@ -152,7 +153,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   active = true,
 }) => {
   const { user, loading } = useAuth();
-  const router = useRouter();
   const { theme, setTheme } = useTheme();
 
   // Accounts without full model access only ever see zero-cost options.
@@ -248,11 +248,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
   };
 
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push("/login");
-    }
-  }, [user, loading, router]);
+  // 视图内部守卫（此前与 UsageView / MemoryView 逐字相同的三份之一）
+  useRequireAuth();
 
   const fetchSettingsAndConfigs = async () => {
     setLoadingSettings(true);

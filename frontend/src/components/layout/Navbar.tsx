@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { Button } from "@/components/ui/button";
@@ -11,15 +11,13 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { BrandLogo } from "@/components/common/BrandLogo";
 import { MobileTab } from "@/components/layout/UserAvatarDropdown";
 import { cn } from "@/lib/utils";
+import { Plus, LogOut } from "lucide-react";
 import {
-  MessageSquare,
-  Brain,
-  Settings,
-  LogOut,
-  BarChart3,
-  AlignLeft,
-  Plus,
-} from "lucide-react";
+  ACCOUNT_MENU_ITEMS,
+  DESKTOP_NAV_ITEMS,
+  MOBILE_TAB_ITEMS,
+} from "@/config/navigation";
+import { useActiveNav } from "@/hooks/useActiveNav";
 
 import {
   DropdownMenu,
@@ -39,15 +37,8 @@ export interface DesktopNavbarProps {
  * Shown only on md+ screens.
  */
 export const DesktopNavbar: React.FC<DesktopNavbarProps> = ({ className }) => {
-  const pathname = usePathname();
   const { user, logout } = useAuth();
-
-  const desktopNavItems = [
-    { href: "/chat", label: "对话", shortLabel: "对话", icon: MessageSquare },
-    { href: "/memory", label: "记忆库", shortLabel: "记忆", icon: Brain },
-    { href: "/usage", label: "用量", shortLabel: "用量", icon: BarChart3 },
-    { href: "/settings", label: "设置", shortLabel: "设置", icon: Settings },
-  ];
+  const { isActive, ariaCurrent } = useActiveNav();
 
   return (
     <header
@@ -64,19 +55,19 @@ export const DesktopNavbar: React.FC<DesktopNavbarProps> = ({ className }) => {
           </span>
         </Link>
 
-        <nav className="hidden md:flex items-center gap-0.5 lg:gap-1 min-w-0 shrink">
-          {desktopNavItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = pathname.startsWith(item.href);
+        <nav className="hidden md:flex items-center gap-0.5 lg:gap-1 min-w-0 shrink overflow-x-auto no-scrollbar">
+          {DESKTOP_NAV_ITEMS.map((item) => {
+            const Icon = item.Icon;
+            const active = isActive(item.id);
             return (
               <Button
-                key={item.href}
-                variant={isActive ? "secondary" : "ghost"}
+                key={item.id}
+                variant={active ? "secondary" : "ghost"}
                 size="sm"
                 asChild
-                className={cn("shrink-0 whitespace-nowrap", isActive && "font-semibold")}
+                className={cn("shrink-0 whitespace-nowrap", active && "font-semibold")}
               >
-                <Link href={item.href} aria-current={isActive ? "page" : undefined}>
+                <Link href={item.href} aria-current={ariaCurrent(item.id)}>
                   <Icon className="h-4 w-4 shrink-0" />
                   {/* 两个 span 始终同时存在于 DOM，屏幕阅读器会把
                       「对话对话」「记忆库记忆」连着念两遍；给短标签加
@@ -124,24 +115,22 @@ export const DesktopNavbar: React.FC<DesktopNavbarProps> = ({ className }) => {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href="/settings" className="flex items-center gap-2 cursor-pointer text-xs">
-                  <Settings className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span>偏好设置</span>
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/usage" className="flex items-center gap-2 cursor-pointer text-xs">
-                  <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span>用量与账单</span>
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/memory" className="flex items-center gap-2 cursor-pointer text-xs">
-                  <Brain className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span>长期记忆库</span>
-                </Link>
-              </DropdownMenuItem>
+              {/* 这三项此前是第三份手写副本，与桌面顶栏导航指向同一批目的地。
+                  现在同样由 ACCOUNT_MENU_ITEMS 驱动。 */}
+              {ACCOUNT_MENU_ITEMS.map((item) => {
+                const Icon = item.Icon;
+                return (
+                  <DropdownMenuItem asChild key={item.id}>
+                    <Link
+                      href={item.href}
+                      className="flex items-center gap-2 cursor-pointer text-xs"
+                    >
+                      <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span>{item.menuLabel}</span>
+                    </Link>
+                  </DropdownMenuItem>
+                );
+              })}
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={logout}
@@ -183,41 +172,25 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
   const router = useRouter();
 
   const handleMobileTabClick = (tab: MobileTab) => {
-    if (tab === "chat") {
-      if (activeMobileTab === "chat") {
-        if (onNewChat) {
-          onNewChat();
-        } else {
-          router.push("/chat");
-        }
-        return;
-      }
-      if (onSelectMobileTab) {
-        onSelectMobileTab("chat");
+    if (tab === "chat" && activeMobileTab === "chat") {
+      // 已在对话页时再次点击 = 新建对话
+      if (onNewChat) {
+        onNewChat();
       } else {
         router.push("/chat");
       }
       return;
     }
 
+    const target = MOBILE_TAB_ITEMS.find((i) => i.id === tab);
     if (onSelectMobileTab) {
       onSelectMobileTab(tab);
     } else {
-      router.push(`/chat?tab=${tab}`);
+      router.push(target ? target.mobileHref : "/chat");
     }
   };
 
   const isChatActive = activeMobileTab === "chat";
-
-  const navItems: { tab: MobileTab; label: string; icon: React.ElementType }[] = [
-    {
-      tab: "chat",
-      label: isChatActive ? "新建" : "对话",
-      icon: isChatActive ? Plus : MessageSquare,
-    },
-    { tab: "history", label: "历史", icon: AlignLeft },
-    { tab: "memory", label: "记忆", icon: Brain },
-  ];
 
   return (
     <nav
@@ -228,18 +201,24 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
       )}
     >
       <div className="h-[49px] w-full flex items-center justify-around pl-[max(0.5rem,var(--sal))] pr-[max(0.5rem,var(--sar))]">
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = activeMobileTab === item.tab;
+        {/* 现在由 MOBILE_TAB_ITEMS 统一驱动：此前这里手写 3 项，
+            导致「用量」与「设置」两个顶层页面在移动端没有任何入口，
+            只能从头像菜单二级进入。5 个页签在 320px 下每个约 62px，
+            配合 text-[10.5px] 仍然放得下。 */}
+        {MOBILE_TAB_ITEMS.map((item) => {
+          const active = activeMobileTab === item.id;
+          // 对话页激活时换成「新建」图标 + 文案，点击即新建；
+          // 视觉隐藏两份文案，避免读屏在切换瞬间读到两个不同标签。
+          const Icon = item.id === "chat" && isChatActive ? Plus : item.Icon;
           return (
             <button
-              key={item.tab}
+              key={item.id}
               type="button"
-              aria-current={isActive ? "page" : undefined}
-              onClick={() => handleMobileTabClick(item.tab)}
+              aria-current={active ? "page" : undefined}
+              onClick={() => handleMobileTabClick(item.id)}
               className={cn(
                 "flex flex-col items-center justify-center flex-1 h-full py-0.5 gap-0.5 text-[10.5px] tracking-tight transition-all active:scale-95 cursor-pointer touch-manipulation",
-                isActive
+                active
                   ? "text-primary font-semibold"
                   : "text-muted-foreground/75 hover:text-foreground font-medium"
               )}
@@ -247,10 +226,21 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
               <Icon
                 className={cn(
                   "h-5 w-5 shrink-0 transition-transform",
-                  isActive ? "stroke-[2.2px] scale-105" : "stroke-[1.8px]"
+                  active ? "stroke-[2.2px] scale-105" : "stroke-[1.8px]"
                 )}
               />
-              <span className="leading-tight">{item.label}</span>
+              {item.id === "chat" ? (
+                <>
+                  <span className="leading-tight" aria-hidden="true">
+                    {isChatActive ? "新建" : item.label}
+                  </span>
+                  <span className="sr-only">
+                    {isChatActive ? "新建对话" : item.label}
+                  </span>
+                </>
+              ) : (
+                <span className="leading-tight">{item.label}</span>
+              )}
             </button>
           );
         })}

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { apiRequest } from "@/lib/api";
@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { ActionTooltip } from "@/components/common/ActionTooltip";
 import { useRefreshOnResume } from "@/lib/useRefreshOnResume";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { FullPageSkeleton } from "@/components/common/PageSkeleton";
 import {
   Brain,
@@ -89,6 +90,8 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
 
   // Delete Confirm State
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  // 单飞闸门：state 更新是异步的，光靠 deletingId 挡不住同一帧内的双击
+  const deletingRef = useRef(false);
 
   // 按 Apple HIG 规范将记忆按时间分组（今天、过去 7 天、更早之前）
   const groupedSections = useMemo<MemorySection[]>(() => {
@@ -137,11 +140,8 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
     return sections;
   }, [memories]);
 
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push("/login");
-    }
-  }, [user, loading, router]);
+  // 视图内部守卫（此前与 UsageView / SettingsView 逐字相同的三份之一）
+  useRequireAuth();
 
   const fetchMemories = async () => {
     setLoadingMemories(true);
@@ -236,6 +236,11 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
   };
 
   const handleDelete = async (id: string) => {
+    // 按 key 单飞：确认弹窗的 loading 态会禁用按钮，连点两次此前会真的
+    // 发出两个 DELETE（第二次 404，用户看到「删除记忆失败」的假报错）
+    if (deletingRef.current) return;
+    deletingRef.current = true;
+    setDeletingId(id);
     try {
       await apiRequest(`/memories/${id}`, { method: "DELETE" });
       setMemories((prev) => prev.filter((m) => m.id !== id));
@@ -243,6 +248,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
     } catch (err: any) {
       toast.error(err.message || "删除记忆失败");
     } finally {
+      deletingRef.current = false;
       setDeletingId(null);
     }
   };
@@ -620,7 +626,9 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
         </DialogContent>
       </Dialog>
 
-      {/* ── Apple HIG 标准删除确认弹窗 ── */}
+      {/* ── Apple HIG 标准删除确认弹窗 ──
+            此前没有传 loading，确认按钮在请求期间仍可点击，连点会发出两个 DELETE。
+            loading 绑定 deletingId 后按钮自动禁用并显示「处理中...」。 */}
       {deletingId && (
         <ConfirmDialog
           open
@@ -631,6 +639,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
           description="确定要从记忆库中永久移除这条记录吗？删除后 AI 将不再参考该事实，此操作无法撤销。"
           confirmText="删除"
           danger
+          loading={!!deletingId}
           onConfirm={() => handleDelete(deletingId)}
         />
       )}

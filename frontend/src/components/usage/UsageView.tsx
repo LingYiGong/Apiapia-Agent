@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { apiRequest } from "@/lib/api";
 import { Navbar } from "@/components/layout/Navbar";
@@ -34,9 +33,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ActionTooltip } from "@/components/common/ActionTooltip";
 import { useRefreshOnResume } from "@/lib/useRefreshOnResume";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
+import { useConfirm } from "@/hooks/useConfirm";
+import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { FullPageSkeleton, StatCardsSkeleton } from "@/components/common/PageSkeleton";
 import {
   BarChart3,
@@ -81,14 +82,12 @@ export const UsageView: React.FC<UsageViewProps> = ({
   active = true,
 }) => {
   const { user, loading } = useAuth();
-  const router = useRouter();
 
   const [activeTab, setActiveTab] = useState<"overview" | "my">("overview");
   const [period, setPeriod] = useState<PeriodType>("all");
   const [adminStats, setAdminStats] = useState<AdminOverviewStats | null>(null);
   const [myStats, setMyStats] = useState<MyUsageStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   // Admin Audit Modal State
   const [auditUser, setAuditUser] = useState<{ id: string; username: string } | null>(null);
@@ -100,20 +99,12 @@ export const UsageView: React.FC<UsageViewProps> = ({
   const [restoreLoading, setRestoreLoading] = useState<string | null>(null);
   const [modelSortKey, setModelSortKey] = useState<"cost" | "tokens">("cost");
 
-  // 统一确认框状态（替代原生 confirm）
-  const [pendingConfirm, setPendingConfirm] = useState<{
-    title: string;
-    description: string;
-    confirmText: string;
-    danger: boolean;
-    onConfirm: () => void;
-  } | null>(null);
+  // 统一确认框 + 写操作状态机（原先三处管理员操作各自维护一份 try/catch/finally）
+  const { ask: askConfirm, dialog: confirmDialog } = useConfirm();
+  const { pendingKey: actionLoading, run: runAction } = useAsyncAction();
 
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push("/login");
-    }
-  }, [user, loading, router]);
+  // 视图内部守卫（此前与 SettingsView / MemoryView 逐字相同的三份之一）
+  useRequireAuth();
 
   const fetchStats = async (pOverride?: PeriodType) => {
     const targetPeriod = pOverride || period;
@@ -162,76 +153,66 @@ export const UsageView: React.FC<UsageViewProps> = ({
   };
 
   const handleToggleActive = (userId: string, currentStatus: boolean, username: string) => {
-    setPendingConfirm({
+    askConfirm({
       title: `${currentStatus ? "停用" : "启用"}用户`,
       description: `确定要${currentStatus ? "停用" : "启用"}用户「${username}」吗？${
         currentStatus ? "停用后该用户将无法登录使用。" : ""
       }`,
       confirmText: currentStatus ? "停用" : "启用",
       danger: currentStatus,
-      onConfirm: async () => {
-        setPendingConfirm(null);
-        setActionLoading(userId);
-        try {
-          await apiRequest(`/stats/admin/users/${userId}/toggle-active`, { method: "POST" });
-          await fetchStats();
-          toast.success(`已${currentStatus ? "停用" : "启用"}用户「${username}」`);
-        } catch (err: any) {
-          toast.error(err.message || `${currentStatus ? "停用" : "启用"}用户失败`);
-        } finally {
-          setActionLoading(null);
-        }
-      },
+      onConfirm: () =>
+        runAction(
+          userId,
+          async () => {
+            await apiRequest(`/stats/admin/users/${userId}/toggle-active`, { method: "POST" });
+            await fetchStats();
+          },
+          { success: `已${currentStatus ? "停用" : "启用"}用户「${username}」` }
+        ),
     });
   };
 
   const handleToggleAdmin = (userId: string, currentAdmin: boolean, username: string) => {
-    setPendingConfirm({
+    askConfirm({
       title: `${currentAdmin ? "取消" : "授予"}管理员权限`,
       description: `确定要${currentAdmin ? "取消" : "设置"}用户「${username}」的超级管理员权限吗？`,
       confirmText: currentAdmin ? "取消权限" : "设为管理员",
       danger: currentAdmin,
-      onConfirm: async () => {
-        setPendingConfirm(null);
-        setActionLoading(userId);
-        try {
-          await apiRequest(`/stats/admin/users/${userId}/toggle-admin`, { method: "POST" });
-          await fetchStats();
-          toast.success(`已${currentAdmin ? "取消" : "授予"}用户「${username}」的管理员权限`);
-        } catch (err: any) {
-          toast.error(err.message || "修改管理员权限失败");
-        } finally {
-          setActionLoading(null);
-        }
-      },
+      onConfirm: () =>
+        runAction(
+          userId,
+          async () => {
+            await apiRequest(`/stats/admin/users/${userId}/toggle-admin`, { method: "POST" });
+            await fetchStats();
+          },
+          { success: `已${currentAdmin ? "取消" : "授予"}用户「${username}」的管理员权限` }
+        ),
     });
   };
 
   const handleToggleAllModels = (userId: string, currentAccessAll: boolean, username: string) => {
     const nextStatus = !currentAccessAll;
-    setPendingConfirm({
+    askConfirm({
       title: `${nextStatus ? "开通" : "限制"}模型访问权限`,
       description: nextStatus
         ? `确定为用户「${username}」开通完整体验权限吗？开通后该用户可使用系统内包括所有高级付费模型在内的全部可用模型。`
         : `确定将用户「${username}」切换为体验模式吗？切换后该用户将只能访问和调用免费模型。`,
       confirmText: nextStatus ? "开通完整体验" : "切换为体验模式",
       danger: !nextStatus,
-      onConfirm: async () => {
-        setPendingConfirm(null);
-        setActionLoading(`model-${userId}`);
-        try {
-          await apiRequest(`/stats/admin/users/${userId}/toggle-all-models`, {
-            method: "POST",
-            body: JSON.stringify({ can_access_all_models: nextStatus }),
-          });
-          await fetchStats();
-          toast.success(`已为用户「${username}」${nextStatus ? "开通完整体验" : "切换为体验模式"}`);
-        } catch (err: any) {
-          toast.error(err.message || "修改模型访问权限失败");
-        } finally {
-          setActionLoading(null);
-        }
-      },
+      onConfirm: () =>
+        runAction(
+          `model-${userId}`,
+          async () => {
+            await apiRequest(`/stats/admin/users/${userId}/toggle-all-models`, {
+              method: "POST",
+              body: JSON.stringify({ can_access_all_models: nextStatus }),
+            });
+            await fetchStats();
+          },
+          {
+            success: `已为用户「${username}」${nextStatus ? "开通完整体验" : "切换为体验模式"}`,
+          }
+        ),
     });
   };
 
@@ -1294,21 +1275,8 @@ export const UsageView: React.FC<UsageViewProps> = ({
             </Dialog>
           )}
 
-          {/* ===================== 操作确认框 ===================== */}
-          {pendingConfirm && (
-            <ConfirmDialog
-              open
-              onOpenChange={(open) => {
-                if (!open) setPendingConfirm(null);
-              }}
-              title={pendingConfirm.title}
-              description={pendingConfirm.description}
-              confirmText={pendingConfirm.confirmText}
-              danger={pendingConfirm.danger}
-              loading={actionLoading !== null}
-              onConfirm={pendingConfirm.onConfirm}
-            />
-          )}
+          {/* ===================== 操作确认框（由 useConfirm 提供） ===================== */}
+          {confirmDialog}
 
           {/* ===================== MESSAGE INSPECTION POPUP (Apple HIG Chat Inspect) ===================== */}
           {inspectData && (

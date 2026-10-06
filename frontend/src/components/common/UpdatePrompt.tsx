@@ -21,36 +21,65 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 
+/**
+ * 新版本提示。
+ *
+ * 按全应用统一的反馈约定：自动检查只是「回报一个结果」，不该打断用户，所以只弹
+ * toast；changelog 是需要阅读的内容，但仅在用户主动想看时才展开成Dialog
+ * （偏好设置 → 检查更新，或点 toast 上的「查看详情」）。
+ */
 export const UpdatePrompt: React.FC = () => {
   const [updateInfo, setUpdateInfo] = useState<VersionInfo | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
 
-  const runCheck = useCallback(async (isManual = false) => {
-    if (isManual) {
-      toast.info("正在检查是否有新版本...");
-    }
-
-    const result = await checkAppUpdate();
-
-    if (result.hasUpdate && result.info) {
-      let isIgnored = false;
-      try {
-        const dismissed = sessionStorage.getItem("apiapia_dismissed_version");
-        const updated = localStorage.getItem("apiapia_updated_version");
-        if (dismissed === result.latestVersion || updated === result.latestVersion) {
-          isIgnored = true;
-        }
-      } catch {}
-
-      if (isManual || !isIgnored) {
-        setUpdateInfo(result.info);
-        setShowModal(true);
-      }
-    } else if (isManual) {
-      toast.success(`已是最新版本 (v${CURRENT_VERSION})，无需更新`);
-    }
+  const openDetail = useCallback((info: VersionInfo) => {
+    setUpdateInfo(info);
+    setShowModal(true);
   }, []);
+
+  const runCheck = useCallback(
+    async (isManual = false) => {
+      if (isManual) {
+        toast.info("正在检查是否有新版本...");
+      }
+
+      const result = await checkAppUpdate();
+
+      if (result.hasUpdate && result.info) {
+        let isIgnored = false;
+        try {
+          const dismissed = sessionStorage.getItem("apiapia_dismissed_version");
+          const updated = localStorage.getItem("apiapia_updated_version");
+          if (dismissed === result.latestVersion || updated === result.latestVersion) {
+            isIgnored = true;
+          }
+        } catch {}
+
+        if (isManual) {
+          // 用户主动点的检查，直接给完整详情。
+          openDetail(result.info);
+          return;
+        }
+
+        if (!isIgnored) {
+          // 自动检查不打断：只提示一句，想看 changelog 再点进来。
+          // 偏好设置里的「检查更新」按钮随时可以主动打开详情。
+          toast.info(`发现新版本 v${result.info.version}`, {
+            description: "更新内容可在偏好设置中查看，或点击此处查看详情",
+            duration: 8000,
+            action: {
+              label: "查看详情",
+              onClick: () => openDetail(result.info!),
+            },
+          });
+        }
+      } else if (isManual) {
+        toast.success(`已是最新版本 (v${CURRENT_VERSION})，无需更新`);
+      }
+    },
+    [openDetail]
+  );
 
   // Initial check on entry / page mount
   useEffect(() => {

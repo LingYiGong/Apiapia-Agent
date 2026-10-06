@@ -149,7 +149,7 @@ export const UsageView: React.FC<UsageViewProps> = ({
   const handleToggleActive = (userId: string, currentStatus: boolean, username: string) => {
     setPendingConfirm({
       title: `${currentStatus ? "停用" : "启用"}用户`,
-      description: `确定要${currentStatus ? "停用" : "启用"}用户 [${username}] 吗？${
+      description: `确定要${currentStatus ? "停用" : "启用"}用户「${username}」吗？${
         currentStatus ? "停用后该用户将无法登录使用。" : ""
       }`,
       confirmText: currentStatus ? "停用" : "启用",
@@ -160,9 +160,9 @@ export const UsageView: React.FC<UsageViewProps> = ({
         try {
           await apiRequest(`/stats/admin/users/${userId}/toggle-active`, { method: "POST" });
           await fetchStats();
-          toast.success(`已${currentStatus ? "停用" : "启用"}用户 [${username}]`);
+          toast.success(`已${currentStatus ? "停用" : "启用"}用户「${username}」`);
         } catch (err: any) {
-          toast.error(err.message || "操作失败");
+          toast.error(err.message || `${currentStatus ? "停用" : "启用"}用户失败`);
         } finally {
           setActionLoading(null);
         }
@@ -173,7 +173,7 @@ export const UsageView: React.FC<UsageViewProps> = ({
   const handleToggleAdmin = (userId: string, currentAdmin: boolean, username: string) => {
     setPendingConfirm({
       title: `${currentAdmin ? "取消" : "授予"}管理员权限`,
-      description: `确定要${currentAdmin ? "取消" : "设置"}用户 [${username}] 的超级管理员权限吗？`,
+      description: `确定要${currentAdmin ? "取消" : "设置"}用户「${username}」的超级管理员权限吗？`,
       confirmText: currentAdmin ? "取消权限" : "设为管理员",
       danger: currentAdmin,
       onConfirm: async () => {
@@ -182,9 +182,9 @@ export const UsageView: React.FC<UsageViewProps> = ({
         try {
           await apiRequest(`/stats/admin/users/${userId}/toggle-admin`, { method: "POST" });
           await fetchStats();
-          toast.success(`已${currentAdmin ? "取消" : "授予"} [${username}] 的管理员权限`);
+          toast.success(`已${currentAdmin ? "取消" : "授予"}用户「${username}」的管理员权限`);
         } catch (err: any) {
-          toast.error(err.message || "操作失败");
+          toast.error(err.message || "修改管理员权限失败");
         } finally {
           setActionLoading(null);
         }
@@ -197,8 +197,8 @@ export const UsageView: React.FC<UsageViewProps> = ({
     setPendingConfirm({
       title: `${nextStatus ? "开通" : "限制"}模型访问权限`,
       description: nextStatus
-        ? `确定为用户 [${username}] 开通完整体验权限吗？开通后该用户可使用系统内包括所有高级付费模型在内的全部可用模型。`
-        : `确定将用户 [${username}] 切换为体验模式吗？切换后该用户将只能访问和调用免费模型。`,
+        ? `确定为用户「${username}」开通完整体验权限吗？开通后该用户可使用系统内包括所有高级付费模型在内的全部可用模型。`
+        : `确定将用户「${username}」切换为体验模式吗？切换后该用户将只能访问和调用免费模型。`,
       confirmText: nextStatus ? "开通完整体验" : "切换为体验模式",
       danger: !nextStatus,
       onConfirm: async () => {
@@ -210,9 +210,9 @@ export const UsageView: React.FC<UsageViewProps> = ({
             body: JSON.stringify({ can_access_all_models: nextStatus }),
           });
           await fetchStats();
-          toast.success(`已为 [${username}] ${nextStatus ? "开通完整体验" : "切换为体验模式"}`);
+          toast.success(`已为用户「${username}」${nextStatus ? "开通完整体验" : "切换为体验模式"}`);
         } catch (err: any) {
-          toast.error(err.message || "操作失败");
+          toast.error(err.message || "修改模型访问权限失败");
         } finally {
           setActionLoading(null);
         }

@@ -19,6 +19,7 @@ import {
   GripVertical,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ActionTooltip } from "@/components/common/ActionTooltip";
 import { Input } from "@/components/ui/input";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import {
@@ -443,6 +444,7 @@ const SwipeableConversationCard = ({
                 onStartDrag(e.clientY);
               }}
               className="touch-none flex items-center justify-center h-8 w-7 text-muted-foreground/60 active:text-primary cursor-grab active:cursor-grabbing shrink-0"
+              aria-label="按住拖拽排序"
               title="按住拖拽排序"
             >
               <GripVertical className="h-4 w-4" />
@@ -672,16 +674,17 @@ export const MobileHistoryView = ({
         onSelectMobileTab={onSelectMobileTab}
         right={
           <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onNewChat}
-              className="h-8 w-8 rounded-full text-foreground hover:bg-muted/80 active:scale-95 transition-all cursor-pointer"
-              title="新建对话"
-            >
-              <Plus className="h-4 w-4" />
-              <span className="sr-only">新建对话</span>
-            </Button>
+            <ActionTooltip label="新建对话">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onNewChat}
+                className="h-8 w-8 rounded-full text-foreground hover:bg-muted/80 active:scale-95 transition-all cursor-pointer"
+              >
+                <Plus className="h-4 w-4" />
+                <span className="sr-only">新建对话</span>
+              </Button>
+            </ActionTooltip>
             <UserAvatarDropdown onSelectMobileTab={onSelectMobileTab} />
           </div>
         }
@@ -837,7 +840,7 @@ export const MobileHistoryView = ({
             if (!open) setPendingDelete(null);
           }}
           title="删除该历史会话"
-          description={`确定要删除对话「${pendingDelete.title || "新建对话"}」吗？删除后将无法恢复。`}
+          description={`确定要删除对话「${pendingDelete.title || "新建对话"}」吗？删除后将无法恢复，该操作不可撤销。`}
           confirmText="删除"
           danger
           onConfirm={() => {

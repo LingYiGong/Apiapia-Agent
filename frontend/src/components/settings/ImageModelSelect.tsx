@@ -5,6 +5,7 @@ import { ImageModelItem } from "@/types";
 import { Palette, ChevronDown, Search, Check, Zap, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { ActionTooltip } from "@/components/common/ActionTooltip";
 import {
   Popover,
   PopoverTrigger,
@@ -97,10 +98,15 @@ export const ImageModelSelect: React.FC<ImageModelSelectProps> = ({
                   {selectedModel.name}
                 </span>
                 {selectedModel.is_free && (
-                  <span
-                    className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"
-                    title="免费模型"
-                  />
+                  // Inside the trigger <button>: keep it non-focusable, but
+                  // role/aria-label still reach the button's accessible name.
+                  <ActionTooltip label="免费模型">
+                    <span
+                      role="img"
+                      aria-label="免费模型"
+                      className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"
+                    />
+                  </ActionTooltip>
                 )}
               </>
             ) : value ? (
@@ -142,13 +148,15 @@ export const ImageModelSelect: React.FC<ImageModelSelectProps> = ({
               {models.length}
             </span>
             {isTrialMode && (
-              <Badge
-                variant="outline"
-                className="text-[10px] font-normal bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 px-1.5 py-0 rounded-full shadow-none"
-                title="当前账号处于体验模式，仅可使用免费绘图模型"
-              >
-                体验模式
-              </Badge>
+              <ActionTooltip label="当前处于体验模式，仅可使用免费绘图模型">
+                <Badge
+                  variant="outline"
+                  tabIndex={0}
+                  className="text-[10px] font-normal bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 px-1.5 py-0 rounded-full shadow-none cursor-help"
+                >
+                  体验模式
+                </Badge>
+              </ActionTooltip>
             )}
           </div>
           {selectedModel && (

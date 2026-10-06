@@ -6,6 +6,7 @@ import { Cpu, ChevronDown, Search, Check, Zap, X, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { ActionTooltip } from "@/components/common/ActionTooltip";
 import {
   Popover,
   PopoverTrigger,
@@ -297,10 +298,16 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
                 {selectedModel ? selectedModel.name : value || placeholder}
               </span>
               {selectedModel && isFreeModel(selectedModel) && (
-                <span
-                  className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"
-                  title="免费模型"
-                />
+                // Sits inside the trigger <button>, so it stays non-focusable to
+                // avoid nested interactive content. role/aria-label still feed
+                // the button's accessible name.
+                <ActionTooltip label="免费模型">
+                  <span
+                    role="img"
+                    aria-label="免费模型"
+                    className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"
+                  />
+                </ActionTooltip>
               )}
             </div>
 
@@ -360,9 +367,15 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
               {sorted.length}
             </span>
             {sorted.length > 0 && sorted.every(isFreeModel) && (
-              <Badge variant="outline" className="text-[10px] font-normal bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 px-1.5 py-0 rounded-full shadow-none" title="当前账号处于体验模式，仅可使用免费模型，联系管理员可开通完整体验">
-                体验模式
-              </Badge>
+              <ActionTooltip label="当前处于体验模式，仅可使用免费模型，联系管理员可开通完整体验">
+                <Badge
+                  variant="outline"
+                  tabIndex={0}
+                  className="text-[10px] font-normal bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 px-1.5 py-0 rounded-full shadow-none cursor-help"
+                >
+                  体验模式
+                </Badge>
+              </ActionTooltip>
             )}
           </div>
           {selectedModel && (

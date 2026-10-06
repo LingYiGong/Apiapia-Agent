@@ -25,16 +25,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { notifyModelSyncResult } from "@/lib/feedback";
 import { FullPageSkeleton, SettingsFormSkeleton } from "@/components/common/PageSkeleton";
 import {
   Save,
@@ -180,12 +173,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [loadingImageModels, setLoadingImageModels] = useState(true);
   const [syncingImageModels, setSyncingImageModels] = useState(false);
   const [syncingModels, setSyncingModels] = useState(false);
-  const [syncResultModal, setSyncResultModal] = useState<{
-    isOpen: boolean;
-    newCount: number;
-    newModels: ModelCatalogItem[];
-    message: string;
-  } | null>(null);
 
   const [savingSettings, setSavingSettings] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -218,14 +205,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       const modelsRes = await apiRequest<{ models: ModelCatalogItem[] }>("/models/configured");
       if (modelsRes?.models) setAvailableModels(modelsRes.models);
 
-      setSyncResultModal({
-        isOpen: true,
+      notifyModelSyncResult({
+        scope: "语言模型",
         newCount: res.new_count || 0,
-        newModels: res.new_models || [],
-        message: res.message || "同步完成",
+        message: res.message,
       });
     } catch (err: any) {
-      toast.error(err.message || "同步模型失败，请检查后台 .env 是否配置了有效 API 密钥");
+      toast.error(err.message || "同步语言模型失败，请检查后台 .env 是否配置了有效 API 密钥");
     } finally {
       setSyncingModels(false);
     }
@@ -246,7 +232,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       if (imageRes?.models) setImageModels(imageRes.models);
       setImageModelsSynced(imageRes?.synced ?? true);
 
-      toast.success(res.message || "绘图模型同步完成");
+      notifyModelSyncResult({
+        scope: "绘图模型",
+        newCount: res.new_count || 0,
+        message: res.message,
+      });
     } catch (err: any) {
       toast.error(err.message || "同步绘图模型失败，请检查后台 .env 是否配置了有效的生图服务密钥");
     } finally {
@@ -453,7 +443,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </span>
               )}
 
-              <ActionTooltip label="保存偏好设置 (快捷键 ⌘S / Ctrl+S)">
+              <ActionTooltip label="保存偏好设置（⌘S / Ctrl+S）">
                 <Button
                   type="button"
                   onClick={() => handleSaveSettings()}
@@ -587,7 +577,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     <span className="text-[12px] font-semibold text-foreground tracking-tight">
                       语言模型
                     </span>
-                    <ActionTooltip label="向后台已配置 API 提供商同步最新可用模型列表">
+                    <ActionTooltip label="同步可用模型列表">
                       <Button
                         type="button"
                         variant="outline"
@@ -685,7 +675,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       <span className="text-[12px] font-semibold text-foreground tracking-tight">
                         绘图模型
                       </span>
-                      <ActionTooltip label="向后端已配置的生图服务同步最新可用绘图模型列表">
+                      <ActionTooltip label="同步可用绘图模型列表">
                         <Button
                           type="button"
                           variant="outline"
@@ -1084,91 +1074,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
         </div>
       )}
-
-      {/* ── Model Sync Result Dialog (Apple HIG Sheet Style) ── */}
-      <Dialog
-        open={!!syncResultModal?.isOpen}
-        onOpenChange={(open) => {
-          if (!open) setSyncResultModal(null);
-        }}
-      >
-        <DialogContent className="max-w-lg p-0 gap-0 overflow-hidden rounded-2xl border border-border/60 bg-card/95 backdrop-blur-2xl shadow-2xl">
-          <DialogHeader className="p-5 sm:p-6 border-b border-border/40 bg-muted/30">
-            <div className="flex items-center gap-3">
-              <div
-                className={cn(
-                  "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-2xs",
-                  (syncResultModal?.newCount ?? 0) > 0
-                    ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
-                    : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                )}
-              >
-                {(syncResultModal?.newCount ?? 0) > 0 ? (
-                  <Sparkles className="h-5 w-5" />
-                ) : (
-                  <CheckCircle2 className="h-5 w-5" />
-                )}
-              </div>
-              <div>
-                <DialogTitle className="text-[17px] font-semibold tracking-tight text-foreground">
-                  {(syncResultModal?.newCount ?? 0) > 0
-                    ? `发现 ${syncResultModal?.newCount} 个新模型`
-                    : "模型库已是最新"}
-                </DialogTitle>
-                <DialogDescription className="text-[12px] text-muted-foreground mt-0.5">
-                  {syncResultModal?.message}
-                </DialogDescription>
-              </div>
-            </div>
-          </DialogHeader>
-
-          <div className="p-5 sm:p-6 space-y-3">
-            {(syncResultModal?.newCount ?? 0) > 0 ? (
-              <div className="space-y-2">
-                <p className="text-[13px] font-medium text-foreground">
-                  新检测到的模型列表：
-                </p>
-                <div className="max-h-60 overflow-y-auto space-y-2 pr-1 divide-y divide-border/40">
-                  {(syncResultModal?.newModels ?? []).map((m) => (
-                    <div key={m.id} className="pt-2 first:pt-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-[13px] font-medium text-foreground">
-                          {m.name}
-                        </span>
-                        <Badge variant="secondary" className="uppercase text-[10px] rounded-full px-2 py-0">
-                          {m.provider}
-                        </Badge>
-                      </div>
-                      <p className="text-[11px] font-mono text-muted-foreground mt-0.5">
-                        {m.id}
-                      </p>
-                      {m.description && (
-                        <p className="text-[11px] text-muted-foreground mt-0.5">
-                          {m.description}
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="p-3.5 rounded-xl border border-border/50 bg-muted/20 text-[12px] text-muted-foreground leading-relaxed">
-                系统已向后台配置的所有 API 提供商（Gemini / OpenAI / OpenRouter / Ollama）发起即时校验，现有模型库已包含所有支持的模型，未检测到新增模型。
-              </div>
-            )}
-          </div>
-
-          <DialogFooter className="p-4 border-t border-border/40 bg-muted/20">
-            <Button
-              type="button"
-              onClick={() => setSyncResultModal(null)}
-              className="rounded-full px-5 text-xs font-semibold h-8 bg-primary text-primary-foreground"
-            >
-              我知道了
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

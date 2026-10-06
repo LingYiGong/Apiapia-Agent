@@ -171,9 +171,9 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
         `/memories/search?q=${encodeURIComponent(query)}`
       );
       setMemories(res.results || []);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Search failed:", err);
-      toast.error("检索记忆库失败");
+      toast.error(err?.message || "检索记忆库失败");
     } finally {
       setLoadingMemories(false);
     }

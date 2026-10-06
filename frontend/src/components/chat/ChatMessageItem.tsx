@@ -166,7 +166,6 @@ function SvgRenderer({ svgCode }: { svgCode: string }) {
           <button
             onClick={handleCopy}
             className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-border/60 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors text-[11px]"
-            title="复制代码"
           >
             {copied ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
             <span>{copied ? "已复制" : "复制"}</span>
@@ -174,7 +173,6 @@ function SvgRenderer({ svgCode }: { svgCode: string }) {
           <button
             onClick={handleDownload}
             className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-[11px] font-medium"
-            title="下载 SVG 矢量文件"
           >
             <Download className="h-3 w-3" />
             <span>下载 SVG</span>
@@ -284,7 +282,6 @@ function AiImageCard({
           <button
             onClick={handleDownload}
             className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-[11px] font-medium"
-            title="下载图片"
           >
             <Download className="h-3 w-3" />
             <span>下载</span>

@@ -58,7 +58,7 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
             }
           }}
           className="flex items-center shrink-0 active:scale-95 transition-transform cursor-pointer"
-          title="Apiapia 助理"
+          aria-label="Apiapia 助理首页"
         >
           <BrandLogo size={28} className="shadow-xs" />
         </button>

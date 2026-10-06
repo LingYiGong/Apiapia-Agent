@@ -68,13 +68,12 @@ export const MobileChatHeader: React.FC<MobileChatHeaderProps> = ({
               </Button>
             </ActionTooltip>
           ) : onRefreshModels ? (
-            <ActionTooltip label="向配置的提供商 API 手动同步最新模型">
+            <ActionTooltip label="同步模型">
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={onRefreshModels}
                 disabled={isRefreshingModels}
-                title="向配置的提供商 API 手动同步最新模型"
                 className="h-8 w-8 rounded-full shrink-0 text-muted-foreground hover:text-foreground active:scale-95 transition-all cursor-pointer"
               >
                 <RotateCw className={cn("h-3.5 w-3.5", isRefreshingModels && "animate-spin text-primary")} />
@@ -153,16 +152,17 @@ export const DesktopChatHeader: React.FC<DesktopChatHeaderProps> = ({
     >
       <div className="flex items-center gap-2 min-w-0 flex-1">
         {onToggleSidebar && (
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={onToggleSidebar}
-            title="展开历史对话"
-            className="shrink-0"
-          >
-            <Menu className="h-4 w-4" />
-            <span className="sr-only">展开历史对话</span>
-          </Button>
+          <ActionTooltip label="展开历史对话">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={onToggleSidebar}
+              className="shrink-0"
+            >
+              <Menu className="h-4 w-4" />
+              <span className="sr-only">展开历史对话</span>
+            </Button>
+          </ActionTooltip>
         )}
 
         <span className="hidden lg:inline text-xs text-muted-foreground font-medium shrink-0 whitespace-nowrap">
@@ -179,18 +179,19 @@ export const DesktopChatHeader: React.FC<DesktopChatHeaderProps> = ({
         </div>
 
         {onRefreshModels && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onRefreshModels}
-            disabled={isRefreshingModels}
-            title="向配置的提供商 API 手动同步最新模型"
-            className="shrink-0 text-primary border-primary/30 bg-primary/5 hover:bg-primary/10 hover:text-primary cursor-pointer"
-          >
-            <RotateCw className={cn("h-3.5 w-3.5", isRefreshingModels && "animate-spin")} />
-            <span className="hidden lg:inline">{isRefreshingModels ? "正在同步..." : "同步模型"}</span>
-            <span className="sr-only">同步模型</span>
-          </Button>
+          <ActionTooltip label="同步模型">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onRefreshModels}
+              disabled={isRefreshingModels}
+              className="shrink-0 text-primary border-primary/30 bg-primary/5 hover:bg-primary/10 hover:text-primary cursor-pointer"
+            >
+              <RotateCw className={cn("h-3.5 w-3.5", isRefreshingModels && "animate-spin")} />
+              <span className="hidden lg:inline">{isRefreshingModels ? "正在同步..." : "同步模型"}</span>
+              <span className="sr-only">同步模型</span>
+            </Button>
+          </ActionTooltip>
         )}
       </div>
 
@@ -198,34 +199,36 @@ export const DesktopChatHeader: React.FC<DesktopChatHeaderProps> = ({
         <ThemeToggle />
 
         {onToggleMemory && (
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={onToggleMemory}
-            title="查看本次对话关联记忆"
-            className="lg:hidden relative cursor-pointer"
-          >
-            <Brain className="h-4 w-4 text-primary" />
-            {hasActiveMemories && (
-              <Badge className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-1 items-center justify-center rounded-full text-[9px] font-bold">
-                {memoriesCount > 9 ? "9+" : memoriesCount}
-              </Badge>
-            )}
-            <span className="sr-only">查看关联记忆</span>
-          </Button>
+          <ActionTooltip label="查看本次对话关联记忆">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={onToggleMemory}
+              className="lg:hidden relative cursor-pointer"
+            >
+              <Brain className="h-4 w-4 text-primary" />
+              {hasActiveMemories && (
+                <Badge className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-1 items-center justify-center rounded-full text-[9px] font-bold">
+                  {memoriesCount > 9 ? "9+" : memoriesCount}
+                </Badge>
+              )}
+              <span className="sr-only">查看关联记忆</span>
+            </Button>
+          </ActionTooltip>
         )}
 
         {onNewChat && (
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={onNewChat}
-            title="新建对话"
-            className="cursor-pointer"
-          >
-            <Plus className="h-4 w-4" />
-            <span className="sr-only">新建对话</span>
-          </Button>
+          <ActionTooltip label="新建对话">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={onNewChat}
+              className="cursor-pointer"
+            >
+              <Plus className="h-4 w-4" />
+              <span className="sr-only">新建对话</span>
+            </Button>
+          </ActionTooltip>
         )}
       </div>
     </header>

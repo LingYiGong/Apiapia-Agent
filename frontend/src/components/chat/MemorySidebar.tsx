@@ -4,6 +4,7 @@ import React, { useMemo } from "react";
 import { Brain, Sparkles, X, Clock, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { ActionTooltip } from "@/components/common/ActionTooltip";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -96,15 +97,16 @@ export function MemorySidebar({
 
           {/* Apple Circular Close Button */}
           {isMobile && (
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-7 h-7 rounded-full bg-[#767680]/15 dark:bg-[#767680]/25 text-muted-foreground hover:text-foreground flex items-center justify-center active:scale-90 transition-transform cursor-pointer"
-              title="关闭"
-            >
-              <X className="h-4 w-4" />
-              <span className="sr-only">关闭</span>
-            </button>
+            <ActionTooltip label="关闭">
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-7 h-7 rounded-full bg-[#767680]/15 dark:bg-[#767680]/25 text-muted-foreground hover:text-foreground flex items-center justify-center active:scale-90 transition-transform cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+                <span className="sr-only">关闭</span>
+              </button>
+            </ActionTooltip>
           )}
         </div>
       </div>

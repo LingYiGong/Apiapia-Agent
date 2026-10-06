@@ -215,7 +215,8 @@ export default function LoginPage() {
                     tabIndex={-1}
                     onClick={() => setUsername("")}
                     className="ml-1 rounded-full p-1 text-muted-foreground/50 hover:bg-black/5 hover:text-muted-foreground dark:hover:bg-white/10"
-                    title="清空"
+                    title="清空用户名"
+                    aria-label="清空用户名"
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -252,7 +253,8 @@ export default function LoginPage() {
                       tabIndex={-1}
                       onClick={() => setEmail("")}
                       className="ml-1 rounded-full p-1 text-muted-foreground/50 hover:bg-black/5 hover:text-muted-foreground dark:hover:bg-white/10"
-                      title="清空"
+                      title="清空邮箱"
+                      aria-label="清空邮箱"
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
@@ -288,6 +290,8 @@ export default function LoginPage() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="ml-1 rounded-lg p-1.5 text-muted-foreground/50 hover:bg-black/5 hover:text-muted-foreground dark:hover:bg-white/10"
                   title={showPassword ? "隐藏密码" : "显示密码"}
+                  aria-label={showPassword ? "隐藏密码" : "显示密码"}
+                  aria-pressed={showPassword}
                 >
                   {showPassword ? (
                     <EyeOff className="h-4 w-4" />
@@ -325,6 +329,8 @@ export default function LoginPage() {
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     className="ml-1 rounded-lg p-1.5 text-muted-foreground/50 hover:bg-black/5 hover:text-muted-foreground dark:hover:bg-white/10"
                     title={showConfirmPassword ? "隐藏密码" : "显示密码"}
+                    aria-label={showConfirmPassword ? "隐藏密码" : "显示密码"}
+                    aria-pressed={showConfirmPassword}
                   >
                     {showConfirmPassword ? (
                       <EyeOff className="h-4 w-4" />

@@ -15,6 +15,7 @@ import { UsageView } from "@/components/usage/UsageView";
 import { SettingsView } from "@/components/settings/SettingsView";
 import { MobileTab } from "@/components/layout/UserAvatarDropdown";
 import { toast } from "sonner";
+import { notifyModelSyncResult } from "@/lib/feedback";
 import { FullPageSkeleton } from "@/components/common/PageSkeleton";
 import { Conversation, Message, ModelCatalogItem, AttachmentItem, SearchResultItem, ToolInvocation, GeneratedImage } from "@/types";
 import { cn } from "@/lib/utils";
@@ -310,16 +311,10 @@ export default function ChatPage() {
 
       await loadConfiguredModels();
 
-      if (syncRes.new_count > 0) {
-        toast.success(`同步成功，发现了 ${syncRes.new_count} 个新模型`, {
-          description: syncRes.new_models.map((m) => `${m.name} (${m.id})`).join("、"),
-        });
-      } else {
-        toast.success("模型列表已是最新，未发现新增模型");
-      }
+      notifyModelSyncResult({ scope: "语言模型", newCount: syncRes.new_count || 0, message: syncRes.message });
     } catch (err: any) {
       console.error("Failed to sync models:", err);
-      toast.error(err.message || "同步模型失败，请检查后台 .env 配置");
+      toast.error(err.message || "同步语言模型失败，请检查后台 .env 配置");
     } finally {
       setIsRefreshingModels(false);
     }

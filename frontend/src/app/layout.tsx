@@ -4,6 +4,7 @@ import { ThemeProvider } from "@/lib/theme";
 import { UpdatePrompt } from "@/components/common/UpdatePrompt";
 import { CapacitorInit } from "@/components/common/CapacitorInit";
 import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import "./globals.css";
 
@@ -78,10 +79,17 @@ export default function RootLayout({
       <body className="h-full bg-background font-sans text-foreground antialiased">
         <ThemeProvider>
           <AuthProvider>
-            <CapacitorInit />
-            <UpdatePrompt />
-            {children}
-            <Toaster richColors position="top-center" offset="calc(3.85rem + env(safe-area-inset-top, 0px))" />
+            {/* Single provider for every ActionTooltip in the app, so hovering
+                across a row of icon buttons hands the tooltip over instead of
+                restarting the delay on each one. */}
+            <TooltipProvider delayDuration={200} skipDelayDuration={300}>
+              <CapacitorInit />
+              <UpdatePrompt />
+              {children}
+            </TooltipProvider>
+            {/* `offset` intentionally omitted — the Toaster wrapper already
+                applies the header-clearance value (see TOASTER_TOP_OFFSET). */}
+            <Toaster richColors position="top-center" />
           </AuthProvider>
         </ThemeProvider>
       </body>

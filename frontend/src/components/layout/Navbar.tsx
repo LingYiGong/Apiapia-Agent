@@ -230,7 +230,6 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
               key={item.tab}
               type="button"
               onClick={() => handleMobileTabClick(item.tab)}
-              title={item.label}
               className={cn(
                 "flex flex-col items-center justify-center flex-1 h-full py-0.5 gap-0.5 text-[10.5px] tracking-tight transition-all active:scale-95 cursor-pointer touch-manipulation",
                 isActive

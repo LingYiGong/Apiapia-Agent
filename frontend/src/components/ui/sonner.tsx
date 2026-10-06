@@ -5,6 +5,12 @@ import { Toaster as Sonner } from "sonner";
 
 type ToasterProps = React.ComponentProps<typeof Sonner>;
 
+/**
+ * 顶部提示与各页面头部栏之间的间距。必须与 globals.css 中
+ * `[data-sonner-toaster][data-y-position="top"]` 的覆盖值保持一致。
+ */
+export const TOASTER_TOP_OFFSET = "calc(3.85rem + env(safe-area-inset-top, 0px))";
+
 const Toaster = ({ ...props }: ToasterProps) => {
   const { theme = "system" } = useTheme();
 
@@ -12,7 +18,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
     <Sonner
       theme={theme as ToasterProps["theme"]}
       className="toaster group"
-      offset="calc(3.85rem + env(safe-area-inset-top, 0px))"
+      offset={TOASTER_TOP_OFFSET}
       toastOptions={{
         classNames: {
           toast:

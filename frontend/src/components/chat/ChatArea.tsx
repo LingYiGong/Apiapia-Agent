@@ -595,17 +595,17 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 className="h-9 w-9 rounded-full shrink-0 mb-0.5"
               >
                 <Paperclip className="h-4 w-4" />
-                <span className="sr-only">上传附件</span>
+                <span className="sr-only">上传图片或文件</span>
               </Button>
             </ActionTooltip>
             {onToggleWebSearchMode && (
               <ActionTooltip
                 label={
                   webSearchMode === "auto"
-                    ? "联网检索: 自动智能 (系统根据问题自动决定是否检索)"
+                    ? "联网检索：自动智能（系统根据问题自动决定是否检索）"
                     : webSearchMode === "on"
-                    ? "联网检索: 强制开启 (每次提问均搜索最新网络)"
-                    : "联网检索: 已关闭 (仅使用模型自身知识)"
+                    ? "联网检索：强制开启（每次提问均搜索最新网络）"
+                    : "联网检索：已关闭（仅使用模型自身知识）"
                 }
                 side="top"
               >
@@ -660,7 +660,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               </ActionTooltip>
             ) : (
               <ActionTooltip
-                label={isTouchPrimary ? "发送消息" : "发送消息 (Enter)"}
+                label={isTouchPrimary ? "发送消息" : "发送消息（Enter）"}
                 side="top"
               >
                 <Button

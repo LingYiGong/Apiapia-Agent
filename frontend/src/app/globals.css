@@ -299,7 +299,8 @@ button, a, input, textarea, select {
   color: inherit;
 }
 
-/* 确保顶部 Toast 提示框永远位于头部栏下方，绝不遮挡头部栏 */
+/* 确保顶部 Toast 提示框永远位于头部栏下方，绝不遮挡头部栏。
+   取值需与 components/ui/sonner.tsx 的 TOASTER_TOP_OFFSET 保持一致。 */
 [data-sonner-toaster][data-y-position="top"] {
   top: calc(3.85rem + env(safe-area-inset-top, 0px)) !important;
 }

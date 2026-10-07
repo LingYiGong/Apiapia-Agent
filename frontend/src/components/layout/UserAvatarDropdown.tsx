@@ -36,9 +36,16 @@ import { cn } from "@/lib/utils";
  * 结果是：移动端菜单有 active 指示，桌面端没有；桌面端用 <Link>（可中键新开、
  * 可被搜索引擎抓取），移动端用 onClick —— 行为不一致本身就是 bug 温床。
  *
- * 现在合并为一个组件，variant 只影响触发器形态与链接的渲染方式：
- *   - desktop → <Link>，可键盘/中键直达
- *   - mobile  → onClick 切换 SPA 页签（移动端跳转整页代价大且会丢状态）
+ * 现在合并为一个组件，variant 只影响两处：
+ *   - 触发器形态：桌面是胶囊（头像 + 用户名 + 徽章），移动是圆形纯头像
+ *   - 菜单项的跳转方式：desktop → <Link>（可中键新开、可被爬虫抓取）；
+ *     mobile → onClick 切换 SPA 页签（整页跳转代价大且会丢状态）
+ *
+ * 菜单项的**视觉**两端完全一致（色调图标方块 + 文字 + 右箭头）。此前桌面端
+ * 渲染的是裸图标 + 文字，与移动端像是两个不同的菜单 —— 行样式里还留着
+ * `isDesktop ? "px-2.5 py-2" : "px-2.5 py-2"` 这种两分支值相同的死代码，
+ * 说明当时并未真正区分过。唯一保留的视觉差异是「外观风格」三档：桌面顶栏
+ * 已有独立的 <ThemeToggle>，同屏放两个主题入口会造成困惑。
  */
 
 export interface UserAvatarMenuProps {
@@ -128,8 +135,11 @@ export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
         <DropdownMenuSeparator className="mx-1 my-1 opacity-60" />
 
         {/* 2. 外观三档
-            桌面端不渲染：桌面顶栏在触发器左侧已有一个独立的 <ThemeToggle>，
-            两处都放会让用户在同一屏看到两个主题入口。 */}
+            桌面端仍不渲染：桌面顶栏在触发器左侧已有一个独立的 <ThemeToggle>，
+            两处都放会让用户在同一屏看到两个主题入口。
+
+            这里不一致是**有意的**，与上面的菜单项不同 —— 菜单项不一致纯粹是
+            历史遗留（两种视觉语言），而这里是同一屏里避免重复入口。 */}
         {!isDesktop && (
           <>
             <div className="px-2 py-1.5">
@@ -149,9 +159,12 @@ export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
           {ACCOUNT_MENU_ITEMS.map((item) => {
             const Icon = item.Icon;
             const active = isActive(item.id);
+            // 两端共用同一套行样式。此前桌面端渲染「裸图标 + 文字」而移动端
+            // 渲染「色调图标方块 + 右箭头」，同一个菜单在两个端上是两种视觉
+            // 语言，桌面端看起来像没做完。这里统一为移动端那套。
             const rowClass = cn(
               "group flex w-full cursor-pointer items-center justify-between rounded-xl transition-all active:scale-[0.98]",
-              isDesktop ? "px-2.5 py-2" : "px-2.5 py-2",
+              "px-2.5 py-2",
               active
                 ? "bg-surface-3/70"
                 : "hover:bg-surface-3/50 data-[highlighted]:bg-surface-3/50"
@@ -167,20 +180,9 @@ export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
               </span>
             );
 
-            return isDesktop ? (
-              <DropdownMenuItem key={item.id} asChild className={cn(rowClass, "text-xs")}>
-                <Link href={item.href} aria-current={ariaCurrent(item.id)}>
-                  <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                  {label}
-                </Link>
-              </DropdownMenuItem>
-            ) : (
-              <DropdownMenuItem
-                key={item.id}
-                onClick={() => navigate(item.id, item.href)}
-                aria-current={ariaCurrent(item.id)}
-                className={rowClass}
-              >
+            // 内容部分完全一致，只有「点了怎么去」不同。
+            const rowContent = (
+              <>
                 <div className="flex min-w-0 items-center gap-2.5">
                   <div
                     className={cn(
@@ -193,6 +195,24 @@ export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
                   {label}
                 </div>
                 <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40 transition-colors group-hover:text-muted-foreground" />
+              </>
+            );
+
+            return isDesktop ? (
+              // 桌面端用 <Link>：可中键新开标签、可被爬虫抓取、可复制链接。
+              <DropdownMenuItem key={item.id} asChild className={rowClass}>
+                <Link href={item.href} aria-current={ariaCurrent(item.id)}>
+                  {rowContent}
+                </Link>
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem
+                key={item.id}
+                onClick={() => navigate(item.id, item.href)}
+                aria-current={ariaCurrent(item.id)}
+                className={rowClass}
+              >
+                {rowContent}
               </DropdownMenuItem>
             );
           })}

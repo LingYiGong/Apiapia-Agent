@@ -171,7 +171,9 @@ export const MobileHistoryView = ({
             placeholder="搜索历史记录..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="h-9 rounded-xl border-border/40 bg-surface-3/50 pl-8 pr-8 text-[13px] focus-visible:bg-background"
+            // pl-9/pr-9 与图标（left-3，14px）和清除键（right-2.5）对齐；
+            // 此前 pl-8/pr-8 配 14px 图标，输入的文字会压到图标上。
+            className="h-9 rounded-xl border-border/40 bg-surface-3/50 pl-9 pr-9 text-[13px] focus-visible:bg-background"
           />
           {search && (
             <button

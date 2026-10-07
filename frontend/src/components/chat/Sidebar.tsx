@@ -308,14 +308,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <Label htmlFor="sidebar-search" className="sr-only">
               搜索历史对话
             </Label>
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
               id="sidebar-search"
               type="search"
-              placeholder="搜索历史对话..."
+              placeholder="搜索历史对话…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="border-border/60 bg-background pl-8 text-xs dark:bg-surface-2"
+              // pr-9：给浏览器内置清除按钮（本项目已在 globals.css 隐藏）
+              // 留位。桌面侧栏此前没有自绘清除键，输入后无法一键清空。
+              className="border-border/60 bg-background pl-9 text-xs dark:bg-surface-2"
             />
           </div>
         </div>

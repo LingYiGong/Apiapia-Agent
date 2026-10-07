@@ -56,11 +56,17 @@ async def list_memories(
 
 @router.get("/search", response_model=MemorySearchResponse)
 async def search_memories(
-    q: str = Query(..., description="Query to search within user's memories"),
-    limit: int = Query(10, ge=1, le=50),
+    q: str = Query(..., min_length=1, description="Query to search within user's memories"),
+    limit: int = Query(1000, ge=1, le=1000, description="Max results; default 1000 = no truncation"),
     current_user: User = Depends(get_current_user)
 ):
-    """Semantic vector search across memories for current user."""
+    """Semantic vector search across memories for current user.
+
+    limit 默认 1000（= 不截断），与 list_memories 的 1000 和 service 层签名
+    一致。此前这里是 `Query(10)`、service 默认 5、前端不传 —— 实际每次只返回
+    5 条，而前端没有分页也没有「显示更多」，用户搜一个词只看到 5 条，
+    很容易以为库里就这些。
+    """
     results = memory_service.search_memory(user_id=current_user.id, query=q, limit=limit)
     return MemorySearchResponse(
         query=q,

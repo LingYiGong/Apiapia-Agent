@@ -1,23 +1,33 @@
 /**
  * 按时间把列表切成 Apple HIG 的分组小标。
  *
- * 此前同一套「置顶 / 今天 / 过去 7 天 / 更早」逻辑有**四条**独立实现处理同一份
- * 数据，各自的边界与排序还不完全一致：
- *   - components/chat/MobileHistoryView.tsx:535   （置顶 + 三段，倒序）
- *   - components/memory/MemoryView.tsx:103        （三段，倒序）
- *   - app/chat/page.tsx:488  getPinnedSorted     （只排置顶）
- *   - components/chat/Sidebar.tsx:37 sortConversations（置顶优先 + 时间倒序的
- *     扁平排序，没有小标）
+ * 此前同一套分组逻辑有**四条**独立实现处理同一份数据，各自的边界与排序还不完全
+ * 一致：
+ *   - components/chat/MobileHistoryView.tsx   （置顶 + 三段，倒序）
+ *   - components/memory/MemoryView.tsx         （三段，倒序）
+ *   - app/chat/page.tsx  getPinnedSorted       （只排置顶）
+ *   - components/chat/Sidebar.tsx              （置顶优先 + 时间倒序的扁平排序，
+ *                                               没有小标）
  *
- * 其中「过去 7 天」的起点各处都写作 `startOfToday - 6 * 24h`，即**含今天在内的
- * 7 天**；而小标写的是「过去 7 天」，字面上容易被读成「不含今天的前 7 天」。
- * 这里统一成含今天的 7 天，并把该语义写进常量名，避免下次再各算各的。
+ * 口径统一为四段：**最近 24 小时 / 最近 3 天 / 最近 7 天 / 更早**。
+ *
+ * 两个关键设计：
+ *
+ * 1. **以「此刻」为基准的滚动窗口，不是自然日。**
+ *    早上一条 08:00 的记忆、下午两点看时只有 6 小时，它属于「最近 24 小时」；
+ *    而按自然日（今天 00:00 起算）的旧口径它在「今天」—— 但同一句话在
+ *    昨晚 23:00 看又落在「昨天」。会话/记忆这类高频时间线用滚动窗口更符合
+ *    直觉：用户关心的是「多久之前」，不是「跨过了哪个零点」。
+ *
+ * 2. **每条记忆只落进一个桶。** 判定自新到旧短路，命中即停。所以
+ *    「最近 24 小时」里不会出现同时满足 3 天窗口的条目，各段互斥、条数之和
+ *    等于总数（此前「过去 7 天」与「今天」存在重叠，需要靠文案解释才不歧义）。
  */
 
-/** 分组内的时间键（不含置顶）。 */
-export type TimeBucketKey = "today" | "pastWeek" | "earlier";
+/** 分组内的时间键（不含置顶）。按新→旧排列。 */
+export type TimeBucketKey = "last24h" | "last3d" | "last7d" | "earlier";
 
-/** 完整分组键：置顶组 + 三个时间桶。 */
+/** 完整分组键：置顶组 + 四个时间桶。 */
 export type GroupKey = "pinned" | TimeBucketKey;
 
 export interface TimeSection<T> {
@@ -26,22 +36,31 @@ export interface TimeSection<T> {
   items: T[];
 }
 
-/** 「过去 7 天」含今天在内的天数。与各处 `6 * 24h` 的写法对应。 */
-export const PAST_WEEK_SPAN_INCLUSIVE_DAYS = 7;
+const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;
 
 /**
- * 把时间戳换算成「今天 00:00」的毫秒数。
+ * 各桶的跨度（毫秒），按新→旧排列。
  *
- * 必须用本地时区的构造器（`new Date(y, m, d)`），不能用 `setHours(0,0,0,0)` 之外的
- * 任何 UTC 换算 —— 否则东八区用户的「今天」会被算成 UTC 的今天，凌晨那几个小时
- * 内的消息会掉进「过去 7 天」组。
+ * 这里是**滚动窗口**的长度，不是「含今天在内的天数」—— 那种按自然日对齐的
+ * 写法无法表达「最近 24 小时」这种非零点对齐的窗口。
  */
-export function startOfTodayMs(now: Date = new Date()): number {
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-}
+export const TIME_BUCKET_SPANS: { key: TimeBucketKey; spanMs: number }[] = [
+  { key: "last24h", spanMs: 1 * DAY_MS },
+  { key: "last3d", spanMs: 3 * DAY_MS },
+  { key: "last7d", spanMs: 7 * DAY_MS },
+];
+
+/** 分组小标文案。与滚动窗口语义一一对应，用户可自行推算边界。 */
+const BUCKET_TITLES: Record<TimeBucketKey, string> = {
+  last24h: "最近 24 小时",
+  last3d: "最近 3 天",
+  last7d: "最近 7 天",
+  earlier: "更早",
+};
 
 export interface GroupOptions<T> {
-  /** 取每项的时间戳（毫秒）。无法解析时返回 0，会落进「更早之前」。 */
+  /** 取每项的时间戳（毫秒）。无法解析时返回 0，会落进「更早」。 */
   getTime: (item: T) => number;
   /** 可选的置顶判定。传入后才会在最前面产出 pinned 组。 */
   isPinned?: (item: T) => boolean;
@@ -51,40 +70,51 @@ export interface GroupOptions<T> {
   pinnedTitle?: string;
 }
 
-const BUCKET_TITLES: Record<TimeBucketKey, string> = {
-  today: "今天",
-  pastWeek: "过去 7 天",
-  earlier: "更早之前",
-};
+/**
+ * 判定一条时间戳落进哪个桶。
+ *
+ * 暴露出来是为了让调用方（以及将来的测试）能复用同一套判定，而不必各自重写
+ * 一遍 `if (t >= x) ... else if (t >= y)` 的链。
+ */
+export function bucketOf(timestampMs: number, now: number = Date.now()): TimeBucketKey {
+  for (const { key, spanMs } of TIME_BUCKET_SPANS) {
+    if (timestampMs >= now - spanMs) return key;
+  }
+  return "earlier";
+}
 
 /**
  * 分组并按时间倒序排列（置顶组按 pinOrder 升序）。
  * 空分组不产出，因此返回值可以直接 map 渲染，无需再判长度。
+ *
+ * 产出顺序：置顶（若有）→ 最近 24 小时 → 最近 3 天 → 最近 7 天 → 更早。
  */
 export function groupByTimeBuckets<T>(
   items: readonly T[],
   { getTime, isPinned, getPinOrder, pinnedTitle = "置顶对话" }: GroupOptions<T>
 ): TimeSection<T>[] {
   const pinned: T[] = [];
-  const buckets: Record<TimeBucketKey, T[]> = { today: [], pastWeek: [], earlier: [] };
+  const buckets: Record<TimeBucketKey, T[]> = {
+    last24h: [],
+    last3d: [],
+    last7d: [],
+    earlier: [],
+  };
 
-  const todayStart = startOfTodayMs();
-  const weekStart = todayStart - (PAST_WEEK_SPAN_INCLUSIVE_DAYS - 1) * 24 * 60 * 60 * 1000;
+  // 单次取用：一次分组只用同一个「此刻」，否则跨零点的长列表会在同一次
+  // 渲染里把某些条目算进 24h、另一些算进 3d，边界看起来毫无规律。
+  const now = Date.now();
 
   for (const item of items) {
     if (isPinned?.(item)) {
       pinned.push(item);
       continue;
     }
-    const t = getTime(item);
-    if (t >= todayStart) buckets.today.push(item);
-    else if (t >= weekStart) buckets.pastWeek.push(item);
-    else buckets.earlier.push(item);
+    buckets[bucketOf(getTime(item), now)].push(item);
   }
 
   const byTimeDesc = (a: T, b: T) => getTime(b) - getTime(a);
-  buckets.today.sort(byTimeDesc);
-  buckets.pastWeek.sort(byTimeDesc);
+  for (const { key } of TIME_BUCKET_SPANS) buckets[key].sort(byTimeDesc);
   buckets.earlier.sort(byTimeDesc);
 
   if (getPinOrder) {
@@ -95,10 +125,10 @@ export function groupByTimeBuckets<T>(
 
   const sections: TimeSection<T>[] = [];
   if (pinned.length > 0) sections.push({ key: "pinned", title: pinnedTitle, items: pinned });
-  (Object.keys(BUCKET_TITLES) as TimeBucketKey[]).forEach((key) => {
+  for (const { key } of [...TIME_BUCKET_SPANS, { key: "earlier" as TimeBucketKey }]) {
     const list = buckets[key];
     if (list.length > 0) sections.push({ key, title: BUCKET_TITLES[key], items: list });
-  });
+  }
   return sections;
 }
 

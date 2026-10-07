@@ -24,6 +24,7 @@ import { ActionTooltip } from "@/components/common/ActionTooltip";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
 import { Panel, SectionLabel } from "@/components/common/Panel";
+import { MemoryCard, MemoryCardIcon } from "@/components/memory/MemoryCard";
 import { useRefreshOnResume } from "@/hooks/useRefreshOnResume";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { FullPageSkeleton, MemoryListSkeleton } from "@/components/common/PageSkeleton";
@@ -38,7 +39,6 @@ import {
   Pencil,
   Download,
   X,
-  Clock,
   RotateCcw,
 } from "lucide-react";
 
@@ -78,7 +78,17 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
   // 单飞闸门：state 更新是异步的，光靠 isDeleting 挡不住同一帧内的双击
   const deletingRef = useRef(false);
 
-  // 按 Apple HIG 规范将记忆按时间分组（置顶/今天、过去 7 天、更早之前）
+/**
+ * 时间分组小标（最近 24 小时 / 最近 3 天 / 最近 7 天 / 更早）。
+ *
+ * 浏览态与检索态**用同一套分组**：向量搜索只负责挑出「哪些记忆相关」，
+ * 挑出来之后按时间摆放，与浏览态的口径一致 —— 否则用户在同一页面里会看到
+   * 两种排序规则，检索一次位置就全变了。
+ *
+ * 缺时间的条目（后端拿不到 created_at/updated_at 时会返回空），
+ * getTime 得到 0，落进「更早」；<MemoryCard> 同时不渲染时间行，
+ * 不会给它们编造一个时间。
+ */
   const groupedSections = useMemo(
     () =>
       groupByTimeBuckets<NormalizedMemory>(memories, {
@@ -129,12 +139,19 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
     setLoadingMemories(true);
     try {
       const res = await apiRequest<{ query: string; results: MemoryItem[] }>(
-        `/memories/search?q=${encodeURIComponent(query)}`
+        // limit=1000 = 不截断，把搜到的全部结果交给下面的时间分组。
+        // 此前路由默认 10、service 默认 5、前端不传，实际每次只回 5 条。
+        `/memories/search?q=${encodeURIComponent(query)}&limit=1000`
       );
       setMemories(normalizeMemories(res.results || []));
     } catch (err: any) {
       console.error("Search failed:", err);
       toast.error(err?.message || "检索记忆库失败");
+      // 失败时回到完整列表。此前 catch 只弹 toast 而不动 memories，
+      // 于是列表仍停留在**上一次**的检索结果上 —— 用户以为搜索失败后
+      // 看到的却是一屏旧结果，看起来像「搜索坏了」。
+      setIsSearching(false);
+      fetchMemories();
     } finally {
       setLoadingMemories(false);
     }
@@ -235,28 +252,31 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
 
   return (
     <ViewShell title="记忆库" isMobileSpa={isMobileSpa} onSelectMobileTab={onSelectMobileTab}>
-      {/* ── 顶部操作栏 ── */}
+      {/* ── 顶部操作栏 ──
+          此前 form 写死 `max-w-2xl`，而下方内容由 ViewShell 统一为 `max-w-3xl`，
+          于是搜索栏比它过滤的那份列表窄一截，左右边缘对不齐。现在不再自行限宽，
+          直接铺满内容列 —— 宽度由 ViewShell 单一决定。 */}
       <Panel tone="bare" className="flex flex-wrap items-center justify-between gap-2">
-        <form onSubmit={handleSearch} className="flex w-full max-w-2xl items-center gap-2">
+        <form onSubmit={handleSearch} className="flex w-full items-center gap-2">
           <div className="relative min-w-0 flex-1">
             <Label htmlFor="memory-search" className="sr-only">
               搜索记忆
             </Label>
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               id="memory-search"
               type="search"
-              placeholder="搜索记忆..."
+              placeholder="搜索记忆…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-9 rounded-xl border-border/40 bg-surface-3/50 pl-9 pr-8 text-[13px] focus-visible:bg-background focus-visible:ring-1 focus-visible:ring-ring"
+              className="h-10 rounded-xl border-border/40 bg-surface-3/50 pl-9 pr-9 text-[14px] focus-visible:bg-background focus-visible:ring-1 focus-visible:ring-ring"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={handleResetSearch}
                 aria-label="清除搜索"
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -268,7 +288,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
               type="submit"
               variant="secondary"
               size="icon"
-              className="h-9 w-9 shrink-0 cursor-pointer rounded-xl border border-border/40 bg-surface-3/60 text-foreground transition-colors hover:bg-surface-3 active:scale-95"
+              className="h-10 w-10 shrink-0 cursor-pointer rounded-xl border border-border/40 bg-surface-3/60 text-foreground transition-colors hover:bg-surface-3 active:scale-95"
             >
               <Search className="h-4 w-4" />
               <span className="sr-only">搜索</span>
@@ -282,7 +302,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
               disabled={isExporting}
               variant="outline"
               size="icon"
-              className="h-9 w-9 shrink-0 cursor-pointer rounded-xl border-border/50 bg-surface-3/30 text-foreground transition-colors hover:bg-surface-3 active:scale-95"
+              className="h-10 w-10 shrink-0 cursor-pointer rounded-xl border-border/50 bg-surface-3/30 text-foreground transition-colors hover:bg-surface-3 active:scale-95"
             >
               <Download className="h-4 w-4" />
               <span className="sr-only">导出 JSON</span>
@@ -291,19 +311,21 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
         </form>
       </Panel>
 
-      {/* ── 状态与统计小标 ── */}
-      <div className="flex items-center justify-between px-1">
-        <SectionLabel className="flex items-center gap-1.5 pb-0">
-          <Brain className="h-3.5 w-3.5 text-primary" />
-          <span>{isSearching ? "搜索结果" : "全部记忆"}</span>
-          <span className="font-mono text-[10px] opacity-60">({memories.length})</span>
+      {/* ── 状态与统计小标 ──
+          px-1 让这里的内容与上方搜索框、下方卡片的左边缘对齐（搜索框有
+          pl-9 的图标内边距，但 Input 自身的 border 与卡片一致）。 */}
+      <div className="flex items-center justify-between gap-3 px-1">
+        <SectionLabel className="flex min-w-0 items-center gap-1.5 pb-0">
+          <Brain className="h-3.5 w-3.5 shrink-0 text-primary" />
+          <span className="truncate">{isSearching ? "搜索结果" : "全部记忆"}</span>
+          <span className="shrink-0 font-mono text-[10px] opacity-60">({memories.length})</span>
         </SectionLabel>
 
         {isSearching && (
           <button
             type="button"
             onClick={handleResetSearch}
-            className="flex cursor-pointer items-center gap-1 text-[11px] normal-case tracking-normal text-primary hover:underline"
+            className="flex shrink-0 cursor-pointer items-center gap-1 text-[11px] normal-case tracking-normal text-primary hover:underline"
           >
             <RotateCcw className="h-3 w-3" />
             <span>显示全部</span>
@@ -342,38 +364,22 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
               </div>
 
               <div className="space-y-3">
-                {sec.items.map((m, idx) => {
-                  const formattedTime = formatDateTime(m.effectiveAt);
-                  return (
-                    <Panel
+                {sec.items.map((m, idx) => (
+                    <MemoryCard
                       key={m.id}
+                      size="md"
                       interactive
-                      className="group p-4 hover:bg-card sm:p-[18px]"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex min-w-0 items-center gap-2">
-                          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-                            <Brain className="h-3.5 w-3.5" />
-                          </div>
-                          <span className="shrink-0 text-[12px] font-semibold tracking-tight text-foreground/80">
-                            记忆 #{idx + 1}
-                          </span>
-                          {formattedTime && (
-                            <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-[11.5px] text-muted-foreground/70">
-                              <span className="inline-flex items-center gap-1 font-mono">
-                                <Clock className="h-3 w-3 shrink-0 opacity-70" />
-                                <span>{formattedTime}</span>
-                              </span>
-                              {m.isEdited && (
-                                <span className="shrink-0 select-none rounded-md bg-surface-3/60 px-1.5 py-0.5 font-normal text-[10px] text-muted-foreground/80">
-                                  已编辑
-                                </span>
-                              )}
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="flex shrink-0 items-center gap-1 opacity-80 transition-opacity group-hover:opacity-100">
+                      text={m.text}
+                      icon={
+                        <MemoryCardIcon>
+                          <Brain className="h-4 w-4" />
+                        </MemoryCardIcon>
+                      }
+                      label={`记忆 #${idx + 1}`}
+                      time={formatDateTime(m.effectiveAt)}
+                      badge={m.isEdited ? "已编辑" : undefined}
+                      actions={
+                        <>
                           <ActionTooltip label="编辑记忆" side="top">
                             <Button
                               type="button"
@@ -402,15 +408,10 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
                               <span className="sr-only">删除记忆</span>
                             </Button>
                           </ActionTooltip>
-                        </div>
-                      </div>
-
-                      <p className="mt-2.5 whitespace-pre-wrap break-words text-[15px] leading-relaxed text-foreground/90 select-text">
-                        {m.text}
-                      </p>
-                    </Panel>
-                  );
-                })}
+                        </>
+                      }
+                    />
+                ))}
               </div>
             </div>
           ))}

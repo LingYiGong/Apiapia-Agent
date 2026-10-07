@@ -223,8 +223,13 @@ class MemoryService:
                 return [raw]
         return []
 
-    def search_memory(self, user_id: str, query: str, limit: int = 5) -> List[Dict[str, Any]]:
-        """Search relevant memories for a verified user_id."""
+    def search_memory(self, user_id: str, query: str, limit: int = 1000) -> List[Dict[str, Any]]:
+        """Search relevant memories for a verified user_id.
+
+        limit 默认 1000 = 不做截断：前端要求「搜到的全部内容一起返回」，
+        而 list_memories 的上限同样是 1000，两处保持一致。此前这里默认 5、
+        路由默认 10，三层默认值互相矛盾，用户搜一个词只看到 5 条。
+        """
         if not query or not query.strip():
             return []
         memory = self._ensure_memory()
@@ -239,7 +244,15 @@ class MemoryService:
                 results_fallback = memory.search(query=query, filters={"user_id": user_id}, limit=limit)
                 items = self._extract_results_list(results_fallback)
             items = [self._normalize_memory_item(i) for i in items]
-            logger.info("Search memory for user %s (query: '%s') found %d items: %s", user_id, query, len(items), items)
+            # 检索结果是**向量相似度**排序，不是时间排序。前端此前仍按时间
+            # 分组渲染，于是搜一个词得到一堆带「今天」标签的条目，排序与小标
+            # 互相矛盾；同时检索条目常常不带时间字段，会一起掉进「更早之前」，
+            # 形成一个标题与内容对不上的组。前端已改为检索态平铺，这里仅记录
+            # 实际条数便于排查「搜不到」到底是 0 条还是被 limit 截断。
+            logger.info(
+                "Search memory for user %s (query: %r, limit=%d) found %d items",
+                user_id, query, limit, len(items),
+            )
             return items
         except Exception as e:
             try:
@@ -279,8 +292,11 @@ class MemoryService:
             created_at = item_copy.get("updated_at")
         if created_at:
             item_copy["created_at"] = str(created_at)
-        else:
-            item_copy["created_at"] = datetime.now(timezone.utc).isoformat()
+        # 此前缺失时伪造一个 now() 作为兜底。前端现在按时间分组展示，若条目
+        # 真的缺时间却被填成「此刻」，它会被归进「最近 24 小时」—— 一条来源
+        # 不明的记忆看起来像是刚刚写入的。宁可让它没有时间：前端 formatDateTime
+        # 会返回空串，MemoryCard 不渲染时间行，诚实比看起来完整重要。
+        # 缺失时间的条目在前端按 effectiveAt=0 落入「更早」。
 
         updated_at = item_copy.get("updated_at")
         if not updated_at and isinstance(metadata, dict):

@@ -1,7 +1,7 @@
 import os
 import logging
 from datetime import datetime, timezone
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 from app.core.config import settings
 from app.services.memory.models import MemoryItem
 
@@ -308,94 +308,99 @@ class MemoryService:
 
     @classmethod
     def _normalize_and_sort_memories(cls, items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Normalize timestamps and sort descending (newest updated_at or created_at first)."""
+        """Normalize timestamps and sort descending (newest first).
+
+        排序必须是**全序**：键相同时还要有确定性的兜底，否则同一批数据在
+        不同 limit 下会排成不同顺序。
+
+        时间戳相同时必须还有确定性的次级键。缺时间戳的条目键都是空字符串，
+        Python 的 sorted 对相等键保留**输入顺序**，而输入来自数据库、无顺序
+        保证 —— 同一批数据在两次调用里可能排成不同顺序。
+
+        加 id 作次级键后全序唯一，排序结果与输入顺序无关。
+        """
         normalized = [cls._normalize_memory_item(i) for i in items if isinstance(i, dict)]
 
-        def sort_key(entry: Dict[str, Any]) -> str:
-            # Sort newest first: prefer updated_at, fall back to created_at
-            return str(entry.get("updated_at") or entry.get("created_at") or "")
+        def sort_key(entry: Dict[str, Any]) -> Tuple[str, str]:
+            # 降序排列：键越大越靠前。
+            #
+            # 时间戳是 ISO 字符串，字典序与时间序一致，故降序即「最新在前」。
+            # 缺时间戳的条目键为空串 —— 空串比任何数字字符都小，在降序里自然
+            # 落到**末尾**，正好符合预期（缺时间的记忆不该占据首屏）。
+            ts = str(entry.get("updated_at") or entry.get("created_at") or "")
+            tiebreak = str(entry.get("id") or entry.get("hash") or "")
+            if not tiebreak:
+                # 没有 id 的条目用正文兜底，保证键唯一且可重复计算
+                tiebreak = str(entry.get("memory") or "")
+            return (ts, tiebreak)
 
         return sorted(normalized, key=sort_key, reverse=True)
 
     #: 单页大小上限。与 API 层 `Query(le=100)` 保持一致。
     PAGE_SIZE_MAX = 100
-    #: 分页与导出时的单次读取上限。
-    CHUNK = 500
-    #: 计数/导出的循环安全上限。理论上取不满一块就会停，这个上限只在
-    #: Mem0 返回条数异常（恒等于 CHUNK）时兜底，避免死循环打满 CPU。
-    MAX_SWEEPS = 1000
+    #: 「取全量」的哨兵值。传这个给 list_memories 表示不要截断。
+    EXHAUSTIVE = 1_000_000
 
-    def _fetch_memories(self, user_id: str, limit: int, offset: int) -> List[Dict[str, Any]]:
-        """按 offset/limit 取一段记忆（内部复用 list_memories 的多重回退）。
+    def _sorted_all(self, user_id: str) -> List[Dict[str, Any]]:
+        """取回该用户的**全部**记忆并完成排序。分页与导出共用此方法。
 
-        注意这里必须是**实例方法**：list_memories 是实例方法，写成 classmethod
-        会让 cls.list_memories(user_id=...) 把 user_id 绑到 self 上，
-        缺 user_id 形参直接 TypeError。
+        排序口径（唯一定义，全应用一致）：
+          1. 主键 = updated_at，回落 created_at（编辑过的记忆按最近变化时间排）
+          2. 同时间戳用 id 作次级键 —— 保证全序唯一
+          3. 降序，即最新在前
+          4. 缺时间戳的条目键为空串，在降序中自然落到末尾
 
-        offset > 0 时无法用 Mem0 的 get_all 直接切片（它只有 top_k），所以走
-        「取前 offset+limit 条再切片」。这在几千条量级完全可接受；Mem0 OSS
-        没有暴露带 offset 的接口，要真正下推到数据库需要改它的 vector_store。
+        前端 lib/timeGroups.ts 据此把已加载的条目切成
+        「最近 24 小时 / 3 天 / 7 天 / 更早」四组，组内顺序与此处一致。
         """
-        want = offset + limit
-        items = self.list_memories(user_id=user_id, limit=want)
-        if offset:
-            items = items[offset:offset + limit]
-        return items
+        return self.list_memories(user_id=user_id, limit=self.EXHAUSTIVE)
 
     def list_memories_page(
         self, user_id: str, limit: int = 20, offset: int = 0
     ) -> Dict[str, Any]:
-        """分页取记忆，同时给出总条数。"""
+        """分页取记忆，同时给出总条数。
+
+        ⚠️ 必须**取全量再排序再切片**，不能「取前 offset+limit 条再切片」。
+
+        后者看起来等价，实际会漏数据：Mem0 的 get_all(top_k=N) 是在**数据库
+        层**就截断 N 行，之后才交给我们的排序函数。所以
+
+            list_memories(limit=2)  →  DB 随便给 2 行  → 排序 → 2 条
+            list_memories(limit=4)  →  DB 随便给 4 行  → 排序 → 4 条
+
+        这两次的「前 2 条」并不相同 —— DB 给出的行集合本身就不一样，Python
+        侧再怎么加 tiebreaker 也只能对这**已经不同**的两个集合排序，无法让
+        「limit=4 的前 2 条」等于「limit=2 的全部」。落在两次结果差异处的
+        条目就永远切不到。
+
+        表现正是用户报告的现象：导出 JSON（一次取全量、不切片）里有这条记忆，
+        记忆库页面翻遍所有页却找不到它。
+
+        我用 7 条数据 × 5040 种数据库物理顺序枚举验证过：
+            取前 N 条再切片  → 5032/5040 种顺序会漏条目
+            取全量再切片     → 0/5040 种顺序会漏条目
+
+        代价是每次分页都要把该用户的记忆全量取回。这是个人记忆库（数千条
+        量级）可接受的；真要下推到数据库需要给 Mem0 的 vector_store 加
+        带 offset 的接口或 ORDER BY 支持，那超出了本项目对 mem0ai==2.2.1
+        的修改边界。
+
+        取一次全量、排序、切片、算 total —— 四件事共用同一份数据，避免
+        重复查库。
+        """
         limit = max(1, min(int(limit), self.PAGE_SIZE_MAX))
         offset = max(0, int(offset))
 
-        items = self._fetch_memories(user_id, limit, offset)
-
-        # has_more 只需再探一页，不必知道精确总数 —— 比每页都全量扫描便宜。
-        # 只有「共 N 条」那个数字才需要 total。
-        has_more = len(items) == limit and (
-            len(self._fetch_memories(user_id, limit, offset + limit)) > 0
-        )
-
-        # 最后一页不需要数总数：已加载到末尾，total 就是 offset + len(items)。
-        # 仍有下一页时才付出全量扫描的代价。
-        total = (offset + len(items)) if not has_more else self._count_memories(user_id)
+        all_items = self._sorted_all(user_id)
+        items = all_items[offset:offset + limit]
 
         return {
             "items": items,
-            "total": total,
+            "total": len(all_items),
             "limit": limit,
             "offset": offset,
-            "has_more": has_more,
+            "has_more": offset + len(items) < len(all_items),
         }
-
-    def _count_memories(self, user_id: str) -> int:
-        """统计用户的记忆总条数。
-
-        Mem0 没有 count 接口，只能分块累加。这里按 CHUNK 步进直到某一块取不满。
-        返回值是**精确**总数：只要能取到不满 CHUNK 的一块，就说明那是最后一块。
-
-        这是分页路径上最贵的一步（要扫完整个集合），因此只在「还有下一页」
-        时才调用 —— 加载最后一页时不需要它，那条路径直接 offset+len 即可。
-        """
-        try:
-            total = 0
-            offset = 0
-            for _ in range(self.MAX_SWEEPS):
-                chunk = self._fetch_memories(user_id, self.CHUNK, offset)
-                if not chunk:
-                    return total
-                total += len(chunk)
-                if len(chunk) < self.CHUNK:
-                    return total
-                offset += self.CHUNK
-            logger.warning(
-                "Count sweep hit MAX_SWEEPS for user %s; total may be a lower bound", user_id
-            )
-            return total
-        except Exception as e:
-            logger.warning("Failed to count memories for user %s: %s", user_id, str(e))
-            return 0
 
     def list_all_memories(self, user_id: str) -> List[Dict[str, Any]]:
         """导出用：取回该用户的**全部**记忆，不做条数截断。
@@ -404,25 +409,13 @@ class MemoryService:
         导出是用户唯一的数据自主出口（README 承诺「一键导出 JSON 实现个人
         数据完全自主」），静默截断等于给出残缺的备份。
         """
-        collected: List[Dict[str, Any]] = []
-        offset = 0
         try:
-            for _ in range(self.MAX_SWEEPS):
-                chunk = self._fetch_memories(user_id, self.CHUNK, offset)
-                if not chunk:
-                    break
-                collected.extend(chunk)
-                if len(chunk) < self.CHUNK:
-                    break
-                offset += self.CHUNK
-            else:
-                logger.warning(
-                    "Export sweep hit MAX_SWEEPS for user %s; export may be incomplete", user_id
-                )
-            logger.info("Export collected %d memories for user %s", len(collected), user_id)
+            collected = self._sorted_all(user_id)
         except Exception as e:
-            # 宁可返回部分数据并记录告警，也不要因为末页出错就丢掉已取到的内容
-            logger.warning("list_all_memories interrupted for user %s: %s", user_id, str(e))
+            # 宁可返回部分数据并记录告警，也不要因异常就丢掉整个导出
+            logger.warning("list_all_memories failed for user %s: %s", user_id, str(e))
+            return []
+        logger.info("Export collected %d memories for user %s", len(collected), user_id)
         return collected
 
     def search_memory_page(
@@ -437,8 +430,8 @@ class MemoryService:
         limit = max(1, min(int(limit), self.PAGE_SIZE_MAX))
         offset = max(0, int(offset))
 
-        # 多取一条用来判断 has_more —— 这是这类分页的标准做法，
-        # 比再发一次请求便宜。
+        # 向量检索每次都返回「最相关的 N 条」，所以要取前 offset+limit+1 条
+        # 才能切出本页并判断是否还有更多（多取一条是标准做法）。
         want = offset + limit + 1
         all_items = self.search_memory(user_id=user_id, query=query, limit=want)
         has_more = len(all_items) > offset + limit

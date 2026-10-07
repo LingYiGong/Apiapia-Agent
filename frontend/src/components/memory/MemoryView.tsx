@@ -59,8 +59,8 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
   const { user, loading } = useAuth();
   const router = useRouter();
 
-  /** 每页条数。同时用于浏览态与检索态。 */
-  const PAGE_SIZE = 20;
+  /** 每页条数。同时用于浏览态与检索态。后端上限 100，50 在其内。 */
+  const PAGE_SIZE = 50;
 
   /** 已加载的记忆（分页累加）。分组只基于这部分，所以下滑会看到更多分组条目。 */
   const [memories, setMemories] = useState<NormalizedMemory[]>([]);

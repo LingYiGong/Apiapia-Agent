@@ -52,17 +52,20 @@ async def get_user_for_export(
 
 @router.get("", response_model=MemoryPageResponse)
 async def list_memories(
-    limit: int = Query(20, ge=1, le=100, description="Page size"),
+    limit: int = Query(50, ge=1, le=100, description="Page size"),
     offset: int = Query(0, ge=0, description="Number of memories to skip"),
     current_user: User = Depends(get_current_user)
 ):
     """Retrieve long-term memories belonging to current user, paginated.
 
-    此前本接口无分页参数，直接返回 list_memories 的全量结果（上限 1000）。
-    改为分页后返回 {items, total, limit, offset, has_more}，前端据此下滑加载。
+    默认页大小 50，与前端 PAGE_SIZE 一致。
 
-    ⚠️ 响应体形状变了（list → 带 items 的对象）。这是**破坏性变更**，
-    所有消费方必须改读 `.items`；目前唯一的前端调用方是 MemoryView.tsx。
+    排序：按最近变化时间（updated_at 优先，回落 created_at）倒序，在
+    service 层完成；同时间戳用 id 作次级键保证全序，因此 offset 分页不会
+    漏条目或重复。
+
+    ⚠️ 响应体形状是带 items 的对象（此前是裸 list），属破坏性变更。
+    目前唯一的前端调用方是 MemoryView.tsx。
     """
     page = memory_service.list_memories_page(
         user_id=current_user.id, limit=limit, offset=offset
@@ -73,18 +76,18 @@ async def list_memories(
 @router.get("/search", response_model=MemorySearchResponse)
 async def search_memories(
     q: str = Query(..., min_length=1, description="Query to search within user's memories"),
-    limit: int = Query(20, ge=1, le=100, description="Page size"),
+    limit: int = Query(50, ge=1, le=100, description="Page size"),
     offset: int = Query(0, ge=0, description="Number of results to skip"),
     current_user: User = Depends(get_current_user)
 ):
     """Semantic vector search across memories for current user, paginated.
 
-    结果按向量相似度排序。分页在此之上切片 —— 注意切片**会破坏**跨页的
-    相关度连续性（第 2 页的第 1 条可能比第 1 页最后一条更不相关），这是
-    offset 分页在相似度排序下的固有性质，可接受。
+    检索只负责决定「哪些记忆相关」；返回给前端后由前端按时间重新分组排序，
+    所以这里的向量排序顺序不影响最终展示顺序 —— 相关度仅用于决定召回哪些。
 
-    历史沿革：limit 曾在路由默认 10、service 默认 5、前端不传，实际每次只回
-    5 条。现统一由前端显式传 page size。
+    分页在此之上切片。切片会破坏跨页的相关度连续性（第 2 页首条可能不如
+    第 1 页末条相关），这是相似度排序下 offset 分页的固有性质；由于前端
+    会重排，这个瑕疵不会出现在界面上。
     """
     page = memory_service.search_memory_page(
         user_id=current_user.id, query=q, limit=limit, offset=offset

@@ -1,16 +1,37 @@
 "use client";
 
+import { useEffect } from "react";
+
 /**
  * 根布局级错误边界。
  *
  * 与 `error.tsx` 的区别：这里捕获的是**根 layout 本身**的异常，包括
  * AuthProvider / ThemeProvider / CapacitorInit / Toaster 这些挂在 layout 上
  * 的全局 provider。它们抛错时 `error.tsx` 也救不了，必须由本文件兜底，
- * 否则只剩一个纯白的 `<body>`。
+ * 否则只剩一个纯白的 <body>。
  *
- * 注意：本文件必须自带 `<html>` / `<body>`，且不能依赖任何会再次抛错的组件
+ * 注意：本文件必须自带 <html> / <body>，且不能依赖任何会再次抛错的组件
  * —— 所以这里只用内联样式，不引入 Button 等 UI 组件。
+ *
+ * 配色：此前硬编码白底黑字，深色模式用户在根布局崩溃时会先闪一屏白。
+ * 现在启动时同步读一次 localStorage 里的主题与系统偏好（本文件跑在
+ * ThemeProvider 之外，拿不到 useTheme，只能自己解析）。
  */
+function resolveDark(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const stored = localStorage.getItem("apiapia_theme");
+    if (stored === "dark") return true;
+    if (stored === "light") return false;
+  } catch {
+    /* 读不到就按系统偏好 */
+  }
+  return (
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-color-scheme: dark)").matches
+  );
+}
+
 export default function GlobalError({
   error,
   reset,
@@ -18,6 +39,12 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const dark = resolveDark();
+
+  useEffect(() => {
+    console.error("Root layout error:", error);
+  }, [error]);
+
   return (
     <html lang="zh-CN">
       <body
@@ -27,8 +54,8 @@ export default function GlobalError({
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "#ffffff",
-          color: "#000000",
+          background: dark ? "#000000" : "#ffffff",
+          color: dark ? "#ffffff" : "#000000",
           fontFamily:
             '-apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif',
           padding: "1.5rem",
@@ -47,7 +74,7 @@ export default function GlobalError({
             style={{
               padding: "0.5rem 1rem",
               borderRadius: "0.5rem",
-              border: "1px solid rgba(0,0,0,0.15)",
+              border: `1px solid ${dark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)"}`,
               background: "transparent",
               color: "inherit",
               font: "inherit",

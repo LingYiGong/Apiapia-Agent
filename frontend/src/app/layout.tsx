@@ -37,6 +37,9 @@ export const metadata: Metadata = {
       },
     ],
   },
+  // 图标全部由这里声明。此前 <head> 里还手写了 12 个 <link rel="icon"> /
+  // <link rel="apple-touch-icon">，与下面这份完全重复 —— Next 会把两份都输出，
+  // 浏览器要下两遍同样的资源，且改图标时必须记得改两个地方。
   icons: {
     icon: [
       { url: "/favicon.ico" },
@@ -49,10 +52,10 @@ export const metadata: Metadata = {
     shortcut: ["/favicon.ico"],
     apple: [
       { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
-      { url: "/apple-touch-icon-180x180.png", sizes: "180x180", type: "image/png" },
-      { url: "/apple-touch-icon-167x167.png", sizes: "167x167", type: "image/png" },
-      { url: "/apple-touch-icon-152x152.png", sizes: "152x152", type: "image/png" },
       { url: "/apple-touch-icon-120x120.png", sizes: "120x120", type: "image/png" },
+      { url: "/apple-touch-icon-152x152.png", sizes: "152x152", type: "image/png" },
+      { url: "/apple-touch-icon-167x167.png", sizes: "167x167", type: "image/png" },
+      { url: "/apple-touch-icon-180x180.png", sizes: "180x180", type: "image/png" },
     ],
   },
 };
@@ -64,34 +67,18 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh-CN" suppressHydrationWarning className="h-full">
-      <head>
-        <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="Apiapia" />
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon-180x180.png" />
-        <link rel="apple-touch-icon" sizes="167x167" href="/apple-touch-icon-167x167.png" />
-        <link rel="apple-touch-icon" sizes="152x152" href="/apple-touch-icon-152x152.png" />
-        <link rel="apple-touch-icon" sizes="120x120" href="/apple-touch-icon-120x120.png" />
-        <link rel="icon" type="image/x-icon" href="/favicon.ico" />
-        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
-        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
-        <link rel="icon" type="image/svg+xml" href="/icon.svg" />
-      </head>
       <body className="h-full bg-background font-sans text-foreground antialiased">
         <ThemeProvider>
           <AuthProvider>
-            {/* Single provider for every ActionTooltip in the app, so hovering
-                across a row of icon buttons hands the tooltip over instead of
-                restarting the delay on each one. */}
+            {/* 全应用共用一个 TooltipProvider，鼠标横扫一排图标按钮时
+                气泡会接力而不是逐个重新计时 */}
             <TooltipProvider delayDuration={200} skipDelayDuration={300}>
               <CapacitorInit />
               <UpdatePrompt />
               {children}
             </TooltipProvider>
-            {/* `offset` intentionally omitted — the Toaster wrapper already
-                applies the header-clearance value (see TOASTER_TOP_OFFSET). */}
+            {/* `offset` 省略 —— Toaster 包装层已处理头部避让
+                （见 TOASTER_TOP_OFFSET） */}
             <Toaster richColors position="top-center" />
           </AuthProvider>
         </ThemeProvider>

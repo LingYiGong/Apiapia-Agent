@@ -16,6 +16,17 @@ import type { LucideIcon } from "lucide-react";
 
 export type NavId = "chat" | "history" | "memory" | "usage" | "settings";
 
+/**
+ * 移动端 SPA 页签。
+ *
+ * 定义在此处而非 `components/layout/UserAvatarDropdown.tsx`：
+ * 那个文件是叶子 UI 组件，却被 chat 页面、MemoryView / UsageView /
+ * SettingsView、MobileHeader、MobileHistoryView、ChatHeader、Navbar 共 7 处
+ * 反向 import 只为拿一个类型，而它自己又 import 本文件 —— 布局层之间形成
+ * 横向耦合，且方向是反的（上层依赖下层的类型）。
+ */
+export type MobileTab = NavId;
+
 export interface NavItem {
   id: NavId;
   /** 桌面 <Link> 与深链使用的独立路由 */
@@ -28,6 +39,8 @@ export interface NavItem {
   shortLabel: string;
   /** 头像菜单里的二级文案 */
   menuLabel: string;
+  /** MobileHeader 居中标题；不传则该页签用 children 自定义中间内容 */
+  mobileTitle?: string;
   Icon: LucideIcon;
   /** 图标底色，avatar 菜单的彩色 squircle */
   tint: string;
@@ -59,6 +72,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     label: "历史",
     shortLabel: "历史",
     menuLabel: "历史对话",
+    mobileTitle: "历史会话",
     Icon: AlignLeft,
     tint: "bg-slate-500/10 text-slate-600 dark:text-slate-300",
     inDesktopNav: false,
@@ -71,6 +85,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     label: "记忆库",
     shortLabel: "记忆",
     menuLabel: "长期记忆库",
+    mobileTitle: "记忆库",
     Icon: Brain,
     tint: "bg-purple-500/10 text-purple-600 dark:text-purple-400",
     inDesktopNav: true,
@@ -83,6 +98,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     label: "用量",
     shortLabel: "用量",
     menuLabel: "用量与账单",
+    mobileTitle: "用量与账单",
     Icon: BarChart3,
     tint: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
     inDesktopNav: true,
@@ -95,6 +111,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     label: "设置",
     shortLabel: "设置",
     menuLabel: "偏好设置",
+    mobileTitle: "偏好设置",
     Icon: Settings,
     tint: "bg-slate-500/10 text-slate-600 dark:text-slate-300",
     inDesktopNav: true,
@@ -109,3 +126,12 @@ export const MOBILE_TAB_ITEMS = NAV_ITEMS.filter((i) => i.inMobileTabBar);
 export const ACCOUNT_MENU_ITEMS = NAV_ITEMS.filter(
   (i) => i.id !== "chat" && i.id !== "history"
 );
+
+/** 所有移动端 SPA 页签 id，用于 URL ?tab= 的白名单校验。 */
+export const MOBILE_TAB_IDS: readonly MobileTab[] = NAV_ITEMS.map((i) => i.id);
+
+/** 从 URL query 里解析移动端页签；非法值返回 null（交给调用方保持现状）。 */
+export function parseMobileTab(raw: string | null): MobileTab | null {
+  if (!raw) return null;
+  return (MOBILE_TAB_IDS as readonly string[]).includes(raw) ? (raw as MobileTab) : null;
+}

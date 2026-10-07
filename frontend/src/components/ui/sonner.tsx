@@ -8,8 +8,14 @@ type ToasterProps = React.ComponentProps<typeof Sonner>;
 /**
  * 顶部提示与各页面头部栏之间的间距。必须与 globals.css 中
  * `[data-sonner-toaster][data-y-position="top"]` 的覆盖值保持一致。
+ *
+ * 两处共同引用 globals.css 的 --header-h / --sat，此前这里写着
+ * `calc(3.85rem + env(...))`、CSS 里写着 `calc(3.85rem + env(...))`，
+ * 是两份互不关联的字面量，且 3.85rem 与实际头部高度（--header-h）无关 ——
+ * 头部一旦调整，toast 遮挡问题就会静默复发。
  */
-export const TOASTER_TOP_OFFSET = "calc(3.85rem + env(safe-area-inset-top, 0px))";
+export const TOASTER_TOP_OFFSET =
+  "calc(var(--header-h) + env(safe-area-inset-top, 0px) + 0.6rem)";
 
 const Toaster = ({ ...props }: ToasterProps) => {
   const { theme = "system" } = useTheme();

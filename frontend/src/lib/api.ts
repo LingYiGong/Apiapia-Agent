@@ -1,14 +1,16 @@
 export function getApiBase(): string {
-  const envUrl = process.env.NEXT_PUBLIC_API_URL;
-  if (envUrl) {
-    return envUrl;
+  // SSR / 构建期：可以直接指向内网地址。
+  if (typeof window === "undefined") {
+    return process.env.INTERNAL_API_URL || "http://backend:8000/api";
   }
-  // In the browser, always use the relative path proxy '/api/backend'
-  // so requests always hit the current server without CORS or IP hardcoding
-  if (typeof window !== "undefined") {
-    return "/api/backend";
-  }
-  return process.env.INTERNAL_API_URL || "http://backend:8000/api";
+  // 浏览器端**一律**走同源代理 /api/backend。
+  //
+  // 此前这里先判 NEXT_PUBLIC_API_URL 再回退，而注释写的是「在浏览器里总是用
+  // 相对路径代理」。两者矛盾：只要该变量非空（docker-compose 默认就会把它注入，
+  // 只是默认空串），浏览器就会绕过代理直连后端 —— 于是重新引入 CORS 预检、
+  // 以及把后端地址硬编码进产物，正是这个函数想避免的事。
+  // 现在行为与注释一致：环境变量只影响服务端。
+  return "/api/backend";
 }
 
 export function getToken(): string | null {
@@ -63,6 +65,20 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * 会话失效的统一处理。
+ *
+ * apiRequest 与 streamChatResponse 都必须在 401 时走这里。此前只有 apiRequest
+ * 做了，于是**流式请求期间的会话过期**不会跳登录，而是让页面弹一个红色错误
+ * 气泡、把用户困在一个已经无法工作的界面里。
+ */
+function handleUnauthorized() {
+  removeToken();
+  if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+    window.location.href = "/login";
+  }
+}
+
 export async function apiRequest<T = any>(
   path: string,
   options: RequestInit = {}
@@ -85,10 +101,7 @@ export async function apiRequest<T = any>(
   });
 
   if (response.status === 401) {
-    removeToken();
-    if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
-      window.location.href = "/login";
-    }
+    handleUnauthorized();
     throw new ApiError("Unauthorized", 401);
   }
 
@@ -165,26 +178,50 @@ export async function streamChatResponse(
   const base = getApiBase();
   const url = `${base}/chat`;
 
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  // 无 token 时不要发空的 Authorization 头 —— 空字符串会被 /api/backend 代理
+  // 原样转发给后端，某些网关会把 "" 当成一个格式非法的凭据而直接 400。
+  if (token) headers.Authorization = `Bearer ${token}`;
+
   const response = await fetch(url, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: token ? `Bearer ${token}` : "",
-    },
+    headers,
     body: JSON.stringify(payload),
     signal: opts?.signal,
   });
 
+  // 与 apiRequest 对齐：HTTP 失败必须抛，而不是「回调 onError 后静默 return」。
+  //
+  // 此前这里是 onError + return，Promise 正常 resolve，于是调用方的 catch 分支
+  // 对任何 HTTP 错误都不可达 —— 错误只能靠 onError 回调这一条路走；而 onError 的
+  // 实现（chat/page.tsx）又会往消息列表里插一条错误气泡，和 catch 里的处理
+  // 职责重叠。抛出来之后，统一的 catch 能同时负责「插错误气泡 + 复位流式状态」，
+  // 401 也能统一跳登录。
+  if (response.status === 401) {
+    handleUnauthorized();
+    throw new ApiError("Unauthorized", 401);
+  }
+
   if (!response.ok) {
-    const errorText = await response.text();
-    callbacks.onError?.(errorText || `Error: ${response.statusText}`);
-    return;
+    let errorText = `Error: ${response.status} ${response.statusText}`;
+    try {
+      const raw = await response.text();
+      if (raw) {
+        // 后端错误体通常是 {"detail": "..."}，但也有纯文本。
+        try {
+          const parsed = JSON.parse(raw);
+          errorText = parsed?.detail || parsed?.message || raw;
+        } catch (_) {
+          errorText = raw;
+        }
+      }
+    } catch (_) {}
+    throw new ApiError(errorText, response.status);
   }
 
   const reader = response.body?.getReader();
   if (!reader) {
-    callbacks.onError?.("ReadableStream not supported by browser.");
-    return;
+    throw new Error("当前浏览器不支持流式响应（ReadableStream 不可用）");
   }
 
   const decoder = new TextDecoder();

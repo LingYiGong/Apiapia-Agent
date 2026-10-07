@@ -5,42 +5,80 @@
 @layer base {
   :root {
     color-scheme: light;
-    --background: 0 0% 100%;
-    --foreground: 0 0% 0%;
+
+    /* ── shadcn 语义色 ─────────────────────────────────────────
+       全部经 tailwind.config.ts 的 `colors` 暴露为工具类
+       （bg-background / text-foreground / bg-card …）。
+       值取自 Apple HIG 系统色板。 */
+    --background: 0 0% 100%; /* System Gray 6 之外的白底 */
+    --foreground: 0 0% 0%; /* Primary Label */
     --card: 0 0% 100%;
     --card-foreground: 0 0% 0%;
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 0%;
-    /* Apple System Indigo (Light: #5856D6) */
-    --primary: 241 62% 59%;
+    --primary: 241 62% 59%; /* System Indigo Light #5856D6 */
     --primary-foreground: 0 0% 100%;
-    /* Apple System Gray 6 (Light: #F2F2F7) */
     --secondary: 240 4.8% 95.9%;
     --secondary-foreground: 240 5.9% 10%;
     --muted: 240 4.8% 95.9%;
-    /* Apple System Gray Secondary Label (#8E8E93) */
+    /* Secondary Label。这里刻意**不**使用 Apple 的 #8E8E93：
+       它在白底上只有 3.4:1，达不到 WCAG AA 正文对比度；
+       往下压到 ~55% 明度后仍有 5:1，既保持灰阶观感又合规。 */
     --muted-foreground: 240 3.8% 46.1%;
     --accent: 240 4.8% 93%;
     --accent-foreground: 240 5.9% 10%;
-    /* Apple System Red (Light: #FF3B30) */
-    --destructive: 4 100% 59%;
+    --destructive: 4 100% 59%; /* System Red Light #FF3B30 */
     --destructive-foreground: 0 0% 100%;
-    /* Apple System Separator (Light: #E5E5EA) */
+    /* Separator Light #E5E5EA */
     --border: 240 5.9% 90%;
     --input: 240 5.9% 90%;
     --ring: 241 62% 59%;
     --radius: 0.75rem;
 
-    /* Apple HIG Surface Hierarchy Tokens */
-    --apple-bg-base: #ffffff;
-    --apple-bg-secondary: #f2f2f7;
-    --apple-bg-tertiary: #ffffff;
-    --apple-bg-quaternary: #e5e5ea;
+    /* ── Surface 层叠 ─────────────────────────────────────────
+       Apple HIG 的四层表面语义。此前散落着 40+ 处
+       `dark:bg-[#1c1c1e]` / `#2c2c2e` / `#121214` 硬编码，
+       每处都自带 opacity 后缀。现在统一成 4 个 token：
+         surface-1  页面级底色（侧栏、底部标签栏）
+         surface-2  卡片 / 浮层
+         surface-3  抬升层（选中行、输入槽、附件条）
+         surface-4  最高层（分段控件槽、骨架块） */
+    --surface-1: 0 0% 100%;
+    --surface-2: 0 0% 100%;
+    --surface-3: 240 4.8% 95.9%; /* #F2F2F7 */
+    --surface-4: 240 5% 91%; /* #E5E5EA */
 
-    /* 系统字体栈（优先 Apple SF Pro / PingFang / SF Mono） */
-    --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "SF Pro", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
-    --font-sans-sc: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
-    --font-mono: -apple-system-monospaced, "SF Mono", SFMono-Regular, ui-monospace, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    /* System Green：开关、滑块以外的「已开启」语义色。
+       此前只有 ui/switch.tsx 一处硬编码 #34C759，
+       而记忆侧栏又硬编码了 #34C759 / #30D158 两个值。 */
+    --success: 142 72% 45%; /* #34C759 */
+    --success-foreground: 0 0% 100%;
+
+    /* ── 字体栈（唯一事实来源）───────────────────────────────
+       tailwind.config.ts 的 fontFamily 全部 var() 引用这里，
+       不再各自抄一份字面量。 */
+    --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+      "SF Pro", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC",
+      system-ui, sans-serif;
+    --font-mono: -apple-system-monospaced, "SF Mono", SFMono-Regular, ui-monospace,
+      Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+
+    /* ── 布局常量 ────────────────────────────────────────────
+       跨文件复用的固定高度。此前同一数值在 Navbar 的页签高度、
+       SettingsView 浮动条的 bottom 偏移、MemorySidebar 的
+       padding 里各写一遍，改一处必漂移。 */
+    --header-h: 48px; /* MobileHeader 行高 (h-12) */
+    --header-h-desktop: 56px; /* DesktopNavbar 行高 (md:h-14) */
+    --toolbar-h: 48px; /* DesktopChatHeader 行高 (h-12) */
+    --tabbar-h: 49px; /* MobileTabBar 内容行 (Apple HIG 49pt) */
+
+    /* 侧栏宽度：Sidebar / MemorySidebar / 骨架屏三处共用。
+       骨架屏此前写死 `w-64 lg:w-72` 而真实侧栏写 `md:w-64 lg:w-72`，
+       两处独立维护，改一边另一边就错位。 */
+    --sidebar-w: 16rem; /* 256px */
+    --sidebar-w-lg: 18rem; /* 288px */
+
+    /* iOS 安全区 */
     --sat: env(safe-area-inset-top, 0px);
     --sab: env(safe-area-inset-bottom, 0px);
     --sal: env(safe-area-inset-left, 0px);
@@ -49,41 +87,35 @@
 
   .dark {
     color-scheme: dark;
-    /* Apple iOS / macOS True Black Base (#000000) */
-    --background: 0 0% 0%;
-    /* Apple Primary Label (#FFFFFF) */
-    --foreground: 0 0% 100%;
-    /* Apple Secondary System Background: System Gray 6 (#1C1C1E) */
-    --card: 240 3.7% 10.6%;
+
+    --background: 0 0% 0%; /* True Black */
+    --foreground: 0 0% 100%; /* Primary Label Dark */
+    --card: 240 3.7% 10.6%; /* #1C1C1E */
     --card-foreground: 0 0% 100%;
-    /* Apple Tertiary System Background: System Gray 5 (#2C2C2E) */
-    --popover: 240 3.6% 15.7%;
+    --popover: 240 3.6% 15.7%; /* #1C1C1E */
     --popover-foreground: 0 0% 100%;
-    /* Apple System Indigo in Dark Mode (#5E5CE6) - High vibrancy, anti-glare */
-    --primary: 241 73% 63%;
+    --primary: 241 73% 63%; /* System Indigo Dark #5E5CE6 */
     --primary-foreground: 0 0% 100%;
-    /* Apple System Gray 5 Dark (#28282A / #2C2C2E) */
-    --secondary: 240 3.7% 15.9%;
+    --secondary: 240 3.7% 15.9%; /* #2C2C2E */
     --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    /* Apple Secondary Label Dark: System Gray (#98989D, Contrast >= 7.5:1 WCAG AAA) */
+    --muted: 240 3.7% 15.9%; /* #2C2C2E */
+    /* Secondary Label Dark #98989D — 对黑底 7.5:1 (WCAG AAA) */
     --muted-foreground: 240 5% 64.9%;
-    /* Apple Interactive Hover / Active State (#3A3A3C) */
-    --accent: 240 3.7% 18.5%;
+    --accent: 240 3.7% 18.5%; /* Interactive Hover #3A3A3C */
     --accent-foreground: 0 0% 100%;
-    /* Apple System Red Dark (#FF453A) */
-    --destructive: 5 100% 61%;
+    --destructive: 5 100% 61%; /* System Red Dark #FF453A */
     --destructive-foreground: 0 0% 100%;
-    /* Apple Separator Dark (#38383A) */
-    --border: 240 3% 21.5%;
+    --border: 240 3% 21.5%; /* Separator Dark #38383A */
     --input: 240 3% 21.5%;
     --ring: 241 73% 63%;
 
-    /* Apple HIG Surface Hierarchy Tokens */
-    --apple-bg-base: #000000;
-    --apple-bg-secondary: #1c1c1e;
-    --apple-bg-tertiary: #2c2c2e;
-    --apple-bg-quaternary: #3a3a3c;
+    --surface-1: 240 6% 6.7%; /* #121214 侧栏 / 标签栏 */
+    --surface-2: 240 3.7% 10.6%; /* #1C1C1E */
+    --surface-3: 240 3.6% 15.7%; /* #2C2C2E */
+    --surface-4: 240 3.7% 18.5%; /* #3A3A3C */
+
+    --success: 134 76% 60%; /* #30D158 */
+    --success-foreground: 0 0% 0%;
   }
 }
 
@@ -102,113 +134,28 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
-      "SF Pro", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC",
-      sans-serif;
+    font-family: var(--font-sans);
     letter-spacing: -0.014em;
     line-height: 1.47059; /* Apple HIG iOS Standard Body Line-height */
     transition: background-color 0.2s ease, color 0.2s ease;
   }
 }
 
-/* Apple HIG iOS Typography & Layout Utilities */
+/* Apple HIG iOS Layout Utilities
+   ------------------------------------------------------------------
+   排版类（.apple-*）此前在这里和 tailwind.config.ts 的 fontSize 里
+   各写了一份，而**全站 0 处引用**（实际用的是 text-[11px] 这类任意值）。
+   现在只保留真正在用的两条：触控目标尺寸与打字机光标。 */
 @layer utilities {
   /* Apple HIG Standard Touch Target: minimum 44pt x 44pt */
   .apple-touch-target {
     min-height: 44px;
     min-width: 44px;
   }
-
-  /* Apple HIG Large Title (34pt / -0.022em) */
-  .apple-large-title {
-    font-size: 34px;
-    line-height: 41px;
-    font-weight: 700;
-    letter-spacing: -0.022em;
-  }
-
-  /* Apple HIG Title 1 (28pt / -0.021em) */
-  .apple-title-1 {
-    font-size: 28px;
-    line-height: 34px;
-    font-weight: 700;
-    letter-spacing: -0.021em;
-  }
-
-  /* Apple HIG Title 2 (22pt / -0.018em) */
-  .apple-title-2 {
-    font-size: 22px;
-    line-height: 28px;
-    font-weight: 700;
-    letter-spacing: -0.018em;
-  }
-
-  /* Apple HIG Title 3 (20pt / -0.017em) */
-  .apple-title-3 {
-    font-size: 20px;
-    line-height: 25px;
-    font-weight: 600;
-    letter-spacing: -0.017em;
-  }
-
-  /* Apple HIG Headline (17pt / semibold / -0.024em) */
-  .apple-headline {
-    font-size: 17px;
-    line-height: 22px;
-    font-weight: 600;
-    letter-spacing: -0.024em;
-  }
-
-  /* Apple HIG Body (17pt / regular / -0.024em) */
-  .apple-body {
-    font-size: 17px;
-    line-height: 22px;
-    font-weight: 400;
-    letter-spacing: -0.024em;
-  }
-
-  /* Apple HIG Callout (16pt / regular / -0.020em) */
-  .apple-callout {
-    font-size: 16px;
-    line-height: 21px;
-    font-weight: 400;
-    letter-spacing: -0.020em;
-  }
-
-  /* Apple HIG Subheadline (15pt / regular / -0.016em) */
-  .apple-subheadline {
-    font-size: 15px;
-    line-height: 20px;
-    font-weight: 400;
-    letter-spacing: -0.016em;
-  }
-
-  /* Apple HIG Footnote (13pt / regular / -0.006em) */
-  .apple-footnote {
-    font-size: 13px;
-    line-height: 18px;
-    font-weight: 400;
-    letter-spacing: -0.006em;
-  }
-
-  /* Apple HIG Caption 1 (12pt / regular / 0.0em) */
-  .apple-caption-1 {
-    font-size: 12px;
-    line-height: 16px;
-    font-weight: 400;
-    letter-spacing: 0.0em;
-  }
-
-  /* Apple HIG Caption 2 (11pt / regular / +0.006em) */
-  .apple-caption-2 {
-    font-size: 11px;
-    line-height: 13px;
-    font-weight: 400;
-    letter-spacing: 0.006em;
-  }
 }
 
-/* Clean root height & lock window-level scroll to prevent iOS upward shift */
+/* Clean root height & lock window-level scroll to prevent iOS upward shift.
+   h-dvh / min-h-dvh 由 Tailwind 3.4 自带，此处不再重复定义。 */
 html,
 body {
   width: 100%;
@@ -217,14 +164,22 @@ body {
   overscroll-behavior: none;
 }
 
-/* Ensure all scrollable inner containers stop bounce propagation to the document */
-.overflow-y-auto, [class*="overflow-y-auto"] {
+/* 滚动容器兜住橡皮筋：阻止滚动穿透到 document。
+   此前写作 `.overflow-y-auto, [class*="overflow-y-auto"]` —— 后者靠
+   属性子串匹配，等价于前者的超集，纯属冗余（任何含 overflow-y-auto
+   的元素都已被前者命中），且将来出现 `overflow-y-auto-fancy` 这类
+   类名时会被意外命中。 */
+.overflow-y-auto {
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
 }
 
 /* Touch responsiveness & Native Web App Feel */
-button, a, input, textarea, select {
+button,
+a,
+input,
+textarea,
+select {
   touch-action: manipulation;
 }
 
@@ -239,18 +194,6 @@ button, a, input, textarea, select {
     font-size: 16px !important;
   }
 }
-
-/* Dynamic viewport height for modern mobile browsers */
-.h-dvh {
-  height: 100vh;
-  height: 100dvh;
-}
-
-.min-h-dvh {
-  min-height: 100vh;
-  min-height: 100dvh;
-}
-
 
 /* Hide scrollbar utility */
 .no-scrollbar::-webkit-scrollbar {
@@ -272,39 +215,27 @@ button, a, input, textarea, select {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(120, 120, 128, 0.28);
+  background: hsl(var(--muted-foreground) / 0.28);
   border-radius: 9999px;
   border: 1.5px solid transparent;
   background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(120, 120, 128, 0.5);
-  border: 1.5px solid transparent;
-  background-clip: padding-box;
-}
-
-.dark ::-webkit-scrollbar-thumb {
-  background: rgba(235, 235, 245, 0.22);
-  border: 1.5px solid transparent;
-  background-clip: padding-box;
-}
-
-.dark ::-webkit-scrollbar-thumb:hover {
-  background: rgba(235, 235, 245, 0.4);
+  background: hsl(var(--muted-foreground) / 0.5);
   border: 1.5px solid transparent;
   background-clip: padding-box;
 }
 
 /* Apple HIG Selection Highlighting */
 ::selection {
-  background-color: hsla(241, 73%, 63%, 0.35);
+  background-color: hsl(var(--primary) / 0.35);
   color: inherit;
 }
 
 /* 确保顶部 Toast 提示框永远位于头部栏下方，绝不遮挡头部栏。
-   取值需与 components/ui/sonner.tsx 的 TOASTER_TOP_OFFSET 保持一致。 */
+   取值需与 components/ui/sonner.tsx 的 TOASTER_TOP_OFFSET 保持一致，
+   两者共同引用 --header-h / --sat，避免第三份字面量。 */
 [data-sonner-toaster][data-y-position="top"] {
-  top: calc(3.85rem + env(safe-area-inset-top, 0px)) !important;
+  top: calc(var(--header-h) + var(--sat) + 0.6rem) !important;
 }
-

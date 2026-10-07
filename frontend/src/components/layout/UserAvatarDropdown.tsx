@@ -1,222 +1,224 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { LogOut, ChevronRight } from "lucide-react";
 import { useAuth } from "@/lib/auth";
-import { useTheme } from "@/lib/theme";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { ACCOUNT_MENU_ITEMS, type MobileTab } from "@/config/navigation";
+import { useActiveNav } from "@/hooks/useActiveNav";
+import { ThemeSegments } from "@/components/common/ThemeSegments";
+import {
+  AdminBadge,
+  StandardUserBadge,
+  UserAvatar,
+} from "@/components/common/UserAvatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  LogOut,
-  ChevronRight,
-  Sun,
-  Moon,
-  Monitor,
-} from "lucide-react";
-import { ACCOUNT_MENU_ITEMS, type NavId } from "@/config/navigation";
-import { useActiveNav } from "@/hooks/useActiveNav";
 import { cn } from "@/lib/utils";
 
-export type MobileTab = NavId;
+/**
+ * 用户头像菜单（唯一实现）。
+ *
+ * 此前这里有两份手写副本：
+ *   - components/layout/Navbar.tsx:89-143        桌面：胶囊触发器 + 用户名 + 徽章
+ *                                               + 3 个 <Link> + 退出
+ *   - components/layout/UserAvatarDropdown.tsx  移动：圆形触发器 + 用户卡
+ *                                               + 内联主题三段 + 3 个带箭头的
+ *                                               单元格 + 退出
+ *
+ * 内容、目的地、徽章配色全都一致，只有触发器形态和链接渲染方式不同。
+ * 结果是：移动端菜单有 active 指示，桌面端没有；桌面端用 <Link>（可中键新开、
+ * 可被搜索引擎抓取），移动端用 onClick —— 行为不一致本身就是 bug 温床。
+ *
+ * 现在合并为一个组件，variant 只影响触发器形态与链接的渲染方式：
+ *   - desktop → <Link>，可键盘/中键直达
+ *   - mobile  → onClick 切换 SPA 页签（移动端跳转整页代价大且会丢状态）
+ */
 
-export interface UserAvatarDropdownProps {
+export interface UserAvatarMenuProps {
+  variant?: "desktop" | "mobile";
   onSelectMobileTab?: (tab: MobileTab) => void;
+  className?: string;
 }
 
-/**
- * Apple HIG Standard User Profile Dropdown & Sheet
- * - 22px super-ellipse corner radius
- * - Translucent frosted glass surface with deep soft shadows
- * - Apple ID style profile card header
- * - iOS segmented appearance theme toggle (Light / Dark / Auto)
- * - Rounded action cells with colored icon squircles and subtle chevrons
- * - Destructive Apple red sign-out button
- */
-export const UserAvatarDropdown: React.FC<UserAvatarDropdownProps> = ({
+export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
+  variant = "mobile",
   onSelectMobileTab,
+  className,
 }) => {
   const { user, logout } = useAuth();
-  const { theme, setTheme } = useTheme();
   const router = useRouter();
   const { isActive, ariaCurrent } = useActiveNav();
+  const isDesktop = variant === "desktop";
 
   if (!user) return null;
 
-  const handleNavigate = (tab: MobileTab, fallbackPath: string) => {
+  const navigate = (tab: MobileTab, href: string) => {
+    if (isDesktop) return; // 桌面端渲染成 <Link>，不需要 js 跳转
     if (onSelectMobileTab) {
       onSelectMobileTab(tab);
     } else {
-      router.push(fallbackPath);
+      router.push(href);
     }
   };
 
+  const trigger = isDesktop ? (
+    <button
+      type="button"
+      aria-label={`${user.username} 的账户菜单`}
+      className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-border/80 bg-muted/60 p-1 pr-2 text-xs font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring sm:gap-2 sm:pr-2.5"
+    >
+      <UserAvatar username={user.username} className="h-6 w-6" textClassName="text-[10px]" />
+      <span className="max-w-[80px] truncate font-medium sm:max-w-[120px]">
+        {user.username}
+      </span>
+      {user.is_superuser && <AdminBadge size="sm" className="hidden sm:inline-flex" />}
+    </button>
+  ) : (
+    <button
+      type="button"
+      aria-label={`${user.username} 的账户菜单`}
+      className="flex h-8 w-8 shrink-0 cursor-pointer select-none items-center justify-center rounded-full border border-border/70 bg-muted/40 shadow-2xs transition-all hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 active:scale-95"
+    >
+      <UserAvatar username={user.username} className="h-7 w-7" textClassName="text-[11px]" />
+    </button>
+  );
+
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label="个人中心与偏好设置"
-          className="flex items-center justify-center h-8 w-8 rounded-full border border-border/70 bg-muted/40 hover:bg-muted/70 active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 shrink-0 cursor-pointer shadow-2xs select-none"
-        >
-          <Avatar className="h-7 w-7">
-            <AvatarFallback className="text-[11px] font-bold bg-primary/10 text-primary">
-              {user.username.slice(0, 1).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-        </button>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
 
       <DropdownMenuContent
         align="end"
         sideOffset={8}
         collisionPadding={12}
-        className="w-[270px] rounded-[22px] border border-border/50 bg-background/95 dark:bg-[#1c1c1e]/95 backdrop-blur-2xl shadow-[0_20px_50px_rgba(0,0,0,0.22)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.6)] p-2 z-50 select-none animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95"
+        className="z-50 w-[270px] select-none rounded-[22px] border border-border/50 bg-background/95 p-2 shadow-[0_20px_50px_rgba(0,0,0,0.22)] backdrop-blur-2xl animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 dark:shadow-[0_24px_60px_rgba(0,0,0,0.6)]"
       >
-        {/* ── 1. Apple Account Profile Card ── */}
+        {/* 1. 账户卡片 */}
         <div className="flex items-center gap-3 p-2 pb-2.5">
-          <Avatar className="h-10 w-10 border border-primary/20 shadow-xs shrink-0">
-            <AvatarFallback className="text-[14px] font-bold bg-gradient-to-br from-primary/20 to-primary/5 text-primary">
-              {user.username.slice(0, 1).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex flex-col min-w-0 flex-1">
+          <UserAvatar
+            username={user.username}
+            gradient
+            className="h-10 w-10 shrink-0 border border-primary/20 shadow-xs"
+            textClassName="text-[14px]"
+          />
+          <div className="flex min-w-0 flex-1 flex-col">
             <div className="flex items-center justify-between gap-1.5">
-              <span className="text-[14px] font-semibold text-foreground tracking-tight truncate">
+              <span className="truncate text-[14px] font-semibold tracking-tight text-foreground">
                 {user.username}
               </span>
               {user.is_superuser ? (
-                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/25 font-medium shrink-0">
-                  管理员
-                </span>
+                <AdminBadge size="sm" />
               ) : (
-                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-mono shrink-0">
-                  标准
-                </span>
+                <StandardUserBadge size="sm" />
               )}
             </div>
-            <span className="text-[11px] text-muted-foreground font-mono truncate mt-0.5">
+            <span className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">
               {user.is_superuser ? "超级管理员权限已就绪" : "已登录标准用户"}
             </span>
           </div>
         </div>
 
-        <div className="border-b border-border/40 my-1 mx-1" />
+        <DropdownMenuSeparator className="mx-1 my-1 opacity-60" />
 
-        {/* ── 2. Appearance Theme Segment (iOS 3-way toggle) ── */}
-        <div className="px-2 py-1.5">
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider font-mono">
-              外观风格
-            </span>
-            <span className="text-[10px] text-muted-foreground/70 font-mono">
-              {theme === "system" ? "跟随系统" : theme === "light" ? "浅色模式" : "深色模式"}
-            </span>
-          </div>
-          <div className="grid grid-cols-3 gap-1 bg-muted/50 dark:bg-[#2c2c2e]/60 p-0.5 rounded-xl border border-border/40">
-            <button
-              type="button"
-              onClick={() => setTheme("system")}
-              className={cn(
-                "h-7 rounded-lg text-[11px] font-medium flex items-center justify-center gap-1 transition-all active:scale-95 cursor-pointer",
-                theme === "system"
-                  ? "bg-background text-foreground shadow-xs font-semibold"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <Monitor className="h-3 w-3" />
-              <span>自动</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setTheme("light")}
-              className={cn(
-                "h-7 rounded-lg text-[11px] font-medium flex items-center justify-center gap-1 transition-all active:scale-95 cursor-pointer",
-                theme === "light"
-                  ? "bg-background text-foreground shadow-xs font-semibold"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <Sun className="h-3 w-3 text-amber-500" />
-              <span>浅色</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setTheme("dark")}
-              className={cn(
-                "h-7 rounded-lg text-[11px] font-medium flex items-center justify-center gap-1 transition-all active:scale-95 cursor-pointer",
-                theme === "dark"
-                  ? "bg-background text-foreground shadow-xs font-semibold"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <Moon className="h-3 w-3 text-indigo-400" />
-              <span>深色</span>
-            </button>
-          </div>
-        </div>
+        {/* 2. 外观三档
+            桌面端不渲染：桌面顶栏在触发器左侧已有一个独立的 <ThemeToggle>，
+            两处都放会让用户在同一屏看到两个主题入口。 */}
+        {!isDesktop && (
+          <>
+            <div className="px-2 py-1.5">
+              <div className="mb-1.5 flex items-center justify-between">
+                <span className="font-mono text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  外观风格
+                </span>
+              </div>
+              <ThemeSegments size="sm" />
+            </div>
+            <DropdownMenuSeparator className="mx-1 my-1 opacity-60" />
+          </>
+        )}
 
-        <div className="border-b border-border/40 my-1 mx-1" />
-
-        {/* ── 3. Navigation Links (Apple Table View Cell Style) ──
-            此前手写了 3 个结构完全相同的单元格（偏好设置 / 用量与账单 / 长期记忆库），
-            与桌面顶栏的导航项是同一份目的地却各写一遍。现在由 ACCOUNT_MENU_ITEMS
-            驱动，并补上了 active 指示 —— 之前这三项没有任何当前位置反馈。 */}
+        {/* 3. 导航入口（由 ACCOUNT_MENU_ITEMS 驱动，带 active 指示） */}
         <div className="space-y-0.5">
           {ACCOUNT_MENU_ITEMS.map((item) => {
             const Icon = item.Icon;
             const active = isActive(item.id);
-            return (
-              <DropdownMenuItem
-                key={item.id}
-                onClick={() => handleNavigate(item.id, item.href)}
-                aria-current={ariaCurrent(item.id)}
+            const rowClass = cn(
+              "group flex w-full cursor-pointer items-center justify-between rounded-xl transition-all active:scale-[0.98]",
+              isDesktop ? "px-2.5 py-2" : "px-2.5 py-2",
+              active
+                ? "bg-surface-3/70"
+                : "hover:bg-surface-3/50 data-[highlighted]:bg-surface-3/50"
+            );
+            const label = (
+              <span
                 className={cn(
-                  "w-full flex items-center justify-between px-2.5 py-2 rounded-xl hover:bg-muted/60 dark:hover:bg-[#2c2c2e]/60 active:scale-[0.98] transition-all cursor-pointer group",
-                  active && "bg-muted/60 dark:bg-[#2c2c2e]/60"
+                  "truncate text-[13px] font-medium text-foreground",
+                  active && "font-semibold"
                 )}
               >
-                <div className="flex items-center gap-2.5 min-w-0">
+                {item.menuLabel}
+              </span>
+            );
+
+            return isDesktop ? (
+              <DropdownMenuItem key={item.id} asChild className={cn(rowClass, "text-xs")}>
+                <Link href={item.href} aria-current={ariaCurrent(item.id)}>
+                  <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  {label}
+                </Link>
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem
+                key={item.id}
+                onClick={() => navigate(item.id, item.href)}
+                aria-current={ariaCurrent(item.id)}
+                className={rowClass}
+              >
+                <div className="flex min-w-0 items-center gap-2.5">
                   <div
                     className={cn(
-                      "h-7 w-7 rounded-lg flex items-center justify-center shrink-0",
+                      "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg",
                       item.tint
                     )}
                   >
                     <Icon className="h-3.5 w-3.5" />
                   </div>
-                  <span
-                    className={cn(
-                      "text-[13px] font-medium text-foreground",
-                      active && "font-semibold"
-                    )}
-                  >
-                    {item.menuLabel}
-                  </span>
+                  {label}
                 </div>
-                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors shrink-0" />
+                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40 transition-colors group-hover:text-muted-foreground" />
               </DropdownMenuItem>
             );
           })}
         </div>
 
-        <div className="border-b border-border/40 my-1 mx-1" />
+        <DropdownMenuSeparator className="mx-1 my-1 opacity-60" />
 
-        {/* ── 4. Sign Out Destructive Cell ── */}
+        {/* 4. 退出登录 */}
         <DropdownMenuItem
           onClick={logout}
-          className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-destructive hover:bg-destructive/10 focus:bg-destructive/10 dark:text-red-400 active:scale-[0.98] transition-all cursor-pointer"
+          className="flex w-full cursor-pointer items-center gap-2.5 rounded-xl px-2.5 py-2 text-[13px] font-medium text-destructive transition-all hover:bg-destructive/10 focus:bg-destructive/10 active:scale-[0.98] dark:text-destructive"
         >
-          <div className="h-7 w-7 rounded-lg bg-destructive/10 text-destructive dark:text-red-400 flex items-center justify-center shrink-0">
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
             <LogOut className="h-3.5 w-3.5" />
           </div>
-          <span className="text-[13px] font-medium">退出登录</span>
+          <span>退出登录</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
 };
+
+/**
+ * 移动端头部的头像入口。保留这个薄包装是因为 5 个视图都在用它，
+ * 直接透传可读性更好，也留出将来做「未读角标」的位置。
+ */
+export const UserAvatarDropdown = UserAvatarMenu;
+
+export type UserAvatarDropdownProps = UserAvatarMenuProps;

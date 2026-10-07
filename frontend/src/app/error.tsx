@@ -25,7 +25,7 @@ export default function Error({
   return (
     <main
       role="alert"
-      className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-background px-6 text-center"
+      className="flex h-dvh flex-col items-center justify-center gap-4 bg-background px-6 text-center"
     >
       <h1 className="text-lg font-semibold">页面出了点问题</h1>
       <p className="max-w-sm text-sm text-muted-foreground">
@@ -35,8 +35,15 @@ export default function Error({
         <p className="font-mono text-xs text-muted-foreground/70">错误编号：{error.digest}</p>
       )}
       <div className="flex flex-wrap items-center justify-center gap-2">
-        <Button onClick={reset}>重试</Button>
-        <Button variant="outline" onClick={() => (window.location.href = "/chat")}>
+        <Button type="button" onClick={reset} className="rounded-2xl">
+          重试
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => (window.location.href = "/chat")}
+          className="rounded-2xl"
+        >
           返回对话
         </Button>
       </div>

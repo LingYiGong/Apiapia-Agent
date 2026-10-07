@@ -9,6 +9,7 @@ import {
   freeFilterMatch,
   type ModelFilterGroup,
 } from "@/components/common/ModelPicker";
+import { useIsTrialMode } from "@/hooks/useIsTrialMode";
 import { toChatModelOptions } from "@/lib/models";
 import type { ModelCatalogItem } from "@/types";
 
@@ -68,10 +69,10 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
     ];
   }, [options]);
 
-  // 体验模式 = 目录里一个付费模型都没有。旧实现写的是
-  // `sorted.every(isFreeModel)`，判断的是**筛选后**的列表 ——
-  // 用户一输入搜索词，这个徽标就会消失。
-  const isTrialMode = options.length > 0 && options.every((o) => o.isFree);
+  // 体验模式改由 useIsTrialMode 按**权限**判定（后端权威），目录仅在用户对象
+  // 尚未加载时兜底。此前这里是 `options.every(isFree)`，与设置页的
+  // `!is_superuser && !can_access_all_models` 是两套判定，可能互相矛盾。
+  const isTrialMode = useIsTrialMode(options);
 
   return (
     <ModelPicker

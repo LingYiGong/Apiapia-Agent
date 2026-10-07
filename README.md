@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v2.11.0-indigo?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/version-v2.12.0-indigo?style=flat-square" alt="Version">
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
   <img src="https://img.shields.io/badge/Mem0%20OSS-2.2.1-orange?style=flat-square" alt="Mem0">
@@ -22,7 +22,77 @@
 
 ---
 
-## v2.11.0 发布说明
+## v2.12.0 发布说明
+
+本版本是一次**前端架构重构**版本。重点不是新增功能，而是把长期积累的重复实现收敛为单一事实来源，并修复其中暴露出的若干真实功能缺陷。共触及 68 个文件：新增 32 个、修改 34 个、删除 3 个。
+
+其中最值得注意的是一批此前无人发现的静默故障——它们不报错、不崩溃，只是安静地不工作，例如长期记忆开关刷新即丢失、`/chat/[id]` 深链从未生效。
+
+### 布局与交互
+
+- **桌面端记忆侧栏改为常驻**：此前右侧关联记忆栏需要点击顶部 Brain 图标才会展开，与左侧会话栏的常驻行为不对称。现改为在桌面端始终显示于对话区右侧，移动端仍通过 Brain 按钮唤起底部抽屉。相应地移除了桌面端已无作用的记忆按钮，移动端保留。
+- **记忆开关改为持久化**：`useMemoryEnabled` 此前只切换 React state 而不写入用户偏好，用户在设置页打开长期记忆后刷新页面即被后端配置覆盖。现改为写入后端，与其他设置项行为一致。
+- **用量页时间区间操作错乱**：修复了 `useMemo` 依赖数组遗漏 `period` 导致的闭包陷阱——切换时间区间后执行管理员操作（如停用用户），回调仍持有旧的 `fetchStats`，页面会跳回上一个区间的数据。
+
+### 功能缺陷修复
+
+- **`/chat/[id]` 深链失效**：路由文件从未读取 `params`，组件也没有消费 URL 中的会话 ID。用户在会话列表点「复制链接」得到的地址在外部打开时永远进入默认会话，刷新后同样丢失定位。现已正确解析并恢复会话。
+- **`getApiBase()` 绕过同源代理**：该函数的文档说明浏览器端一律走同源 `/api/backend` 代理以规避 CORS，实际实现却在 `NEXT_PUBLIC_API_URL` 非空时直连后端绝对地址。开发环境一旦设置该变量便同时引入 CORS 失败与硬编码 IP 泄漏风险，文档与行为长期不一致。现按文档描述收口。
+- **时间字段优先级相反**：记忆库页面优先显示 `created_at`，聊天侧栏优先显示 `updated_at`。同一条被编辑过的记忆在两个界面显示不同时间戳，看上去像数据不一致。现统一为「有编辑时间则显示编辑时间」。
+- **深色主题下错误页闪白**：`global-error` 作为根布局的兜底错误边界，硬编码了白色背景，深色主题用户遇到致命错误时会先看到一片纯白。现改为使用主题变量。
+- **主题色三处不一致**：`manifest.json`、`layout.tsx` 与 Capacitor 状态栏各自维护了一份颜色值，且都不等于 `--background` 的实际取值，PWA 启动画面与状态栏存在色差。现统一引用同一来源。
+
+### 安全
+
+- **iOS WKWebView 沙箱降级**：`sandbox=""` 属性在部分 iOS 版本 WebView 中存在已知的降级行为，SVG 与 HTML 代码块存在被重新启用脚本的可能。已在渲染路径上补充额外的属性隔离。
+
+### 无障碍
+
+- **Slider 无可访问名称**：多处滑块（温度、创意度等）没有 `aria-label`，屏幕阅读器只会朗读「滑块」。
+- **Switch 缺少关联标签**：开关与文字之间是视觉相邻而非语义关联，点击文字不触发切换。
+- **分段控件语义错误**：选项组使用了错误的 ARIA 角色，键盘用户无法用方向键在选项间移动。
+- **搜索框仅有占位符**：4 个搜索框的提示文字随输入消失后失去标签，补充了可见 `<label>`（`ui/label.tsx` 此前零引用）。
+- **SVG 代码块焦点**：沙箱 iframe 内容无法被键盘聚焦遍历，已补充键盘可达的替代路径。
+
+### 工程重构
+
+**单一事实来源收敛** —— 以下内容此前存在多份实现，现各合并为一份：
+
+- **主题选项**：`ThemeToggle` 与 `UserAvatarDropdown` 各自维护一份主题列表与配色映射，改为共享 `ThemeSegments`。
+- **时间格式化**：`lib/format.ts` 此前只被部分文件使用，另有多处各自 `toLocaleString`，输出格式随页面而异。已全量接入。
+- **记忆数据归一化**：新增 `lib/memory.ts`，消除各组件对记忆对象字段的手工判空与防御式取值。
+- **导航配置**：延续 v2.11.0 的 `config/navigation.ts`，本次进一步把 `MobileTab` 类型从叶子组件中移出（此前 7 个文件为拿一个类型而依赖 `UserAvatarDropdown`）。
+
+**巨型组件拆分**：
+
+| 文件 | 原行数 | 现行数 |
+| :--- | ---: | ---: |
+| `UsageView.tsx` | 1363 | 495 |
+| `SettingsView.tsx` | 1090 | 632 |
+| `ChatMessageItem.tsx` | 1199 | 461 |
+| `MobileHistoryView.tsx` | 804 | 303 |
+| `chat/page.tsx` | 1050 | 1128（逻辑迁出至 `lib/`，视图层仍偏大） |
+
+拆出的部分按职责归位：设置页的模型/偏好/保存条各成独立组件，用量页的看板与图表区分离，消息项的 markdown 渲染拆入 `markdown/` 目录并抽出 `SearchSources`（原先两份逐字重复的 50 行折叠块）。
+
+**死代码清理**：
+
+- 删除 `app/api/chat/route.ts`（约 92 行）——该路由实际不可达，聊天请求走的是 `/api/backend` 代理。
+- 删除 11 个无引用的 `.apple-*` 排版类。
+- 删除 `Navbar.tsx` 上一个从未被读取的 `hasActiveChat` prop。
+- 清理 `ChatHeader.tsx` 未使用的 `Badge` import、`login/page.tsx` 未使用的 `Cat` icon。
+
+**其他**：
+
+- 修复 `ChatArea` 在渲染期调用 `Date.now()`（非纯函数，且使整棵子树每帧重算）。
+- 修复 `MyModelsTable` 表头右对齐条件误用 `i === items.length`（拿到的是表头下标而非行数）。
+- 修复 `usePinnedDragReorder` 的 `onReorder` 为必选但多处可选调用，改为可选。
+- 删除 `ui/card.tsx`、`ui/separator.tsx` 两个零引用组件。
+- 版本号五处来源统一为 v2.12.0。
+
+---
+
+### 历史版本：v2.11.0 发布说明
 
 本版本是一次以**安全**与**可访问性**为核心的修复版本。前端经历了一次全量审计，共修复 3 项安全缺陷、3 项功能性故障与 40 余项无障碍、移动端适配与样式失效问题；同时完成导航收敛与模型选择器合流等工程重构，删除约 800 行重复实现。
 
@@ -62,7 +132,7 @@
 
 ### 工程
 
-- **版本号来源统一为 v2.11.0**：此前 `VERSION` 与 `README` 标记为 v2.10.0，而 `package.json`、`lib/version.ts`、`public/version.json` 三处仍是 `2.9.0`——即 v2.10.0 的功能已全部合入但前端版本号从未跟进，**应用内更新提示一直拿 2.9.0 比对 2.9.0，从未触发过**，线上应用对外自报 2.9.0。本次五处统一，更新提示恢复生效。（彻底根治需改为构建时从单一来源注入，计划在后续版本处理。）
+- **版本号来源统一为 v2.11.0（历史）**：此前 `VERSION` 与 `README` 标记为 v2.10.0，而 `package.json`、`lib/version.ts`、`public/version.json` 三处仍是 `2.9.0`——即 v2.10.0 的功能已全部合入但前端版本号从未跟进，**应用内更新提示一直拿 2.9.0 比对 2.9.0，从未触发过**，线上应用对外自报 2.9.0。本次五处统一，更新提示恢复生效。（彻底根治需改为构建时从单一来源注入，计划在后续版本处理。）
 
 ### 导航与界面整理
 

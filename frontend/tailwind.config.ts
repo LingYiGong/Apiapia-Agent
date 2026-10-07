@@ -45,6 +45,10 @@ const config: Config = {
           DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--destructive-foreground))",
         },
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          foreground: "hsl(var(--success-foreground))",
+        },
         muted: {
           DEFAULT: "hsl(var(--muted))",
           foreground: "hsl(var(--muted-foreground))",
@@ -61,6 +65,17 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        /**
+         * Apple HIG 四层表面。取代全站 40+ 处
+         * `dark:bg-[#1c1c1e]` / `[#2c2c2e]` / `[#121214]` 硬编码。
+         * 见 globals.css 中 --surface-1..4 的层级说明。
+         */
+        surface: {
+          "1": "hsl(var(--surface-1))",
+          "2": "hsl(var(--surface-2))",
+          "3": "hsl(var(--surface-3))",
+          "4": "hsl(var(--surface-4))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -68,30 +83,15 @@ const config: Config = {
         sm: "calc(var(--radius) - 4px)",
         xs: "calc(var(--radius) - 6px)",
       },
+      /**
+       * 字体栈全部 var() 引用 globals.css 的 --font-sans / --font-mono。
+       * 此前这里、globals.css 的 :root 变量、以及 body 上各抄了一份
+       * 字面量，而 --font-sans / --font-sans-sc / --font-mono 三个变量
+       * 从未被 var() 使用过。
+       */
       fontFamily: {
-        sans: [
-          "-apple-system",
-          "BlinkMacSystemFont",
-          '"SF Pro Text"',
-          '"SF Pro Display"',
-          '"SF Pro"',
-          '"PingFang SC"',
-          '"Hiragino Sans GB"',
-          '"Microsoft YaHei"',
-          '"Noto Sans SC"',
-          "system-ui",
-          "sans-serif",
-        ],
-        mono: [
-          "-apple-system-monospaced",
-          '"SF Mono"',
-          "SFMono-Regular",
-          "ui-monospace",
-          "Menlo",
-          "Monaco",
-          "Consolas",
-          "monospace",
-        ],
+        sans: ["var(--font-sans)"],
+        mono: ["var(--font-mono)"],
       },
       // Tailwind v3 ships no `xs` / `2xs` shadow step (they arrived in v4), so every
       // `shadow-2xs` / `shadow-xs` / `drop-shadow-xs` in the codebase silently
@@ -107,19 +107,10 @@ const config: Config = {
         xs: "0 1px 1px 0 rgb(0 0 0 / 0.06)",
       },
       fontSize: {
-        // Apple HIG Dynamic Type Scale (pt / px)
-        "apple-large-title": ["34px", { lineHeight: "41px", letterSpacing: "0.37px", fontWeight: "700" }],
-        "apple-title-1": ["28px", { lineHeight: "34px", letterSpacing: "0.36px", fontWeight: "700" }],
-        "apple-title-2": ["22px", { lineHeight: "28px", letterSpacing: "0.35px", fontWeight: "700" }],
-        "apple-title-3": ["20px", { lineHeight: "25px", letterSpacing: "0.38px", fontWeight: "600" }],
-        "apple-headline": ["17px", { lineHeight: "22px", letterSpacing: "-0.41px", fontWeight: "600" }],
-        "apple-body": ["17px", { lineHeight: "22px", letterSpacing: "-0.41px" }],
-        "apple-callout": ["16px", { lineHeight: "21px", letterSpacing: "-0.32px" }],
-        "apple-subheadline": ["15px", { lineHeight: "20px", letterSpacing: "-0.24px" }],
-        "apple-footnote": ["13px", { lineHeight: "18px", letterSpacing: "-0.08px" }],
-        "apple-caption-1": ["12px", { lineHeight: "16px", letterSpacing: "0px" }],
-        "apple-caption-2": ["11px", { lineHeight: "13px", letterSpacing: "0.07px" }],
-        // Standard Tailwind scales calibrated to Apple typography
+        // Standard Tailwind scales calibrated to Apple typography.
+        // Apple HIG 的 pt 值以任意值形式写在用点（text-[13px] 等），
+        // 这里只补两个 Tailwind 刻度里缺、且使用频率很高的档位。
+        "2xs": ["11px", { lineHeight: "13px", letterSpacing: "0.07px" }],
         xs: ["12px", { lineHeight: "16px", letterSpacing: "0px" }],
         sm: ["14px", { lineHeight: "19px", letterSpacing: "-0.15px" }],
         base: ["16px", { lineHeight: "22px", letterSpacing: "-0.32px" }],

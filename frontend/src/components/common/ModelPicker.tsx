@@ -7,10 +7,9 @@ import {
   Check,
   X,
   Sparkles,
+  type LucideIcon,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { ActionTooltip } from "@/components/common/ActionTooltip";
 import {
   Popover,
   PopoverTrigger,
@@ -35,7 +34,7 @@ export interface ModelFilterGroup {
   label: string;
   /** 该分组命中全部选项时的提示色 */
   tone: "free" | "featured" | "all";
-  icon?: React.ElementType;
+  icon?: LucideIcon;
   count: number;
   /** 是否命中任何一条选项；为 false 时该分组不渲染 */
   available: boolean;
@@ -60,7 +59,7 @@ export interface ModelPickerProps {
   disabled?: boolean;
   loading?: boolean;
   /** 触发器左侧图标；不传则不显示 */
-  triggerIcon?: React.ElementType;
+  triggerIcon?: LucideIcon;
   /** 弹层宽度档位 */
   width?: "narrow" | "wide";
   /** 是否展示 免费 / 精选 / 全部 分组筛选（仅语言模型有此筛选） */
@@ -73,16 +72,16 @@ export interface ModelPickerProps {
 
 const TONE_CLASS: Record<ModelFilterGroup["tone"], { active: string; idle: string }> = {
   free: {
-    active: "bg-emerald-600 text-white font-semibold shadow-xs",
-    idle: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20",
+    active: "bg-emerald-600 font-semibold text-white shadow-xs",
+    idle: "border border-emerald-500/20 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-400",
   },
   featured: {
-    active: "bg-amber-500 text-white font-semibold shadow-xs",
-    idle: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 hover:bg-amber-500/20",
+    active: "bg-amber-500 font-semibold text-white shadow-xs",
+    idle: "border border-amber-500/20 bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 dark:text-amber-400",
   },
   all: {
-    active: "bg-foreground text-background font-semibold shadow-xs",
-    idle: "bg-muted/60 dark:bg-[#2c2c2e]/60 text-muted-foreground hover:text-foreground",
+    active: "bg-foreground font-semibold text-background shadow-xs",
+    idle: "bg-surface-3/60 text-muted-foreground hover:text-foreground",
   },
 };
 
@@ -219,30 +218,36 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
+        {/*
+          触发器**不**声明 role="combobox"。
+          整个弹层里已经有且只有一个 combobox（下方的搜索框，见下），
+          两个 combobox 指向同一个 listbox 会让读屏用户听到两个输入框，
+          且 aria-activedescendant 只在其中一个上生效。
+          触发器只是一个「打开选择器」的按钮，用 aria-haspopup="dialog" 表达。
+        */}
         <button
           type="button"
-          role="combobox"
+          aria-haspopup="dialog"
           aria-expanded={open}
-          aria-haspopup="listbox"
-          aria-controls={open ? listboxId.current : undefined}
-          aria-label={`选择${a11yLabel}`}
+          aria-label={`选择${a11yLabel}${selectedOption ? `，当前 ${selectedOption.name}` : ""}`}
           disabled={disabled}
           className={cn(
             isCompact
-              ? "h-8 px-3 rounded-full bg-muted/70 hover:bg-muted/90 active:scale-95 border border-border/60 transition-all flex items-center justify-between gap-1.5 select-none cursor-pointer shadow-2xs max-w-full group"
-              : "w-full h-9 sm:h-[38px] justify-between px-3 rounded-xl border border-border/60 bg-muted/30 hover:bg-muted/60 transition-all active:scale-[0.99] flex items-center text-left shadow-2xs gap-2 select-none cursor-pointer group",
-            open && "bg-muted/60 ring-2 ring-primary/20 border-primary/40",
-            loading && "opacity-60 cursor-not-allowed",
+              ? "flex h-8 max-w-full select-none cursor-pointer items-center justify-between gap-1.5 rounded-full border border-border/60 bg-surface-3/70 px-3 transition-colors hover:bg-surface-3 active:scale-95 group"
+              : "flex w-full items-center justify-between gap-2 rounded-xl border border-border/60 bg-surface-3/30 px-3 text-left transition-colors hover:bg-surface-3/60 active:scale-[0.99] sm:h-[38px] h-9 group",
+            "shadow-2xs",
+            open && "border-primary/40 bg-surface-3/60 ring-2 ring-primary/20",
+            loading && "cursor-not-allowed opacity-60",
             className
           )}
         >
-          <div className="flex items-center gap-1.5 min-w-0 flex-1 overflow-hidden">
+          <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
             {TriggerIcon && (
               <TriggerIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
             )}
             <span
               className={cn(
-                "text-[13px] truncate",
+                "truncate text-[13px]",
                 !isCompact && "font-medium",
                 selectedOption || value ? "text-foreground" : "text-muted-foreground",
                 isRawIdFallback && "font-mono"
@@ -250,22 +255,23 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
             >
               {triggerLabel}
             </span>
+            {/* 「免费」圆点：不能包 ActionTooltip —— 它位于触发器 <button>
+                内部，而 TooltipTrigger asChild 会给它加 tabindex，于是 button
+                里出现了可聚焦元素（HTML 非法，键盘用户也会被卡住）。
+                改用原生 title 提示。 */}
             {selectedOption?.isFree && (
-              // 位于触发器 <button> 内部，因此保持不可聚焦，
-              // 但 role / aria-label 仍会并入按钮的可访问名称。
-              <ActionTooltip label="免费模型">
-                <span
-                  role="img"
-                  aria-label="免费模型"
-                  className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"
-                />
-              </ActionTooltip>
+              <span
+                role="img"
+                aria-label="免费模型"
+                title="免费模型"
+                className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500"
+              />
             )}
           </div>
 
           <ChevronDown
             className={cn(
-              "h-3.5 w-3.5 text-muted-foreground shrink-0 transition-transform duration-200",
+              "h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200",
               isCompact ? "ml-0.5" : "ml-1",
               open && "rotate-180 text-foreground"
             )}
@@ -279,43 +285,43 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
         collisionPadding={12}
         onOpenAutoFocus={(e) => e.preventDefault()}
         className={cn(
-          "rounded-[22px] border border-border/50 bg-background/95 dark:bg-[#1c1c1e]/95 backdrop-blur-2xl",
+          "z-50 flex max-h-[75vh] flex-col rounded-[22px] border border-border/50 bg-background/95 p-3 pt-3.5 backdrop-blur-2xl",
           "shadow-[0_20px_50px_rgba(0,0,0,0.2)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.6)]",
-          "p-3 pt-3.5 z-50 flex flex-col max-h-[75vh]",
           width === "wide"
             ? "w-[calc(100vw-24px)] max-w-[500px]"
             : "w-[calc(100vw-24px)] max-w-[390px] sm:w-[420px]"
         )}
       >
         <div className="flex items-center justify-between px-1 pb-2.5">
-          <div className="flex items-center gap-1.5">
-            <span className="text-[12px] font-semibold text-foreground tracking-tight">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <span className="text-[12px] font-semibold tracking-tight text-foreground">
               选择{kindLabel}
             </span>
-            <span className="text-[11px] text-muted-foreground font-mono bg-muted/60 px-1.5 py-0.5 rounded-full">
+            <span className="rounded-full bg-surface-3/60 px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
               {visible.length}
             </span>
             {isTrialMode && (
-              <ActionTooltip label={`当前处于体验模式，仅可使用免费${kindLabel}`}>
-                <Badge
-                  variant="outline"
-                  tabIndex={0}
-                  className="text-[10px] font-normal bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 px-1.5 py-0 rounded-full shadow-none cursor-help"
-                >
-                  体验模式
-                </Badge>
-              </ActionTooltip>
+              // 不可聚焦：纯展示信息。徽章本身是 div，套 Tooltip 会造出一个
+              // 可聚焦的 div（违反 WCAG 2.1.1）。
+              <span
+                title={`当前处于体验模式，仅可使用免费${kindLabel}`}
+                className="shrink-0 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0 text-[10px] text-emerald-600 dark:text-emerald-400"
+              >
+                体验模式
+              </span>
             )}
           </div>
           {selectedOption && (
-            <span className="text-[11px] text-muted-foreground font-mono truncate max-w-[170px]">
+            <span className="max-w-[170px] truncate font-mono text-[11px] text-muted-foreground">
               当前: {selectedOption.name}
             </span>
           )}
         </div>
 
         <div className="relative mb-2.5">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          {/* 全弹层唯一的 combobox：焦点始终留在这个搜索框，
+              aria-activedescendant 指向 listbox 里的高亮项。 */}
           <Input
             ref={searchInputRef}
             type="search"
@@ -334,14 +340,14 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
               );
             }}
             onKeyDown={handleListKeyDown}
-            className="pl-9 pr-8 h-[34px] text-[13px] rounded-xl bg-muted/60 dark:bg-[#2c2c2e]/70 border-0 focus-visible:ring-1 focus-visible:ring-primary/40 placeholder:text-muted-foreground/60"
+            className="h-[34px] rounded-xl border-0 bg-surface-3/60 pl-9 pr-8 text-[13px] placeholder:text-muted-foreground/60 focus-visible:ring-1 focus-visible:ring-primary/40"
           />
           {search && (
             <button
               type="button"
               onClick={() => setSearch("")}
               aria-label="清除搜索"
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-full text-muted-foreground hover:text-foreground active:scale-95"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted-foreground transition-transform hover:text-foreground active:scale-95"
             >
               <X className="h-3.5 w-3.5" />
             </button>
@@ -349,7 +355,7 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
         </div>
 
         {availableGroups.length > 0 && (
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-2.5 pt-0.5 shrink-0">
+          <div className="flex shrink-0 items-center gap-1.5 overflow-x-auto no-scrollbar pb-2.5 pt-0.5">
             {availableGroups.map((group) => {
               const Icon = group.icon;
               const isOn = filterKey === group.key;
@@ -360,7 +366,7 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
                   aria-pressed={isOn}
                   onClick={() => setFilterKey(group.key)}
                   className={cn(
-                    "h-7 px-2.5 rounded-full text-[11px] font-medium transition-all shrink-0 active:scale-95",
+                    "h-7 shrink-0 rounded-full px-2.5 text-[11px] font-medium transition-colors active:scale-95",
                     Icon && "flex items-center gap-1",
                     isOn ? TONE_CLASS[group.tone].active : TONE_CLASS[group.tone].idle
                   )}
@@ -375,27 +381,27 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
           </div>
         )}
 
-        {availableGroups.length > 0 && <div className="border-b border-border/40 mb-1.5" />}
+        {availableGroups.length > 0 && <div className="mb-1.5 border-b border-border/40" />}
 
-        {/* ARIA combobox：焦点留在搜索框，用 aria-activedescendant 指向高亮项，
+        {/* listbox：焦点留在搜索框，用 aria-activedescendant 指向高亮项，
             选项本身保持不可聚焦。列表缺 role="listbox" 或选项缺 role="option"
             都会让键盘与读屏完全无法操作。 */}
         <div
           id={listboxId.current}
           role="listbox"
           aria-label={`${a11yLabel}列表`}
-          className="overflow-y-auto flex-1 min-h-0 max-h-[50vh] space-y-1 pr-1 overscroll-contain touch-pan-y"
           onWheel={(e) => e.stopPropagation()}
+          className="min-h-0 max-h-[50vh] flex-1 space-y-1 overflow-y-auto overscroll-contain pr-1 touch-pan-y"
         >
           {visible.length === 0 ? (
             emptyState ?? (
-              <div className="py-10 px-3 text-center text-xs text-muted-foreground leading-relaxed">
+              <div className="px-3 py-10 text-center text-xs leading-relaxed text-muted-foreground">
                 未找到匹配的{kindLabel}
                 {filterKey && (
                   <button
                     type="button"
                     onClick={() => setFilterKey(null)}
-                    className="mt-2 block mx-auto text-primary underline text-xs hover:opacity-80 active:scale-95 cursor-pointer"
+                    className="mx-auto mt-2 block cursor-pointer text-xs text-primary underline hover:opacity-80 active:scale-95"
                   >
                     在全部 {options.length} 个模型中查找
                   </button>
@@ -415,15 +421,15 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
                   onClick={() => commit(idx)}
                   onMouseMove={() => setActiveIndex(idx)}
                   className={cn(
-                    "p-2.5 sm:px-3 rounded-xl cursor-pointer text-xs transition-all flex items-center justify-between gap-2.5 active:scale-[0.99]",
-                    isActive && !isSelected && "bg-muted/60 dark:bg-[#2c2c2e]/50",
+                    "flex cursor-pointer items-center justify-between gap-2.5 rounded-xl p-2.5 text-xs transition-all active:scale-[0.99] sm:px-3",
+                    isActive && !isSelected && "bg-surface-3/50",
                     isSelected
-                      ? "bg-primary/10 dark:bg-primary/15 text-primary font-medium border border-primary/25"
+                      ? "border border-primary/25 bg-primary/10 font-medium text-primary"
                       : "border border-transparent"
                   )}
                 >
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 flex-wrap">
+                    <div className="flex flex-wrap items-center gap-1.5">
                       <span
                         className={cn(
                           "font-semibold tracking-tight",
@@ -433,40 +439,38 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
                         {o.name}
                       </span>
                       {o.isFeatured && (
-                        <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/25 font-medium flex items-center gap-0.5">
+                        <span className="flex items-center gap-0.5 rounded-md border border-amber-500/25 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-medium text-amber-600 dark:text-amber-400">
                           <Sparkles className="h-2.5 w-2.5" />
                           精选
                         </span>
                       )}
                       {o.isFree && (
-                        <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25 font-medium">
+                        <span className="rounded-md border border-emerald-500/25 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-medium text-emerald-600 dark:text-emerald-400">
                           免费
                         </span>
                       )}
                       {o.isMultimodal && (
-                        <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/25 font-medium">
+                        <span className="rounded-md border border-violet-500/25 bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-medium text-violet-600 dark:text-violet-400">
                           多模态
                         </span>
                       )}
                       {o.provider && (
-                        <span className="text-[9px] px-1 py-0.5 rounded uppercase font-mono bg-muted/80 text-muted-foreground">
+                        <span className="rounded bg-surface-3/80 px-1 py-0.5 font-mono text-[9px] uppercase text-muted-foreground">
                           {o.provider}
                         </span>
                       )}
                     </div>
-                    <p className="text-[10px] text-muted-foreground font-mono truncate mt-0.5">
+                    <p className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground">
                       {o.id}
                     </p>
                     {o.description && (
-                      <p className="text-[10px] text-muted-foreground line-clamp-1 mt-0.5 leading-relaxed">
+                      <p className="mt-0.5 line-clamp-1 text-[10px] leading-relaxed text-muted-foreground">
                         {o.description}
                       </p>
                     )}
                   </div>
 
-                  {isSelected && (
-                    <Check className="h-4 w-4 text-primary shrink-0 stroke-[2.5]" />
-                  )}
+                  {isSelected && <Check className="h-4 w-4 shrink-0 stroke-[2.5] text-primary" />}
                 </div>
               );
             })

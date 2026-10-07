@@ -41,12 +41,20 @@ export interface ButtonProps
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
+  (
+    { className, variant, size, asChild = false, type = "button", ...props },
+    ref
+  ) => {
     const Comp = asChild ? Slot : "button";
     return (
       <Comp
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
+        // HTML 的 <button> 默认 type="submit"。全站有 100+ 处 <Button> 没有显式
+        // 写 type，此前它们恰好都不在 <form> 里 —— 但这是「谁把按钮搬进表单谁
+        // 踩雷」的地雷：表单会静默提交并丢掉整页状态。默认改成 "button"，
+        // 真正要提交的按钮写 type="submit"（表单里已按此写法）。
+        type={asChild ? undefined : type}
         {...props}
       />
     );

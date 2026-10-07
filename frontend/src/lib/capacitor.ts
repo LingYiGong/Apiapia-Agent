@@ -29,7 +29,9 @@ export const initCapacitorApp = async (theme: "light" | "dark" = "dark") => {
     });
 
     await StatusBar.setBackgroundColor({
-      color: theme === "dark" ? "#090d16" : "#ffffff",
+      // 与 globals.css 的 --background 对齐（深色 = True Black #000）。
+      // 此前这里是 #090d16，与页面底色不一致，原生状态栏会比内容更深一条。
+      color: theme === "dark" ? "#000000" : "#ffffff",
     });
   } catch (err) {
     console.warn("Capacitor StatusBar init skipped/failed:", err);

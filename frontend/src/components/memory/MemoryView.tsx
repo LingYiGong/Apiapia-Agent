@@ -4,12 +4,12 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { apiRequest } from "@/lib/api";
-import { Navbar } from "@/components/layout/Navbar";
-import { MobileHeader } from "@/components/layout/MobileHeader";
-import { MobileTab } from "@/components/layout/UserAvatarDropdown";
+import { ViewShell } from "@/components/common/ViewShell";
+import type { MobileTab } from "@/config/navigation";
 import { MemoryItem } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -19,13 +19,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { ActionTooltip } from "@/components/common/ActionTooltip";
-import { useRefreshOnResume } from "@/lib/useRefreshOnResume";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { EmptyState } from "@/components/common/EmptyState";
+import { Panel, SectionLabel } from "@/components/common/Panel";
+import { useRefreshOnResume } from "@/hooks/useRefreshOnResume";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
-import { FullPageSkeleton } from "@/components/common/PageSkeleton";
+import { FullPageSkeleton, MemoryListSkeleton } from "@/components/common/PageSkeleton";
+import { formatDateTime } from "@/lib/format";
+import { normalizeMemories, type NormalizedMemory } from "@/lib/memory";
+import { groupByTimeBuckets } from "@/lib/timeGroups";
 import {
   Brain,
   Search,
@@ -37,31 +41,6 @@ import {
   Clock,
   RotateCcw,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
-
-function formatFullDateTime(val?: string): string {
-  if (!val) return "";
-  try {
-    const d = new Date(val);
-    if (isNaN(d.getTime())) return String(val);
-    const pad = (n: number) => String(n).padStart(2, "0");
-    const year = d.getFullYear();
-    const month = pad(d.getMonth() + 1);
-    const day = pad(d.getDate());
-    const hours = pad(d.getHours());
-    const minutes = pad(d.getMinutes());
-    const seconds = pad(d.getSeconds());
-    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-  } catch {
-    return String(val);
-  }
-}
-
-interface MemorySection {
-  key: "today" | "pastWeek" | "earlier";
-  title: string;
-  items: MemoryItem[];
-}
 
 export interface MemoryViewProps {
   isMobileSpa?: boolean;
@@ -78,67 +57,35 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
   const { user, loading } = useAuth();
   const router = useRouter();
 
-  const [memories, setMemories] = useState<MemoryItem[]>([]);
+  const [memories, setMemories] = useState<NormalizedMemory[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [loadingMemories, setLoadingMemories] = useState(true);
 
   // Inline Edit State
-  const [editingItem, setEditingItem] = useState<MemoryItem | null>(null);
+  const [editingItem, setEditingItem] = useState<NormalizedMemory | null>(null);
   const [editText, setEditText] = useState("");
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   // Delete Confirm State
+  //
+  // 「待确认的目标」和「请求正在飞行」必须是两个状态。此前只有一个 deletingId，
+  // 而弹窗又只在 deletingId 非空时渲染，于是 `loading={!!deletingId}` 在弹窗
+  // 挂载的第一帧就为 true，ConfirmDialog 把确认/取消按钮一起 disabled 并显示
+  // 「处理中…」—— onConfirm 永远不触发，删除功能从 UI 完全不可达。
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  // 单飞闸门：state 更新是异步的，光靠 deletingId 挡不住同一帧内的双击
+  const [isDeleting, setIsDeleting] = useState(false);
+  // 单飞闸门：state 更新是异步的，光靠 isDeleting 挡不住同一帧内的双击
   const deletingRef = useRef(false);
 
-  // 按 Apple HIG 规范将记忆按时间分组（今天、过去 7 天、更早之前）
-  const groupedSections = useMemo<MemorySection[]>(() => {
-    const today: MemoryItem[] = [];
-    const pastWeek: MemoryItem[] = [];
-    const earlier: MemoryItem[] = [];
-
-    const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    const sevenDaysAgo = startOfToday - 6 * 24 * 60 * 60 * 1000;
-
-    const getEffectiveTime = (item: MemoryItem): number => {
-      const ts =
-        item.updated_at ||
-        (item as any).metadata?.updated_at ||
-        item.created_at ||
-        (item as any).metadata?.created_at ||
-        (item as any).metadata?.timestamp;
-      return ts ? new Date(ts).getTime() : 0;
-    };
-
-    memories.forEach((item) => {
-      const t = getEffectiveTime(item);
-      if (t >= startOfToday) {
-        today.push(item);
-      } else if (t >= sevenDaysAgo) {
-        pastWeek.push(item);
-      } else {
-        earlier.push(item);
-      }
-    });
-
-    const sortByTimeDesc = (a: MemoryItem, b: MemoryItem) => {
-      return getEffectiveTime(b) - getEffectiveTime(a);
-    };
-
-    today.sort(sortByTimeDesc);
-    pastWeek.sort(sortByTimeDesc);
-    earlier.sort(sortByTimeDesc);
-
-    const sections: MemorySection[] = [];
-    if (today.length > 0) sections.push({ key: "today", title: "今天", items: today });
-    if (pastWeek.length > 0) sections.push({ key: "pastWeek", title: "过去 7 天", items: pastWeek });
-    if (earlier.length > 0) sections.push({ key: "earlier", title: "更早之前", items: earlier });
-
-    return sections;
-  }, [memories]);
+  // 按 Apple HIG 规范将记忆按时间分组（置顶/今天、过去 7 天、更早之前）
+  const groupedSections = useMemo(
+    () =>
+      groupByTimeBuckets<NormalizedMemory>(memories, {
+        getTime: (m) => new Date(m.effectiveAt || 0).getTime(),
+      }),
+    [memories]
+  );
 
   // 视图内部守卫（此前与 UsageView / SettingsView 逐字相同的三份之一）
   useRequireAuth();
@@ -147,7 +94,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
     setLoadingMemories(true);
     try {
       const data = await apiRequest<MemoryItem[]>("/memories");
-      setMemories(data || []);
+      setMemories(normalizeMemories(data || []));
     } catch (err) {
       console.error("Failed to load memories:", err);
     } finally {
@@ -184,7 +131,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
       const res = await apiRequest<{ query: string; results: MemoryItem[] }>(
         `/memories/search?q=${encodeURIComponent(query)}`
       );
-      setMemories(res.results || []);
+      setMemories(normalizeMemories(res.results || []));
     } catch (err: any) {
       console.error("Search failed:", err);
       toast.error(err?.message || "检索记忆库失败");
@@ -213,15 +160,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
       setMemories((prev) =>
         prev.map((m) =>
           m.id === targetId
-            ? {
-                ...m,
-                memory: newText,
-                updated_at: nowIso,
-                metadata: {
-                  ...((m as any).metadata || {}),
-                  updated_at: nowIso,
-                },
-              }
+            ? { ...m, text: newText, effectiveAt: nowIso, isEdited: true }
             : m
         )
       );
@@ -236,11 +175,11 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
   };
 
   const handleDelete = async (id: string) => {
-    // 按 key 单飞：确认弹窗的 loading 态会禁用按钮，连点两次此前会真的
-    // 发出两个 DELETE（第二次 404，用户看到「删除记忆失败」的假报错）
+    // ref 单飞：确认弹窗的 loading 态能挡住「下一帧」的点击，但挡不住同一帧内的
+    // 双击（state 尚未提交），所以真正的闸门是这个 ref。
     if (deletingRef.current) return;
     deletingRef.current = true;
-    setDeletingId(id);
+    setIsDeleting(true);
     try {
       await apiRequest(`/memories/${id}`, { method: "DELETE" });
       setMemories((prev) => prev.filter((m) => m.id !== id));
@@ -249,6 +188,8 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
       toast.error(err.message || "删除记忆失败");
     } finally {
       deletingRef.current = false;
+      setIsDeleting(false);
+      // 成功与否都关掉弹窗：失败时用户已经看到 toast，留在原地反而挡住列表。
       setDeletingId(null);
     }
   };
@@ -284,268 +225,199 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
 
   if (loading || !user) return <FullPageSkeleton variant="list" />;
 
-  return (
-    <div className={cn("flex flex-col h-full overflow-hidden bg-background w-full", !isMobileSpa && "h-dvh")}>
-      {!isMobileSpa && <Navbar />}
-      {/* ── Apple HIG Standard Mobile Navigation Bar (44pt) ── */}
-      <MobileHeader title="记忆库" onSelectMobileTab={onSelectMobileTab} />
+  const goToChat = () => {
+    if (onSelectMobileTab) {
+      onSelectMobileTab("chat");
+    } else {
+      router.push("/chat");
+    }
+  };
 
+  return (
+    <ViewShell title="记忆库" isMobileSpa={isMobileSpa} onSelectMobileTab={onSelectMobileTab}>
       {/* ── 顶部操作栏 ── */}
-      <div className="px-3.5 sm:px-6 py-2 border-b border-border/40 bg-background/80 backdrop-blur-md shrink-0 select-none">
-        <form
-          onSubmit={handleSearch}
-          className="max-w-4xl mx-auto w-full flex items-center gap-2"
-        >
-          {/* 1. 搜索输入框 */}
-          <div className="relative flex-1 min-w-0">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+      <Panel tone="bare" className="flex flex-wrap items-center justify-between gap-2">
+        <form onSubmit={handleSearch} className="flex w-full max-w-2xl items-center gap-2">
+          <div className="relative min-w-0 flex-1">
+            <Label htmlFor="memory-search" className="sr-only">
+              搜索记忆
+            </Label>
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
+              id="memory-search"
               type="search"
               placeholder="搜索记忆..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 pr-8 h-8 text-[13px] rounded-lg bg-muted/60 dark:bg-muted/40 border-border/40 focus-visible:bg-background focus-visible:ring-1 focus-visible:ring-ring"
+              className="h-9 rounded-xl border-border/40 bg-surface-3/50 pl-9 pr-8 text-[13px] focus-visible:bg-background focus-visible:ring-1 focus-visible:ring-ring"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={handleResetSearch}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors cursor-pointer"
+                aria-label="清除搜索"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
             )}
           </div>
 
-          {/* 2. 搜索按钮 */}
           <ActionTooltip label="搜索记忆" side="bottom">
             <Button
               type="submit"
               variant="secondary"
               size="icon"
-              className="h-8 w-8 rounded-lg shrink-0 active:scale-95 border border-border/40 bg-muted/60 hover:bg-muted/90 text-foreground transition-all cursor-pointer"
+              className="h-9 w-9 shrink-0 cursor-pointer rounded-xl border border-border/40 bg-surface-3/60 text-foreground transition-colors hover:bg-surface-3 active:scale-95"
             >
               <Search className="h-4 w-4" />
               <span className="sr-only">搜索</span>
             </Button>
           </ActionTooltip>
 
-          {/* 3. 下载/导出按钮 */}
           <ActionTooltip label="导出所有记忆为 JSON" side="bottom">
             <Button
               type="button"
               onClick={handleExport}
+              disabled={isExporting}
               variant="outline"
               size="icon"
-              className="h-8 w-8 rounded-lg shrink-0 active:scale-95 border-border/50 bg-muted/30 hover:bg-muted text-foreground transition-all cursor-pointer"
+              className="h-9 w-9 shrink-0 cursor-pointer rounded-xl border-border/50 bg-surface-3/30 text-foreground transition-colors hover:bg-surface-3 active:scale-95"
             >
               <Download className="h-4 w-4" />
               <span className="sr-only">导出 JSON</span>
             </Button>
           </ActionTooltip>
         </form>
+      </Panel>
+
+      {/* ── 状态与统计小标 ── */}
+      <div className="flex items-center justify-between px-1">
+        <SectionLabel className="flex items-center gap-1.5 pb-0">
+          <Brain className="h-3.5 w-3.5 text-primary" />
+          <span>{isSearching ? "搜索结果" : "全部记忆"}</span>
+          <span className="font-mono text-[10px] opacity-60">({memories.length})</span>
+        </SectionLabel>
+
+        {isSearching && (
+          <button
+            type="button"
+            onClick={handleResetSearch}
+            className="flex cursor-pointer items-center gap-1 text-[11px] normal-case tracking-normal text-primary hover:underline"
+          >
+            <RotateCcw className="h-3 w-3" />
+            <span>显示全部</span>
+          </button>
+        )}
       </div>
 
-      {/* ── 记忆列表滚动容器 ── */}
-      <div className="flex-1 overflow-y-auto px-3.5 sm:px-6 py-3.5 pb-6 md:pb-8 overscroll-contain">
-        <div className="max-w-4xl mx-auto w-full space-y-3">
-          {/* 状态与统计小标 */}
-          <div className="flex items-center justify-between px-1 text-[12px] font-semibold text-muted-foreground uppercase tracking-wider select-none">
-            <div className="flex items-center gap-1.5">
-              <Brain className="h-3.5 w-3.5 text-primary" />
-              <span>{isSearching ? "搜索结果" : "全部记忆"}</span>
-              <span className="text-[10px] font-mono opacity-60">({memories.length})</span>
-            </div>
-
-            {isSearching && (
-              <button
-                type="button"
-                onClick={handleResetSearch}
-                className="flex items-center gap-1 text-[11px] font-normal tracking-normal normal-case text-primary hover:underline cursor-pointer"
-              >
-                <RotateCcw className="h-3 w-3" />
-                <span>显示全部</span>
-              </button>
-            )}
-          </div>
-
-          {/* 列表渲染 */}
-          {loadingMemories ? (
-            <div className="space-y-2.5">
-              {[0, 1, 2, 3].map((i) => (
-                <div
-                  key={i}
-                  className="p-4 rounded-xl border border-border/40 bg-card/60 space-y-2 animate-pulse"
-                >
-                  <div className="flex items-center gap-2">
-                    <Skeleton className="h-3.5 w-12 rounded-md" />
-                    <Skeleton className="h-3.5 w-28 rounded-md" />
-                  </div>
-                  <Skeleton className="h-4 w-full rounded-md" />
-                  <Skeleton className="h-4 w-2/3 rounded-md" />
-                </div>
-              ))}
-            </div>
-          ) : memories.length === 0 ? (
-            /* 空状态 */
-            <div className="flex flex-col items-center justify-center py-16 text-center select-none">
-              <div className="h-14 w-14 rounded-2xl bg-muted/50 flex items-center justify-center text-muted-foreground mb-3">
-                <Brain className="h-7 w-7" />
+      {/* ── 列表 ── */}
+      {loadingMemories ? (
+        <MemoryListSkeleton rows={4} />
+      ) : memories.length === 0 ? (
+        <EmptyState
+          icon={Brain}
+          title={isSearching ? "未找到匹配的记忆记录" : "暂无记忆记录"}
+          description={
+            isSearching
+              ? "换个关键词试试，或清除搜索框。"
+              : "在与 AI 对话中提及关于你的背景、习惯或关键事实，模型将自动提炼并记录在此处。"
+          }
+          actionLabel={isSearching ? "重置搜索" : "去新建对话"}
+          actionIcon={isSearching ? RotateCcw : MessageSquare}
+          actionVariant={isSearching ? "outline" : "default"}
+          onAction={isSearching ? handleResetSearch : goToChat}
+        />
+      ) : (
+        <div className="space-y-6">
+          {groupedSections.map((sec) => (
+            <div key={sec.key} className="space-y-2.5">
+              <div className="flex items-center justify-between px-1">
+                <span className="text-[12px] font-semibold tracking-tight text-muted-foreground/80 select-none">
+                  {sec.title}
+                  <span className="ml-1.5 font-mono text-[10px] opacity-50">
+                    ({sec.items.length})
+                  </span>
+                </span>
               </div>
-              <h3 className="text-base font-semibold text-foreground">
-                {isSearching ? "未找到匹配的记忆记录" : "暂无记忆记录"}
-              </h3>
-              <p className="text-xs text-muted-foreground mt-1 max-w-xs leading-relaxed">
-                {isSearching
-                  ? "换个关键词试试，或点击右上方清除搜索。"
-                  : "在与 AI 对话中提及关于你的背景、习惯或关键事实，模型将自动提炼并记录在此处。"}
-              </p>
-              <div className="mt-4">
-                {isSearching ? (
-                  <Button
-                    onClick={handleResetSearch}
-                    variant="outline"
-                    size="sm"
-                    className="rounded-xl px-4 text-xs font-medium cursor-pointer"
-                  >
-                    重置搜索
-                  </Button>
-                ) : (
-                  <Button
-                    onClick={() => {
-                      if (onSelectMobileTab) {
-                        onSelectMobileTab("chat");
-                      } else {
-                        router.push("/chat");
-                      }
-                    }}
-                    size="sm"
-                    className="rounded-xl px-4 text-xs font-medium gap-1.5 shadow-xs bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-all cursor-pointer"
-                  >
-                    <MessageSquare className="h-3.5 w-3.5" />
-                    <span>去新建对话</span>
-                  </Button>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {(() => {
-                let globalCounter = 0;
-                return groupedSections.map((sec) => (
-                  <div key={sec.key} className="space-y-2.5">
-                    {/* Apple HIG 时间分组小标 */}
-                    <div className="flex items-center justify-between px-1 text-[12px] font-semibold text-muted-foreground/80 select-none">
-                      <div className="flex items-center gap-1.5">
-                        <span className="tracking-tight">{sec.title}</span>
-                        <span className="text-[10px] font-mono opacity-50">({sec.items.length})</span>
-                      </div>
-                    </div>
 
-                    {/* 分组内记忆卡片 */}
-                    <div className="space-y-3">
-                      {sec.items.map((item) => {
-                        const currentNum = ++globalCounter;
-                        const text =
-                          item.memory ||
-                          (item as any).data ||
-                          (item as any).text ||
-                          (typeof item === "string" ? item : JSON.stringify(item));
-                        const itemId = item.id
-                          ? String(item.id)
-                          : (item as any).hash
-                          ? String((item as any).hash)
-                          : `mem-${currentNum}`;
-                        const createdAt =
-                          item.updated_at ||
-                          item.created_at ||
-                          (item as any).metadata?.created_at ||
-                          (item as any).metadata?.timestamp;
-                        const formattedTime = formatFullDateTime(createdAt);
-
-                        return (
-                          <div
-                            key={itemId}
-                            className={cn(
-                              "group relative p-4 sm:p-[18px] rounded-2xl border border-border/50 bg-card/80 dark:bg-[#1C1C1E]/80 backdrop-blur-md shadow-2xs",
-                              "hover:border-border/80 hover:bg-card dark:hover:bg-[#1C1C1E] hover:shadow-xs transition-all duration-200"
-                            )}
-                          >
-                            {/* 顶部元信息栏与操作按钮 */}
-                            <div className="flex items-center justify-between gap-3">
-                              <div className="flex items-center gap-2 min-w-0">
-                                <div className="h-6 w-6 rounded-md bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                                  <Brain className="h-3.5 w-3.5" />
-                                </div>
-                                <span className="text-[12px] font-semibold text-foreground/80 tracking-tight shrink-0">
-                                  记忆 #{currentNum}
-                                </span>
-                                {formattedTime && (
-                                  <div className="flex items-center gap-1.5 min-w-0 text-muted-foreground/60 text-[11.5px]">
-                                    <span className="text-[10px] opacity-40">•</span>
-                                    <span className="inline-flex items-center gap-1 font-mono truncate">
-                                      <Clock className="h-3 w-3 shrink-0 opacity-70" />
-                                      <span>{formattedTime}</span>
-                                    </span>
-                                    {(item.updated_at || (item as any).metadata?.updated_at) && (
-                                      <span className="text-[10px] font-normal px-1.5 py-0.5 rounded-md bg-muted/60 text-muted-foreground/80 shrink-0 select-none">
-                                        已编辑
-                                      </span>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* Apple HIG 按钮组：编辑与删除 */}
-                              <div className="flex items-center gap-1 shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
-                                <ActionTooltip label="编辑记忆" side="top">
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => {
-                                      setEditingItem(item);
-                                      setEditText(text);
-                                    }}
-                                    className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/80 active:scale-90 transition-all cursor-pointer"
-                                  >
-                                    <Pencil className="h-3.5 w-3.5" />
-                                    <span className="sr-only">编辑</span>
-                                  </Button>
-                                </ActionTooltip>
-
-                                <ActionTooltip label="删除记忆" side="top">
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => setDeletingId(item.id)}
-                                    className="h-7 w-7 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 active:scale-90 transition-all cursor-pointer"
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                    <span className="sr-only">删除</span>
-                                  </Button>
-                                </ActionTooltip>
-                              </div>
-                            </div>
-
-                            {/* 记忆文本正文 */}
-                            <div className="mt-2.5">
-                              <p className="text-[14.5px] sm:text-[15px] leading-relaxed text-foreground/90 font-normal tracking-[-0.01em] break-words whitespace-pre-wrap select-text">
-                                {text}
-                              </p>
-                            </div>
+              <div className="space-y-3">
+                {sec.items.map((m, idx) => {
+                  const formattedTime = formatDateTime(m.effectiveAt);
+                  return (
+                    <Panel
+                      key={m.id}
+                      interactive
+                      className="group p-4 hover:bg-card sm:p-[18px]"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                            <Brain className="h-3.5 w-3.5" />
                           </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ));
-              })()}
-            </div>
-          )}
-        </div>
-      </div>
+                          <span className="shrink-0 text-[12px] font-semibold tracking-tight text-foreground/80">
+                            记忆 #{idx + 1}
+                          </span>
+                          {formattedTime && (
+                            <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-[11.5px] text-muted-foreground/70">
+                              <span className="inline-flex items-center gap-1 font-mono">
+                                <Clock className="h-3 w-3 shrink-0 opacity-70" />
+                                <span>{formattedTime}</span>
+                              </span>
+                              {m.isEdited && (
+                                <span className="shrink-0 select-none rounded-md bg-surface-3/60 px-1.5 py-0.5 font-normal text-[10px] text-muted-foreground/80">
+                                  已编辑
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
 
-      {/* ── Apple HIG 标准编辑记忆弹窗 ── */}
+                        <div className="flex shrink-0 items-center gap-1 opacity-80 transition-opacity group-hover:opacity-100">
+                          <ActionTooltip label="编辑记忆" side="top">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                setEditingItem(m);
+                                setEditText(m.text);
+                              }}
+                              className="h-8 w-8 cursor-pointer rounded-lg text-muted-foreground transition-all hover:bg-surface-3/80 hover:text-foreground active:scale-90"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                              <span className="sr-only">编辑记忆</span>
+                            </Button>
+                          </ActionTooltip>
+
+                          <ActionTooltip label="删除记忆" side="top">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setDeletingId(m.id)}
+                              className="h-8 w-8 cursor-pointer rounded-lg text-muted-foreground transition-all hover:bg-destructive/10 hover:text-destructive active:scale-90"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              <span className="sr-only">删除记忆</span>
+                            </Button>
+                          </ActionTooltip>
+                        </div>
+                      </div>
+
+                      <p className="mt-2.5 whitespace-pre-wrap break-words text-[15px] leading-relaxed text-foreground/90 select-text">
+                        {m.text}
+                      </p>
+                    </Panel>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── 编辑记忆弹窗 ── */}
       <Dialog
         open={Boolean(editingItem)}
         onOpenChange={(open) => {
@@ -554,18 +426,18 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
       >
         <DialogContent
           onOpenAutoFocus={(e) => e.preventDefault()}
-          className="max-w-[480px] w-[92vw] rounded-[22px] border border-border/50 bg-background/95 dark:bg-[#1C1C1E]/95 backdrop-blur-2xl p-5 sm:p-6 shadow-2xl space-y-4"
+          className="max-w-[480px] w-[92vw] space-y-4 rounded-[22px] border border-border/50 bg-background/95 p-5 shadow-2xl backdrop-blur-2xl sm:p-6"
         >
           <DialogHeader className="space-y-1.5 text-left">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
                 <Brain className="h-5 w-5" />
               </div>
               <div className="min-w-0 flex-1">
                 <DialogTitle className="text-[17px] font-semibold tracking-tight text-foreground">
                   编辑长期记忆
                 </DialogTitle>
-                <DialogDescription className="text-[12.5px] text-muted-foreground leading-normal mt-0.5">
+                <DialogDescription className="mt-0.5 text-[12.5px] font-normal leading-normal text-muted-foreground">
                   修改此条记忆内容，AI 将在全站对话中以修改后的事实作为参考。
                 </DialogDescription>
               </div>
@@ -579,9 +451,12 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
             }}
             className="space-y-4"
           >
-            {/* Apple Inset 文本输入容器 */}
-            <div className="rounded-xl border border-border/50 bg-muted/40 dark:bg-muted/20 focus-within:bg-background focus-within:ring-2 focus-within:ring-primary/20 transition-all p-3 space-y-2">
+            <div className="space-y-2 rounded-xl border border-border/50 bg-surface-3/40 p-3 transition-all focus-within:bg-background focus-within:ring-2 focus-within:ring-primary/20">
+              <Label htmlFor="memory-edit-textarea" className="sr-only">
+                记忆内容
+              </Label>
               <Textarea
+                id="memory-edit-textarea"
                 rows={4}
                 value={editText}
                 onChange={(e) => setEditText(e.target.value)}
@@ -594,22 +469,21 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
                   }
                 }}
                 placeholder="修改记忆内容..."
-                className="w-full bg-transparent border-0 p-0 text-[14px] leading-relaxed resize-none focus-visible:outline-none focus-visible:ring-0 placeholder:text-muted-foreground/60 min-h-[100px]"
+                className="min-h-[100px] w-full resize-none border-0 bg-transparent p-0 text-[14px] leading-relaxed placeholder:text-muted-foreground/60 focus-visible:outline-none focus-visible:ring-0"
               />
-              <div className="flex items-center justify-between text-[11px] text-muted-foreground/60 pt-2 border-t border-border/30">
+              <div className="flex items-center justify-between border-t border-border/30 pt-2 text-[11px] text-muted-foreground/70">
                 <span>支持 ⌘ + 回车 完成修改</span>
                 <span>{editText.trim().length} 字</span>
               </div>
             </div>
 
-            {/* Apple HIG 标准操作按钮组 */}
             <DialogFooter className="flex-row justify-end gap-2.5 pt-1 sm:space-x-0">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 onClick={() => setEditingItem(null)}
-                className="h-9 px-4 rounded-xl text-[13px] font-medium border-border/50 bg-muted/30 hover:bg-muted text-muted-foreground hover:text-foreground active:scale-95 transition-all cursor-pointer"
+                className="h-9 cursor-pointer rounded-xl border-border/50 bg-surface-3/30 px-4 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground active:scale-95"
               >
                 取消
               </Button>
@@ -617,7 +491,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
                 type="submit"
                 size="sm"
                 disabled={isSavingEdit || !editText.trim()}
-                className="h-9 px-5 rounded-xl text-[13px] font-semibold shadow-xs bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 disabled:opacity-40 transition-all cursor-pointer"
+                className="h-9 cursor-pointer rounded-xl bg-primary px-5 text-[13px] font-semibold text-primary-foreground shadow-xs transition-all hover:bg-primary/90 active:scale-95 disabled:opacity-40"
               >
                 {isSavingEdit ? "正在保存..." : "完成"}
               </Button>
@@ -626,23 +500,26 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
         </DialogContent>
       </Dialog>
 
-      {/* ── Apple HIG 标准删除确认弹窗 ──
-            此前没有传 loading，确认按钮在请求期间仍可点击，连点会发出两个 DELETE。
-            loading 绑定 deletingId 后按钮自动禁用并显示「处理中...」。 */}
+      {/* ── 删除确认弹窗 ──
+          loading 必须绑定「请求在途」的 isDeleting，而不是「待确认目标」deletingId：
+          弹窗正是由 deletingId 派生的，用它当 loading 会让弹窗一挂载就显示
+          「处理中…」并禁用确认键，删除操作永远无法触发。 */}
       {deletingId && (
         <ConfirmDialog
           open
           onOpenChange={(open) => {
-            if (!open) setDeletingId(null);
+            // 请求飞行中不允许关闭，否则用户会在 DELETE 还在途时把弹窗撤掉，
+            // 失去 loading 反馈也失去防连点的视觉提示。
+            if (!open && !isDeleting) setDeletingId(null);
           }}
           title="删除这条记忆"
           description="确定要从记忆库中永久移除这条记录吗？删除后 AI 将不再参考该事实，此操作无法撤销。"
           confirmText="删除"
           danger
-          loading={!!deletingId}
+          loading={isDeleting}
           onConfirm={() => handleDelete(deletingId)}
         />
       )}
-    </div>
+    </ViewShell>
   );
 };

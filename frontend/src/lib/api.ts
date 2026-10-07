@@ -3,13 +3,34 @@ export function getApiBase(): string {
   if (typeof window === "undefined") {
     return process.env.INTERNAL_API_URL || "http://backend:8000/api";
   }
-  // 浏览器端**一律**走同源代理 /api/backend。
-  //
-  // 此前这里先判 NEXT_PUBLIC_API_URL 再回退，而注释写的是「在浏览器里总是用
-  // 相对路径代理」。两者矛盾：只要该变量非空（docker-compose 默认就会把它注入，
-  // 只是默认空串），浏览器就会绕过代理直连后端 —— 于是重新引入 CORS 预检、
-  // 以及把后端地址硬编码进产物，正是这个函数想避免的事。
-  // 现在行为与注释一致：环境变量只影响服务端。
+
+  /*
+   * 浏览器端 base URL 的选择 —— 两种部署形态，取决于有没有同源代理。
+   *
+   * A. 有 Node 服务（Docker / next start，`output: "standalone"`）
+   *    src/app/api/backend/[...path]/route.ts 这个代理路由存在，
+   *    走同源 /api/backend。后端地址不暴露在产物里，且天然无 CORS。
+   *
+   * B. 纯静态（Cloudflare Pages，`output: "export"`）
+   *    scripts/build-runner.js 在导出前会把整个 src/app/api 改名移走
+   *    （日志："Temporarily bypassed server-side route handlers"），
+   *    所以代理路由**不存在**，同源 /api/backend 必然 404。
+   *    此时必须直连后端绝对地址，并依赖后端的 CORS 放行前端域名。
+   *
+   * 此前无论哪种部署都返回 "/api/backend"，于是 Cloudflare 上的部署
+   * 整体不可用 —— 而它此前是能用的，因为那时这段代码还会读
+   * NEXT_PUBLIC_API_URL。
+   *
+   * 判定用「trim 后非空」：docker-compose 默认注入的是空串占位
+   * （${NEXT_PUBLIC_API_URL:-}），空串会被当成「没配置」而正确回退到代理。
+   */
+  const directUrl = process.env.NEXT_PUBLIC_API_URL || "";
+
+  if (directUrl.trim()) {
+    // 去掉尾部斜杠，避免拼出 //api/xxx
+    return directUrl.trim().replace(/\/+$/, "");
+  }
+
   return "/api/backend";
 }
 

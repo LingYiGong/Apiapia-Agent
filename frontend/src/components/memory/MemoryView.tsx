@@ -27,10 +27,12 @@ import { Panel, SectionLabel } from "@/components/common/Panel";
 import { MemoryCard, MemoryCardIcon } from "@/components/memory/MemoryCard";
 import { useRefreshOnResume } from "@/hooks/useRefreshOnResume";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
+import { useLoadMoreTrigger } from "@/hooks/useLoadMoreTrigger";
 import { FullPageSkeleton, MemoryListSkeleton } from "@/components/common/PageSkeleton";
 import { formatDateTime } from "@/lib/format";
 import { normalizeMemories, type NormalizedMemory } from "@/lib/memory";
 import { groupByTimeBuckets } from "@/lib/timeGroups";
+import { cn } from "@/lib/utils";
 import {
   Brain,
   Search,
@@ -57,9 +59,21 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
   const { user, loading } = useAuth();
   const router = useRouter();
 
+  /** 每页条数。同时用于浏览态与检索态。 */
+  const PAGE_SIZE = 20;
+
+  /** 已加载的记忆（分页累加）。分组只基于这部分，所以下滑会看到更多分组条目。 */
   const [memories, setMemories] = useState<NormalizedMemory[]>([]);
+  /** 服务端报告的**总条数**（非已加载数），用于「共 N 条」。 */
+  const [totalCount, setTotalCount] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  /** 单飞闸门：state 异步，连续滚动可能连发多次加载。 */
+  const loadingMoreRef = useRef(false);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
+  /** 首屏加载（显示整页骨架）；加载更多走 loadingMore。 */
   const [loadingMemories, setLoadingMemories] = useState(true);
 
   // Inline Edit State
@@ -100,17 +114,101 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
   // 视图内部守卫（此前与 UsageView / SettingsView 逐字相同的三份之一）
   useRequireAuth();
 
-  const fetchMemories = async () => {
-    setLoadingMemories(true);
+  /**
+   * 取一页数据并**替换**整个列表。
+   *
+   * `append=true` 用于下滑加载更多（累加到末尾），否则重置。
+   * 两种模式共用本函数，因为浏览态与检索态的响应形状一致
+   * （{items, total, has_more}），只有 URL 不同。
+   */
+  const fetchPage = async ({
+    query,
+    offset,
+    append,
+  }: {
+    query: string;
+    offset: number;
+    append: boolean;
+  }) => {
+    const isSearch = query.length > 0;
+    if (append) {
+      if (loadingMoreRef.current || !hasMore) return;
+      loadingMoreRef.current = true;
+      setLoadingMore(true);
+    } else {
+      setLoadingMemories(true);
+    }
+
     try {
-      const data = await apiRequest<MemoryItem[]>("/memories");
-      setMemories(normalizeMemories(data || []));
+      const url = isSearch
+        ? `/memories/search?q=${encodeURIComponent(query)}&limit=${PAGE_SIZE}&offset=${offset}`
+        : `/memories?limit=${PAGE_SIZE}&offset=${offset}`;
+
+      const res = await apiRequest<{
+        items?: MemoryItem[];
+        results?: MemoryItem[];
+        total?: number;
+        has_more?: boolean;
+      }>(url);
+
+      // 检索接口用 results，浏览接口用 items
+      const rawItems = res.items ?? res.results ?? [];
+      const page = normalizeMemories(rawItems);
+
+      setMemories((prev) => (append ? [...prev, ...page] : page));
+      setTotalCount(res.total ?? page.length);
+      setHasMore(res.has_more ?? false);
     } catch (err) {
       console.error("Failed to load memories:", err);
+      if (!append) {
+        // 首屏失败。若是检索，就退回浏览态的完整列表 —— 此前 catch 只弹
+        // toast 而不动 memories，列表会停留在**上一次**的检索结果上，
+        // 用户以为搜索失败后看到的却是一屏与关键词无关的旧结果，
+        // 看起来像「搜索坏了」。
+        if (isSearch) {
+          toast.error("检索记忆库失败，已返回全部记忆");
+          setIsSearching(false);
+          try {
+            await fetchPage({ query: "", offset: 0, append: false });
+            return;
+          } catch {
+            // 浏览态也失败，落到下面的统一处理
+          }
+        } else {
+          toast.error("加载记忆失败，请重试");
+        }
+        setMemories([]);
+        setTotalCount(0);
+        setHasMore(false);
+      }
+      // append 失败时保持已有内容与 has_more，下一次滚动会重试
     } finally {
+      loadingMoreRef.current = false;
+      setLoadingMore(false);
       setLoadingMemories(false);
     }
   };
+
+  /** 重置到第一页（浏览态）。切回前台刷新、退出搜索都走这里。 */
+  const fetchMemories = () => fetchPage({ query: "", offset: 0, append: false });
+
+  /** 下滑加载更多。浏览态与检索态都走它。 */
+  const loadMore = () => {
+    if (loadingMore || !hasMore || loadingMemories) return;
+    fetchPage({
+      query: isSearching ? searchQuery.trim() : "",
+      offset: memories.length,
+      append: true,
+    });
+  };
+
+  /**
+   * 列表末尾的哨兵元素。滚动到底前 240px 即触发下一页。
+   * 加载完一页后 hasMore 可能仍为 true，观察器持续有效，会再次触发。
+   */
+  const loadMoreSentinelRef = useLoadMoreTrigger(loadMore, {
+    enabled: hasMore && !loadingMemories && !loadingMore,
+  });
 
   useEffect(() => {
     // 同 UsageView：SPA 里五个页签同时挂载，这里按 active 收口，
@@ -123,6 +221,11 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
 
   // 切后台 / 切回本页签时刷新，避免看到别的设备写入的旧记忆。
   // 正在编辑某条记忆时必须跳过，否则会丢掉未保存的改动。
+  // 检索态也跳过：此刻页面展示的是搜索结果，刷新会把它换成完整列表。
+  //
+  // 注意 fetchMemories 现在是**重置到第一页**（分页后不再是「替换整份数据」）。
+  // 若在已加载 3 页时切回前台，用户会退回第 1 页 —— 这是刻意的：数据变了就
+  // 重新开始，比在一半陈旧的分页上续接更不容易出错。
   useRefreshOnResume(fetchMemories, {
     enabled: !editingItem && !isSearching,
     visible: active,
@@ -135,26 +238,9 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
       handleResetSearch();
       return;
     }
+    // 先置位再请求：fetchPage 内部的失败分支要靠它决定是否回退到浏览态
     setIsSearching(true);
-    setLoadingMemories(true);
-    try {
-      const res = await apiRequest<{ query: string; results: MemoryItem[] }>(
-        // limit=1000 = 不截断，把搜到的全部结果交给下面的时间分组。
-        // 此前路由默认 10、service 默认 5、前端不传，实际每次只回 5 条。
-        `/memories/search?q=${encodeURIComponent(query)}&limit=1000`
-      );
-      setMemories(normalizeMemories(res.results || []));
-    } catch (err: any) {
-      console.error("Search failed:", err);
-      toast.error(err?.message || "检索记忆库失败");
-      // 失败时回到完整列表。此前 catch 只弹 toast 而不动 memories，
-      // 于是列表仍停留在**上一次**的检索结果上 —— 用户以为搜索失败后
-      // 看到的却是一屏旧结果，看起来像「搜索坏了」。
-      setIsSearching(false);
-      fetchMemories();
-    } finally {
-      setLoadingMemories(false);
-    }
+    await fetchPage({ query, offset: 0, append: false });
   };
 
   const handleResetSearch = () => {
@@ -200,6 +286,10 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
     try {
       await apiRequest(`/memories/${id}`, { method: "DELETE" });
       setMemories((prev) => prev.filter((m) => m.id !== id));
+      // 分页下 total 是服务端报告的总数，删掉一条后本地减一，
+      // 否则「共 N 条」和「加载更多（还有 N 条）」会一直差 1。
+      // hasMore 不动：删掉的只是已加载范围内的一条，不影响「服务端还有没有更多」。
+      setTotalCount((prev) => Math.max(0, prev - 1));
       toast.success("已删除记忆");
     } catch (err: any) {
       toast.error(err.message || "删除记忆失败");
@@ -231,7 +321,18 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      toast.success("记忆数据已导出为 JSON 文件", { id: toastId });
+      // 报告实际导出的条数而不是 totalCount：后端 list_all_memories 是
+      // 分块累加的，末页出错时会返回部分数据（并已写告警日志）。让用户
+      // 知道自己拿到的文件里到底有多少条，比报一个可能对不上的数字诚实。
+      const exported = Array.isArray(data?.memories) ? data.memories.length : 0;
+      const partial = exported > 0 && exported < totalCount;
+      if (partial) {
+        toast.warning(`已导出 ${exported} 条（服务端总数 ${totalCount} 条，可能未完整）`, {
+          id: toastId,
+        });
+      } else {
+        toast.success(`已导出全部 ${exported} 条记忆`, { id: toastId });
+      }
     } catch (err: any) {
       console.error("Export failed:", err);
       toast.error(err.message || "导出记忆数据失败", { id: toastId });
@@ -295,7 +396,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
             </Button>
           </ActionTooltip>
 
-          <ActionTooltip label="导出所有记忆为 JSON" side="bottom">
+          <ActionTooltip label={`导出全部 ${totalCount} 条记忆为 JSON`} side="bottom">
             <Button
               type="button"
               onClick={handleExport}
@@ -318,7 +419,21 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
         <SectionLabel className="flex min-w-0 items-center gap-1.5 pb-0">
           <Brain className="h-3.5 w-3.5 shrink-0 text-primary" />
           <span className="truncate">{isSearching ? "搜索结果" : "全部记忆"}</span>
-          <span className="shrink-0 font-mono text-[10px] opacity-60">({memories.length})</span>
+          {/* totalCount 是服务端报告的总条数，不是 memories.length ——
+              分页后后者只是「已加载多少」。两者不等时补一个进度提示，
+              让用户知道下面还有。 */}
+          {/*
+            浏览态的 total 是精确总数；检索态的 total 只能给出下界
+            （向量检索没有 count 接口），所以还有下一页时用「N+」表示
+            「至少 N 条」，不谎报一个具体数字。
+          */}
+          <span className="shrink-0 font-mono text-[10px] opacity-60">
+            {hasMore
+              ? isSearching
+                ? `(已找到 ${memories.length}+ 条)`
+                : `(已加载 ${memories.length} / ${totalCount} 条)`
+              : `(共 ${totalCount} 条)`}
+          </span>
         </SectionLabel>
 
         {isSearching && (
@@ -364,7 +479,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
               </div>
 
               <div className="space-y-3">
-                {sec.items.map((m, idx) => (
+                {sec.items.map((m) => (
                     <MemoryCard
                       key={m.id}
                       size="md"
@@ -375,7 +490,6 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
                           <Brain className="h-4 w-4" />
                         </MemoryCardIcon>
                       }
-                      label={`记忆 #${idx + 1}`}
                       time={formatDateTime(m.effectiveAt)}
                       badge={m.isEdited ? "已编辑" : undefined}
                       actions={
@@ -415,6 +529,41 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
               </div>
             </div>
           ))}
+
+          {/* ── 分页尾部 ──
+              哨兵元素：滚动到底前 240px 即触发下一页（IntersectionObserver，
+              因为滚动容器是 ViewShell 的，拿不到 ref 只能用哨兵）。
+              下方同时给出按钮与文字提示 —— 只靠自动触发对键盘用户和
+              加载失败的情况不可达，按钮是这个功能的可达性兜底。 */}
+          {hasMore && (
+            <div className="pt-1">
+              <div ref={loadMoreSentinelRef} aria-hidden="true" className="h-px" />
+              <div className="flex justify-center py-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={loadMore}
+                  disabled={loadingMore}
+                  className="h-9 cursor-pointer gap-1.5 rounded-xl border-border/50 bg-surface-3/40 px-5 text-[13px] font-medium text-foreground transition-colors hover:bg-surface-3 active:scale-95"
+                >
+                  <RotateCcw
+                    className={cn("h-3.5 w-3.5", loadingMore && "animate-spin")}
+                  />
+                  <span>{loadingMore ? "正在加载…" : isSearching ? "加载更多结果" : "加载更多"}</span>
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {!hasMore && memories.length > 0 && (
+            <p className="pt-2 pb-1 text-center text-[11px] text-muted-foreground/60 select-none">
+              已显示全部 {totalCount} 条记忆
+            </p>
+          )}
+
+          {/* 加载更多期间的尾部骨架。与上方列表同为 space-y-3，不会出现接缝 */}
+          {loadingMore && <MemoryListSkeleton rows={2} />}
         </div>
       )}
 

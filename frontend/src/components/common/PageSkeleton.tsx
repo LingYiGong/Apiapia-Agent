@@ -151,17 +151,25 @@ export function SettingsFormSkeleton() {
 }
 
 // ---------- 记忆库列表骨架 ----------
+//
+// space-y-3（此前是 space-y-2.5）：与 MemoryView 真实列表的间距对齐。
+// 加载更多时本组件会拼在已渲染列表的尾部，间距不一致会出现一道可见的缝。
 export function MemoryListSkeleton({ rows = 4 }: { rows?: number }) {
   return (
-    <div className="space-y-2.5" aria-hidden="true">
+    <div className="space-y-3" aria-hidden="true">
       {Array.from({ length: rows }).map((_, i) => (
+        // 与 <MemoryCard> 的新结构对齐：图标方块 + 正文同行，时间行在下方。
+        // 此前骨架还留着「标签行 + 正文两行」的旧形状，卡片改了它没改，
+        // 加载时会出现明显的形状跳变。
         <Panel key={i} className="space-y-2 p-4">
-          <div className="flex items-center gap-2">
-            <Skeleton className="h-3.5 w-12 rounded-md" />
-            <Skeleton className="h-3.5 w-28 rounded-md" />
+          <div className="flex items-start gap-3">
+            <Skeleton className="h-8 w-8 shrink-0 rounded-xl" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-4 w-full rounded-md" />
+              <Skeleton className="h-4 w-2/3 rounded-md" />
+            </div>
           </div>
-          <Skeleton className="h-4 w-full rounded-md" />
-          <Skeleton className="h-4 w-2/3 rounded-md" />
+          <Skeleton className="ml-11 h-3 w-32 rounded-md" />
         </Panel>
       ))}
     </div>

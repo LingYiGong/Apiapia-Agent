@@ -317,8 +317,151 @@ class MemoryService:
 
         return sorted(normalized, key=sort_key, reverse=True)
 
+    #: 单页大小上限。与 API 层 `Query(le=100)` 保持一致。
+    PAGE_SIZE_MAX = 100
+    #: 分页与导出时的单次读取上限。
+    CHUNK = 500
+    #: 计数/导出的循环安全上限。理论上取不满一块就会停，这个上限只在
+    #: Mem0 返回条数异常（恒等于 CHUNK）时兜底，避免死循环打满 CPU。
+    MAX_SWEEPS = 1000
+
+    def _fetch_memories(self, user_id: str, limit: int, offset: int) -> List[Dict[str, Any]]:
+        """按 offset/limit 取一段记忆（内部复用 list_memories 的多重回退）。
+
+        注意这里必须是**实例方法**：list_memories 是实例方法，写成 classmethod
+        会让 cls.list_memories(user_id=...) 把 user_id 绑到 self 上，
+        缺 user_id 形参直接 TypeError。
+
+        offset > 0 时无法用 Mem0 的 get_all 直接切片（它只有 top_k），所以走
+        「取前 offset+limit 条再切片」。这在几千条量级完全可接受；Mem0 OSS
+        没有暴露带 offset 的接口，要真正下推到数据库需要改它的 vector_store。
+        """
+        want = offset + limit
+        items = self.list_memories(user_id=user_id, limit=want)
+        if offset:
+            items = items[offset:offset + limit]
+        return items
+
+    def list_memories_page(
+        self, user_id: str, limit: int = 20, offset: int = 0
+    ) -> Dict[str, Any]:
+        """分页取记忆，同时给出总条数。"""
+        limit = max(1, min(int(limit), self.PAGE_SIZE_MAX))
+        offset = max(0, int(offset))
+
+        items = self._fetch_memories(user_id, limit, offset)
+
+        # has_more 只需再探一页，不必知道精确总数 —— 比每页都全量扫描便宜。
+        # 只有「共 N 条」那个数字才需要 total。
+        has_more = len(items) == limit and (
+            len(self._fetch_memories(user_id, limit, offset + limit)) > 0
+        )
+
+        # 最后一页不需要数总数：已加载到末尾，total 就是 offset + len(items)。
+        # 仍有下一页时才付出全量扫描的代价。
+        total = (offset + len(items)) if not has_more else self._count_memories(user_id)
+
+        return {
+            "items": items,
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+            "has_more": has_more,
+        }
+
+    def _count_memories(self, user_id: str) -> int:
+        """统计用户的记忆总条数。
+
+        Mem0 没有 count 接口，只能分块累加。这里按 CHUNK 步进直到某一块取不满。
+        返回值是**精确**总数：只要能取到不满 CHUNK 的一块，就说明那是最后一块。
+
+        这是分页路径上最贵的一步（要扫完整个集合），因此只在「还有下一页」
+        时才调用 —— 加载最后一页时不需要它，那条路径直接 offset+len 即可。
+        """
+        try:
+            total = 0
+            offset = 0
+            for _ in range(self.MAX_SWEEPS):
+                chunk = self._fetch_memories(user_id, self.CHUNK, offset)
+                if not chunk:
+                    return total
+                total += len(chunk)
+                if len(chunk) < self.CHUNK:
+                    return total
+                offset += self.CHUNK
+            logger.warning(
+                "Count sweep hit MAX_SWEEPS for user %s; total may be a lower bound", user_id
+            )
+            return total
+        except Exception as e:
+            logger.warning("Failed to count memories for user %s: %s", user_id, str(e))
+            return 0
+
+    def list_all_memories(self, user_id: str) -> List[Dict[str, Any]]:
+        """导出用：取回该用户的**全部**记忆，不做条数截断。
+
+        与 list_memories 的区别不是「换个更大的 limit」，而是**明确不设上限**：
+        导出是用户唯一的数据自主出口（README 承诺「一键导出 JSON 实现个人
+        数据完全自主」），静默截断等于给出残缺的备份。
+        """
+        collected: List[Dict[str, Any]] = []
+        offset = 0
+        try:
+            for _ in range(self.MAX_SWEEPS):
+                chunk = self._fetch_memories(user_id, self.CHUNK, offset)
+                if not chunk:
+                    break
+                collected.extend(chunk)
+                if len(chunk) < self.CHUNK:
+                    break
+                offset += self.CHUNK
+            else:
+                logger.warning(
+                    "Export sweep hit MAX_SWEEPS for user %s; export may be incomplete", user_id
+                )
+            logger.info("Export collected %d memories for user %s", len(collected), user_id)
+        except Exception as e:
+            # 宁可返回部分数据并记录告警，也不要因为末页出错就丢掉已取到的内容
+            logger.warning("list_all_memories interrupted for user %s: %s", user_id, str(e))
+        return collected
+
+    def search_memory_page(
+        self, user_id: str, query: str, limit: int = 20, offset: int = 0
+    ) -> Dict[str, Any]:
+        """分页检索记忆。total = 该查询命中的总条数。
+
+        向量检索没有 count 接口，只能把前 offset+limit+1 条取回来判断是否还有
+        更多。代价是 offset 越大单次开销越大（每页重跑一次检索）—— 在记忆库
+        这种规模下可接受；真正的游标式分页需要改 Mem0 的检索接口。
+        """
+        limit = max(1, min(int(limit), self.PAGE_SIZE_MAX))
+        offset = max(0, int(offset))
+
+        # 多取一条用来判断 has_more —— 这是这类分页的标准做法，
+        # 比再发一次请求便宜。
+        want = offset + limit + 1
+        all_items = self.search_memory(user_id=user_id, query=query, limit=want)
+        has_more = len(all_items) > offset + limit
+        items = all_items[offset:offset + limit]
+
+        # total 只能是**下界**：向量检索最多返回 want 条，真实命中数未知。
+        # 前端拿它显示「共 N 条」，N 在此是「至少 N 条」。想给精确值就得
+        # 全量取回再计数，代价与收益不成比例。
+        total = offset + len(items) + (1 if has_more else 0)
+
+        return {
+            "items": items,
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+            "has_more": has_more,
+        }
+
     def list_memories(self, user_id: str, limit: int = 1000) -> List[Dict[str, Any]]:
-        """Retrieve all memories belonging to a verified user_id, sorted descending by timestamp."""
+        """Retrieve memories for a verified user_id, sorted descending by timestamp.
+
+        limit 是读取上限而非存储上限 —— 写入侧无条数限制。
+        """
         memory = self._ensure_memory()
         if not memory:
             return []

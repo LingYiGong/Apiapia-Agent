@@ -1,23 +1,12 @@
-from app.services.memory.service import memory_service, MemoryService
-from app.services.memory.retrieval import retrieve_relevant_memories
-from app.services.memory.extraction import (
-    extract_memories_task,
-    schedule_memory_extraction,
-    smart_extract_memories_task,
-    sanitize_messages_for_memory,
-)
-from app.services.memory.dreaming import schedule_dreaming, run_dreaming_task
-from app.services.memory.models import MemoryItem
+"""Long-term memory subsystem (Mem0 OSS + pgvector).
 
-__all__ = [
-    "memory_service",
-    "MemoryService",
-    "retrieve_relevant_memories",
-    "extract_memories_task",
-    "schedule_memory_extraction",
-    "smart_extract_memories_task",
-    "sanitize_messages_for_memory",
-    "schedule_dreaming",
-    "run_dreaming_task",
-    "MemoryItem",
-]
+Import submodules directly instead of re-exporting from here:
+
+    from app.services.memory.service import memory_service
+    from app.services.memory.retrieval import retrieve_relevant_memories
+
+This module is intentionally empty. A previous version re-exported every public
+symbol, but nothing in the codebase imported from the package (``from
+app.services.memory import ...`` had zero call sites) and the eager imports
+created an implicit service <- extraction <- dreaming initialisation order.
+"""

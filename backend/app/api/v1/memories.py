@@ -7,7 +7,6 @@ from sqlalchemy import select
 from app.models.user import User
 from app.schemas.memory import (
     MemoryUpdate,
-    MemoryResponse,
     MemorySearchResponse,
     MemoryPageResponse,
 )

@@ -1,7 +1,6 @@
 from decimal import Decimal, InvalidOperation
 from datetime import datetime, date
-from typing import Dict, Any, Optional, List
-import re
+from typing import Dict, Any, Optional
 
 
 def compute_char_count(target_text: str, search_char: str) -> Optional[Dict[str, Any]]:

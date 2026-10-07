@@ -269,11 +269,5 @@ def retrieve_relevant_memories(
     sections.append("</user_memory>")
     # Natural context framing — avoids triggering false safety auditor modes
     prompt_context = "\n\n" + "\n".join(sections) + "\n"
-    """legacy framing removed"""
-    prompt_context_legacy = (
-        "\n\n【用户相关历史记忆】\n"
-        "（以下是系统检索到的与用户相关的历史事实与偏好信息，仅供回答时作为参考）：\n"
-        "\n".join(sections) + "\n"
-    )
 
     return clean_memories, prompt_context

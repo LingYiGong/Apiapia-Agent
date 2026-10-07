@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, List, Dict, Any
+from typing import Optional, List
 
 
 class AttachmentPayload(BaseModel):
@@ -19,13 +19,3 @@ class ChatRequest(BaseModel):
     memory_enabled: Optional[bool] = True
     web_search_mode: Optional[str] = "auto"  # "auto", "on", "off"
     attachments: Optional[List[AttachmentPayload]] = []
-
-
-class ChatStreamChunk(BaseModel):
-    id: Optional[str] = None
-    conversation_id: str
-    delta: str
-    done: bool = False
-    model: Optional[str] = None
-    retrieved_memories: Optional[List[Dict[str, Any]]] = None
-    search_results: Optional[List[Dict[str, Any]]] = None

@@ -301,6 +301,8 @@ async def get_admin_overview_stats(
     all_users = (await db.execute(users_stmt)).scalars().all()
 
     # 2. Aggregated stats per user for this period
+    # NOTE: conversation count is fetched separately below (conv_counts_stmt)
+    # because it is also needed for users with zero assistant messages.
     user_stats_where = [Message.role == "assistant"]
     if start_time:
         user_stats_where.append(Message.created_at >= start_time)
@@ -308,7 +310,6 @@ async def get_admin_overview_stats(
     user_stats_stmt = (
         select(
             Conversation.user_id,
-            func.count(func.distinct(Conversation.id)).label("conv_count"),
             func.count(Message.id).label("msg_count"),
             func.coalesce(func.sum(Message.prompt_tokens), 0).label("prompt_tokens"),
             func.coalesce(func.sum(Message.completion_tokens), 0).label("completion_tokens"),

@@ -3,7 +3,6 @@ import logging
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional, Tuple
 from app.core.config import settings
-from app.services.memory.models import MemoryItem
 
 logger = logging.getLogger("mem0_service")
 
@@ -16,7 +15,6 @@ class MemoryService:
 
     def __init__(self):
         self._memory_instances: Dict[str, Any] = {}
-        self._initialized = False
         self._last_init_error: Optional[str] = None
 
     def is_configured(self) -> bool:
@@ -142,7 +140,6 @@ class MemoryService:
             logger.info("Initializing Mem0 OSS 2.2.1 (model=%s) with pgvector store at %s:%s", cache_key, settings.POSTGRES_HOST, settings.POSTGRES_PORT)
             instance = Memory.from_config(config)
             self._memory_instances[cache_key] = instance
-            self._initialized = True
             self._last_init_error = None
             return instance
         except Exception as e:
@@ -166,7 +163,7 @@ class MemoryService:
         """
         memory = self._ensure_memory(memory_model=memory_model)
         if not memory:
-            raise RuntimeError(getattr(self, "_last_init_error", None) or "Mem0 记忆系统未就绪，请检查 API Key 配置与数据库连接")
+            raise RuntimeError(self._last_init_error or "Mem0 记忆系统未就绪，请检查 API Key 配置与数据库连接")
 
         logger.info("Adding memory for user %s with model %s (infer=%s)", user_id, memory_model or "default", infer)
         meta = (metadata or {}).copy()
@@ -587,15 +584,6 @@ class MemoryService:
 
         memory = self._ensure_memory()
         memory.delete(memory_id=memory_id)
-        return True
-
-    def delete_all_memories(self, user_id: str) -> bool:
-        """Delete all memories belonging to user_id."""
-        memory = self._ensure_memory()
-        try:
-            memory.delete_all(filters={"user_id": user_id})
-        except Exception:
-            memory.delete_all(user_id=user_id)
         return True
 
 

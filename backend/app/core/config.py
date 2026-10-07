@@ -75,6 +75,10 @@ class Settings(BaseSettings):
     TAVILY_API_KEY: Optional[str] = None
     TAVILY_SEARCH_DEPTH: str = "advanced"
     TAVILY_MAX_RESULTS: int = 5
+    # Tavily bills include_answer as a separate item. It is on because the answer
+    # is now parsed and injected into the system prompt as a cross-checkable hint
+    # (see WebSearchOutcome.answer); set False to save the surcharge at the cost of
+    # one more reasoning step for the model.
     TAVILY_INCLUDE_ANSWER: bool = True
 
     # Image Generation (DALL-E 3, SiliconFlow / Flux.1)

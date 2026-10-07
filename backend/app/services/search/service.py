@@ -2,12 +2,36 @@ import asyncio
 import logging
 import re
 import urllib.parse
+from dataclasses import dataclass
 from html import unescape
 from typing import List, Dict, Any, Optional
 import httpx
 from app.core.config import settings
 
 logger = logging.getLogger("web_search")
+
+#: Tavily's synthesized answer is injected straight into the system prompt, so it
+#: is capped to keep the prompt from ballooning on verbose answers.
+MAX_ANSWER_CHARS = 2000
+
+
+@dataclass(frozen=True)
+class WebSearchOutcome:
+    """The outcome of one completed search.
+
+    ``results`` is the ranked source list shared by every tier. ``answer`` is an
+    optional model-written synthesis that only Tavily produces (``include_answer``,
+    which Tavily bills separately). It is a *hint*, not a citation: it can be wrong
+    or stale, so callers must present it to the LLM as something to cross-check
+    against ``results`` rather than as ground truth.
+
+    ``provider`` names the tier that actually answered, so callers can tell a
+    Tavily answer apart from a DuckDuckGo result list that happens to be non-empty.
+    """
+
+    results: List[Dict[str, str]]
+    answer: Optional[str] = None
+    provider: str = "duckduckgo"
 
 
 class WebSearchService:
@@ -56,11 +80,12 @@ class WebSearchService:
         Execute web search with multi-tier fallback.
         topic/time_range follow Tavily official enums and are only sent to Tavily;
         DuckDuckGo fallback tiers ignore them.
-        Returns a list of dicts: [{'title': '...', 'url': '...', 'snippet': '...'}]
+        Returns a WebSearchOutcome whose ``results`` is a list of dicts:
+        [{'title': '...', 'url': '...', 'snippet': '...'}]
         """
         clean_q = query.strip()
         if not clean_q:
-            return []
+            return WebSearchOutcome([])
 
         if topic not in ("general", "news", "finance"):
             topic = "general"
@@ -75,12 +100,17 @@ class WebSearchService:
         # 1. Try Tavily AI-native search when API key is configured
         if self.is_tavily_configured():
             try:
-                tavily_results = await self._search_tavily(
+                tavily_outcome = await self._search_tavily(
                     clean_q, max_results=max_results, topic=topic, time_range=time_range
                 )
-                if tavily_results:
-                    logger.info("Tavily search succeeded: %d items", len(tavily_results))
-                    return tavily_results[:max_results]
+                if tavily_outcome.results:
+                    logger.info(
+                        "Tavily search succeeded: %d items (answer=%s)",
+                        len(tavily_outcome.results), "yes" if tavily_outcome.answer else "no",
+                    )
+                    return WebSearchOutcome(
+                        tavily_outcome.results[:max_results], tavily_outcome.answer, "tavily"
+                    )
                 logger.warning("Tavily returned empty, falling back to DuckDuckGo.")
             except Exception as e:
                 logger.warning("Tavily search failed: %s. Falling back to DuckDuckGo.", str(e))
@@ -90,7 +120,7 @@ class WebSearchService:
             results = await asyncio.to_thread(self._sync_ddgs_search, clean_q, max_results)
             if results:
                 logger.info("DuckDuckGo library search succeeded: %d items", len(results))
-                return results[:max_results]
+                return WebSearchOutcome(results[:max_results])
         except Exception as e:
             logger.debug("duckduckgo_search library failed or not installed: %s. Using HTTP fallback.", str(e))
 
@@ -99,7 +129,7 @@ class WebSearchService:
             html_results = await self._search_duckduckgo_html(clean_q, max_results=max_results)
             if html_results:
                 logger.info("DuckDuckGo HTML scraping succeeded: %d items", len(html_results))
-                return html_results[:max_results]
+                return WebSearchOutcome(html_results[:max_results])
         except Exception as e:
             logger.warning("DuckDuckGo HTML scraping failed: %s", str(e))
 
@@ -108,7 +138,7 @@ class WebSearchService:
             lite_results = await self._search_duckduckgo_lite(clean_q, max_results=max_results)
             if lite_results:
                 logger.info("DuckDuckGo Lite search succeeded: %d items", len(lite_results))
-                return lite_results[:max_results]
+                return WebSearchOutcome(lite_results[:max_results])
         except Exception as e:
             logger.warning("DuckDuckGo Lite search failed: %s", str(e))
 
@@ -117,12 +147,12 @@ class WebSearchService:
             api_results = await self._search_duckduckgo_api(clean_q)
             if api_results:
                 logger.info("DuckDuckGo Instant Answer API succeeded: %d items", len(api_results))
-                return api_results[:max_results]
+                return WebSearchOutcome(api_results[:max_results])
         except Exception as e:
             logger.warning("DuckDuckGo Instant Answer API failed: %s", str(e))
 
         logger.warning("All web search attempts returned empty for query '%s'", clean_q)
-        return []
+        return WebSearchOutcome([], provider="none")
 
     async def _search_tavily(
         self,
@@ -130,11 +160,17 @@ class WebSearchService:
         max_results: int = 5,
         topic: str = "general",
         time_range: Optional[str] = None
-    ) -> List[Dict[str, str]]:
-        """Tavily AI-native search: relevance-scored results optimized for RAG/LLM."""
+    ) -> WebSearchOutcome:
+        """Tavily AI-native search: relevance-scored results optimized for RAG/LLM.
+
+        When TAVILY_INCLUDE_ANSWER is on, Tavily additionally returns a
+        model-written ``answer`` synthesis. It is billed as a separate item by
+        Tavily, so it is only requested because callers actually consume it now
+        (see WebSearchOutcome.answer).
+        """
         api_key = (settings.TAVILY_API_KEY or "").strip()
         if not api_key:
-            return []
+            return WebSearchOutcome([], provider="tavily")
 
         payload: Dict[str, Any] = {
             "api_key": api_key,
@@ -151,14 +187,24 @@ class WebSearchService:
             resp = await client.post("https://api.tavily.com/search", json=payload)
             if resp.status_code in (401, 403):
                 logger.warning("Tavily auth failed (HTTP %d): check TAVILY_API_KEY", resp.status_code)
-                return []
+                return WebSearchOutcome([], provider="tavily")
             if resp.status_code == 429:
                 logger.warning("Tavily rate limited (HTTP 429), falling back.")
-                return []
+                return WebSearchOutcome([], provider="tavily")
             if resp.status_code != 200:
                 logger.warning("Tavily returned HTTP %d: %s", resp.status_code, resp.text[:300])
-                return []
+                return WebSearchOutcome([], provider="tavily")
             data = resp.json()
+
+        # Tavily returns a JSON string here, not a list. Treat anything else as absent.
+        raw_answer = data.get("answer")
+        answer = raw_answer.strip() if isinstance(raw_answer, str) else ""
+        if not answer:
+            answer = None
+        elif len(answer) > MAX_ANSWER_CHARS:
+            answer = answer[:MAX_ANSWER_CHARS].rstrip() + "..."
+        elif settings.TAVILY_INCLUDE_ANSWER:
+            logger.warning("Tavily returned results but no 'answer' field for query '%.60s'", query)
 
         results: List[Dict[str, str]] = []
         for item in data.get("results", []) or []:
@@ -172,7 +218,7 @@ class WebSearchService:
                 results.append({"title": title, "url": url, "snippet": snippet})
                 if len(results) >= max_results:
                     break
-        return results
+        return WebSearchOutcome(results, answer, "tavily")
 
     async def _search_duckduckgo_html(self, query: str, max_results: int = 5) -> List[Dict[str, str]]:
         url = "https://html.duckduckgo.com/html/"

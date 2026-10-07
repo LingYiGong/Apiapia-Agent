@@ -49,10 +49,6 @@ class MediaStorage:
         self.root = Path(root or settings.MEDIA_DIR)
 
     # ── path handling ──────────────────────────────────────────────
-    def ensure_root(self) -> Path:
-        self.root.mkdir(parents=True, exist_ok=True)
-        return self.root
-
     @staticmethod
     def new_image_id() -> str:
         return uuid.uuid4().hex
@@ -142,12 +138,6 @@ class MediaStorage:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(data)
         return len(data)
-
-    def exists(self, relative_path: str) -> bool:
-        try:
-            return self.resolve(relative_path).is_file()
-        except MediaStorageError:
-            return False
 
     def delete(self, relative_path: str) -> bool:
         try:

@@ -15,6 +15,8 @@ from app.models.conversation import Conversation, Message
 from app.models.setting import UserSetting
 from app.schemas.chat import ChatRequest
 from app.api.v1.deps import get_current_user
+from app.api.v1.models import check_user_can_use_model, has_full_model_access
+from app.api.v1.settings import resolve_user_llm_credentials
 from app.services.llm.factory import get_llm_provider, detect_provider
 from app.services.memory.retrieval import retrieve_relevant_memories, should_retrieve_memories
 from app.services.memory.extraction import schedule_memory_extraction
@@ -25,7 +27,6 @@ from app.services.image_gen import should_generate_image, image_gen_service
 from app.services.media_storage import store_generated_image
 from app.services.prompt import build_system_prompt
 from app.services.deterministic import evaluate_deterministic_context
-from app.core.security import decrypt_api_key
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -39,15 +40,29 @@ TITLE_GENERATION_PROMPT = (
 )
 
 
-async def _generate_conversation_title(user_text: str, assistant_text: str, model: str) -> str:
+async def _generate_conversation_title(
+    user_text: str,
+    assistant_text: str,
+    model: str,
+    provider_name: str,
+    api_key: Optional[str] = None,
+    base_url: Optional[str] = None,
+) -> str:
     """
     Ask the same model for a short conversation title.
 
     Uses the non-streaming ``complete`` path so it cannot interfere with the SSE
     stream, and falls back silently (the truncated first message stays as title).
+
+    ``provider_name`` is passed in rather than re-derived from ``model``: the chat
+    request may name a provider explicitly, and re-detecting here could resolve a
+    different provider — which would send the caller's credential to the wrong
+    endpoint. The caller's own credential is threaded through so titling keeps
+    working on models the server itself has no key for.
     """
-    provider_name = detect_provider(model)
-    provider = get_llm_provider(provider=provider_name, model=model)
+    provider = get_llm_provider(
+        provider=provider_name, model=model, api_key=api_key, base_url=base_url
+    )
     prompt = TITLE_GENERATION_PROMPT.format(
         user=(user_text or "")[:500],
         assistant=(assistant_text or "")[:500],
@@ -127,7 +142,6 @@ def sanitize_llm_output(text: str) -> str:
     """
     if not text:
         return ""
-    import re
     cleaned = text
 
     # 1. Strip raw tool/function call containers and dangling arguments
@@ -188,7 +202,6 @@ async def chat_stream(
     selected_image_model = user_settings.image_model if user_settings else None
 
     # Validate model permission (new users only have access to free models until granted by admin)
-    from app.api.v1.models import check_user_can_use_model, has_full_model_access
     if not check_user_can_use_model(current_user, model_to_use):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -198,6 +211,13 @@ async def chat_stream(
     # Billable side features (currently AI image generation) are restricted to the
     # same entitlement. Restricted accounts may only use the zero-cost image models.
     image_gen_free_only = not has_full_model_access(current_user)
+
+    # 1.1 Resolve the caller's own provider credential for this model, if any.
+    # A None here is the normal case and means "use the server's .env config".
+    provider_name = (chat_req.provider or "").strip() or detect_provider(model_to_use)
+    caller_api_key, caller_base_url = await resolve_user_llm_credentials(
+        db, user_id, provider_name, model_to_use
+    )
 
     # 2. Fetch or create conversation
     conversation = None
@@ -278,7 +298,6 @@ async def chat_stream(
     retrieved_memories = []
     memory_context_str = ""
     if use_memory:
-        import re
         clean_mem_msg = re.sub(r"https?://[^\s<>\"'()]+", "", chat_req.message or "").strip()
         mem_query = clean_mem_msg if clean_mem_msg else (parsed_docs[0]['name'] if parsed_docs else "")
         if mem_query and should_retrieve_memories(mem_query):
@@ -313,7 +332,6 @@ async def chat_stream(
     for msg in recent_msgs:
         cleaned_content = msg.content
         if "data:image/" in cleaned_content:
-            import re
             cleaned_content = re.sub(r"!\[([^\]]*)\]\(data:image\/[^;]+;base64,[^)]+\)", r"[附图: \1]", cleaned_content)
         messages_payload.append({"role": msg.role, "content": cleaned_content})
 
@@ -368,6 +386,9 @@ async def chat_stream(
         provider = None
 
         search_results = []
+        # Tavily-only synthesized answer (see WebSearchOutcome.answer). None on
+        # every DuckDuckGo fallback tier.
+        search_answer: Optional[str] = None
         generated_images = []
         tool_invocations = []
         search_mode = chat_req.web_search_mode or "auto"
@@ -479,27 +500,46 @@ async def chat_stream(
                         "state": "call",
                     })
                     try:
-                        search_results = await web_search_service.search(
+                        search_outcome = await web_search_service.search(
                             search_query, max_results=5, topic=search_topic, time_range=search_time_range
                         )
+                        search_results = search_outcome.results
+                        search_answer = search_outcome.answer
                     except Exception as se:
                         logger.warning("Web search service failed for '%s': %s", search_query, str(se))
                         search_results = []
+                        search_answer = None
 
                     if tool_invocations:
                         tool_invocations[-1]["state"] = "result"
                         tool_invocations[-1]["result"] = search_results
 
-                    yield f"data: {json.dumps({'type': 'search_results', 'query': search_query, 'results': search_results}, ensure_ascii=False)}\n\n"
+                    yield f"data: {json.dumps({'type': 'search_results', 'query': search_query, 'results': search_results, 'answer': search_answer}, ensure_ascii=False)}\n\n"
                     yield f"data: {json.dumps({'type': 'tool_result', 'toolCallId': tool_call_id, 'result': search_results}, ensure_ascii=False)}\n\n"
 
-                    if search_results:
+                    if search_results or search_answer:
                         search_lines = [
-                            f"\n\n【🌐 实时网络检索最新参考资料 (搜索词: {search_query})】",
-                            "系统已自动联网检索到以下最新网页内容，请参考这些实时资料全面、准确、客观地回答用户，并在涉及具体事实时引用参考来源（例如 [1]、[2]）：",
+                            f"\n\n【🌐 实时网络检索最新参考资料 (搜索词: {search_query})】"
                         ]
-                        for idx, r in enumerate(search_results, 1):
-                            search_lines.append(f"[{idx}] 《{r['title']}》\n    网址: {r['url']}\n    内容摘要: {r['snippet']}")
+                        # The synthesized answer goes first so the model reads it as a
+                        # lead rather than as a source. It is written by a model and may
+                        # be wrong or stale, so it is explicitly fenced as unverified.
+                        if search_answer:
+                            search_lines.append(
+                                "【检索系统综合摘要（由检索服务自动生成，可能存在偏差，仅供参考，请以下方逐条资料为准交叉验证）】\n"
+                                f"{search_answer}"
+                            )
+                        if search_results:
+                            search_lines.append(
+                                "系统已自动联网检索到以下最新网页内容，请参考这些实时资料全面、准确、客观地回答用户，并在涉及具体事实时引用参考来源（例如 [1]、[2]）："
+                            )
+                            for idx, r in enumerate(search_results, 1):
+                                search_lines.append(f"[{idx}] 《{r['title']}》\n    网址: {r['url']}\n    内容摘要: {r['snippet']}")
+                        else:
+                            search_lines.append(
+                                "检索服务未返回可引用的网页条目。若回答依赖具体事实，请坦诚告知用户缺少可核实的来源，"
+                                "严禁虚构引用编号或链接。"
+                            )
                         search_context_str = "\n".join(search_lines)
 
                         if messages_payload and messages_payload[0].get("role") == "system":
@@ -516,14 +556,18 @@ async def chat_stream(
                     "retrieved_memories": retrieved_memories,
                     "search_results": search_results if search_results else None,
                     "search_query": search_query if need_search else None,
+                    "search_answer": search_answer,
                     "created_at": user_created_at.isoformat()
                 }
                 yield f"data: {json.dumps(meta_chunk, ensure_ascii=False, default=str)}\n\n"
 
-                # Obtain LLM Provider (uses backend .env configuration strictly)
+                # Obtain LLM Provider: the caller's own credential wins, and each
+                # provider constructor falls back to the server .env when absent.
                 provider = get_llm_provider(
                     provider=chat_req.provider,
-                    model=model_to_use
+                    model=model_to_use,
+                    api_key=caller_api_key,
+                    base_url=caller_base_url,
                 )
 
                 # Stream LLM generation tokens with real-time leak filter
@@ -748,6 +792,7 @@ async def chat_stream(
             "finish_reason": finish_reason,
             "search_results": search_results if search_results else None,
             "search_query": search_query if need_search else None,
+            "search_answer": search_answer,
             "tool_invocations": tool_invocations if tool_invocations else None,
             "generated_images": generated_images if generated_images else None,
         }
@@ -764,6 +809,9 @@ async def chat_stream(
                         chat_req.message or "(附件)",
                         assistant_content,
                         model_to_use,
+                        provider_name,
+                        api_key=caller_api_key,
+                        base_url=caller_base_url,
                     )
                     if new_title:
                         async with AsyncSessionLocal() as title_db:
@@ -782,7 +830,6 @@ async def chat_stream(
                 # Strip reasoning thoughts (<think>...</think>) so scratchpad does not pollute user memory
                 clean_assistant = assistant_content
                 if "<think>" in clean_assistant:
-                    import re
                     clean_assistant = re.sub(r"<think>[\s\S]*?</think>", "", clean_assistant).strip()
                     if not clean_assistant:
                         clean_assistant = assistant_content[:2000]

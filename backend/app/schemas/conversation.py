@@ -1,16 +1,12 @@
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional
 
 
 class MessageBase(BaseModel):
     role: str
     content: str
     model: Optional[str] = None
-
-
-class MessageCreate(MessageBase):
-    pass
 
 
 class MessageResponse(MessageBase):
@@ -62,7 +58,3 @@ class ConversationResponse(ConversationBase):
 
     class Config:
         from_attributes = True
-
-
-class ConversationDetailResponse(ConversationResponse):
-    messages: Optional[List[MessageResponse]] = []

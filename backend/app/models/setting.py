@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Text, Boolean, Float, DateTime, ForeignKey
+from sqlalchemy import Column, String, Text, Boolean, Float, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 
@@ -25,11 +25,23 @@ class UserSetting(Base):
 
 
 class ModelConfig(Base):
+    """A user-supplied credential / endpoint override for one provider+model pair.
+
+    Rows are created and read exclusively through /settings/model-configs and are
+    always scoped by user_id. api_key_encrypted is Fernet ciphertext and is NEVER
+    returned by the API — callers see ``has_api_key`` instead.
+    """
+
     __tablename__ = "model_configs"
+    __table_args__ = (
+        # One credential per (user, provider, model); the PUT upsert relies on this
+        # to make repeated submits idempotent instead of piling up duplicates.
+        UniqueConstraint("user_id", "provider", "model", name="uq_model_config_user_provider_model"),
+    )
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
     user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    provider = Column(String(50), nullable=False)  # openai, anthropic, gemini, ollama
+    provider = Column(String(50), nullable=False)  # openai, anthropic, gemini, ollama, openrouter
     model = Column(String(100), nullable=False)    # e.g., gpt-4o, claude-3-5-sonnet, gemini-1.5-pro
     api_key_encrypted = Column(Text, nullable=True) # Encrypted with Fernet
     base_url = Column(String(255), nullable=True)
@@ -38,3 +50,8 @@ class ModelConfig(Base):
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
     user = relationship("User", back_populates="model_configs")
+
+    @property
+    def has_api_key(self) -> bool:
+        """Whether a key is stored, without ever exposing the ciphertext."""
+        return bool(self.api_key_encrypted)

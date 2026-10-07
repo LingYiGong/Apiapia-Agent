@@ -68,6 +68,24 @@ async def init_db():
                     UPDATE users SET can_access_all_models = true WHERE is_superuser = true;
                 END IF;
 
+                -- Caller-supplied provider credentials. create_all() only builds
+                -- the unique constraint on a fresh database, so an existing
+                -- install needs it applied explicitly.
+                IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'model_configs') THEN
+                    -- Keep only the newest row per (user, provider, model) so the
+                    -- unique index can be built. Safe because the table was never
+                    -- writable before the /settings/model-configs endpoints.
+                    DELETE FROM model_configs a
+                    USING model_configs b
+                    WHERE a.user_id = b.user_id
+                      AND a.provider = b.provider
+                      AND a.model = b.model
+                      AND (a.updated_at, a.id) < (b.updated_at, b.id);
+
+                    CREATE UNIQUE INDEX IF NOT EXISTS uq_model_config_user_provider_model
+                        ON model_configs (user_id, provider, model);
+                END IF;
+
                 IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'conversations') THEN
                     ALTER TABLE conversations ADD COLUMN IF NOT EXISTS is_deleted boolean DEFAULT false;
                     ALTER TABLE conversations ADD COLUMN IF NOT EXISTS deleted_at timestamp with time zone;

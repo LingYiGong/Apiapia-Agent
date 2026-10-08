@@ -1,6 +1,26 @@
+from pathlib import Path
 from pydantic_settings import BaseSettings
 from pydantic import Field
 from typing import Optional
+
+
+def _get_default_version() -> str:
+    """Read version dynamically from repo-root or app-root VERSION file if available."""
+    search_paths = [
+        Path(__file__).resolve().parent.parent.parent.parent / "VERSION",  # repo root (local dev)
+        Path(__file__).resolve().parent.parent.parent / "VERSION",         # /app/VERSION (docker)
+        Path("/app/VERSION"),
+        Path("VERSION"),
+    ]
+    for p in search_paths:
+        try:
+            if p.is_file():
+                content = p.read_text(encoding="utf-8").strip()
+                if content:
+                    return content.lstrip("vV")
+        except Exception:
+            pass
+    return "0.0.0-dev"
 
 
 class Settings(BaseSettings):
@@ -8,13 +28,8 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api"
 
     #: Release version of this service, reported by GET / and the OpenAPI docs.
-    #:
-    #: It must match the repo-root VERSION file and frontend/package.json — they
-    #: ship as one artefact. It used to be hardcoded twice inside main.py and had
-    #: drifted to 2.9.0 while the frontend and VERSION were already on v2.12.0, so
-    #: the v2.12.0 changelog entry claiming "version unified across five sources"
-    #: was not true of the backend. One literal here, overridable with APP_VERSION.
-    APP_VERSION: str = "2.14.0"
+    #: Dynamically read from the root VERSION file, overridable with APP_VERSION env var.
+    APP_VERSION: str = Field(default_factory=_get_default_version)
 
     # PostgreSQL Database
     POSTGRES_USER: str = "postgres"

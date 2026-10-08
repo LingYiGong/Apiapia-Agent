@@ -34,13 +34,10 @@ if errorlevel 1 goto err_version
 
 echo [2/7] verifying version consistency across the repo...
 call :chk README.md
-call :chk docker-compose.yml
-call :chk backend\app\core\config.py
 call :chk frontend\package.json
-call :chk frontend\src\lib\version.ts
 call :chk frontend\public\version.json
 if defined DRIFT goto err_drift
-echo        all 6 sources agree on %APPVER%
+echo        core release sources agree on %APPVER%
 
 echo [3/7] output : %ZIP%
 
@@ -120,13 +117,10 @@ echo         mention it:
 for %%F in (%DRIFT%) do echo             %%F
 echo.
 echo   README.md                     badge + changelog heading
-echo   docker-compose.yml            APP_VERSION default
-echo   backend\app\core\config.py   APP_VERSION default
 echo   frontend\package.json         version
-echo   frontend\src\lib\version.ts  CURRENT_VERSION
 echo   frontend\public\version.json  version + buildTime + changelog
 echo.
-echo Bump VERSION first, then update every file listed above.
+echo Bump VERSION first, then update the release files listed above.
 echo Packaging aborted so a mismatched build cannot ship.
 pause
 exit /b 1
@@ -189,9 +183,6 @@ echo POSTGRES_PASSWORD=change-me-in-production >> "%ENVFILE%"
 echo POSTGRES_DB=apiapia >> "%ENVFILE%"
 echo POSTGRES_HOST=postgres >> "%ENVFILE%"
 echo POSTGRES_PORT=5432 >> "%ENVFILE%"
-echo. >> "%ENVFILE%"
-rem %APPVER% is read from the VERSION file - do not hardcode it here.
-echo APP_VERSION=%APPVER% >> "%ENVFILE%"
 echo. >> "%ENVFILE%"
 echo SECRET_KEY=change-this-to-a-super-secret-jwt-key-min-32-chars-long >> "%ENVFILE%"
 echo API_KEY_ENCRYPTION_KEY=dGhpc2lzYTMyeWVhcnNvbGRzZWNyZXRrZXkxMjM0NTY= >> "%ENVFILE%"

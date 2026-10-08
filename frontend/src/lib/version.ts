@@ -1,8 +1,10 @@
+import packageJson from "../../package.json";
+
 /**
- * 与 VERSION / README 徽章 / frontend/package.json / public/version.json 保持一致。
- * 注意：这五处目前靠人工同步，v2.10.0 就曾漏改导致更新提示长期失效。
+ * 客户端当前版本。直接从 package.json 派生，杜绝手工多头维护与遗漏风险。
  */
-export const CURRENT_VERSION = "2.13.0";
+export const CURRENT_VERSION: string = packageJson.version;
+
 
 export interface VersionInfo {
   version: string;

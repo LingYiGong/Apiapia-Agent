@@ -104,6 +104,19 @@ async def lifespan(app: FastAPI):
             exc_info=True,
         )
         raise
+
+    async def _startup_sync_models():
+        try:
+            from app.api.v1.models import sync_models_from_providers, sync_image_models_from_providers
+            logger.info("Auto-syncing chat models and image models from configured providers on startup...")
+            await sync_models_from_providers()
+            await sync_image_models_from_providers()
+        except Exception as e:
+            logger.warning("Startup model sync skipped or failed: %s", e)
+
+    import asyncio
+    asyncio.create_task(_startup_sync_models())
+
     yield
     logger.info("Shutting down Apiapia assistant backend.")
 

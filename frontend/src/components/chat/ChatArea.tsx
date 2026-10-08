@@ -37,6 +37,8 @@ import {
   Plus,
   Palette,
   Check,
+  Image as ImageIcon,
+  Camera,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -226,6 +228,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   const [attachments, setAttachments] = useState<AttachmentItem[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   // ── Composer draft persistence ──────────────────────────────────
   // An unsent prompt should survive a reload or an accidental navigation.
@@ -825,11 +829,44 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
           {/* Input Controls Row */}
           <div className="flex items-end gap-1">
+            {/* Hidden Input: 通用文件选择 */}
             <input
               ref={fileInputRef}
               type="file"
               multiple
               accept="image/*,.pdf,.doc,.docx,.txt,.md,.json,.csv,.py,.js,.ts,.tsx,.jsx,.html,.css,.sql"
+              className="hidden"
+              tabIndex={-1}
+              aria-hidden="true"
+              onChange={(e) => {
+                if (e.target.files) {
+                  handleFiles(e.target.files);
+                  e.target.value = "";
+                }
+              }}
+            />
+            {/* Hidden Input: 相册（纯图片/视频） */}
+            <input
+              ref={galleryInputRef}
+              type="file"
+              multiple
+              accept="image/*"
+              className="hidden"
+              tabIndex={-1}
+              aria-hidden="true"
+              onChange={(e) => {
+                if (e.target.files) {
+                  handleFiles(e.target.files);
+                  e.target.value = "";
+                }
+              }}
+            />
+            {/* Hidden Input: 相机拍照 (移动端调用 capture) */}
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
               className="hidden"
               tabIndex={-1}
               aria-hidden="true"
@@ -870,7 +907,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 collisionPadding={12}
                 className="z-50 w-[300px] sm:w-[320px] select-none rounded-[22px] border border-border/50 bg-background/95 p-2 backdrop-blur-2xl shadow-[0_20px_50px_rgba(0,0,0,0.22)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.6)] animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95"
               >
-                <div className="px-2.5 pt-1.5 pb-2 border-b border-border/40 mb-1 flex items-center justify-between">
+                <div className="px-2.5 pt-1.5 pb-2 border-b border-border/40 mb-1.5 flex items-center justify-between">
                   <span className="text-2xs font-semibold uppercase tracking-wider text-muted-foreground font-mono">
                     创作与功能
                   </span>
@@ -885,24 +922,49 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                   )}
                 </div>
 
-                <div className="space-y-1">
-                  {/* 1. 上传图片或文件 */}
-                  <DropdownMenuItem
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex items-start gap-3 rounded-2xl p-2.5 cursor-pointer transition-colors hover:bg-surface-3 focus:bg-surface-3 active:scale-[0.99]"
-                  >
-                    <div className="h-8 w-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5">
-                      <Paperclip className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-foreground">上传图片或文件</span>
+                {/* 顶部横排 3 按钮：相册、相机、文件 */}
+                <div className="grid grid-cols-3 gap-1.5 px-0.5 mb-1.5">
+                  <DropdownMenuItem asChild>
+                    <button
+                      type="button"
+                      onClick={() => galleryInputRef.current?.click()}
+                      className="flex flex-col items-center justify-center gap-1.5 py-2.5 px-1 rounded-2xl border border-border/40 bg-surface-3/40 hover:bg-surface-3 focus:bg-surface-3 focus:outline-none transition-all active:scale-95 group text-center cursor-pointer select-none"
+                    >
+                      <div className="h-8 w-8 rounded-xl bg-blue-500/15 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                        <ImageIcon className="h-4 w-4" />
                       </div>
-                      <p className="mt-0.5 text-2xs leading-relaxed text-muted-foreground">
-                        分析文档、提取数据或让多模态视觉模型理解图片
-                      </p>
-                    </div>
+                      <span className="text-xs font-medium text-foreground">相册</span>
+                    </button>
                   </DropdownMenuItem>
+
+                  <DropdownMenuItem asChild>
+                    <button
+                      type="button"
+                      onClick={() => cameraInputRef.current?.click()}
+                      className="flex flex-col items-center justify-center gap-1.5 py-2.5 px-1 rounded-2xl border border-border/40 bg-surface-3/40 hover:bg-surface-3 focus:bg-surface-3 focus:outline-none transition-all active:scale-95 group text-center cursor-pointer select-none"
+                    >
+                      <div className="h-8 w-8 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                        <Camera className="h-4 w-4" />
+                      </div>
+                      <span className="text-xs font-medium text-foreground">相机</span>
+                    </button>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem asChild>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex flex-col items-center justify-center gap-1.5 py-2.5 px-1 rounded-2xl border border-border/40 bg-surface-3/40 hover:bg-surface-3 focus:bg-surface-3 focus:outline-none transition-all active:scale-95 group text-center cursor-pointer select-none"
+                    >
+                      <div className="h-8 w-8 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                        <FileText className="h-4 w-4" />
+                      </div>
+                      <span className="text-xs font-medium text-foreground">文件</span>
+                    </button>
+                  </DropdownMenuItem>
+                </div>
+
+                <div className="space-y-1">
 
                   {/* 2. 联网检索 */}
                   {onToggleWebSearchMode && (

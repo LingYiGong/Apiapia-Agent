@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v2.16.0-indigo?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/version-v2.17.0-indigo?style=flat-square" alt="Version">
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
   <img src="https://img.shields.io/badge/Mem0%20OSS-2.2.1-orange?style=flat-square" alt="Mem0">
@@ -19,6 +19,43 @@
   <img src="https://img.shields.io/badge/iOS%20PWA-Ready-007AFF?style=flat-square&logo=apple" alt="iOS PWA">
   <img src="https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker" alt="Docker">
 </p>
+
+---
+
+## v2.17.0 发布说明
+
+本版本是一次**AI 视频生成全栈集成、创作模式面板与输入交互革新**升级。不仅全面接入了基于 OpenRouter 的 AI 视频大模型生成与持久化管道，还对输入框左侧创作功能菜单进行了系统性整合重构，让对话、生图、生成视频与联网检索的使用体验更加丝滑高效。
+
+### AI 视频大模型生成与媒体持久化管道 (AI Video Generation Engine)
+
+- **OpenRouter 视频大模型生态接入**：
+  - 全面支持视频模型异步任务提交、状态轮询与本地媒体安全落盘（如 `gen-vid-*` 任务流水线）。
+  - 模型动态参数自适应：根据不同模型规范自动适配 `aspect_ratio`（如 16:9 / 9:16）与支持的时长参数，保障生成任务成功率。
+  - **媒体本地持久化与流媒体服务**：生成的视频文件自动落盘到后端本地媒体库（`data/media/videos/{YYYY}/{MM}/{id}.mp4`），提供极速本地流式播放与防外部临时链接失效保护。
+- **全新专属 AI 视频卡片渲染**：
+  - 聊天气泡内嵌全新 `AiVideoCard` 视频播放组件，支持原生控件、全屏播放、模型来源徽标与一键无损下载视频文件。
+
+### 输入区创作面板与模式联动重构 (Creation Hub & Seamless Mode Sync)
+
+- **输入框全新「+」号创作菜单**：
+  - 输入框左侧原回形针与外置联网检索按钮整合为现代化的「+」号快捷面板，清晰呈现四大高频能力：
+    1. **上传图片或文件**：支持多文件选择与上下文注入；
+    2. **联网检索**：内嵌即时状态标识（开启 / 自动 / 关闭），支持菜单内直接点击轮换切换；
+    3. **生成图片**：一键切换到图像创作模式；
+    4. **生成视频**：一键切换到视频创作模式。
+- **输入占位符与顶栏模型全自动联动**：
+  - 切换到「生成图片」模式时，输入框提示文字自适应切换为「**描述你的图片**」，顶栏模型选择框实时联动显示当前生效的生图模型；
+  - 切换到「生成视频」模式时，输入框提示文字自适应切换为「**描述你的视频**」，顶栏模型选择框实时联动显示当前生效的视频模型；
+  - 彻底去除模型名称前冗余的 `[生图]` / `[视频]` 前缀，视觉更加清爽纯粹。
+  - 精简顶栏控制区域，移除聊天顶部的多余同步模型按钮，保持界面极简干净。
+
+### 权限安全分级与启动自动化 (Access Control & Auto-Sync)
+
+- **体验模式账号权限分级管控**：
+  - 针对无全量模型权限的体验账号，前端视频生成选项置灰并友好引导联系管理员开通；
+  - 后端接口层（API & 流式处理）全面部署双重 403 权限拦截，彻底杜绝越权产生计费消耗。
+- **服务启动自动同步全量模型**：
+  - 后端服务容器启动时自动并发拉取并同步对话模型、图像模型及视频模型库，无需手动初始化。
 
 ---
 

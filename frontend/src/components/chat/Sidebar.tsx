@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Conversation } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,7 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { useConfirm } from "@/hooks/useConfirm";
 import { cn } from "@/lib/utils";
 import { formatDateTime } from "@/lib/format";
-import { sortByPinnedThenActivity } from "@/lib/timeGroups";
+import { groupByTimeBuckets } from "@/lib/timeGroups";
 import {
   Plus,
   Trash2,
@@ -64,23 +64,33 @@ export const Sidebar: React.FC<SidebarProps> = ({
   // <ConfirmDialog> 样板，与 MobileHistoryView 的那份逐字相同。
   const { ask, dialog } = useConfirm();
 
-  const sorted = sortByPinnedThenActivity(
-    conversations,
-    activityOf,
-    (c) => !!c.is_pinned,
-    (c) => c.pin_order ?? 0
-  );
-
   const query = search.trim().toLowerCase();
-  const filtered = sorted.filter((c) => (c.title || "").toLowerCase().includes(query));
+  const filtered = useMemo(() => {
+    if (!query) return conversations;
+    return conversations.filter((c) => (c.title || "").toLowerCase().includes(query));
+  }, [conversations, query]);
 
   const isSearching = query.length > 0;
-  const pinned = filtered.filter((c) => c.is_pinned);
-  const unpinned = filtered.filter((c) => !c.is_pinned);
+
+  const groupedSections = useMemo(
+    () =>
+      groupByTimeBuckets<Conversation>(filtered, {
+        getTime: activityOf,
+        isPinned: (c) => !!c.is_pinned,
+        getPinOrder: (c) => c.pin_order ?? 0,
+        pinnedTitle: "置顶",
+      }),
+    [filtered]
+  );
+
+  const pinnedItems = useMemo(
+    () => groupedSections.find((s) => s.key === "pinned")?.items ?? [],
+    [groupedSections]
+  );
 
   const handleDropOnPinned = (targetId: string) => {
     if (!dragId || dragId === targetId) return;
-    const ids = pinned.map((c) => c.id);
+    const ids = pinnedItems.map((c) => c.id);
     const from = ids.indexOf(dragId);
     const to = ids.indexOf(targetId);
     if (from < 0 || to < 0) return;
@@ -337,37 +347,33 @@ export const Sidebar: React.FC<SidebarProps> = ({
               }
             />
           ) : (
-            <div className="space-y-1">
-              {isSearching
-                ? filtered.map((c) =>
-                    renderRow(c, { showSortControls: false, isFirst: true, isLast: true })
-                  )
-                : (
-                  <>
-                    {pinned.length > 0 && (
-                      <div className="space-y-1">
-                        <div className="px-3 pb-0.5 pt-1 text-2xs font-semibold tracking-wider text-muted-foreground select-none">
-                          置顶（{pinned.length}，可拖拽排序）
-                        </div>
-                        {pinned.map((c, idx) =>
-                          renderRow(c, {
-                            showSortControls: true,
-                            isFirst: idx === 0,
-                            isLast: idx === pinned.length - 1,
-                          })
-                        )}
-                        {unpinned.length > 0 && (
-                          <div className="mt-2 border-t border-border/60 px-3 pb-0.5 pt-2 text-2xs font-semibold tracking-wider text-muted-foreground select-none">
-                            全部对话
-                          </div>
-                        )}
-                      </div>
+            <div className="space-y-4">
+              {groupedSections.map((sec, secIdx) => (
+                <div key={sec.key} className={cn("space-y-1", secIdx > 0 && "pt-3")}>
+                  <div className="flex items-center justify-between px-3 pb-1 text-2xs font-semibold tracking-wider text-muted-foreground select-none">
+                    <span className="flex items-center gap-1">
+                      {sec.key === "pinned" && <Pin className="h-3 w-3 text-primary" />}
+                      <span>
+                        {sec.key === "pinned"
+                          ? isSearching
+                            ? "置顶"
+                            : `置顶（${sec.items.length}，可拖拽排序）`
+                          : sec.title}
+                      </span>
+                    </span>
+                    {(sec.key !== "pinned" || isSearching) && (
+                      <span className="font-mono text-2xs opacity-60">({sec.items.length})</span>
                     )}
-                    {unpinned.map((c) =>
-                      renderRow(c, { showSortControls: false, isFirst: true, isLast: true })
-                    )}
-                  </>
-                )}
+                  </div>
+                  {sec.items.map((c, idx) =>
+                    renderRow(c, {
+                      showSortControls: sec.key === "pinned" && !isSearching,
+                      isFirst: idx === 0,
+                      isLast: idx === sec.items.length - 1,
+                    })
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </div>

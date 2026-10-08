@@ -467,12 +467,12 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
         />
       ) : (
         <div className="space-y-6">
-          {groupedSections.map((sec) => (
-            <div key={sec.key} className="space-y-2.5">
+          {groupedSections.map((sec, secIdx) => (
+            <div key={sec.key} className={cn("space-y-2.5", secIdx > 0 && "pt-2")}>
               <div className="flex items-center justify-between px-1">
-                <span className="text-xs font-semibold text-muted-foreground/80 select-none">
+                <span className="text-xs font-semibold text-muted-foreground select-none">
                   {sec.title}
-                  <span className="ml-1.5 font-mono text-2xs opacity-50">
+                  <span className="ml-1.5 font-mono text-2xs opacity-60">
                     ({sec.items.length})
                   </span>
                 </span>

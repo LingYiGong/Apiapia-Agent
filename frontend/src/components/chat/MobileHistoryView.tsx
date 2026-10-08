@@ -15,6 +15,7 @@ import { usePinnedDragReorder } from "@/components/chat/usePinnedDragReorder";
 import { useConfirm } from "@/hooks/useConfirm";
 import { formatRelativeTime } from "@/lib/format";
 import { groupByTimeBuckets } from "@/lib/timeGroups";
+import { cn } from "@/lib/utils";
 import type { MobileTab } from "@/config/navigation";
 import {
   Dialog,
@@ -77,7 +78,7 @@ export const MobileHistoryView = ({
     );
   }, [conversations, search]);
 
-  // 置顶 / 今天 / 过去 7 天 / 更早 —— 与桌面侧栏、记忆库共用 lib/timeGroups
+  // 置顶 / 最近 24 小时 / 最近 3 天 / 最近 7 天 / 更早 —— 与桌面侧栏、记忆库共用 lib/timeGroups
   const groupedSections = useMemo(
     () =>
       groupByTimeBuckets<Conversation>(filteredList, {
@@ -210,9 +211,9 @@ export const MobileHistoryView = ({
           />
         ) : (
           <div className="space-y-5">
-            {groupedSections.map((sec) => (
-              <div key={sec.key} className="space-y-1.5">
-                <div className="flex items-center justify-between px-1">
+            {groupedSections.map((sec, secIdx) => (
+              <div key={sec.key} className={cn("space-y-1.5", secIdx > 0 && "pt-2.5")}>
+                <div className="flex items-center justify-between px-1 pb-0.5">
                   <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground select-none">
                     {sec.key === "pinned" && <Pin className="h-3 w-3 text-primary" />}
                     <span>{sec.title}</span>

@@ -1,15 +1,8 @@
 /**
  * 按时间把列表切成 Apple HIG 的分组小标。
  *
- * 此前同一套分组逻辑有**四条**独立实现处理同一份数据，各自的边界与排序还不完全
- * 一致：
- *   - components/chat/MobileHistoryView.tsx   （置顶 + 三段，倒序）
- *   - components/memory/MemoryView.tsx         （三段，倒序）
- *   - app/chat/page.tsx  getPinnedSorted       （只排置顶）
- *   - components/chat/Sidebar.tsx              （置顶优先 + 时间倒序的扁平排序，
- *                                               没有小标）
- *
- * 口径统一为四段：**最近 24 小时 / 最近 3 天 / 最近 7 天 / 更早**。
+ * 历史会话（桌面侧栏 Sidebar、移动端 MobileHistoryView）与记忆库（MemoryView）
+ * 全站统一四段分组：**最近 24 小时 / 最近 3 天 / 最近 7 天 / 更早**。
  *
  * 两个关键设计：
  *
@@ -53,9 +46,9 @@ export const TIME_BUCKET_SPANS: { key: TimeBucketKey; spanMs: number }[] = [
 
 /** 分组小标文案。与滚动窗口语义一一对应，用户可自行推算边界。 */
 const BUCKET_TITLES: Record<TimeBucketKey, string> = {
-  last24h: "最近 24 小时",
-  last3d: "最近 3 天",
-  last7d: "最近 7 天",
+  last24h: "最近24小时",
+  last3d: "最近3天",
+  last7d: "最近7天",
   earlier: "更早",
 };
 

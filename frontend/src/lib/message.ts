@@ -1,9 +1,9 @@
-import type { GeneratedImage, Message, ToolInvocation } from "@/types";
+import type { GeneratedImage, GeneratedVideo, Message, ToolInvocation } from "@/types";
 
 /**
  * 消息的形状归一化。
  *
- * 后端把工具调用与生成图以 JSON 字符串存在 DB 列里，而流式回调直接给对象。
+ * 后端把工具调用与生成图/视频以 JSON 字符串存在 DB 列里，而流式回调直接给对象。
  * types/index.ts 因此为同一份数据保留了两套字段（snake_case 原文 +
  * camelCase 解析结果），chat/page 与 ChatMessageItem 各自做一次转换。
  * 转换逻辑只有一份，放在这里。
@@ -32,6 +32,12 @@ function toGeneratedImages(raw: unknown): GeneratedImage[] | undefined {
   return undefined;
 }
 
+function toGeneratedVideos(raw: unknown): GeneratedVideo[] | undefined {
+  const parsed = parseJsonColumn(raw);
+  if (Array.isArray(parsed) && parsed.length > 0) return parsed as GeneratedVideo[];
+  return undefined;
+}
+
 /**
  * 把后端返回的消息补齐成前端渲染需要的形状。
  *
@@ -42,13 +48,17 @@ function toGeneratedImages(raw: unknown): GeneratedImage[] | undefined {
  * 解析失败只警告不抛：一条坏消息不该让整个会话打不开。
  */
 export function hydrateMessage(msg: Message): Message {
-  if (!msg.generated_images && !msg.tool_invocations) return msg;
+  if (!msg.generated_images && !msg.generated_videos && !msg.tool_invocations) return msg;
 
   const next: Message = { ...msg };
 
   if (!next.generatedImages && msg.generated_images) {
     const images = toGeneratedImages(msg.generated_images);
     if (images) next.generatedImages = images;
+  }
+  if (!next.generatedVideos && msg.generated_videos) {
+    const videos = toGeneratedVideos(msg.generated_videos);
+    if (videos) next.generatedVideos = videos;
   }
   if (!next.toolInvocations && msg.tool_invocations) {
     const tools = toToolInvocations(msg.tool_invocations);

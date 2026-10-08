@@ -50,6 +50,7 @@ async def init_db():
                     ALTER TABLE messages ADD COLUMN IF NOT EXISTS duration_ms integer DEFAULT 0;
                     ALTER TABLE messages ADD COLUMN IF NOT EXISTS search_results text;
                     ALTER TABLE messages ADD COLUMN IF NOT EXISTS generated_images text;
+                    ALTER TABLE messages ADD COLUMN IF NOT EXISTS generated_videos text;
                     ALTER TABLE messages ADD COLUMN IF NOT EXISTS user_attachments text;
                     ALTER TABLE messages ADD COLUMN IF NOT EXISTS tool_invocations text;
                     ALTER TABLE messages ADD COLUMN IF NOT EXISTS thinking_duration_ms integer DEFAULT 0;
@@ -59,6 +60,7 @@ async def init_db():
 
                 IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'user_settings') THEN
                     ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS image_model varchar(120);
+                    ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS video_model varchar(120);
                     ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS web_search_mode varchar(10) DEFAULT 'auto';
                 END IF;
 

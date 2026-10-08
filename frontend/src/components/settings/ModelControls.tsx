@@ -21,8 +21,8 @@ export function SyncModelsButton({
 }: {
   onSync: () => void;
   syncing: boolean;
-  /** 用于文案区分「语言模型」与「绘图模型」 */
-  scope: "语言模型" | "绘图模型";
+  /** 用于文案区分「语言模型」、「绘图模型」与「视频模型」 */
+  scope: "语言模型" | "绘图模型" | "视频模型";
   className?: string;
 }) {
   return (

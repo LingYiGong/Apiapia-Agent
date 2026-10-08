@@ -441,7 +441,7 @@ def _purge_message_media(msg: Message) -> None:
     in `content`, so the JSON records are always in step with the body and there is
     no third place to look.
     """
-    for attribute in ("generated_images", "user_attachments"):
+    for attribute in ("generated_images", "generated_videos", "user_attachments"):
         raw = getattr(msg, attribute, None)
         if not raw:
             continue

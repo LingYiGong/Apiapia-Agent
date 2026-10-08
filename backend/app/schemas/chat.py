@@ -48,6 +48,8 @@ class ChatRequest(BaseModel):
     memory_enabled: Optional[bool] = True
     memory_score_threshold: Optional[float] = Field(default=None, ge=0.0, le=1.0)
     web_search_mode: Optional[str] = Field(default=None, max_length=10)  # "auto", "on", "off"
+    image_gen_mode: Optional[bool] = Field(default=False)  # Explicitly trigger image generation
+    video_gen_mode: Optional[bool] = Field(default=False)  # Explicitly trigger video generation
     attachments: Optional[List[AttachmentPayload]] = Field(
         default=None, max_length=MAX_ATTACHMENTS
     )

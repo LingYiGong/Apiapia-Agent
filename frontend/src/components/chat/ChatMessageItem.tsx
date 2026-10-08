@@ -7,6 +7,7 @@ import { ActionTooltip } from "@/components/common/ActionTooltip";
 import { AttachmentItems, DocChip, ImageThumb, MediaGrid } from "@/components/chat/MessageMedia";
 import {
   AiImageCard,
+  AiVideoCard,
   SearchSources,
   parseSearchResults,
   parseUserMessage,
@@ -28,6 +29,7 @@ import {
   Quote,
   RotateCw,
   Square,
+  Video,
   Zap,
   type LucideIcon,
 } from "lucide-react";
@@ -337,6 +339,8 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                               <RotateCw className="h-3.5 w-3.5 animate-spin text-primary" />
                             ) : tool.toolName === "image_generation" ? (
                               <Palette className="h-3.5 w-3.5 text-primary" />
+                            ) : tool.toolName === "video_generation" ? (
+                              <Video className="h-3.5 w-3.5 text-primary" />
                             ) : (
                               <Cpu className="h-3.5 w-3.5 text-primary" />
                             )}
@@ -345,6 +349,8 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                                 ? "执行联网检索"
                                 : tool.toolName === "image_generation"
                                 ? "执行 AI 图像绘制"
+                                : tool.toolName === "video_generation"
+                                ? "执行 AI 视频生成"
                                 : `调用工具: ${tool.toolName}`}
                             </span>
                           </div>
@@ -372,6 +378,17 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                       key={img.id || imgIdx}
                       image={img}
                       onImageClick={onImageClick}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {msg.generatedVideos && msg.generatedVideos.length > 0 && (
+                <div className="mb-2 space-y-3">
+                  {msg.generatedVideos.map((vid, vidIdx) => (
+                    <AiVideoCard
+                      key={vid.id || vidIdx}
+                      video={vid}
                     />
                   ))}
                 </div>

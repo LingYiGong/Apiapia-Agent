@@ -71,6 +71,19 @@ export function getMediaImageUrl(imageId: string, download = false): string {
 }
 
 /**
+ * URL for a persisted generated video.
+ */
+export function getMediaVideoUrl(videoId: string, download = false): string {
+  const base = getApiBase();
+  const token = getToken();
+  const params = new URLSearchParams();
+  if (token) params.set("token", token);
+  if (download) params.set("download", "1");
+  const qs = params.toString();
+  return `${base}/media/videos/${videoId}${qs ? `?${qs}` : ""}`;
+}
+
+/**
  * Error carrying the HTTP status, so callers can tell an auth failure apart
  * from a transient one. A bare `Error` is deliberately left ambiguous: network
  * failures reject with a `TypeError` before any status exists, so
@@ -142,7 +155,7 @@ export async function apiRequest<T = any>(
   return response.json();
 }
 
-import { AttachmentItem, SearchResultItem, ToolInvocation, GeneratedImage } from "../types";
+import { AttachmentItem, SearchResultItem, ToolInvocation, GeneratedImage, GeneratedVideo } from "../types";
 
 /**
  * Handle Server-Sent Events (SSE) streaming for chat
@@ -162,6 +175,8 @@ export async function streamChatResponse(
     memory_enabled?: boolean;
     memory_score_threshold?: number;
     web_search_mode?: "auto" | "on" | "off";
+    image_gen_mode?: boolean;
+    video_gen_mode?: boolean;
     attachments?: AttachmentItem[];
   },
   callbacks: {
@@ -177,6 +192,7 @@ export async function streamChatResponse(
     onToolCall?: (data: { toolCallId: string; toolName: string; args: any }) => void;
     onToolResult?: (data: { toolCallId: string; result: any }) => void;
     onImageResult?: (data: { toolCallId: string; imageId?: string | null; url: string; prompt: string; provider: string; model: string }) => void;
+    onVideoResult?: (data: { toolCallId: string; videoId?: string | null; prompt: string; provider: string; model: string }) => void;
     onToken?: (token: string) => void;
     onError?: (error: string, info?: { finishReason?: "stop" | "abort" | "error" | "length" | "content_filter" | (string & {}) }) => void;
     onDone?: (doneMeta: {
@@ -195,6 +211,7 @@ export async function streamChatResponse(
       finish_reason?: "stop" | "abort" | "error" | "length" | "content_filter" | (string & {});
       tool_invocations?: ToolInvocation[];
       generated_images?: GeneratedImage[];
+      generated_videos?: GeneratedVideo[];
     }) => void;
 
   },
@@ -286,6 +303,8 @@ export async function streamChatResponse(
         callbacks.onToolResult?.(parsed);
       } else if (parsed.type === "image_result") {
         callbacks.onImageResult?.(parsed);
+      } else if (parsed.type === "video_result") {
+        callbacks.onVideoResult?.(parsed);
       } else if (parsed.type === "reasoning") {
         if (typeof parsed.delta === "string") {
           if (!streamInThinking) {

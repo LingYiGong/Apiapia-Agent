@@ -1,4 +1,4 @@
-import type { ImageModelItem, ModelCatalogItem } from "@/types";
+import type { ImageModelItem, VideoModelItem, ModelCatalogItem } from "@/types";
 
 /**
  * 模型目录的纯逻辑层。
@@ -272,6 +272,28 @@ export function toChatModelOptions(models: ModelCatalogItem[]): ModelOption[] {
  * 误标成免费。排序同样交给本适配器（免费优先，其次按 id）。
  */
 export function toImageModelOptions(models: ImageModelItem[]): ModelOption[] {
+  return models
+    .map((m) => ({
+      id: m.id,
+      name: m.name,
+      provider: m.provider,
+      description: m.description,
+      isFree: m.is_free,
+      isMultimodal: false,
+      isFeatured: false,
+    }))
+    .sort((a, b) => {
+      if (a.isFree !== b.isFree) return a.isFree ? -1 : 1;
+      return a.id.localeCompare(b.id);
+    })
+    .map((o, rank) => ({ ...o, rank }));
+}
+
+/**
+ * 视频模型目录适配。
+ * 同样采信后端下发的 is_free 标记，免费优先，其余按 id 字母序。
+ */
+export function toVideoModelOptions(models: VideoModelItem[]): ModelOption[] {
   return models
     .map((m) => ({
       id: m.id,

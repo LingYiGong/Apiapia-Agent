@@ -13,6 +13,7 @@ class UserSetting(Base):
     default_model = Column(String(100), default="gpt-4o-mini", nullable=False)
     memory_model = Column(String(100), default="openai/gpt-4o-mini", nullable=True)
     image_model = Column(String(120), default=None, nullable=True)
+    video_model = Column(String(120), default=None, nullable=True)
     system_prompt = Column(Text, default="你是一个智能、真诚、有洞察力的个人智能助理。请根据用户提供的历史背景和长期记忆为用户提供高质量服务。", nullable=False)
     temperature = Column(Float, default=0.7, nullable=False)
     memory_enabled = Column(Boolean, default=True, nullable=False)

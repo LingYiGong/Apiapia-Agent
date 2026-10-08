@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "@/lib/auth";
 import { apiRequest } from "@/lib/api";
 import { ViewShell } from "@/components/common/ViewShell";
-import { ModelCatalogItem, ImageModelItem, ImageModelsResponse } from "@/types";
+import { ModelCatalogItem, ImageModelItem, ImageModelsResponse, VideoModelItem, VideoModelsResponse } from "@/types";
 import { ModelSelect } from "@/components/common/ModelSelect";
 import { isFreeModel, isMultimodalModel, toChatModelOptions } from "@/lib/models";
 import { CURRENT_VERSION, triggerManualUpdateCheck } from "@/lib/version";
@@ -15,6 +15,7 @@ import { Switch } from "@/components/ui/switch";
 import { ThemeSegments } from "@/components/common/ThemeSegments";
 import { BrandLogo } from "@/components/common/BrandLogo";
 import { ImageModelSelect } from "@/components/settings/ImageModelSelect";
+import { VideoModelSelect } from "@/components/settings/VideoModelSelect";
 import {
   ModelInfoPanel,
   ModelMissingNotice,
@@ -41,13 +42,14 @@ import { Panel, SectionLabel } from "@/components/common/Panel";
 import { notifyModelSyncResult } from "@/lib/feedback";
 import { FullPageSkeleton, SettingsFormSkeleton } from "@/components/common/PageSkeleton";
 import type { MobileTab } from "@/config/navigation";
-import { RefreshCw, Zap, Brain, Palette } from "lucide-react";
+import { RefreshCw, Zap, Brain, Palette, Video } from "lucide-react";
 import { toast } from "sonner";
 
 interface InitialSettings {
   defaultModel: string;
   memoryModel: string;
   imageModel: string | null;
+  videoModel: string | null;
   systemPrompt: string;
   temperature: number;
   memoryEnabled: boolean;
@@ -86,6 +88,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [defaultModel, setDefaultModel] = useState("openrouter/free");
   const [memoryModel, setMemoryModel] = useState("openai/gpt-4o-mini");
   const [imageModel, setImageModel] = useState<string | null>(null);
+  const [videoModel, setVideoModel] = useState<string | null>(null);
   const [systemPrompt, setSystemPrompt] = useState("");
   const [personaId, setPersonaId] = useState<PersonaId>("default");
   const [temperature, setTemperature] = useState(0.7);
@@ -100,6 +103,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [imageModelsSynced, setImageModelsSynced] = useState(false);
   const [loadingImageModels, setLoadingImageModels] = useState(true);
   const [syncingImageModels, setSyncingImageModels] = useState(false);
+  const [videoModels, setVideoModels] = useState<VideoModelItem[]>([]);
+  const [videoModelsSynced, setVideoModelsSynced] = useState(false);
+  const [loadingVideoModels, setLoadingVideoModels] = useState(true);
+  const [syncingVideoModels, setSyncingVideoModels] = useState(false);
   const [syncingModels, setSyncingModels] = useState(false);
 
   const [savingSettings, setSavingSettings] = useState(false);
@@ -116,11 +123,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       defaultModel !== initialSettings.defaultModel ||
       memoryModel !== initialSettings.memoryModel ||
       imageModel !== initialSettings.imageModel ||
+      videoModel !== initialSettings.videoModel ||
       systemPrompt !== initialSettings.systemPrompt ||
       Math.abs(temperature - initialSettings.temperature) > 0.001 ||
       memoryEnabled !== initialSettings.memoryEnabled
     );
-  }, [initialSettings, defaultModel, memoryModel, imageModel, systemPrompt, temperature, memoryEnabled]);
+  }, [initialSettings, defaultModel, memoryModel, imageModel, videoModel, systemPrompt, temperature, memoryEnabled]);
 
   const saveState: SaveState = { dirty: isDirty, saving: savingSettings, justSaved: saveSuccess };
 
@@ -199,17 +207,46 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
   };
 
+  const handleSyncVideoModels = async () => {
+    setSyncingVideoModels(true);
+    try {
+      const res = await apiRequest<{
+        success: boolean;
+        new_count: number;
+        total: number;
+        synced_providers: string[];
+        message: string;
+      }>("/models/sync-videos", { method: "POST" });
+
+      const videoRes = await apiRequest<VideoModelsResponse>("/models/video-models");
+      if (videoRes?.models) setVideoModels(videoRes.models);
+      setVideoModelsSynced(videoRes?.synced ?? true);
+
+      notifyModelSyncResult({
+        scope: "视频模型",
+        newCount: res.new_count || 0,
+        message: res.message,
+      });
+    } catch (err: any) {
+      toast.error(err.message || "同步视频模型失败，请检查后台 .env 是否配置了有效 OpenRouter 密钥");
+    } finally {
+      setSyncingVideoModels(false);
+    }
+  };
+
   // 视图内部守卫（此前与 UsageView / MemoryView 逐字相同的三份之一）
   useRequireAuth();
 
   const fetchSettingsAndConfigs = async () => {
     setLoadingSettings(true);
     setLoadingImageModels(true);
+    setLoadingVideoModels(true);
     try {
-      const [settingsRes, modelsRes, imageModelsRes] = await Promise.all([
+      const [settingsRes, modelsRes, imageModelsRes, videoModelsRes] = await Promise.all([
         apiRequest<any>("/settings"),
         apiRequest<{ models: ModelCatalogItem[] }>("/models/configured"),
         apiRequest<ImageModelsResponse>("/models/image-models").catch(() => null),
+        apiRequest<VideoModelsResponse>("/models/video-models").catch(() => null),
       ]);
 
       if (settingsRes) {
@@ -233,6 +270,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         if (!iModel || !imageModelsRes?.models?.some((m) => m.id === iModel)) {
           iModel = freeImage?.id || iModel;
         }
+
+        const freeVideo =
+          videoModelsRes?.models?.find((m) => m.is_free) || videoModelsRes?.models?.[0];
+        let vModel: string | null = settingsRes.video_model || null;
+        if (!vModel || !videoModelsRes?.models?.some((m) => m.id === vModel)) {
+          vModel = freeVideo?.id || vModel;
+        }
+
         const sPrompt = settingsRes.system_prompt || "";
         const temp = settingsRes.temperature ?? 0.7;
         const memEnabled = settingsRes.memory_enabled ?? true;
@@ -240,6 +285,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         setDefaultModel(dModel);
         setMemoryModel(mModel);
         setImageModel(iModel);
+        setVideoModel(vModel);
         setSystemPrompt(sPrompt);
         setPersonaId(matchPersonaId(sPrompt));
         setTemperature(temp);
@@ -249,6 +295,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           defaultModel: dModel,
           memoryModel: mModel,
           imageModel: iModel,
+          videoModel: vModel,
           systemPrompt: sPrompt,
           temperature: temp,
           memoryEnabled: memEnabled,
@@ -257,11 +304,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       if (modelsRes?.models) setAvailableModels(modelsRes.models);
       if (imageModelsRes?.models) setImageModels(imageModelsRes.models);
       if (imageModelsRes) setImageModelsSynced(!!imageModelsRes.synced);
+      if (videoModelsRes?.models) setVideoModels(videoModelsRes.models);
+      if (videoModelsRes) setVideoModelsSynced(!!videoModelsRes.synced);
     } catch (err) {
       console.error("Failed to load settings:", err);
     } finally {
       setLoadingSettings(false);
       setLoadingImageModels(false);
+      setLoadingVideoModels(false);
     }
   };
 
@@ -286,6 +336,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setDefaultModel(initialSettings.defaultModel);
     setMemoryModel(initialSettings.memoryModel);
     setImageModel(initialSettings.imageModel);
+    setVideoModel(initialSettings.videoModel);
     setSystemPrompt(initialSettings.systemPrompt);
     setPersonaId(matchPersonaId(initialSettings.systemPrompt));
     setTemperature(initialSettings.temperature);
@@ -306,6 +357,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             default_model: defaultModel,
             ...(user?.is_superuser ? { memory_model: memoryModel } : {}),
             image_model: imageModel,
+            video_model: videoModel,
             system_prompt: systemPrompt,
             temperature,
             memory_enabled: memoryEnabled,
@@ -319,6 +371,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           defaultModel,
           memoryModel,
           imageModel,
+          videoModel,
           systemPrompt,
           temperature,
           memoryEnabled,
@@ -333,7 +386,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         setSavingSettings(false);
       }
     },
-    [defaultModel, memoryModel, imageModel, systemPrompt, temperature, memoryEnabled, user, savingSettings]
+    [defaultModel, memoryModel, imageModel, videoModel, systemPrompt, temperature, memoryEnabled, user, savingSettings]
   );
 
   // Apple Mac Shortcut: Command + S / Ctrl + S to save
@@ -352,6 +405,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const currentModelItem = availableModels.find((m) => m.id === defaultModel);
   const currentImageItem = imageModels.find((m) => m.id === imageModel);
+  const currentVideoItem = videoModels.find((m) => m.id === videoModel);
 
   return (
     <ViewShell
@@ -390,7 +444,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </Panel>
           </div>
 
-          {/* ── GROUP 2: 默认模型设置（语言 + 绘图）── */}
+          {/* ── GROUP 2: 默认模型设置（语言 + 绘图 + 视频）── */}
           <div>
             <div className="flex items-center justify-between gap-2 px-1 pb-1.5">
               <SectionLabel className="pb-0">默认模型设置</SectionLabel>
@@ -402,7 +456,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   </span>
                 )}
                 <span className="font-mono text-2xs font-normal normal-case tracking-normal text-muted-foreground">
-                  {availableModels.length} 语言 · {imageModels.length} 绘图
+                  {availableModels.length} 语言 · {imageModels.length} 绘图 · {videoModels.length} 视频
                 </span>
               </div>
             </div>
@@ -480,6 +534,44 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   />
                 ) : (
                   <ModelMissingNotice id={imageModel ?? ""} />
+                )}
+              </div>
+
+              {/* 视频模型 */}
+              <div className="mt-1 pt-4 border-t border-border/30">
+                <div className="flex items-center gap-2 px-0.5">
+                  <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-sky-500/25 bg-sky-500/10 text-sky-600 dark:text-sky-400">
+                    <Video className="h-3.5 w-3.5" />
+                  </span>
+                  <span className="text-xs font-semibold text-foreground">
+                    视频模型
+                  </span>
+                  <SyncModelsButton
+                    onSync={handleSyncVideoModels}
+                    syncing={syncingVideoModels}
+                    scope="视频模型"
+                  />
+                </div>
+
+                <div className="mt-2">
+                  <VideoModelSelect
+                    value={videoModel}
+                    onChange={setVideoModel}
+                    models={videoModels}
+                    loading={loadingVideoModels}
+                    synced={videoModelsSynced}
+                    isTrialMode={isTrialMode}
+                  />
+                </div>
+
+                {currentVideoItem ? (
+                  <ModelInfoPanel
+                    model={currentVideoItem}
+                    isFree={currentVideoItem.is_free}
+                    capabilityLabel="视频生成"
+                  />
+                ) : (
+                  <ModelMissingNotice id={videoModel ?? ""} />
                 )}
               </div>
             </Panel>

@@ -120,6 +120,11 @@ class Settings(BaseSettings):
     # to a paid model. Comma-separated, tried in order.
     FREE_IMAGE_MODELS: str = "inclusionai/ming-image-0.1-design"
 
+    # Video Generation (OpenRouter)
+    VIDEO_GEN_PROVIDER: str = "auto"
+    VIDEO_GEN_MODEL: str = ""
+    FREE_VIDEO_MODELS: str = ""
+
     class Config:
         case_sensitive = True
         env_file = ".env"

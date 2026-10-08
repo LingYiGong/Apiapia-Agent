@@ -32,7 +32,18 @@ import {
   Quote,
   Sliders,
   Terminal,
+  Video,
+  Plus,
+  Palette,
+  Check,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { BrandLogo } from "@/components/common/BrandLogo";
 import { EmptyState } from "@/components/common/EmptyState";
 import { DEFAULT_PROMPT_COMMANDS, PromptCommand } from "@/config/promptCommands";
@@ -152,6 +163,8 @@ interface ChatAreaProps {
       systemPromptOverride?: string;
       reasoningEffort?: string;
       maxTokens?: number;
+      imageGenMode?: boolean;
+      videoGenMode?: boolean;
     }
   ) => void;
   onStopGenerating?: () => void;
@@ -174,6 +187,8 @@ interface ChatAreaProps {
   onRegenerate?: (assistantMessageId: string) => void;
   onEditMessage?: (messageId: string, newText: string) => void;
   conversationId?: string | null;
+  creationMode?: "chat" | "image" | "video";
+  onChangeCreationMode?: (mode: "chat" | "image" | "video") => void;
 }
 
 export const ChatArea: React.FC<ChatAreaProps> = ({
@@ -196,6 +211,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   onRegenerate,
   onEditMessage,
   conversationId = null,
+  creationMode = "chat",
+  onChangeCreationMode,
 }) => {
   const isTouchPrimary = useIsTouchPrimary();
   const [input, setInput] = useState("");
@@ -460,6 +477,11 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       extraOpts.quotedMessageId = activeQuote.id;
       extraOpts.quotedContent = activeQuote.text;
     }
+    if (creationMode === "image") {
+      extraOpts.imageGenMode = true;
+    } else if (creationMode === "video") {
+      extraOpts.videoGenMode = true;
+    }
 
     onSendMessage(input.trim(), attachments, extraOpts);
     setInput("");
@@ -467,6 +489,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     setAttachments([]);
     setActiveQuote(null);
     setShowCommandsMenu(false);
+    if (onChangeCreationMode) {
+      onChangeCreationMode("chat");
+    }
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
     }
@@ -813,18 +838,64 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 }
               }}
             />
-            <ActionTooltip label="上传图片或文件（PDF、Word、代码、文本）" side="top">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isStreaming || isUploading}
-                className="h-9 w-9 rounded-full shrink-0 mb-0.5"
-              >
-                <Paperclip className="h-4 w-4" />
-                <span className="sr-only">上传图片或文件</span>
-              </Button>
-            </ActionTooltip>
+            {/* Creation Plus Dropdown Button */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant={creationMode !== "chat" ? "outline" : "ghost"}
+                  size="icon"
+                  disabled={isStreaming || isUploading}
+                  className={cn(
+                    "h-9 w-9 rounded-full shrink-0 mb-0.5 transition-colors",
+                    creationMode === "image" && "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20",
+                    creationMode === "video" && "border-purple-500/40 bg-purple-500/10 text-purple-600 dark:text-purple-400 hover:bg-purple-500/20"
+                  )}
+                  aria-label="功能与创作菜单"
+                >
+                  {creationMode === "image" ? (
+                    <Palette className="h-4 w-4" />
+                  ) : creationMode === "video" ? (
+                    <Video className="h-4 w-4" />
+                  ) : (
+                    <Plus className="h-4 w-4" />
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" side="top" className="w-48 rounded-2xl p-1.5 shadow-lg">
+                <DropdownMenuItem
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-medium cursor-pointer"
+                >
+                  <Paperclip className="h-4 w-4 text-primary shrink-0" />
+                  <div className="flex-1 truncate">上传图片或文件</div>
+                </DropdownMenuItem>
+
+                <DropdownMenuSeparator className="my-1" />
+
+                <DropdownMenuItem
+                  onClick={() => onChangeCreationMode?.(creationMode === "image" ? "chat" : "image")}
+                  className="flex items-center justify-between rounded-xl px-2.5 py-2 text-xs font-medium cursor-pointer"
+                >
+                  <div className="flex items-center gap-2.5 truncate">
+                    <Palette className="h-4 w-4 text-amber-500 shrink-0" />
+                    <span>生成图片</span>
+                  </div>
+                  {creationMode === "image" && <Check className="h-3.5 w-3.5 text-amber-500 shrink-0" />}
+                </DropdownMenuItem>
+
+                <DropdownMenuItem
+                  onClick={() => onChangeCreationMode?.(creationMode === "video" ? "chat" : "video")}
+                  className="flex items-center justify-between rounded-xl px-2.5 py-2 text-xs font-medium cursor-pointer"
+                >
+                  <div className="flex items-center gap-2.5 truncate">
+                    <Video className="h-4 w-4 text-purple-500 shrink-0" />
+                    <span>生成视频</span>
+                  </div>
+                  {creationMode === "video" && <Check className="h-3.5 w-3.5 text-purple-500 shrink-0" />}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             {onToggleWebSearchMode && (
               <ActionTooltip
                 label={
@@ -870,7 +941,13 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
-              placeholder="询问 Apiapia"
+              placeholder={
+                creationMode === "video"
+                  ? "描述你的视频"
+                  : creationMode === "image"
+                  ? "描述你的图片"
+                  : "询问 Apiapia"
+              }
               // 此前输入框既无 <label> 也无 aria-label，屏幕阅读器只会念出
               // placeholder，且 placeholder 一输入就消失。
               aria-label="向 Apiapia 发送消息"

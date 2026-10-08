@@ -61,6 +61,8 @@ class Message(Base):
     # JSON array of {url, prompt, provider, model}; url may be a base64 data URI
     # so that generated art survives conversation reloads.
     generated_images = Column(Text, nullable=True)
+    # JSON array of {id, path, ext, bytes, prompt, provider, model} for generated videos.
+    generated_videos = Column(Text, nullable=True)
     # JSON array of {id, path, ext, bytes, name} for images the *user* uploaded.
     #
     # These used to be embedded into `content` as inline base64 markdown. That made

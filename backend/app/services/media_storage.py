@@ -30,7 +30,9 @@ from app.core.config import settings
 logger = logging.getLogger("media_storage")
 
 IMAGE_ID_RE = re.compile(r"^[0-9a-f]{32}$")
+VIDEO_ID_RE = re.compile(r"^[0-9a-f]{32}$")
 EXT_RE = re.compile(r"^(png|jpe?g|webp|gif)$")
+VIDEO_EXT_RE = re.compile(r"^(mp4|webm|mov|mkv)$")
 
 # Only used to infer the extension when the payload carries no media type.
 MAGIC_SIGNATURES: Tuple[Tuple[bytes, str], ...] = (
@@ -42,6 +44,8 @@ MAGIC_SIGNATURES: Tuple[Tuple[bytes, str], ...] = (
 
 REMOTE_FETCH_TIMEOUT_SECONDS = 60.0
 REMOTE_FETCH_MAX_BYTES = 32 * 1024 * 1024
+REMOTE_VIDEO_FETCH_MAX_BYTES = 200 * 1024 * 1024
+REMOTE_VIDEO_FETCH_TIMEOUT_SECONDS = 180.0
 
 
 class MediaStorageError(RuntimeError):
@@ -58,8 +62,16 @@ class MediaStorage:
         return uuid.uuid4().hex
 
     @staticmethod
+    def new_video_id() -> str:
+        return uuid.uuid4().hex
+
+    @staticmethod
     def is_valid_image_id(image_id: str) -> bool:
         return bool(image_id and IMAGE_ID_RE.match(image_id))
+
+    @staticmethod
+    def is_valid_video_id(video_id: str) -> bool:
+        return bool(video_id and VIDEO_ID_RE.match(video_id))
 
     def relative_path(self, image_id: str, ext: str) -> str:
         """Year/month sharding keeps directories small over long lifetimes."""
@@ -70,6 +82,16 @@ class MediaStorage:
             raise MediaStorageError(f"不支持的图片格式: {ext}")
         now = datetime.now(timezone.utc)
         return f"images/{now:%Y}/{now:%m}/{image_id}.{ext}"
+
+    def relative_video_path(self, video_id: str, ext: str) -> str:
+        """Year/month sharding for generated video files."""
+        if not self.is_valid_video_id(video_id):
+            raise MediaStorageError("非法的视频 ID")
+        ext = (ext or "mp4").lower()
+        if not VIDEO_EXT_RE.match(ext):
+            raise MediaStorageError(f"不支持的视频格式: {ext}")
+        now = datetime.now(timezone.utc)
+        return f"videos/{now:%Y}/{now:%m}/{video_id}.{ext}"
 
     def resolve(self, relative_path: str) -> Path:
         """Resolve a stored relative path, refusing anything outside the root."""
@@ -207,6 +229,51 @@ async def store_generated_image(
 #: in place of the old inline data URL. Relative, because the media URL is built
 #: per request (it needs the caller's JWT) — see the frontend's getMediaImageUrl.
 MEDIA_IMAGE_PATH_PREFIX = "/api/media/images/"
+MEDIA_VIDEO_PATH_PREFIX = "/api/media/videos/"
+
+
+async def store_generated_video(
+    data_or_url: Any,
+    prompt: str,
+    provider: str,
+    model: str,
+    ext: str = "mp4",
+) -> Dict[str, Any]:
+    """
+    Persist one generated video (from raw bytes or remote URL) and return its metadata record.
+    """
+    video_id = media_storage.new_video_id()
+    clean_ext = (ext or "mp4").lower().lstrip(".")
+    if not clean_ext or clean_ext not in ("mp4", "webm", "mov"):
+        clean_ext = "mp4"
+
+    if isinstance(data_or_url, bytes):
+        data = data_or_url
+    elif isinstance(data_or_url, str) and data_or_url.startswith(("http://", "https://")):
+        try:
+            fetched = await fetch_public_bytes(
+                data_or_url,
+                max_bytes=REMOTE_VIDEO_FETCH_MAX_BYTES,
+                timeout=REMOTE_VIDEO_FETCH_TIMEOUT_SECONDS,
+            )
+            data = fetched.data
+        except Exception as e:
+            raise MediaStorageError(f"抓取视频文件失败: {e}") from e
+    else:
+        raise MediaStorageError("未知的视频数据源")
+
+    rel = media_storage.relative_video_path(video_id, clean_ext)
+    size = media_storage.write(rel, data)
+    logger.info("Stored generated video %s (%s, %d bytes)", video_id, clean_ext, size)
+    return {
+        "id": video_id,
+        "path": rel,
+        "ext": clean_ext,
+        "bytes": size,
+        "prompt": prompt,
+        "provider": provider,
+        "model": model,
+    }
 
 
 def store_uploaded_image(

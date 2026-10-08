@@ -24,6 +24,8 @@ import {
   Conversation,
   Message,
   ModelCatalogItem,
+  ImageModelItem,
+  VideoModelItem,
   AttachmentItem,
   SearchResultItem,
   ToolInvocation,
@@ -70,6 +72,11 @@ export default function ChatPage({
   const [availableModels, setAvailableModels] = useState<ModelCatalogItem[]>([]);
   const [currentModel, setCurrentModel] = useState("openrouter/free");
   const defaultModelRef = useRef<string>("openrouter/free");
+  const [imageModel, setImageModel] = useState<string>("dall-e-3");
+  const [videoModel, setVideoModel] = useState<string>("");
+  const [availableImageModels, setAvailableImageModels] = useState<ImageModelItem[]>([]);
+  const [availableVideoModels, setAvailableVideoModels] = useState<VideoModelItem[]>([]);
+  const [creationMode, setCreationMode] = useState<"chat" | "image" | "video">("chat");
   const [memoryEnabled, setMemoryEnabled] = useState(true);
   const [retrievedMemories, setRetrievedMemories] = useState<unknown[]>([]);
 
@@ -88,6 +95,9 @@ export default function ChatPage({
   const currentToolInvocationsRef = useRef<ToolInvocation[]>([]);
   const currentGeneratedImagesRef = useRef<
     import("@/types").GeneratedImage[]
+  >([]);
+  const currentGeneratedVideosRef = useRef<
+    import("@/types").GeneratedVideo[]
   >([]);
 
   const [isStreaming, setIsStreaming] = useState(false);
@@ -213,6 +223,28 @@ export default function ChatPage({
   };
 
   const handleModelChange = async (newModel: string) => {
+    if (creationMode === "image") {
+      setImageModel(newModel);
+      try {
+        void apiRequest("/settings", {
+          method: "PATCH",
+          body: JSON.stringify({ image_model: newModel }),
+        });
+      } catch (_) {}
+      return;
+    }
+
+    if (creationMode === "video") {
+      setVideoModel(newModel);
+      try {
+        void apiRequest("/settings", {
+          method: "PATCH",
+          body: JSON.stringify({ video_model: newModel }),
+        });
+      } catch (_) {}
+      return;
+    }
+
     setCurrentModel(newModel);
     try {
       localStorage.setItem("apiapia_preferred_model", newModel);
@@ -256,15 +288,36 @@ export default function ChatPage({
   const loadConfiguredModels = async () => {
     setIsRefreshingModels(true);
     try {
-      const [res, settings] = await Promise.all([
+      const [res, settings, imageModelsRes, videoModelsRes] = await Promise.all([
         apiRequest<{ active_providers: string[]; total: number; models: ModelCatalogItem[] }>(
           "/models/configured"
         ),
         apiRequest<any>("/settings"),
+        apiRequest<{ models: ImageModelItem[] }>("/models/image-models").catch(() => null),
+        apiRequest<{ models: VideoModelItem[] }>("/models/video-models").catch(() => null),
       ]);
 
       const models = res?.models || [];
       setAvailableModels(models);
+
+      if (imageModelsRes?.models) {
+        setAvailableImageModels(imageModelsRes.models);
+      }
+      if (videoModelsRes?.models) {
+        setAvailableVideoModels(videoModelsRes.models);
+      }
+
+      if (settings?.image_model) {
+        setImageModel(settings.image_model);
+      } else if (imageModelsRes?.models && imageModelsRes.models.length > 0) {
+        setImageModel(imageModelsRes.models[0].id);
+      }
+
+      if (settings?.video_model) {
+        setVideoModel(settings.video_model);
+      } else if (videoModelsRes?.models && videoModelsRes.models.length > 0) {
+        setVideoModel(videoModelsRes.models[0].id);
+      }
 
       const userDef = settings?.default_model;
       if (userDef) {
@@ -532,6 +585,7 @@ export default function ChatPage({
     const searchResults = currentSearchResultsRef.current || doneMeta?.search_results;
     const tools = currentToolInvocationsRef.current;
     const generatedImages = currentGeneratedImagesRef.current;
+    const generatedVideos = currentGeneratedVideosRef.current;
     const finishReason = doneMeta?.finish_reason || (stopRequestedRef.current ? "abort" : "stop");
 
     setMessages((prev) => [
@@ -550,6 +604,7 @@ export default function ChatPage({
         search_query: doneMeta?.search_query || undefined,
         toolInvocations: tools && tools.length > 0 ? [...tools] : undefined,
         generatedImages: generatedImages && generatedImages.length > 0 ? [...generatedImages] : undefined,
+        generatedVideos: generatedVideos && generatedVideos.length > 0 ? [...generatedVideos] : undefined,
         finish_reason: finishReason,
         created_at: doneMeta?.created_at || new Date().toISOString(),
       },
@@ -564,6 +619,7 @@ export default function ChatPage({
     currentSearchResultsRef.current = null;
     currentToolInvocationsRef.current = [];
     currentGeneratedImagesRef.current = [];
+    currentGeneratedVideosRef.current = [];
     targetContentRef.current = "";
     displayedContentRef.current = "";
     loadConversations();
@@ -593,6 +649,8 @@ export default function ChatPage({
         systemPromptOverride?: string;
         reasoningEffort?: string;
         maxTokens?: number;
+        imageGenMode?: boolean;
+        videoGenMode?: boolean;
       }
     ) => {
       // Clear any previous running intervals
@@ -627,6 +685,9 @@ export default function ChatPage({
       setSearchStatus({ state: "idle" });
       setStreamingSearchResults(null);
       currentSearchResultsRef.current = null;
+      currentToolInvocationsRef.current = [];
+      currentGeneratedImagesRef.current = [];
+      currentGeneratedVideosRef.current = [];
 
       startTimeRef.current = Date.now();
       // 秒数显示由 ChatArea 用这个时间戳自行驱动，页面级不再需要 80ms 轮询。
@@ -675,6 +736,8 @@ export default function ChatPage({
             model: currentModel,
             memory_enabled: memoryEnabled,
             web_search_mode: webSearch.modeRef.current,
+            image_gen_mode: extraOptions?.imageGenMode,
+            video_gen_mode: extraOptions?.videoGenMode,
             attachments: attachments && attachments.length > 0 ? attachments : undefined,
             quoted_message_id: extraOptions?.quotedMessageId,
             quoted_content: extraOptions?.quotedContent,
@@ -739,6 +802,14 @@ export default function ChatPage({
               currentGeneratedImagesRef.current.push({
                 id: data.imageId ?? undefined,
                 url: data.url,
+                prompt: data.prompt,
+                provider: data.provider,
+                model: data.model,
+              });
+            },
+            onVideoResult: (data) => {
+              currentGeneratedVideosRef.current.push({
+                id: data.videoId ?? undefined,
                 prompt: data.prompt,
                 provider: data.provider,
                 model: data.model,
@@ -1020,64 +1091,96 @@ export default function ChatPage({
         />
 
         {/* 对话页 */}
-        <div
-          className={
-            showChat
-              ? "flex min-w-0 max-w-full flex-1 flex-col overflow-hidden relative"
-              : "hidden min-w-0 max-w-full flex-1 flex-col overflow-hidden relative md:flex"
-          }
-        >
-          <MobileChatHeader
-            currentModel={currentModel}
-            onModelChange={handleModelChange}
-            availableModels={availableModels}
-            onRefreshModels={handleManualSyncModels}
-            isRefreshingModels={isRefreshingModels}
-            onToggleMemory={handleToggleMemory}
-            memoriesCount={retrievedMemories.length}
-            onNewChat={handleNewChat}
-            hasMessages={messages.length > 0}
-            onSelectMobileTab={handleSelectMobileTab}
-            activeConversation={conversations.find((c) => c.id === activeId) || null}
-            onTogglePin={handleTogglePin}
-            onRename={handleRenameConversation}
-            onDelete={handleDeleteConversation}
-          />
+        {(() => {
+          const activeModelId =
+            creationMode === "image"
+              ? imageModel
+              : creationMode === "video"
+              ? videoModel
+              : currentModel;
 
-            <DesktopChatHeader
-              currentModel={currentModel}
-              onModelChange={handleModelChange}
-              availableModels={availableModels}
-              onRefreshModels={handleManualSyncModels}
-              isRefreshingModels={isRefreshingModels}
-              activeConversation={conversations.find((c) => c.id === activeId) || null}
-              onTogglePin={handleTogglePin}
-              onRename={handleRenameConversation}
-              onDelete={handleDeleteConversation}
-            />
+          const activeModelCatalog: ModelCatalogItem[] =
+            creationMode === "image"
+              ? availableImageModels.map((im) => ({
+                  id: im.id,
+                  name: im.name,
+                  provider: im.provider,
+                  description: im.description || "",
+                  is_free: im.is_free,
+                }))
+              : creationMode === "video"
+              ? availableVideoModels.map((vm) => ({
+                  id: vm.id,
+                  name: vm.name,
+                  provider: vm.provider,
+                  description: vm.description || "",
+                  is_free: vm.is_free,
+                }))
+              : availableModels;
 
-          <ChatArea
-            messages={messages}
-            currentModel={currentModel}
-            onSendMessage={handleSendMessage}
-            onStopGenerating={handleStopGenerating}
-            isStreaming={isStreaming}
-            streamingContent={streamingContent}
-            thinkingDuration={thinkingDuration}
-            streamStartedAt={streamStartedAt}
-            isWaitingForFirstToken={isWaitingForFirstToken}
-            onNewChat={handleNewChat}
-            webSearchMode={webSearch.mode}
-            onToggleWebSearchMode={webSearch.toggle}
-            searchStatus={searchStatus}
-            streamingSearchResults={streamingSearchResults}
-            loadingMessages={loadingMessages}
-            regenerating={regenerating}
-            onRegenerate={handleRegenerate}
-            onEditMessage={handleEditMessage}
-            conversationId={activeId}
-          />
-        </div>
+          return (
+            <div
+              className={
+                showChat
+                  ? "flex min-w-0 max-w-full flex-1 flex-col overflow-hidden relative"
+                  : "hidden min-w-0 max-w-full flex-1 flex-col overflow-hidden relative md:flex"
+              }
+            >
+              <MobileChatHeader
+                currentModel={activeModelId}
+                onModelChange={handleModelChange}
+                availableModels={activeModelCatalog}
+                onRefreshModels={handleManualSyncModels}
+                isRefreshingModels={isRefreshingModels}
+                onToggleMemory={handleToggleMemory}
+                memoriesCount={retrievedMemories.length}
+                onNewChat={handleNewChat}
+                hasMessages={messages.length > 0}
+                onSelectMobileTab={handleSelectMobileTab}
+                activeConversation={conversations.find((c) => c.id === activeId) || null}
+                onTogglePin={handleTogglePin}
+                onRename={handleRenameConversation}
+                onDelete={handleDeleteConversation}
+              />
+
+              <DesktopChatHeader
+                currentModel={activeModelId}
+                onModelChange={handleModelChange}
+                availableModels={activeModelCatalog}
+                onRefreshModels={handleManualSyncModels}
+                isRefreshingModels={isRefreshingModels}
+                activeConversation={conversations.find((c) => c.id === activeId) || null}
+                onTogglePin={handleTogglePin}
+                onRename={handleRenameConversation}
+                onDelete={handleDeleteConversation}
+              />
+
+              <ChatArea
+                messages={messages}
+                currentModel={activeModelId}
+                onSendMessage={handleSendMessage}
+                onStopGenerating={handleStopGenerating}
+                isStreaming={isStreaming}
+                streamingContent={streamingContent}
+                thinkingDuration={thinkingDuration}
+                streamStartedAt={streamStartedAt}
+                isWaitingForFirstToken={isWaitingForFirstToken}
+                onNewChat={handleNewChat}
+                webSearchMode={webSearch.mode}
+                onToggleWebSearchMode={webSearch.toggle}
+                searchStatus={searchStatus}
+                streamingSearchResults={streamingSearchResults}
+                loadingMessages={loadingMessages}
+                regenerating={regenerating}
+                onRegenerate={handleRegenerate}
+                onEditMessage={handleEditMessage}
+                conversationId={activeId}
+                creationMode={creationMode}
+                onChangeCreationMode={setCreationMode}
+              />
+            </div>
+          );
+        })()}
 
         {/* ── 移动端 SPA 页签 ──
             只挂载当前页签：此前五份视图同时挂在 DOM 里（只靠 hidden 切显隐），

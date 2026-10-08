@@ -19,6 +19,7 @@ class UserSettingUpdate(BaseModel):
     default_model: Optional[str] = Field(default=None, max_length=100)
     memory_model: Optional[str] = Field(default=None, max_length=100)
     image_model: Optional[str] = Field(default=None, max_length=120)
+    video_model: Optional[str] = Field(default=None, max_length=120)
     system_prompt: Optional[str] = None
     # 0-2 is the range every provider in SUPPORTED_PROVIDERS accepts. Unbounded,
     # this value is forwarded verbatim, so a stray 1000 came back as an opaque
@@ -34,6 +35,7 @@ class UserSettingResponse(BaseModel):
     default_model: str
     memory_model: Optional[str] = "openai/gpt-4o-mini"
     image_model: Optional[str] = None
+    video_model: Optional[str] = None
     system_prompt: str
     temperature: float
     memory_enabled: bool

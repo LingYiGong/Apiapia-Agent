@@ -59,6 +59,16 @@ export interface GeneratedImage {
   bytes?: number;
 }
 
+export interface GeneratedVideo {
+  id?: string;
+  url?: string;
+  prompt: string;
+  provider: string;
+  model: string;
+  ext?: string;
+  bytes?: number;
+}
+
 export interface Message {
   id?: string;
   conversation_id?: string;
@@ -67,12 +77,14 @@ export interface Message {
   attachments?: AttachmentItem[];
   search_results?: SearchResultItem[] | string;
   generated_images?: string | null;
+  generated_videos?: string | null;
   tool_invocations?: ToolInvocation[] | string | null;
   search_query?: string | null;
   /** 'stop' = complete, 'abort' = user stopped, 'error' = failed, 'length' = token truncated, 'content_filter' = blocked */
   finish_reason?: "stop" | "abort" | "error" | "length" | "content_filter" | (string & {}) | null;
   toolInvocations?: ToolInvocation[];
   generatedImages?: GeneratedImage[];
+  generatedVideos?: GeneratedVideo[];
   model?: string;
   token_usage?: number;
   prompt_tokens?: number;
@@ -98,6 +110,7 @@ export interface UserSetting {
   default_model: string;
   memory_model?: string;
   image_model?: string | null;
+  video_model?: string | null;
   system_prompt: string;
   temperature: number;
   memory_enabled: boolean;
@@ -115,6 +128,21 @@ export interface ImageModelItem {
 export interface ImageModelsResponse {
   total: number;
   models: ImageModelItem[];
+  can_access_all_models: boolean;
+  synced: boolean;
+}
+
+export interface VideoModelItem {
+  id: string;
+  name: string;
+  provider: string;
+  description?: string;
+  is_free: boolean;
+}
+
+export interface VideoModelsResponse {
+  total: number;
+  models: VideoModelItem[];
   can_access_all_models: boolean;
   synced: boolean;
 }

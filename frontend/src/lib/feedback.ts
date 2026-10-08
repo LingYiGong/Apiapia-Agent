@@ -21,8 +21,8 @@ import { toast } from "sonner";
  * 设置页语言模型 / 设置页绘图模型 / 聊天页三处共用，保证形式与文案完全一致。
  */
 export function notifyModelSyncResult(opts: {
-  /** 用于文案区分「语言模型」与「绘图模型」 */
-  scope: "语言模型" | "绘图模型";
+  /** 用于文案区分「语言模型」、「绘图模型」与「视频模型」 */
+  scope: "语言模型" | "绘图模型" | "视频模型";
   newCount: number;
   /** 无新增时后端返回的说明文案 */
   message?: string | null;

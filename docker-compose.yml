@@ -72,6 +72,9 @@ services:
       FREE_IMAGE_MODELS: ${FREE_IMAGE_MODELS:-inclusionai/ming-image-0.1-design}
       SILICONFLOW_API_KEY: ${SILICONFLOW_API_KEY:-}
       SILICONFLOW_BASE_URL: ${SILICONFLOW_BASE_URL:-https://api.siliconflow.cn/v1}
+      VIDEO_GEN_PROVIDER: ${VIDEO_GEN_PROVIDER:-auto}
+      VIDEO_GEN_MODEL: ${VIDEO_GEN_MODEL:-}
+      FREE_VIDEO_MODELS: ${FREE_VIDEO_MODELS:-}
     volumes:
       - ./backend/app:/app/app
       - apiapia_mem0_data:/app/data/mem0

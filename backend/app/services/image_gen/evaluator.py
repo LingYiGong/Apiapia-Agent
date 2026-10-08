@@ -39,6 +39,10 @@ EXCLUSION_PATTERNS = [
     r"图里有什么",
     r"看这[张幅]图",
     r"分析[这张]?图",
+    r"视频",
+    r"短视频",
+    r"动画",
+    r"动图",
 ]
 
 # Core drawing trigger regexes

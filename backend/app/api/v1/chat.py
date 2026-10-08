@@ -28,9 +28,12 @@ from app.services.search import (
     evaluate_and_generate_search_query,
 )
 from app.services.image_gen import should_generate_image, image_gen_service
+from app.services.video_gen import should_generate_video, video_gen_service
 from app.services.media_storage import (
     MEDIA_IMAGE_PATH_PREFIX,
+    MEDIA_VIDEO_PATH_PREFIX,
     store_generated_image,
+    store_generated_video,
     store_uploaded_image,
 )
 from app.services.prompt import build_system_prompt
@@ -227,6 +230,7 @@ async def chat_stream(
     use_memory = chat_req.memory_enabled if chat_req.memory_enabled is not None else (user_settings.memory_enabled if user_settings else True)
     memory_score_thresh = chat_req.memory_score_threshold if chat_req.memory_score_threshold is not None else 0.35
     selected_image_model = user_settings.image_model if user_settings else None
+    selected_video_model = user_settings.video_model if user_settings else None
 
     # Validate model permission (new users only have access to free models until granted by admin)
     if not check_user_can_use_model(current_user, model_to_use):
@@ -235,9 +239,10 @@ async def chat_stream(
             detail="当前账号处于体验模式，仅支持访问免费模型。如需使用该模型，请联系管理员开通完整体验权限。"
         )
 
-    # Billable side features (currently AI image generation) are restricted to the
-    # same entitlement. Restricted accounts may only use the zero-cost image models.
+    # Billable side features (AI image and video generation) are restricted to the
+    # same entitlement. Restricted accounts may only use zero-cost models.
     image_gen_free_only = not has_full_model_access(current_user)
+    video_gen_free_only = not has_full_model_access(current_user)
 
     # 1.1 Resolve the caller's own provider credential for this model, if any.
     provider_name = (chat_req.provider or "").strip() or detect_provider(model_to_use)
@@ -457,6 +462,7 @@ async def chat_stream(
         # every DuckDuckGo fallback tier.
         search_answer: Optional[str] = None
         generated_images = []
+        generated_videos = []
         tool_invocations = []
         search_mode = (
             chat_req.web_search_mode
@@ -468,6 +474,28 @@ async def chat_stream(
         search_topic = "general"
         search_time_range = None
         need_image_gen, img_prompt, img_size = should_generate_image(chat_req.message)
+        need_video_gen, video_prompt, video_ratio = should_generate_video(chat_req.message)
+
+        # Explicit button toggle overrides / forces image or video generation
+        if getattr(chat_req, "image_gen_mode", False):
+            need_image_gen = True
+            need_video_gen = False
+            if not img_prompt:
+                img_prompt = (chat_req.message or "").strip()
+            if not img_size:
+                img_size = "1024x1024"
+        elif getattr(chat_req, "video_gen_mode", False):
+            need_video_gen = True
+            need_image_gen = False
+            if not video_prompt:
+                video_prompt = (chat_req.message or "").strip()
+            # If user message specifies aspect ratio, keep it, else default 16:9
+            if not video_ratio:
+                video_ratio = "16:9"
+
+        # If both match, let video take precedence if it explicitly mentioned video/短视频
+        if need_video_gen and need_image_gen:
+            need_image_gen = False
         # 'stop' | 'abort' | 'error' — persisted so the UI can tell a complete
         # reply apart from one the user cut short or that failed.
         finish_reason = "stop"
@@ -548,6 +576,67 @@ async def chat_stream(
                     err_hint = f"\n\n【🎨 AI生图失败提示】生图失败: {str(ie)}。请在回答中向用户说明原因并给出建议。"
                     if messages_payload and messages_payload[0].get("role") == "system":
                         messages_payload[0]["content"] += err_hint
+
+            # 1.5 Check and execute AI Video Generation if requested
+            if need_video_gen and video_prompt:
+                tool_call_id = f"vid_{int(time.time() * 1000)}"
+                logger.info("Executing video generation for prompt: '%s' (aspect_ratio=%s)", video_prompt, video_ratio)
+                yield f"data: {json.dumps({'type': 'tool_call', 'toolCallId': tool_call_id, 'toolName': 'video_generation', 'args': {'prompt': video_prompt, 'aspect_ratio': video_ratio}}, ensure_ascii=False)}\n\n"
+                tool_invocations.append({
+                    "toolCallId": tool_call_id,
+                    "toolName": "video_generation",
+                    "args": {"prompt": video_prompt, "aspect_ratio": video_ratio},
+                    "state": "call",
+                })
+
+                try:
+                    vid_res = await video_gen_service.generate_video(
+                        video_prompt,
+                        model=selected_video_model,
+                        aspect_ratio=video_ratio,
+                        free_only=video_gen_free_only,
+                    )
+                    vid_bytes = vid_res["bytes"]
+                    vid_provider = vid_res.get("provider", "openrouter")
+                    vid_model = vid_res.get("model", "unknown")
+
+                    stored_vid_meta = None
+                    try:
+                        stored_vid_meta = await store_generated_video(
+                            data_or_url=vid_bytes,
+                            prompt=video_prompt,
+                            provider=vid_provider,
+                            model=vid_model,
+                            ext=vid_res.get("ext", "mp4"),
+                        )
+                    except Exception as ve:
+                        logger.warning("Failed to persist generated video: %s", ve)
+
+                    video_id = stored_vid_meta.get("id") if stored_vid_meta else None
+                    if video_id:
+                        generated_videos.append(stored_vid_meta)
+
+                    yield f"data: {json.dumps({'type': 'video_result', 'toolCallId': tool_call_id, 'videoId': video_id, 'prompt': video_prompt, 'provider': vid_provider, 'model': vid_model}, ensure_ascii=False)}\n\n"
+                    yield f"data: {json.dumps({'type': 'tool_result', 'toolCallId': tool_call_id, 'result': {'prompt': video_prompt, 'model': vid_model, 'provider': vid_provider, 'videoId': video_id}}, ensure_ascii=False)}\n\n"
+                    if tool_invocations:
+                        tool_invocations[-1]["state"] = "result"
+                        tool_invocations[-1]["result"] = {"prompt": video_prompt, "model": vid_model, "provider": vid_provider, "videoId": video_id}
+
+                    vid_context_hint = f"\n\n【🎬 AI视频生成系统通知】已成功生成视频（提示词: {video_prompt}，模型: {vid_provider} · {vid_model}）。视频已由前端播放器卡片渲染。请针对用户的原始请求进行得体友好的说明或继续提供相关建议。"
+                    if messages_payload and messages_payload[0].get("role") == "system":
+                        messages_payload[0]["content"] += vid_context_hint
+                    else:
+                        messages_payload.insert(0, {"role": "system", "content": vid_context_hint})
+
+                except Exception as ve:
+                    logger.warning("Video generation service failed: %s", str(ve))
+                    yield f"data: {json.dumps({'type': 'tool_result', 'toolCallId': tool_call_id, 'result': {'error': str(ve)}}, ensure_ascii=False)}\n\n"
+                    if tool_invocations:
+                        tool_invocations[-1]["state"] = "result"
+                        tool_invocations[-1]["result"] = {"error": str(ve)}
+                    vid_err_hint = f"\n\n【🎬 AI视频生成失败提示】视频生成失败: {str(ve)}。请在回答中向用户说明原因并给出建议。"
+                    if messages_payload and messages_payload[0].get("role") == "system":
+                        messages_payload[0]["content"] += vid_err_hint
 
             # 2. Check and execute automatic search before streaming LLM tokens
             if need_search and search_query:
@@ -874,6 +963,7 @@ async def chat_stream(
                         search_query=search_query if need_search else None,
                         tool_invocations=json.dumps(tool_invocations, ensure_ascii=False) if tool_invocations else None,
                         generated_images=json.dumps(generated_images, ensure_ascii=False) if generated_images else None,
+                        generated_videos=json.dumps(generated_videos, ensure_ascii=False) if generated_videos else None,
                         created_at=reply_created_at
                     )
                     save_db.add(assistant_msg_record)
@@ -903,6 +993,7 @@ async def chat_stream(
             "search_answer": search_answer,
             "tool_invocations": tool_invocations if tool_invocations else None,
             "generated_images": generated_images if generated_images else None,
+            "generated_videos": generated_videos if generated_videos else None,
         }
         if yield_allowed:
             yield f"data: {json.dumps(done_payload, ensure_ascii=False)}\n\n"

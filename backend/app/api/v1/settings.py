@@ -21,6 +21,7 @@ from app.schemas.setting import (
 from app.api.v1.deps import get_current_user
 from app.services.catalog import has_full_model_access, check_user_can_use_model
 from app.services.image_gen import image_gen_service
+from app.services.video_gen import video_gen_service
 
 # resolve_user_llm_credentials used to live here and is imported by the chat
 # endpoint on every turn, which made api.v1.chat import a sibling router. It is
@@ -99,6 +100,28 @@ async def _validate_image_model(current_user: User, model_id: Optional[str]) -> 
         )
 
 
+async def _validate_video_model(current_user: User, model_id: Optional[str]) -> None:
+    """
+    Reject video models that are unavailable or outside the account entitlement.
+    """
+    model_id = (model_id or "").strip()
+    if not model_id:
+        return
+
+    catalog = await video_gen_service.list_available_models()
+    entry = next((m for m in catalog if m["id"] == model_id), None)
+    if entry is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"所选视频模型当前不可用（对应服务未配置或模型已下架）：{model_id}"
+        )
+    if not has_full_model_access(current_user) and not entry.get("is_free"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"当前账号处于体验模式，仅可使用免费视频模型；「{entry.get('name') or model_id}」为计费模型。"
+        )
+
+
 @router.get("", response_model=UserSettingResponse)
 async def get_user_settings(
     current_user: User = Depends(get_current_user),
@@ -143,6 +166,11 @@ async def get_user_settings(
             await db.commit()
             await db.refresh(setting)
 
+        if setting.video_model and not video_gen_service.is_free_video_model(setting.video_model):
+            setting.video_model = None
+            await db.commit()
+            await db.refresh(setting)
+
     # Same contract as default_model: an unset image model always resolves to the
     # zero-cost default, so it is never null and never silently becomes a paid
     # model. Applies to every account, not just trial ones.
@@ -150,6 +178,13 @@ async def get_user_settings(
         fallback_image = image_gen_service.default_image_model()
         if fallback_image:
             setting.image_model = fallback_image
+            await db.commit()
+            await db.refresh(setting)
+
+    if not setting.video_model:
+        fallback_video = video_gen_service.default_video_model()
+        if fallback_video:
+            setting.video_model = fallback_video
             await db.commit()
             await db.refresh(setting)
 
@@ -188,6 +223,10 @@ async def update_user_settings(
         await _validate_image_model(current_user, update_data.image_model)
         chosen = (update_data.image_model or "").strip()
         setting.image_model = chosen or image_gen_service.default_image_model()
+    if "video_model" in update_data.model_fields_set:
+        await _validate_video_model(current_user, update_data.video_model)
+        chosen_video = (update_data.video_model or "").strip()
+        setting.video_model = chosen_video or video_gen_service.default_video_model()
     if update_data.system_prompt is not None:
         setting.system_prompt = update_data.system_prompt
     if update_data.temperature is not None:

@@ -317,6 +317,48 @@ async def sync_image_models_from_providers(
     return await image_gen_service.sync_models()
 
 
+@router.get("/video-models")
+async def list_video_models(
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Video generation catalog, read from synced_video_models.json that
+    POST /models/sync-videos populates.
+    """
+    from app.services.video_gen import video_gen_service
+
+    catalog = await video_gen_service.list_available_models()
+    can_all = has_full_model_access(current_user)
+    if not can_all:
+        catalog = [m for m in catalog if m.get("is_free")]
+
+    return {
+        "total": len(catalog),
+        "models": catalog,
+        "can_access_all_models": can_all,
+        "synced": bool(video_gen_service.load_stored_models()),
+    }
+
+
+@router.post("/sync-videos")
+async def sync_video_models_from_providers(
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Query configured video providers live and persist the result to
+    synced_video_models.json.
+    """
+    from app.services.video_gen import video_gen_service
+
+    if not video_gen_service.active_providers():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="后端 .env 中未配置任何视频生成服务凭证 (OPENROUTER_API_KEY)"
+        )
+
+    return await video_gen_service.sync_models()
+
+
 @router.post("/sync")
 async def sync_models_from_providers(
     current_user: User = Depends(get_current_user)

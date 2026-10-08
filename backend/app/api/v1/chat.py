@@ -239,10 +239,16 @@ async def chat_stream(
             detail="当前账号处于体验模式，仅支持访问免费模型。如需使用该模型，请联系管理员开通完整体验权限。"
         )
 
-    # Billable side features (AI image and video generation) are restricted to the
-    # same entitlement. Restricted accounts may only use zero-cost models.
-    image_gen_free_only = not has_full_model_access(current_user)
-    video_gen_free_only = not has_full_model_access(current_user)
+    # Billable side features (AI image and video generation) permissions
+    is_full_access = has_full_model_access(current_user)
+    image_gen_free_only = not is_full_access
+
+    # 体验用户禁止使用视频生成功能
+    if not is_full_access and getattr(chat_req, "video_gen_mode", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="当前账号处于体验模式，暂不支持使用 AI 视频生成功能。如需开通，请联系管理员获取完整使用权限。"
+        )
 
     # 1.1 Resolve the caller's own provider credential for this model, if any.
     provider_name = (chat_req.provider or "").strip() or detect_provider(model_to_use)
@@ -579,64 +585,73 @@ async def chat_stream(
 
             # 1.5 Check and execute AI Video Generation if requested
             if need_video_gen and video_prompt:
-                tool_call_id = f"vid_{int(time.time() * 1000)}"
-                logger.info("Executing video generation for prompt: '%s' (aspect_ratio=%s)", video_prompt, video_ratio)
-                yield f"data: {json.dumps({'type': 'tool_call', 'toolCallId': tool_call_id, 'toolName': 'video_generation', 'args': {'prompt': video_prompt, 'aspect_ratio': video_ratio}}, ensure_ascii=False)}\n\n"
-                tool_invocations.append({
-                    "toolCallId": tool_call_id,
-                    "toolName": "video_generation",
-                    "args": {"prompt": video_prompt, "aspect_ratio": video_ratio},
-                    "state": "call",
-                })
-
-                try:
-                    vid_res = await video_gen_service.generate_video(
-                        video_prompt,
-                        model=selected_video_model,
-                        aspect_ratio=video_ratio,
-                        free_only=video_gen_free_only,
-                    )
-                    vid_bytes = vid_res["bytes"]
-                    vid_provider = vid_res.get("provider", "openrouter")
-                    vid_model = vid_res.get("model", "unknown")
-
-                    stored_vid_meta = None
-                    try:
-                        stored_vid_meta = await store_generated_video(
-                            data_or_url=vid_bytes,
-                            prompt=video_prompt,
-                            provider=vid_provider,
-                            model=vid_model,
-                            ext=vid_res.get("ext", "mp4"),
-                        )
-                    except Exception as ve:
-                        logger.warning("Failed to persist generated video: %s", ve)
-
-                    video_id = stored_vid_meta.get("id") if stored_vid_meta else None
-                    if video_id:
-                        generated_videos.append(stored_vid_meta)
-
-                    yield f"data: {json.dumps({'type': 'video_result', 'toolCallId': tool_call_id, 'videoId': video_id, 'prompt': video_prompt, 'provider': vid_provider, 'model': vid_model}, ensure_ascii=False)}\n\n"
-                    yield f"data: {json.dumps({'type': 'tool_result', 'toolCallId': tool_call_id, 'result': {'prompt': video_prompt, 'model': vid_model, 'provider': vid_provider, 'videoId': video_id}}, ensure_ascii=False)}\n\n"
-                    if tool_invocations:
-                        tool_invocations[-1]["state"] = "result"
-                        tool_invocations[-1]["result"] = {"prompt": video_prompt, "model": vid_model, "provider": vid_provider, "videoId": video_id}
-
-                    vid_context_hint = f"\n\n【🎬 AI视频生成系统通知】已成功生成视频（提示词: {video_prompt}，模型: {vid_provider} · {vid_model}）。视频已由前端播放器卡片渲染。请针对用户的原始请求进行得体友好的说明或继续提供相关建议。"
-                    if messages_payload and messages_payload[0].get("role") == "system":
-                        messages_payload[0]["content"] += vid_context_hint
-                    else:
-                        messages_payload.insert(0, {"role": "system", "content": vid_context_hint})
-
-                except Exception as ve:
-                    logger.warning("Video generation service failed: %s", str(ve))
-                    yield f"data: {json.dumps({'type': 'tool_result', 'toolCallId': tool_call_id, 'result': {'error': str(ve)}}, ensure_ascii=False)}\n\n"
-                    if tool_invocations:
-                        tool_invocations[-1]["state"] = "result"
-                        tool_invocations[-1]["result"] = {"error": str(ve)}
-                    vid_err_hint = f"\n\n【🎬 AI视频生成失败提示】视频生成失败: {str(ve)}。请在回答中向用户说明原因并给出建议。"
+                if not is_full_access:
+                    tool_call_id = f"vid_{int(time.time() * 1000)}"
+                    yield f"data: {json.dumps({'type': 'tool_result', 'toolCallId': tool_call_id, 'result': {'error': '体验模式账号暂不支持使用视频生成功能'}}, ensure_ascii=False)}\n\n"
+                    vid_err_hint = "\n\n【🎬 AI视频生成提示】当前账号处于体验模式，暂不支持使用 AI 视频生成功能。请向用户委婉说明该权限需联系管理员开通。"
                     if messages_payload and messages_payload[0].get("role") == "system":
                         messages_payload[0]["content"] += vid_err_hint
+                    else:
+                        messages_payload.insert(0, {"role": "system", "content": vid_err_hint})
+                else:
+                    tool_call_id = f"vid_{int(time.time() * 1000)}"
+                    logger.info("Executing video generation for prompt: '%s' (aspect_ratio=%s)", video_prompt, video_ratio)
+                    yield f"data: {json.dumps({'type': 'tool_call', 'toolCallId': tool_call_id, 'toolName': 'video_generation', 'args': {'prompt': video_prompt, 'aspect_ratio': video_ratio}}, ensure_ascii=False)}\n\n"
+                    tool_invocations.append({
+                        "toolCallId": tool_call_id,
+                        "toolName": "video_generation",
+                        "args": {"prompt": video_prompt, "aspect_ratio": video_ratio},
+                        "state": "call",
+                    })
+
+                    try:
+                        vid_res = await video_gen_service.generate_video(
+                            video_prompt,
+                            model=selected_video_model,
+                            aspect_ratio=video_ratio,
+                            free_only=False,
+                        )
+                        vid_bytes = vid_res["bytes"]
+                        vid_provider = vid_res.get("provider", "openrouter")
+                        vid_model = vid_res.get("model", "unknown")
+
+                        stored_vid_meta = None
+                        try:
+                            stored_vid_meta = await store_generated_video(
+                                data_or_url=vid_bytes,
+                                prompt=video_prompt,
+                                provider=vid_provider,
+                                model=vid_model,
+                                ext=vid_res.get("ext", "mp4"),
+                            )
+                        except Exception as ve:
+                            logger.warning("Failed to persist generated video: %s", ve)
+
+                        video_id = stored_vid_meta.get("id") if stored_vid_meta else None
+                        if video_id:
+                            generated_videos.append(stored_vid_meta)
+
+                        yield f"data: {json.dumps({'type': 'video_result', 'toolCallId': tool_call_id, 'videoId': video_id, 'prompt': video_prompt, 'provider': vid_provider, 'model': vid_model}, ensure_ascii=False)}\n\n"
+                        yield f"data: {json.dumps({'type': 'tool_result', 'toolCallId': tool_call_id, 'result': {'prompt': video_prompt, 'model': vid_model, 'provider': vid_provider, 'videoId': video_id}}, ensure_ascii=False)}\n\n"
+                        if tool_invocations:
+                            tool_invocations[-1]["state"] = "result"
+                            tool_invocations[-1]["result"] = {"prompt": video_prompt, "model": vid_model, "provider": vid_provider, "videoId": video_id}
+
+                        vid_context_hint = f"\n\n【🎬 AI视频生成系统通知】已成功生成视频（提示词: {video_prompt}，模型: {vid_provider} · {vid_model}）。视频已由前端播放器卡片渲染。请针对用户的原始请求进行得体友好的说明或继续提供相关建议。"
+                        if messages_payload and messages_payload[0].get("role") == "system":
+                            messages_payload[0]["content"] += vid_context_hint
+                        else:
+                            messages_payload.insert(0, {"role": "system", "content": vid_context_hint})
+
+                    except Exception as ve:
+                        logger.warning("Video generation service failed: %s", str(ve))
+                        yield f"data: {json.dumps({'type': 'tool_result', 'toolCallId': tool_call_id, 'result': {'error': str(ve)}}, ensure_ascii=False)}\n\n"
+                        if tool_invocations:
+                            tool_invocations[-1]["state"] = "result"
+                            tool_invocations[-1]["result"] = {"error": str(ve)}
+                        vid_err_hint = f"\n\n【🎬 AI视频生成失败提示】视频生成失败: {str(ve)}。请在回答中向用户说明原因并给出建议。"
+                        if messages_payload and messages_payload[0].get("role") == "system":
+                            messages_payload[0]["content"] += vid_err_hint
 
             # 2. Check and execute automatic search before streaming LLM tokens
             if need_search and search_query:

@@ -327,10 +327,11 @@ async def list_video_models(
     """
     from app.services.video_gen import video_gen_service
 
-    catalog = await video_gen_service.list_available_models()
     can_all = has_full_model_access(current_user)
     if not can_all:
-        catalog = [m for m in catalog if m.get("is_free")]
+        catalog = []
+    else:
+        catalog = await video_gen_service.list_available_models()
 
     return {
         "total": len(catalog),

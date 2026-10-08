@@ -14,6 +14,7 @@ import { ActionTooltip } from "@/components/common/ActionTooltip";
 import { MessageListSkeleton } from "@/components/common/PageSkeleton";
 import { formatFileSize } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useIsTrialMode } from "@/hooks/useIsTrialMode";
 import { ChatMessageItem } from "./ChatMessageItem";
 import { renderMessageBody, SearchSources } from "./markdown";
 import {
@@ -215,6 +216,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   onChangeCreationMode,
 }) => {
   const isTouchPrimary = useIsTouchPrimary();
+  const isTrialMode = useIsTrialMode();
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -872,6 +874,42 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
                 <DropdownMenuSeparator className="my-1" />
 
+                {onToggleWebSearchMode && (
+                  <DropdownMenuItem
+                    onClick={(e) => {
+                      e.preventDefault();
+                      onToggleWebSearchMode();
+                    }}
+                    className="flex items-center justify-between rounded-xl px-2.5 py-2 text-xs font-medium cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2.5 truncate">
+                      <Globe
+                        className={cn(
+                          "h-4 w-4 shrink-0",
+                          webSearchMode === "on"
+                            ? "text-sky-500"
+                            : webSearchMode === "auto"
+                            ? "text-primary"
+                            : "text-muted-foreground"
+                        )}
+                      />
+                      <span>联网检索</span>
+                    </div>
+                    <span
+                      className={cn(
+                        "font-mono text-2xs px-1.5 py-0.5 rounded-md",
+                        webSearchMode === "on"
+                          ? "bg-sky-500/15 text-sky-600 dark:text-sky-400 font-semibold"
+                          : webSearchMode === "auto"
+                          ? "bg-primary/10 text-primary font-semibold"
+                          : "text-muted-foreground"
+                      )}
+                    >
+                      {webSearchMode === "auto" ? "自动" : webSearchMode === "on" ? "开启" : "关闭"}
+                    </span>
+                  </DropdownMenuItem>
+                )}
+
                 <DropdownMenuItem
                   onClick={() => onChangeCreationMode?.(creationMode === "image" ? "chat" : "image")}
                   className="flex items-center justify-between rounded-xl px-2.5 py-2 text-xs font-medium cursor-pointer"
@@ -883,57 +921,32 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                   {creationMode === "image" && <Check className="h-3.5 w-3.5 text-amber-500 shrink-0" />}
                 </DropdownMenuItem>
 
-                <DropdownMenuItem
-                  onClick={() => onChangeCreationMode?.(creationMode === "video" ? "chat" : "video")}
-                  className="flex items-center justify-between rounded-xl px-2.5 py-2 text-xs font-medium cursor-pointer"
-                >
-                  <div className="flex items-center gap-2.5 truncate">
-                    <Video className="h-4 w-4 text-purple-500 shrink-0" />
-                    <span>生成视频</span>
-                  </div>
-                  {creationMode === "video" && <Check className="h-3.5 w-3.5 text-purple-500 shrink-0" />}
-                </DropdownMenuItem>
+                {isTrialMode ? (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      toast.info("当前账号处于体验模式，暂不支持使用 AI 视频生成功能。如需开通，请联系管理员获取完整权限。");
+                    }}
+                    className="flex items-center justify-between rounded-xl px-2.5 py-2 text-xs font-medium opacity-50 cursor-not-allowed"
+                  >
+                    <div className="flex items-center gap-2.5 truncate">
+                      <Video className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span>生成视频 (体验账号暂不可用)</span>
+                    </div>
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem
+                    onClick={() => onChangeCreationMode?.(creationMode === "video" ? "chat" : "video")}
+                    className="flex items-center justify-between rounded-xl px-2.5 py-2 text-xs font-medium cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2.5 truncate">
+                      <Video className="h-4 w-4 text-purple-500 shrink-0" />
+                      <span>生成视频</span>
+                    </div>
+                    {creationMode === "video" && <Check className="h-3.5 w-3.5 text-purple-500 shrink-0" />}
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
-
-            {onToggleWebSearchMode && (
-              <ActionTooltip
-                label={
-                  webSearchMode === "auto"
-                    ? "联网检索：自动智能（系统根据问题自动决定是否检索）"
-                    : webSearchMode === "on"
-                    ? "联网检索：强制开启（每次提问均搜索最新网络）"
-                    : "联网检索：已关闭（仅使用模型自身知识）"
-                }
-                side="top"
-              >
-                <Button
-                  variant={webSearchMode === "off" ? "ghost" : "outline"}
-                  size="sm"
-                  onClick={onToggleWebSearchMode}
-                  disabled={isStreaming}
-                  className={cn(
-                    "h-9 px-2 sm:px-2.5 rounded-full text-xs font-medium shrink-0 mb-0.5 select-none",
-                    webSearchMode === "on" && "bg-sky-500/10 border-sky-500/40 text-sky-600 dark:text-sky-400 hover:bg-sky-500/20 hover:text-sky-600 dark:hover:text-sky-400",
-                    webSearchMode === "auto" && "hover:border-sky-500/50 hover:text-sky-600 dark:hover:text-sky-400"
-                  )}
-                >
-                  <Globe
-                    className={cn(
-                      "h-3.5 w-3.5",
-                      webSearchMode === "on"
-                        ? "text-sky-600 dark:text-sky-400"
-                        : webSearchMode === "auto"
-                        ? "text-primary"
-                        : "text-muted-foreground"
-                    )}
-                  />
-                  <span className="hidden sm:inline font-mono text-2xs">
-                    {webSearchMode === "auto" ? "联网:自动" : webSearchMode === "on" ? "联网:开启" : "联网:关闭"}
-                  </span>
-                </Button>
-              </ActionTooltip>
-            )}
             <Textarea
               ref={textareaRef}
               rows={1}

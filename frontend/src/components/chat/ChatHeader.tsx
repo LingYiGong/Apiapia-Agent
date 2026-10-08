@@ -144,22 +144,6 @@ export const MobileChatHeader: React.FC<MobileChatHeaderProps> = ({
                   <span className="sr-only">条关联记忆，点击查看</span>
                 </Button>
               </ActionTooltip>
-            ) : onRefreshModels ? (
-              <ActionTooltip label="同步模型">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={onRefreshModels}
-                  disabled={isRefreshingModels}
-                  className="h-8 w-8 shrink-0 cursor-pointer rounded-full text-muted-foreground transition-colors hover:text-foreground active:scale-95"
-                >
-                  <RotateCw
-                    className={cn("h-3.5 w-3.5", isRefreshingModels && "animate-spin text-primary")}
-                  />
-                  <span className="sr-only">同步模型</span>
-                </Button>
-              </ActionTooltip>
             ) : null}
 
             {activeConversation && (
@@ -342,25 +326,6 @@ export const DesktopChatHeader: React.FC<DesktopChatHeaderProps> = ({
               variant="compact"
             />
           </div>
-
-          {onRefreshModels && (
-            <ActionTooltip label="同步模型">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={onRefreshModels}
-                disabled={isRefreshingModels}
-                className="shrink-0 cursor-pointer border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 hover:text-primary"
-              >
-                <RotateCw className={cn("h-3.5 w-3.5", isRefreshingModels && "animate-spin")} />
-                <span className="hidden lg:inline">
-                  {isRefreshingModels ? "正在同步..." : "同步模型"}
-                </span>
-                <span className="sr-only">同步模型</span>
-              </Button>
-            </ActionTooltip>
-          )}
         </div>
 
         {/* 右上角操作区：置顶、重命名、删除 */}

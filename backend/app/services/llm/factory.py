@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Tuple
 from app.services.llm.base import LLMProvider
 from app.services.llm.openai import OpenAIProvider
 from app.services.llm.anthropic import AnthropicProvider
@@ -6,6 +6,22 @@ from app.services.llm.gemini import GeminiProvider
 from app.services.llm.ollama import OllamaProvider
 from app.services.llm.openrouter import OpenRouterProvider
 from app.core.config import settings
+
+#: Provider names this factory can build. Single source of truth for the
+#: credential endpoints (app.schemas.setting.SUPPORTED_PROVIDERS imports this
+#: tuple) so the two lists cannot drift apart.
+#:
+#: It is a tuple rather than a class registry because the constructors do not
+#: share a signature: GeminiProvider ignores base_url and OllamaProvider ignores
+#: api_key. A uniform registry would have to hide that asymmetry behind per-entry
+#: lambdas, which is harder to read than the explicit dispatch below.
+SUPPORTED_PROVIDERS: Tuple[str, ...] = (
+    "openai",
+    "anthropic",
+    "gemini",
+    "ollama",
+    "openrouter",
+)
 
 
 def detect_provider(model: str) -> str:
@@ -43,14 +59,15 @@ def get_llm_provider(
 
     if resolved_provider == "openrouter":
         return OpenRouterProvider(api_key=api_key, base_url=base_url)
-    elif resolved_provider == "openai":
-        return OpenAIProvider(api_key=api_key, base_url=base_url)
     elif resolved_provider == "anthropic":
         return AnthropicProvider(api_key=api_key, base_url=base_url)
     elif resolved_provider == "gemini":
+        # GeminiProvider takes no base_url: its endpoint shape differs enough that
+        # overriding it is not supported.
         return GeminiProvider(api_key=api_key)
     elif resolved_provider == "ollama":
+        # Local inference, no credential — base_url is the only knob.
         return OllamaProvider(base_url=base_url)
-    else:
-        # Fallback to OpenAI-compatible provider
-        return OpenAIProvider(api_key=api_key, base_url=base_url)
+    # "openai", and anything unrecognised, falls back to the OpenAI-compatible
+    # adapter. Several gateways speak that dialect under other names.
+    return OpenAIProvider(api_key=api_key, base_url=base_url)

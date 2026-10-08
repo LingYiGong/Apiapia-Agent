@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v2.12.0-indigo?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/version-v2.13.0-indigo?style=flat-square" alt="Version">
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
   <img src="https://img.shields.io/badge/Mem0%20OSS-2.2.1-orange?style=flat-square" alt="Mem0">
@@ -19,6 +19,66 @@
   <img src="https://img.shields.io/badge/iOS%20PWA-Ready-007AFF?style=flat-square&logo=apple" alt="iOS PWA">
   <img src="https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker" alt="Docker">
 </p>
+
+---
+
+## v2.13.0 发布说明
+
+本版本是一次**后端**版本。起因是一轮覆盖全部后端代码的通读审计，暴露出若干此前无人发现的问题——其中一类是**正在漏钱的鉴权绕过**，另一类是**不报错、不崩溃、只是安静地不工作**的静默故障。
+
+范围：后端 58 个 Python 文件。删除重复实现与死代码约 600 行，新增 4 个模块承载原本散落各处的安全边界与依赖关系。
+
+### 安全
+
+- **服务端请求伪造（可读型）**：用户在对话里粘贴的 URL 会被**服务端**直接抓取并送进模型上下文，此前**没有任何地址校验**。这意味着任何账号都可以让服务器代为访问云元数据端点（`169.254.169.254`）或内网服务，并把读到的内容通过模型回答完整取回。原实现仅在 `base_url` 上做了防护，而该防护与抓取路径完全分离。现抽出 `app/core/net.py` 统一守卫，覆盖全部三条出网路径，并新增**逐跳重校验**——原先 `follow_redirects=True` 允许一个公网站点 302 到内网绕过首地址检查。同时补上原黑名单的两个绕过：`::ffff:127.0.0.1` 这类 IPv4-mapped IPv6（`IPv6Address in IPv4Network` 因版本不同恒为 `False`，永远匹配不上）、以及 `::/128` 与 `64:ff9b::/96`。
+- **体验模式鉴权可绕过**：模型权限判定此前是对模型 id 做**子串匹配**（`"-free" in id` / `"ollama" in id` / `"免费" in id`），而路由判定是另一套规则。两者对同一个字符串给出不同答案——`model="ollama-gpt-4o"` 通过了免费校验（含 `ollama`），随后命中 `gpt` 被路由到 **openai**，直接使用服务端付费密钥。`gpt-4o-free`、`o1-免费版` 同理。现改为**精确 id 查同步目录**，查不到即拒绝（fail closed），免费判定只保留三个可信信号（上游真实定价、`openrouter/free` 内置白名单、由自身同步代码写入的 `provider == "ollama"`）。
+- **撤销管理员不收回付费模型权限**：`has_full_model_access` 是 `is_superuser or can_access_all_models`，而降级时只翻转了前者，被降级的管理员因此仍能以计费模型调用服务端凭证。
+- **删除两个未鉴权的模型目录接口**：`GET /models/available` 与 `GET /models/openrouter` 从未被前端调用，且均无鉴权——后者同时是一个无速率限制的出网代理。
+- **请求体与附件体积闸门**：聊天请求以 base64 内联携带附件，此前无任何上限，且体积检查发生在**完整读入内存之后**。现新增 32MB 请求体闸门（纯 ASGI 中间件，不经过 `BaseHTTPMiddleware` 以免干扰 SSE 长连接），附件按「10 个 / 单文件 20MB / 总量 40MB」三重限制，并在 **base64 解码之前**依据编码长度判定——解码本身就要分配与载荷等量的内存。
+
+### 功能缺陷修复
+
+- **Claude / Gemini / Ollama + 上传图片 = 回答静默截断**：token 用量的回退估算直接对消息列表做 `str.join`，而携带图片时当前轮的内容是**多模态 parts 数组**，`join` 抛 `TypeError`。该行位于 `try` 之外，且这三个 provider 均未定义 `last_usage`（必然走回退分支）——两个条件叠加，触发时流在没有 `done` 事件的情况下中断，前端表现为「回答到一半就没了」。
+- **记忆召回阻塞整个事件循环**：`retrieve_relevant_memories` 是同步函数（内部走 `psycopg2` 与同步 openai 客户端），却被直接在 async 端点里调用。单 worker 部署下，一个用户的记忆检索会卡住该进程上的**所有**并发请求。现统一移交 `asyncio.to_thread`。
+- **记忆写入与抽取对模型名的处理不一致**：两处各自实现了「优先 OpenAI，否则 OpenRouter」，但其中一处给裸模型名加 `openai/` 前缀、另一处不加。结果是抽取成功而写入失败，报错表现为不透明的 Mem0 异常。默认值恰好自带前缀，所以从未暴露。现合并为单一解析器。
+- **用量趋势图与总额对不上**：`daily_trend` 的费用按写死的 `0.20 / 0.80` 每百万计算，而 `model_breakdown` 使用真实定价表。同一份数据两处算出不同的钱——只用 Claude 的用户，图表比总额低约 15 倍。现按 `(时间桶, 模型)` 分组后用同一套定价函数聚合，各桶之和恒等于 breakdown 之和。
+- **健康检查从不说实话**：`/api/health` 每个字段都是硬编码字符串，包括 `"database": "connected"`。数据库不可达时后端在 Docker 与任何监控看来都完全健康。现改为实际执行探测，失败返回 **503**；`mem0_oss` 字段也改为反映长期记忆是否已配置可用凭证。
+- **数据库初始化失败被静默吞掉**：`init_db()` 异常仅记录日志后继续启动，于是进程存活、每个请求 500、健康检查报告已连接、Docker 永不重启——最坏的失败模式：坏了，但看起来没坏，且不自愈。现改为启动失败并交由 `restart: unless-stopped` 重试。
+- **参数约束缺失导致 500**：`temperature` 无范围约束，误填值被原样透传给上游；模型名、用户名等字段无长度上限，超长值撞上数据库列宽后返回带驱动消息的 500 而非指出字段的 422。现统一由 Pydantic 约束。
+- **记忆导出的时间戳是错的**：`export_time` 取的是**账号行**最后修改时间——今天导出、但用户上次改设置是六周前，导出文件就标着那个日期。
+- **联网检索偏好只写不读**：`web_search_mode` 被持久化到账号，服务端却从不读取，schema 默认值使回落永远到不了。
+- **Tavily 告警挂在不可达分支**：一条「未返回 answer 字段」的警告位于 `if/elif` 链的第三个分支，而该场景已在第一个分支处理，永不触发。
+
+### 数据与规模
+
+- **用户上传的图片不再进数据库**：此前以完整 base64 内联存入 `messages.content`，一条消息可达数 MB，进而使消息列表、统计聚合、侧边栏全部为它们并不展示的图片字节付费。现与生成图统一：字节落盘，行内仅保留 id 引用与一份小型元数据记录。
+- **会话列表的隐藏放大**：`Conversation.messages` 上一个 `lazy="selectin"` 会在每次加载会话时**自动附加一条查询**把全部消息拉回——侧边栏接口因此承担了 O(全部历史消息体积) 的 IO。移除该配置（该关系在后端从未被访问）。
+- **N+1 查询**：置顶重排接口对每个会话单独 `db.refresh()`，而会话本就以 `expire_on_commit=False` 加载，实例已携带新值。
+
+### 工程重构
+
+**分层解耦** —— 此前存在 `api.v1.chat → api.v1.settings → api.v1.models` 的链条，即 **API 层在 import 自己**。这正是 `SUPPORTED_PROVIDERS` 需要写「与 factory 保持同步」注释的原因：规则被抄了一份，因为它自然的归属地够不着。现抽出 `services/catalog.py`（模型目录与权限判定）、`services/model_credentials.py`（用户自带凭证解析）、`services/memory/credentials.py`（记忆凭证解析）。
+
+**重复实现收敛**：
+
+- 会话查询 10 份重复、消息归属校验 2 份、置顶排序时间补齐 5 份 → 各收敛为单一 helper
+- 用量趋势图 6 段近乎逐字相同的 SQL → 一个参数化构造器；管理员概览 261 行内联 5 条查询 → 4 个具名查询函数
+- 两份逐行相同的「可选 Bearer 依赖」（记忆导出 / 媒体读取）→ `deps.py` 中的单一实现
+- Anthropic provider 的 `chat()` 与 `complete()` 各自组装了一遍完全相同的请求体
+
+**死代码清理**：两个未鉴权接口、`duckduckgo_search` 依赖（其上游已改名 `ddgs`，且它只贡献第四级兜底与一次额外串行超时）、三个只写不读的配置项（`MEM0_LLM_PROVIDER` / `MEM0_EMBEDDER_PROVIDER` / `TAVILY_MAX_RESULTS`）、三个从未被读取的请求字段、一个纯转发函数、三个零引用的 re-export 桶文件。同时删除转发性质的 `/stats/admin/conversations/{id}/restore`，恢复操作统一走 `/conversations/{id}/restore`。
+
+**凭据与用量**：Claude / Gemini / Ollama 三家此前**没有** `last_usage` 属性，用量始终依赖启发式估算（中文 1 字 = 1 token），偏差方向还与 GPT 相反，导致跨模型对比不可信。现三家均上报真实用量。
+
+**版本号**：后端此前硬编码 `2.9.0`，而 `VERSION`、前端与 `public/version.json` 已是 `2.12.0`——也就是说 v2.12.0 更新日志里「版本号五处源统一为 v2.12.0」这句话**对后端是假的**。现统一为单一来源（`config.APP_VERSION`，可由 `APP_VERSION` 环境变量覆盖），并修正了上述不实表述。
+
+### 部署注意
+
+本版本有三处**行为变更**，升级前请确认：
+
+- **数据库初始化失败将导致后端启动失败**并被 Docker 重试。若你的 PostgreSQL 用户**没有 `CREATE EXTENSION` 权限**，此前能启动（但所有请求失败），现在会进入重启循环；日志会给出明确提示。`pgvector/pgvector` 官方镜像下 `postgres` 为超级用户，不受影响。
+- **`/api/health` 在数据库不可达时返回 503**，Docker 会将容器标记为 unhealthy。Docker 不会因 unhealthy 自动重启，因此这只是报告而非中断。
+- **历史消息中的内联 base64 图片仍可正常显示**，但数据库体积不会自动缩小。如需瘦身需单独执行一次性迁移。
 
 ---
 
@@ -245,7 +305,7 @@
    - **全模型普惠**：不依赖特定模型厂商的联网功能，无论是 Claude、GPT、Gemini、DeepSeek，还是本地 Ollama 部署的模型，全部自动具备联网搜索能力。
    - **智能自动判定 (Auto-Decision)**：系统自主识别时效性新闻、天气、汇率、股票行情、外部事实、最新技术资讯等需求，按需自动搜索；日常闲聊、纯代码或逻辑运算保持零延迟免搜。
    - **三档模式随心控**：输入框支持「自动判定 (默认) / 强制开启 / 关闭」一键循环切换，并自动持久化用户偏好。
-   - **多级免 Key 高可用**：未配置 Key 时内置 DuckDuckGo 多级异步搜索引擎与解析器，100% 免费开箱即用；配置 `TAVILY_API_KEY` 后自动升级为 **Tavily AI 原生搜索为主 + DuckDuckGo 兜底**，搜索质量与 RAG 相关性更强（`/api/health` 的 `web_search` 字段可查看当前生效引擎）。
+   - **多级免 Key 高可用**：未配置 Key 时内置 DuckDuckGo 多级异步搜索引擎与解析器（html / lite / instant-answer 三级，纯 httpx 零第三方依赖），100% 免费开箱即用；配置 `TAVILY_API_KEY` 后自动升级为 **Tavily AI 原生搜索为主 + DuckDuckGo 兜底**，搜索质量与 RAG 相关性更强（`/api/health` 的 `web_search` 字段可查看当前生效引擎）。
    - **实时检索与网页溯源**：流式生成过程中动态呈现检索中动效及检索词；回答下方持久化提供「🌐 参考了 X 个网页来源」交互式可折叠卡片，展示网页标题、摘要与一键直达外链。
 
 3. **长期记忆与聊天记录严格分离**：
@@ -328,12 +388,12 @@ cp .env.example .env
 - `POSTGRES_USER`: PostgreSQL 用户名（默认 `postgres`）
 - `POSTGRES_PASSWORD`: PostgreSQL 密码（请确保 `DATABASE_URL` 与 `MEM0_DATABASE_URL` 里的密码与之保持一致）
 - `POSTGRES_DB`: 数据库名称（默认 `apiapia`）
+- `APP_VERSION`: 服务版本号，默认 `2.13.0`。**须与仓库根目录 `VERSION`、`frontend/package.json` 保持一致**——三者作为同一份产物发布。此前后端在两处硬编码且已漂移至 `2.9.0`，现改为单一来源。
 - `SECRET_KEY`: JWT 签名密钥（生产环境请更换为复杂随机字符串）
 - `API_KEY_ENCRYPTION_KEY`: 数据库 API Key 对称加密密钥
 - `OPENROUTER_API_KEY`: OpenRouter 统一大模型 API 密钥
 - `TAVILY_API_KEY`: Tavily 联网搜索 Key（https://tavily.com 免费申请，每月 1000 次；留空则只用免费 DuckDuckGo）
 - `TAVILY_SEARCH_DEPTH`: 搜索深度 `advanced`（准）/ `basic`（快），默认 `advanced`
-- `TAVILY_MAX_RESULTS`: 每次检索条数，默认 `5`
 
 ### 2. 一键启动 Docker 容器集群
 
@@ -351,6 +411,7 @@ Compose 将按序拉起并协同三个服务：
 - **Web 界面**：`http://localhost:3000`
 - **后端 API 文档 (Swagger)**：`http://localhost:8000/docs`
 - **健康检查接口**：`http://localhost:8000/api/health`
+  返回真实探测结果：数据库不可达时返回 **503**（`database` 字段给出异常类型，`status` 为 `degraded`），Docker healthcheck 会据此把容器标记为 unhealthy。`mem0_oss` 字段反映长期记忆是否已配置可用的 LLM 凭证。
 
 ---
 

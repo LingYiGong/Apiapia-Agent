@@ -15,8 +15,8 @@ from app.models.conversation import Conversation, Message
 from app.models.setting import UserSetting
 from app.schemas.chat import ChatRequest
 from app.api.v1.deps import get_current_user
-from app.api.v1.models import check_user_can_use_model, has_full_model_access
-from app.api.v1.settings import resolve_user_llm_credentials
+from app.services.catalog import check_user_can_use_model, has_full_model_access
+from app.services.model_credentials import resolve_user_llm_credentials
 from app.services.llm.factory import get_llm_provider, detect_provider
 from app.services.memory.retrieval import retrieve_relevant_memories, should_retrieve_memories
 from app.services.memory.extraction import schedule_memory_extraction
@@ -24,7 +24,11 @@ from app.services.memory.dreaming import schedule_dreaming
 from app.services.document_parser import parse_attachment, fetch_and_parse_url, extract_urls
 from app.services.search import web_search_service, should_search_web
 from app.services.image_gen import should_generate_image, image_gen_service
-from app.services.media_storage import store_generated_image
+from app.services.media_storage import (
+    MEDIA_IMAGE_PATH_PREFIX,
+    store_generated_image,
+    store_uploaded_image,
+)
 from app.services.prompt import build_system_prompt
 from app.services.deterministic import evaluate_deterministic_context
 
@@ -301,10 +305,16 @@ async def chat_stream(
         clean_mem_msg = re.sub(r"https?://[^\s<>\"'()]+", "", chat_req.message or "").strip()
         mem_query = clean_mem_msg if clean_mem_msg else (parsed_docs[0]['name'] if parsed_docs else "")
         if mem_query and should_retrieve_memories(mem_query):
-            retrieved_memories, memory_context_str = retrieve_relevant_memories(
+            # Must go to a thread. retrieve_relevant_memories is synchronous: it
+            # talks to pgvector over psycopg2 and, on the profile pass, pulls the
+            # user's memories and sorts them in Python. Calling it inline would park
+            # the event loop for the whole round trip, so every other in-flight
+            # request on this worker stalls behind one user's memory query.
+            retrieved_memories, memory_context_str = await asyncio.to_thread(
+                retrieve_relevant_memories,
                 user_id=user_id,
                 query=mem_query,
-                limit=5
+                limit=5,
             )
 
     # 5. Fetch recent conversation messages
@@ -357,8 +367,24 @@ async def chat_stream(
         saved_content_parts.append(chat_req.message.strip())
     for doc in parsed_docs:
         saved_content_parts.append(f"📄 **[附件文件: {doc['name']}]**")
+
+    # Uploaded images are written to MEDIA_DIR and recorded by id; `content` keeps
+    # only an /api/media/images/{id} reference. The inline base64 stays in
+    # messages_payload above — the model needs it — but must not reach the row,
+    # because every read of this conversation (message list, stats joins, sidebar)
+    # would otherwise stream megabytes it never displays.
+    stored_attachments = []
     for img in parsed_images:
-        saved_content_parts.append(f"![{img['name']}]({img['data_url']})")
+        stored = store_uploaded_image(img["data_url"], img.get("name") or "图片")
+        if stored:
+            stored_attachments.append(stored)
+            saved_content_parts.append(
+                f"![{stored['name']}]({MEDIA_IMAGE_PATH_PREFIX}{stored['id']})"
+            )
+        else:
+            # Storage unavailable. Keep the inline form so the attachment stays
+            # visible — a fat row is strictly better than a silently missing image.
+            saved_content_parts.append(f"![{img['name']}]({img['data_url']})")
     saved_user_content = "\n\n".join(saved_content_parts) if saved_content_parts else (chat_req.message or "附件")
 
     user_msg_record = Message(
@@ -367,6 +393,7 @@ async def chat_stream(
         content=saved_user_content,
         model=model_to_use,
         prompt_tokens=user_tokens,
+        user_attachments=json.dumps(stored_attachments, ensure_ascii=False) if stored_attachments else None,
         created_at=user_created_at
     )
     db.add(user_msg_record)
@@ -391,7 +418,11 @@ async def chat_stream(
         search_answer: Optional[str] = None
         generated_images = []
         tool_invocations = []
-        search_mode = chat_req.web_search_mode or "auto"
+        search_mode = (
+            chat_req.web_search_mode
+            or (user_settings.web_search_mode if user_settings else None)
+            or "auto"
+        )
         need_search, search_query, search_topic, search_time_range = should_search_web(chat_req.message, mode=search_mode)
         need_image_gen, img_prompt, img_size = should_generate_image(chat_req.message)
         # 'stop' | 'abort' | 'error' — persisted so the UI can tell a complete
@@ -721,14 +752,32 @@ async def chat_stream(
         prompt_tokens = usage.get("prompt_tokens")
         completion_tokens = usage.get("completion_tokens")
 
-        # Fallback estimation if provider stream didn't include usage
-        if not prompt_tokens:
-            prompt_text = " ".join([m.get("content", "") for m in messages_payload])
-            prompt_tokens = estimate_token_count(prompt_text)
+        # Fallback estimation when the provider did not report usage.
+        #
+        # Two things this block must not do:
+        #
+        # 1. Assume every content is a string. With an image attached the current
+        #    turn's content is a LIST of multimodal parts (see the payload assembly
+        #    above), and joining a list raises TypeError. That would abort the
+        #    response right here — past the try/except, so with no "done" event
+        #    and therefore a truncated reply on screen.
+        # 2. Let a bookkeeping failure kill the stream. Token counts feed a stats
+        #    table; they are not worth losing the user's answer over.
+        try:
+            if not prompt_tokens:
+                prompt_text = " ".join(
+                    str(m.get("content") or "") for m in messages_payload
+                )
+                prompt_tokens = estimate_token_count(prompt_text)
+            if not completion_tokens:
+                completion_tokens = estimate_token_count(assistant_content)
+        except Exception as est_err:
+            logger.warning(
+                "Token estimation failed for conversation %s: %s", conv_id, est_err
+            )
 
-        if not completion_tokens:
-            completion_tokens = estimate_token_count(assistant_content)
-
+        prompt_tokens = int(prompt_tokens or 0)
+        completion_tokens = int(completion_tokens or 0)
         total_tokens = prompt_tokens + completion_tokens
 
         # A failed turn with no partial text still deserves a durable record,

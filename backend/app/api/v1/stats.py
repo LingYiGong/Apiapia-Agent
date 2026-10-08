@@ -4,7 +4,7 @@ from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, desc, or_
+from sqlalchemy import select, func
 from app.core.database import get_db
 from app.models.user import User
 from app.models.conversation import Conversation, Message
@@ -112,6 +112,140 @@ def get_period_filter_datetime(period: str, tz_offset_minutes: int = 0) -> Optio
     return start_utc.replace(tzinfo=timezone.utc)
 
 
+# ── Trend aggregation ────────────────────────────────────────────────────────
+# One implementation for both endpoints. They differ only in whether the query has
+# to join conversations (per-user) or not (system-wide), so that is the only knob.
+
+#: date_trunc unit per period. "month" and "all" share the daily bucket.
+_TREND_UNIT = {"today": "hour", "year": "month"}
+
+
+def _build_trend_stmt(
+    period: str,
+    start_time: Optional[datetime],
+    where: List,
+    *,
+    join_conversation: bool,
+):
+    """Per-bucket call/token/cost rows, one row per (bucket, model).
+
+    Grouping by model as well as bucket is what lets the per-day cost come from
+    :func:`calculate_cost` instead of a flat guess. Summing real per-model prices
+    in Python makes the trend total identical to the model breakdown total; before
+    this, the chart hardcoded 0.20/0.80 per million while the breakdown used the
+    table above, so a Claude-only user saw a chart ~15x below their own total.
+    """
+    unit = _TREND_UNIT.get(period, "day")
+
+    stmt = select(
+        func.date_trunc(unit, Message.created_at).label("time_bucket"),
+        Message.model,
+        func.count(Message.id).label("calls"),
+        func.coalesce(func.sum(Message.token_usage), 0).label("tokens"),
+        func.coalesce(func.sum(Message.prompt_tokens), 0).label("prompt_tokens"),
+        func.coalesce(func.sum(Message.completion_tokens), 0).label("completion_tokens"),
+    )
+    if join_conversation:
+        stmt = stmt.join(Conversation, Message.conversation_id == Conversation.id)
+
+    conditions = list(where)
+    if start_time:
+        conditions.append(Message.created_at >= start_time)
+    else:
+        # "all" with no lower bound would chart the entire table; 30 days is what
+        # the UI actually draws. "today" and "year" always have a start_time, so
+        # this branch never applies to them.
+        conditions.append(
+            Message.created_at >= datetime.now(timezone.utc) - timedelta(days=30)
+        )
+
+    return (
+        stmt.where(*conditions)
+        .group_by("time_bucket", Message.model)
+        .order_by("time_bucket")
+    )
+
+
+def _trend_label(time_bucket, period: str, tz_offset: int) -> str:
+    if not time_bucket:
+        return ""
+    # Buckets come out in UTC; shift into the client's zone before formatting.
+    local = time_bucket - timedelta(minutes=tz_offset)
+    if period == "today":
+        return local.strftime("%H:00")
+    if period == "year":
+        return local.strftime("%Y-%m")
+    return local.strftime("%Y-%m-%d")
+
+
+def _aggregate_trend(rows, period: str, tz_offset: int) -> List[Dict[str, Any]]:
+    """Collapse (bucket, model) rows into one entry per bucket, chronologically."""
+    buckets: Dict[str, Dict[str, Any]] = {}
+    for row in rows:
+        label = _trend_label(row.time_bucket, period, tz_offset)
+        entry = buckets.setdefault(
+            label,
+            {"date": label, "calls": 0, "tokens": 0, "cost_usd": 0.0},
+        )
+        entry["calls"] += int(row.calls)
+        entry["tokens"] += int(row.tokens)
+        entry["cost_usd"] += calculate_cost(
+            row.model, int(row.prompt_tokens), int(row.completion_tokens)
+        )
+
+    # Labels are zero-padded, so lexicographic order is chronological order. The
+    # empty label (a null bucket) sorts last rather than first.
+    ordered = sorted(buckets.values(), key=lambda e: (e["date"] == "", e["date"]))
+    for entry in ordered:
+        entry["cost_usd"] = round(entry["cost_usd"], 4)
+        entry["cost_cny"] = round(entry["cost_usd"] * USD_TO_CNY, 4)
+    return ordered
+
+
+async def _fetch_trend(
+    db: AsyncSession,
+    period: str,
+    start_time: Optional[datetime],
+    where: List,
+    tz_offset: int,
+    *,
+    join_conversation: bool,
+) -> List[Dict[str, Any]]:
+    stmt = _build_trend_stmt(
+        period, start_time, where, join_conversation=join_conversation
+    )
+    return _aggregate_trend((await db.execute(stmt)).all(), period, tz_offset)
+
+
+# ── Per-model cost helper ────────────────────────────────────────────────────
+
+def _to_model_breakdown(rows) -> List[Dict[str, Any]]:
+    """Turn (model, agg) rows into the frontend's model_breakdown shape."""
+    breakdown = []
+    for r in rows:
+        m_name = r.model or "unknown"
+        p_tok = int(r.prompt_tokens)
+        c_tok = int(r.completion_tokens)
+        cost = calculate_cost(m_name, p_tok, c_tok)
+        breakdown.append({
+            "model": m_name,
+            "calls": int(r.calls),
+            "prompt_tokens": p_tok,
+            "completion_tokens": c_tok,
+            "total_tokens": int(r.total_tokens),
+            "cost_usd": round(cost, 4),
+            "cost_cny": round(cost * USD_TO_CNY, 4),
+            "is_free": _is_free_usage(m_name),
+        })
+    breakdown.sort(key=lambda x: x["total_tokens"], reverse=True)
+    return breakdown
+
+
+def _is_free_usage(model_name: str) -> bool:
+    lowered = (model_name or "").lower()
+    return ":free" in lowered or "ollama" in lowered or "免费" in (model_name or "")
+
+
 @router.get("/my")
 async def get_my_usage_stats(
     period: str = Query("all", pattern="^(all|today|month|year)$"),
@@ -146,125 +280,22 @@ async def get_my_usage_stats(
         .where(*msg_where)
         .group_by(Message.model)
     )
-    rows = (await db.execute(stmt)).all()
+    model_breakdown = _to_model_breakdown((await db.execute(stmt)).all())
 
-    total_calls = 0
-    total_prompt_tokens = 0
-    total_completion_tokens = 0
-    total_tokens = 0
-    total_cost_usd = 0.0
-    model_breakdown = []
+    total_calls = sum(item["calls"] for item in model_breakdown)
+    total_prompt_tokens = sum(item["prompt_tokens"] for item in model_breakdown)
+    total_completion_tokens = sum(item["completion_tokens"] for item in model_breakdown)
+    total_tokens = sum(item["total_tokens"] for item in model_breakdown)
+    total_cost_usd = sum(item["cost_usd"] for item in model_breakdown)
 
-    for r in rows:
-        m_name = r.model or "unknown"
-        p_tok = int(r.prompt_tokens)
-        c_tok = int(r.completion_tokens)
-        t_tok = int(r.total_tokens)
-        calls = int(r.calls)
-        cost = calculate_cost(m_name, p_tok, c_tok)
-
-        total_calls += calls
-        total_prompt_tokens += p_tok
-        total_completion_tokens += c_tok
-        total_tokens += t_tok
-        total_cost_usd += cost
-
-        model_breakdown.append({
-            "model": m_name,
-            "calls": calls,
-            "prompt_tokens": p_tok,
-            "completion_tokens": c_tok,
-            "total_tokens": t_tok,
-            "cost_usd": round(cost, 4),
-            "cost_cny": round(cost * USD_TO_CNY, 4),
-            "is_free": ":free" in m_name.lower() or "ollama" in m_name.lower() or "免费" in m_name
-        })
-
-    model_breakdown.sort(key=lambda x: x["total_tokens"], reverse=True)
-
-    # 3. Dynamic trend depending on period
-    trend_where = [Conversation.user_id == current_user.id, Message.role == "assistant"]
-    if period == "today":
-        # Hourly trend for today
-        if start_time:
-            trend_where.append(Message.created_at >= start_time)
-        trend_stmt = (
-            select(
-                func.date_trunc("hour", Message.created_at).label("time_bucket"),
-                func.count(Message.id).label("calls"),
-                func.coalesce(func.sum(Message.token_usage), 0).label("tokens"),
-                func.coalesce(func.sum(Message.prompt_tokens), 0).label("prompt_tokens"),
-                func.coalesce(func.sum(Message.completion_tokens), 0).label("completion_tokens")
-            )
-            .join(Conversation, Message.conversation_id == Conversation.id)
-            .where(*trend_where)
-            .group_by("time_bucket")
-            .order_by("time_bucket")
-        )
-    elif period == "year":
-        # Monthly trend for this year
-        if start_time:
-            trend_where.append(Message.created_at >= start_time)
-        trend_stmt = (
-            select(
-                func.date_trunc("month", Message.created_at).label("time_bucket"),
-                func.count(Message.id).label("calls"),
-                func.coalesce(func.sum(Message.token_usage), 0).label("tokens"),
-                func.coalesce(func.sum(Message.prompt_tokens), 0).label("prompt_tokens"),
-                func.coalesce(func.sum(Message.completion_tokens), 0).label("completion_tokens")
-            )
-            .join(Conversation, Message.conversation_id == Conversation.id)
-            .where(*trend_where)
-            .group_by("time_bucket")
-            .order_by("time_bucket")
-        )
-    else:
-        # Daily trend (for "month" or "all")
-        if start_time:
-            trend_where.append(Message.created_at >= start_time)
-        else:
-            thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
-            trend_where.append(Message.created_at >= thirty_days_ago)
-
-        trend_stmt = (
-            select(
-                func.date_trunc("day", Message.created_at).label("time_bucket"),
-                func.count(Message.id).label("calls"),
-                func.coalesce(func.sum(Message.token_usage), 0).label("tokens"),
-                func.coalesce(func.sum(Message.prompt_tokens), 0).label("prompt_tokens"),
-                func.coalesce(func.sum(Message.completion_tokens), 0).label("completion_tokens")
-            )
-            .join(Conversation, Message.conversation_id == Conversation.id)
-            .where(*trend_where)
-            .group_by("time_bucket")
-            .order_by("time_bucket")
-        )
-
-    daily_rows = (await db.execute(trend_stmt)).all()
-    daily_trend = []
-    for d in daily_rows:
-        if d.time_bucket:
-            # Adjust bucket timestamp to user local time
-            b_local = d.time_bucket - timedelta(minutes=tz_offset)
-            if period == "today":
-                label_str = b_local.strftime("%H:00")
-            elif period == "year":
-                label_str = b_local.strftime("%Y-%m")
-            else:
-                label_str = b_local.strftime("%Y-%m-%d")
-        else:
-            label_str = ""
-
-        d_p = int(d.prompt_tokens)
-        d_c = int(d.completion_tokens)
-        d_cost = round((d_p * 0.2 + d_c * 0.8) / 1_000_000.0, 4)
-        daily_trend.append({
-            "date": label_str,
-            "calls": int(d.calls),
-            "tokens": int(d.tokens),
-            "cost_usd": d_cost,
-            "cost_cny": round(d_cost * USD_TO_CNY, 4)
-        })
+    daily_trend = await _fetch_trend(
+        db,
+        period,
+        start_time,
+        [Conversation.user_id == current_user.id, Message.role == "assistant"],
+        tz_offset,
+        join_conversation=True,
+    )
 
     return {
         "period": period,
@@ -283,6 +314,94 @@ async def get_my_usage_stats(
     }
 
 
+async def _admin_token_rollup(db: AsyncSession, start_time: Optional[datetime]) -> Dict[str, Any]:
+    """Per-user assistant-message totals for the period, keyed by user_id."""
+    where = [Message.role == "assistant"]
+    if start_time:
+        where.append(Message.created_at >= start_time)
+    stmt = (
+        select(
+            Conversation.user_id,
+            func.count(Message.id).label("msg_count"),
+            func.coalesce(func.sum(Message.prompt_tokens), 0).label("prompt_tokens"),
+            func.coalesce(func.sum(Message.completion_tokens), 0).label("completion_tokens"),
+            func.coalesce(func.sum(Message.token_usage), 0).label("total_tokens")
+        )
+        .join(Message, Message.conversation_id == Conversation.id)
+        .where(*where)
+        .group_by(Conversation.user_id)
+    )
+    rows = {r.user_id: r for r in (await db.execute(stmt)).all()}
+
+    # Conversation counts come from their own query because users with zero
+    # assistant messages still need to appear in the ranking.
+    conv_stmt = select(Conversation.user_id, func.count(Conversation.id))
+    if start_time:
+        conv_stmt = conv_stmt.where(Conversation.created_at >= start_time)
+    conv_counts = dict(
+        (await db.execute(conv_stmt.group_by(Conversation.user_id))).all()
+    )
+    return {"tokens": rows, "conversations": conv_counts}
+
+
+async def _admin_per_user_costs(
+    db: AsyncSession, start_time: Optional[datetime]
+) -> Dict[str, Dict[str, Any]]:
+    """Per-user, per-model token sums — the input to real cost calculation.
+
+    A user's total cost cannot be derived from their token totals alone: 1M
+    prompt tokens on a free model and on Claude cost very different amounts.
+    """
+    where = [Message.role == "assistant"]
+    if start_time:
+        where.append(Message.created_at >= start_time)
+    stmt = (
+        select(
+            Conversation.user_id,
+            Message.model,
+            func.coalesce(func.sum(Message.prompt_tokens), 0).label("prompt_tokens"),
+            func.coalesce(func.sum(Message.completion_tokens), 0).label("completion_tokens"),
+            func.coalesce(func.sum(Message.token_usage), 0).label("total_tokens")
+        )
+        .join(Message, Message.conversation_id == Conversation.id)
+        .where(*where)
+        .group_by(Conversation.user_id, Message.model)
+    )
+
+    result: Dict[str, Dict[str, Any]] = {}
+    for r in (await db.execute(stmt)).all():
+        uid = r.user_id
+        m_name = r.model or "unknown"
+        entry = result.setdefault(uid, {"cost_usd": 0.0, "model_tokens": {}})
+        entry["cost_usd"] += calculate_cost(
+            m_name, int(r.prompt_tokens), int(r.completion_tokens)
+        )
+        tokens = entry["model_tokens"]
+        tokens[m_name] = tokens.get(m_name, 0) + int(r.total_tokens)
+    return result
+
+
+async def _global_model_breakdown(
+    db: AsyncSession, start_time: Optional[datetime]
+) -> List[Dict[str, Any]]:
+    """System-wide model usage. No conversation join — every message counts."""
+    where = [Message.role == "assistant"]
+    if start_time:
+        where.append(Message.created_at >= start_time)
+    stmt = (
+        select(
+            Message.model,
+            func.count(Message.id).label("calls"),
+            func.coalesce(func.sum(Message.prompt_tokens), 0).label("prompt_tokens"),
+            func.coalesce(func.sum(Message.completion_tokens), 0).label("completion_tokens"),
+            func.coalesce(func.sum(Message.token_usage), 0).label("total_tokens")
+        )
+        .where(*where)
+        .group_by(Message.model)
+    )
+    return _to_model_breakdown((await db.execute(stmt)).all())
+
+
 @router.get("/admin/overview")
 async def get_admin_overview_stats(
     period: str = Query("all", pattern="^(all|today|month|year)$"),
@@ -296,104 +415,33 @@ async def get_admin_overview_stats(
     """
     start_time = get_period_filter_datetime(period, tz_offset)
 
-    # 1. Fetch all users
-    users_stmt = select(User).order_by(User.created_at.asc())
-    all_users = (await db.execute(users_stmt)).scalars().all()
-
-    # 2. Aggregated stats per user for this period
-    # NOTE: conversation count is fetched separately below (conv_counts_stmt)
-    # because it is also needed for users with zero assistant messages.
-    user_stats_where = [Message.role == "assistant"]
-    if start_time:
-        user_stats_where.append(Message.created_at >= start_time)
-
-    user_stats_stmt = (
-        select(
-            Conversation.user_id,
-            func.count(Message.id).label("msg_count"),
-            func.coalesce(func.sum(Message.prompt_tokens), 0).label("prompt_tokens"),
-            func.coalesce(func.sum(Message.completion_tokens), 0).label("completion_tokens"),
-            func.coalesce(func.sum(Message.token_usage), 0).label("total_tokens")
-        )
-        .join(Message, Message.conversation_id == Conversation.id)
-        .where(*user_stats_where)
-        .group_by(Conversation.user_id)
-    )
-    user_stats_rows = {r.user_id: r for r in (await db.execute(user_stats_stmt)).all()}
-
-    # Also count conversations per user
-    conv_where = []
-    if start_time:
-        conv_where.append(Conversation.created_at >= start_time)
-    conv_counts_stmt = select(Conversation.user_id, func.count(Conversation.id))
-    if conv_where:
-        conv_counts_stmt = conv_counts_stmt.where(*conv_where)
-    conv_counts_stmt = conv_counts_stmt.group_by(Conversation.user_id)
-    all_conv_counts = dict((await db.execute(conv_counts_stmt)).all())
-
-    # Calculate model costs per user for this period
-    user_model_where = [Message.role == "assistant"]
-    if start_time:
-        user_model_where.append(Message.created_at >= start_time)
-
-    user_model_stmt = (
-        select(
-            Conversation.user_id,
-            Message.model,
-            func.coalesce(func.sum(Message.prompt_tokens), 0).label("prompt_tokens"),
-            func.coalesce(func.sum(Message.completion_tokens), 0).label("completion_tokens"),
-            func.coalesce(func.sum(Message.token_usage), 0).label("total_tokens")
-        )
-        .join(Message, Message.conversation_id == Conversation.id)
-        .where(*user_model_where)
-        .group_by(Conversation.user_id, Message.model)
-    )
-    user_model_rows = (await db.execute(user_model_stmt)).all()
-
-    user_costs: Dict[str, float] = {}
-    user_top_models: Dict[str, str] = {}
-    user_model_tokens: Dict[str, Dict[str, int]] = {}
-
-    for r in user_model_rows:
-        uid = r.user_id
-        m_name = r.model or "unknown"
-        p_tok = int(r.prompt_tokens)
-        c_tok = int(r.completion_tokens)
-        cost = calculate_cost(m_name, p_tok, c_tok)
-        user_costs[uid] = user_costs.get(uid, 0.0) + cost
-
-        if uid not in user_model_tokens:
-            user_model_tokens[uid] = {}
-        user_model_tokens[uid][m_name] = user_model_tokens[uid].get(m_name, 0) + int(r.total_tokens)
-
-    # Determine top model for each user
-    for uid, models_map in user_model_tokens.items():
-        if models_map:
-            top_m = max(models_map.items(), key=lambda x: x[1])[0]
-            user_top_models[uid] = top_m
+    all_users = (await db.execute(select(User).order_by(User.created_at.asc()))).scalars().all()
+    rollup = await _admin_token_rollup(db, start_time)
+    token_rows = rollup["tokens"]
+    conv_counts = rollup["conversations"]
+    per_user_costs = await _admin_per_user_costs(db, start_time)
 
     users_list = []
-    total_system_tokens = 0
-    total_system_prompt_tokens = 0
-    total_system_completion_tokens = 0
-    total_system_cost_usd = 0.0
-    total_system_conversations = sum(all_conv_counts.values())
-    total_system_messages = 0
+    totals = {
+        "tokens": 0, "prompt_tokens": 0, "completion_tokens": 0,
+        "messages": 0, "cost_usd": 0.0,
+    }
 
     for u in all_users:
-        stat = user_stats_rows.get(u.id)
+        stat = token_rows.get(u.id)
         p_tok = int(stat.prompt_tokens) if stat else 0
         c_tok = int(stat.completion_tokens) if stat else 0
         t_tok = int(stat.total_tokens) if stat else 0
         msgs = int(stat.msg_count) if stat else 0
-        convs = all_conv_counts.get(u.id, 0)
-        cost_usd = user_costs.get(u.id, 0.0)
+        cost_usd = per_user_costs.get(u.id, {}).get("cost_usd", 0.0)
+        model_tokens = per_user_costs.get(u.id, {}).get("model_tokens", {})
+        top_model = max(model_tokens.items(), key=lambda kv: kv[1])[0] if model_tokens else "-"
 
-        total_system_tokens += t_tok
-        total_system_prompt_tokens += p_tok
-        total_system_completion_tokens += c_tok
-        total_system_messages += msgs
-        total_system_cost_usd += cost_usd
+        totals["tokens"] += t_tok
+        totals["prompt_tokens"] += p_tok
+        totals["completion_tokens"] += c_tok
+        totals["messages"] += msgs
+        totals["cost_usd"] += cost_usd
 
         users_list.append({
             "user_id": u.id,
@@ -403,144 +451,41 @@ async def get_admin_overview_stats(
             "is_active": getattr(u, "is_active", True),
             "can_access_all_models": getattr(u, "can_access_all_models", False) or getattr(u, "is_superuser", False),
             "created_at": u.created_at.strftime("%Y-%m-%d %H:%M") if u.created_at else "",
-            "conversations_count": convs,
+            "conversations_count": conv_counts.get(u.id, 0),
             "messages_count": msgs,
             "total_tokens": t_tok,
             "prompt_tokens": p_tok,
             "completion_tokens": c_tok,
             "estimated_cost_usd": round(cost_usd, 4),
             "estimated_cost_cny": round(cost_usd * USD_TO_CNY, 2),
-            "top_model": user_top_models.get(u.id, "-")
+            "top_model": top_model
         })
 
-    # Sort users by total tokens in this period descending
+    # Rank by tokens, matching the ordering the admin table renders.
     users_list.sort(key=lambda x: x["total_tokens"], reverse=True)
 
-    # 3. System-wide model breakdown in this period
-    global_model_where = [Message.role == "assistant"]
-    if start_time:
-        global_model_where.append(Message.created_at >= start_time)
+    global_models = await _global_model_breakdown(db, start_time)
 
-    global_model_stmt = (
-        select(
-            Message.model,
-            func.count(Message.id).label("calls"),
-            func.coalesce(func.sum(Message.prompt_tokens), 0).label("prompt_tokens"),
-            func.coalesce(func.sum(Message.completion_tokens), 0).label("completion_tokens"),
-            func.coalesce(func.sum(Message.token_usage), 0).label("total_tokens")
-        )
-        .where(*global_model_where)
-        .group_by(Message.model)
+    daily_trend = await _fetch_trend(
+        db,
+        period,
+        start_time,
+        [Message.role == "assistant"],
+        tz_offset,
+        join_conversation=False,
     )
-    global_model_rows = (await db.execute(global_model_stmt)).all()
-    global_models = []
-    for r in global_model_rows:
-        m_name = r.model or "unknown"
-        p_tok = int(r.prompt_tokens)
-        c_tok = int(r.completion_tokens)
-        t_tok = int(r.total_tokens)
-        calls = int(r.calls)
-        cost = calculate_cost(m_name, p_tok, c_tok)
-        global_models.append({
-            "model": m_name,
-            "calls": calls,
-            "prompt_tokens": p_tok,
-            "completion_tokens": c_tok,
-            "total_tokens": t_tok,
-            "cost_usd": round(cost, 4),
-            "cost_cny": round(cost * USD_TO_CNY, 2),
-            "is_free": ":free" in m_name.lower() or "ollama" in m_name.lower() or "免费" in m_name
-        })
-    global_models.sort(key=lambda x: x["total_tokens"], reverse=True)
-
-    # 4. System-wide dynamic trend depending on period
-    trend_where = [Message.role == "assistant"]
-    if period == "today":
-        if start_time:
-            trend_where.append(Message.created_at >= start_time)
-        trend_stmt = (
-            select(
-                func.date_trunc("hour", Message.created_at).label("time_bucket"),
-                func.count(Message.id).label("calls"),
-                func.coalesce(func.sum(Message.token_usage), 0).label("tokens"),
-                func.coalesce(func.sum(Message.prompt_tokens), 0).label("prompt_tokens"),
-                func.coalesce(func.sum(Message.completion_tokens), 0).label("completion_tokens")
-            )
-            .where(*trend_where)
-            .group_by("time_bucket")
-            .order_by("time_bucket")
-        )
-    elif period == "year":
-        if start_time:
-            trend_where.append(Message.created_at >= start_time)
-        trend_stmt = (
-            select(
-                func.date_trunc("month", Message.created_at).label("time_bucket"),
-                func.count(Message.id).label("calls"),
-                func.coalesce(func.sum(Message.token_usage), 0).label("tokens"),
-                func.coalesce(func.sum(Message.prompt_tokens), 0).label("prompt_tokens"),
-                func.coalesce(func.sum(Message.completion_tokens), 0).label("completion_tokens")
-            )
-            .where(*trend_where)
-            .group_by("time_bucket")
-            .order_by("time_bucket")
-        )
-    else:
-        if start_time:
-            trend_where.append(Message.created_at >= start_time)
-        else:
-            thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
-            trend_where.append(Message.created_at >= thirty_days_ago)
-
-        trend_stmt = (
-            select(
-                func.date_trunc("day", Message.created_at).label("time_bucket"),
-                func.count(Message.id).label("calls"),
-                func.coalesce(func.sum(Message.token_usage), 0).label("tokens"),
-                func.coalesce(func.sum(Message.prompt_tokens), 0).label("prompt_tokens"),
-                func.coalesce(func.sum(Message.completion_tokens), 0).label("completion_tokens")
-            )
-            .where(*trend_where)
-            .group_by("time_bucket")
-            .order_by("time_bucket")
-        )
-
-    daily_rows = (await db.execute(trend_stmt)).all()
-    daily_trend = []
-    for d in daily_rows:
-        if d.time_bucket:
-            b_local = d.time_bucket - timedelta(minutes=tz_offset)
-            if period == "today":
-                label_str = b_local.strftime("%H:00")
-            elif period == "year":
-                label_str = b_local.strftime("%Y-%m")
-            else:
-                label_str = b_local.strftime("%Y-%m-%d")
-        else:
-            label_str = ""
-
-        d_p = int(d.prompt_tokens)
-        d_c = int(d.completion_tokens)
-        d_cost = round((d_p * 0.2 + d_c * 0.8) / 1_000_000.0, 4)
-        daily_trend.append({
-            "date": label_str,
-            "calls": int(d.calls),
-            "tokens": int(d.tokens),
-            "cost_usd": d_cost,
-            "cost_cny": round(d_cost * USD_TO_CNY, 2)
-        })
 
     return {
         "period": period,
         "total_users": len(all_users),
         "active_users": sum(1 for u in all_users if getattr(u, "is_active", True)),
-        "total_conversations": total_system_conversations,
-        "total_messages": total_system_messages,
-        "total_tokens": total_system_tokens,
-        "total_prompt_tokens": total_system_prompt_tokens,
-        "total_completion_tokens": total_system_completion_tokens,
-        "total_cost_usd": round(total_system_cost_usd, 4),
-        "total_cost_cny": round(total_system_cost_usd * USD_TO_CNY, 2),
+        "total_conversations": sum(conv_counts.values()),
+        "total_messages": totals["messages"],
+        "total_tokens": totals["tokens"],
+        "total_prompt_tokens": totals["prompt_tokens"],
+        "total_completion_tokens": totals["completion_tokens"],
+        "total_cost_usd": round(totals["cost_usd"], 4),
+        "total_cost_cny": round(totals["cost_usd"] * USD_TO_CNY, 2),
         "users": users_list,
         "model_breakdown": global_models,
         "daily_trend": daily_trend
@@ -597,6 +542,12 @@ async def toggle_user_admin(
     target.is_superuser = not target.is_superuser
     if target.is_superuser:
         target.can_access_all_models = True
+    else:
+        # Demotion must also revoke the model entitlement. has_full_model_access is
+        # `is_superuser or can_access_all_models`, so flipping only the first flag
+        # left a demoted admin free to keep calling billable models on the server's
+        # own credential — which is exactly what demotion is supposed to stop.
+        target.can_access_all_models = False
     await db.commit()
     await db.refresh(target)
     return {
@@ -734,18 +685,9 @@ async def get_admin_conversation_messages(
     }
 
 
-@router.post("/admin/conversations/{conversation_id}/restore")
-async def admin_restore_conversation(
-    conversation_id: str,
-    admin_user: User = Depends(get_current_admin),
-    db: AsyncSession = Depends(get_db)
-):
-    """Admin can restore any soft-deleted conversation (delegates to canonical conversations.py)."""
-    from app.api.v1.conversations import restore_conversation
-    conv = await restore_conversation(conversation_id=conversation_id, admin_user=admin_user, db=db)
-    return {
-        "id": conv.id,
-        "title": conv.title,
-        "is_deleted": False,
-        "message": f"对话 [{conv.title}] 已成功恢复"
-    }
+# NOTE: restoring a conversation used to also be reachable at
+# POST /stats/admin/conversations/{id}/restore, a forwarder that imported
+# conversations.restore_conversation and called it directly — bypassing FastAPI's
+# dependency resolution, and existing only to reshape the response for the admin
+# table. POST /conversations/{id}/restore is now the single entry point, and the
+# frontend calls that.

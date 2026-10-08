@@ -1,16 +1,13 @@
-import asyncio
-import ipaddress
 import logging
-import socket
-from urllib.parse import urlparse
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from datetime import datetime, timezone
-from typing import List, Optional, Tuple
+from typing import List, Optional
 from app.core.database import get_db
 from app.core.config import settings as app_settings
-from app.core.security import encrypt_api_key, decrypt_api_key
+from app.core.net import UnsafeURLError, ensure_public_url
+from app.core.security import encrypt_api_key
 from app.models.user import User
 from app.models.setting import UserSetting, ModelConfig
 from app.schemas.setting import (
@@ -22,8 +19,13 @@ from app.schemas.setting import (
     SUPPORTED_PROVIDERS,
 )
 from app.api.v1.deps import get_current_user
-from app.api.v1.models import has_full_model_access, check_user_can_use_model
+from app.services.catalog import has_full_model_access, check_user_can_use_model
 from app.services.image_gen import image_gen_service
+
+# resolve_user_llm_credentials used to live here and is imported by the chat
+# endpoint on every turn, which made api.v1.chat import a sibling router. It is
+# now app.services.model_credentials — see that module for the rationale.
+from app.services.model_credentials import resolve_user_llm_credentials  # noqa: F401
 
 logger = logging.getLogger("settings_api")
 
@@ -34,100 +36,24 @@ router = APIRouter(prefix="/settings", tags=["settings"])
 #: table being used as free storage.
 MAX_MODEL_CONFIGS_PER_USER = 20
 
-#: Networks a user-supplied base_url may never point at. A base_url turns this
-#: server into a request proxy on the caller's behalf, so without this an account
-#: could aim traffic at cloud metadata endpoints or internal services and read the
-#: replies back out of provider error messages.
-_BLOCKED_BASE_URL_NETWORKS = tuple(
-    ipaddress.ip_network(cidr)
-    for cidr in (
-        "0.0.0.0/8",       # "this network"
-        "10.0.0.0/8",      # private
-        "100.64.0.0/10",   # carrier-grade NAT
-        "127.0.0.0/8",     # loopback
-        "169.254.0.0/16",  # link-local, incl. cloud metadata (169.254.169.254)
-        "172.16.0.0/12",   # private
-        "192.168.0.0/16",  # private
-        "192.0.0.0/24",    # IETF protocol assignments
-        "198.18.0.0/15",   # benchmarking
-        "224.0.0.0/4",     # multicast
-        "240.0.0.0/4",     # reserved
-        "::1/128",         # loopback
-        "fc00::/7",        # unique local
-        "fe80::/10",       # link-local
-    )
-)
-
-
-async def resolve_user_llm_credentials(
-    db: AsyncSession,
-    user_id: str,
-    provider: Optional[str],
-    model: Optional[str],
-) -> Tuple[Optional[str], Optional[str]]:
-    """Resolve the caller's own credential for one (provider, model) pair.
-
-    Returns ``(api_key, base_url)``. Either may be ``None``, which is not an error:
-    it means "no override stored", and every provider constructor then falls back to
-    the server's own .env configuration. Disabled rows are ignored, so a user can
-    park a credential without deleting it.
-
-    Both values are returned together or not at all. A row's base_url is never
-    handed back without its key, because the provider constructors fall back to
-    the *server's* credential when api_key is None — that would ship the server's
-    key to a caller-chosen endpoint.
-
-    Callers must never log the returned api_key.
-    """
-    provider_name = (provider or "").strip().lower()
-    model_name = (model or "").strip()
-    if not provider_name or not model_name:
-        return None, None
-
-    stmt = select(ModelConfig).where(
-        ModelConfig.user_id == user_id,
-        ModelConfig.provider == provider_name,
-        ModelConfig.model == model_name,
-        ModelConfig.enabled == True,
-    )
-    cfg = (await db.execute(stmt)).scalar_one_or_none()
-    if cfg is None:
-        return None, None
-
-    api_key = decrypt_api_key(cfg.api_key_encrypted) if cfg.api_key_encrypted else None
-    if not api_key:
-        # Either the caller cleared the key, or the ciphertext no longer decrypts
-        # (e.g. API_KEY_ENCRYPTION_KEY was rotated). Both degrade to "use the
-        # server's configuration" — in full, base_url included.
-        if cfg.api_key_encrypted:
-            logger.warning(
-                "Stored credential for user=%s provider=%s model=%s could not be decrypted; "
-                "falling back to server configuration", user_id, provider_name, model_name,
-            )
-        return None, None
-
-    logger.info(
-        "Using caller-supplied credential for user=%s provider=%s model=%s",
-        user_id, provider_name, model_name,
-    )
-    return api_key, (cfg.base_url or "").strip() or None
-
 
 async def _validate_base_url(base_url: Optional[str], provider: str) -> Optional[str]:
     """Reject base_urls that would let a caller reach non-public addresses.
 
     A base_url makes *this server* issue the request, so a caller-supplied value is
-    a server-side request forgery vector, not a client-side one. Two rules follow:
-
-    1. The host must resolve to a public address. Private, loopback, link-local
-       (which is where cloud metadata lives) and reserved ranges are all refused.
-    2. The scheme must be https, because the credential travels in the request.
+    a server-side request forgery vector, not a client-side one. The actual checks
+    live in :func:`app.core.net.ensure_public_url` and are shared with every other
+    caller-influenced URL this process fetches — one copy, because when the rule
+    lived only here the two paths that fetch user-supplied links had no checks at
+    all. This wrapper only decides what to do with a rejection and adds the one rule
+    specific to credentials: plaintext http is refused, because the caller's API key
+    travels in the request.
 
     Together these mean a caller-supplied base_url can only ever address a public
     HTTPS endpoint. Self-hosted gateways (a private Ollama, an internal
-    OpenAI-compatible proxy) are therefore deliberately out of scope here — they
-    belong in the server's own .env, where an operator controls them, via
-    OLLAMA_BASE_URL / OPENAI_BASE_URL and friends.
+    OpenAI-compatible proxy) are therefore deliberately out of scope — they belong
+    in the server's own .env, where an operator controls them, via OLLAMA_BASE_URL /
+    OPENAI_BASE_URL and friends.
 
     Resolution happens once, when the credential is saved, so the chat hot path
     never blocks on DNS. Known limitation: this cannot stop DNS rebinding, where a
@@ -138,70 +64,15 @@ async def _validate_base_url(base_url: Optional[str], provider: str) -> Optional
     if not candidate:
         return None
 
-    parsed = urlparse(candidate)
-    if parsed.scheme not in ("http", "https"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"base_url 只支持 http/https，收到：{parsed.scheme or '(空)'}"
-        )
-    if parsed.username or parsed.password:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="base_url 不得内嵌用户名或密码"
-        )
-    host = parsed.hostname
-    if not host:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="base_url 缺少主机名")
-
-    lowered = host.lower()
-    if lowered in ("localhost", "metadata.google.internal", "metadata"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"禁止使用指向内网的 base_url：{host}"
-        )
-
-    # A bare IP literal can be judged directly; a hostname needs resolving.
     try:
-        ipaddress.ip_address(lowered)
-        addresses = [lowered]
-    except ValueError:
-        try:
-            infos = await asyncio.to_thread(
-                socket.getaddrinfo, host, parsed.port or (443 if parsed.scheme == "https" else 80),
-                type=socket.SOCK_STREAM,
-            )
-        except socket.gaierror as e:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"base_url 主机名无法解析：{host}"
-            ) from e
-        # Every resolved address must be public — checking only the first would
-        # let a name with one public and one private record slip through.
-        addresses = sorted({info[4][0] for info in infos})
-
-    for raw_ip in addresses:
-        try:
-            ip = ipaddress.ip_address(raw_ip)
-        except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"base_url 解析出非法地址：{raw_ip}"
-            )
-        if any(ip in network for network in _BLOCKED_BASE_URL_NETWORKS):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"禁止使用内网/链路本地地址作为 base_url：{host} → {ip}"
-            )
-
-    # Plain http to a remote host would ship the credential in the clear.
-    if parsed.scheme == "http":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="远程 base_url 必须使用 https（明文 http 会导致凭证泄露）"
+        return await ensure_public_url(candidate, allow_http=False)
+    except UnsafeURLError as e:
+        logger.info(
+            "Refused base_url for provider=%s url=%r: %s", provider, candidate, e
         )
-
-    logger.info("Validated base_url for provider=%s host=%s -> %s", provider, host, addresses)
-    return candidate
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+        ) from e
 
 
 async def _validate_image_model(current_user: User, model_id: Optional[str]) -> None:
@@ -344,8 +215,9 @@ async def update_user_settings(
 #
 # Every route here is scoped to current_user.id. No route in the codebase ever
 # returns the plaintext of a stored key — reads expose `has_api_key` instead, and
-# the only place a key is decrypted is resolve_user_llm_credentials above, which
-# hands it straight to the provider constructor.
+# the only place a key is decrypted is
+# app.services.model_credentials.resolve_user_llm_credentials, which hands it
+# straight to the provider constructor.
 # ══════════════════════════════════════════════════════════════════════════
 
 

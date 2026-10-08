@@ -2,7 +2,7 @@
  * 与 VERSION / README 徽章 / frontend/package.json / public/version.json 保持一致。
  * 注意：这五处目前靠人工同步，v2.10.0 就曾漏改导致更新提示长期失效。
  */
-export const CURRENT_VERSION = "2.12.0";
+export const CURRENT_VERSION = "2.13.0";
 
 export interface VersionInfo {
   version: string;

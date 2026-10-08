@@ -1,4 +1,3 @@
-import os
 from pydantic_settings import BaseSettings
 from pydantic import Field
 from typing import Optional
@@ -7,6 +6,15 @@ from typing import Optional
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Apiapia 助理"
     API_V1_STR: str = "/api"
+
+    #: Release version of this service, reported by GET / and the OpenAPI docs.
+    #:
+    #: It must match the repo-root VERSION file and frontend/package.json — they
+    #: ship as one artefact. It used to be hardcoded twice inside main.py and had
+    #: drifted to 2.9.0 while the frontend and VERSION were already on v2.12.0, so
+    #: the v2.12.0 changelog entry claiming "version unified across five sources"
+    #: was not true of the backend. One literal here, overridable with APP_VERSION.
+    APP_VERSION: str = "2.13.0"
 
     # PostgreSQL Database
     POSTGRES_USER: str = "postgres"
@@ -43,9 +51,13 @@ class Settings(BaseSettings):
     ADMIN_USERNAME: Optional[str] = None
 
     # Mem0 OSS
+    # The embedder provider is not configurable: app.services.memory.credentials
+    # always resolves it from the same OpenAI/OpenRouter credential the memory LLM
+    # uses, and Mem0's own config takes a single key for both. MEM0_LLM_PROVIDER and
+    # MEM0_EMBEDDER_PROVIDER used to exist here and were read nowhere — the
+    # MEM0_EMBEDDER_PROVIDER one was worse than dead, it made is_configured() report
+    # "available" for a huggingface setup that then failed to build an embedder.
     MEM0_VERSION: str = "2.2.1"
-    MEM0_LLM_PROVIDER: str = "openai"
-    MEM0_EMBEDDER_PROVIDER: str = "openai"
     MEM0_DATA_DIR: str = "/app/data/mem0"
 
     # Generated image storage. Images are written here as original bytes (never
@@ -74,12 +86,13 @@ class Settings(BaseSettings):
     # Tavily AI Search (LLM-native web search, primary when configured)
     TAVILY_API_KEY: Optional[str] = None
     TAVILY_SEARCH_DEPTH: str = "advanced"
-    TAVILY_MAX_RESULTS: int = 5
-    # Tavily bills include_answer as a separate item. It is on because the answer
-    # is now parsed and injected into the system prompt as a cross-checkable hint
+    # Tavily bills include_answer as a separate item. It is on because the answer is
+    # now parsed and injected into the system prompt as a cross-checkable hint
     # (see WebSearchOutcome.answer); set False to save the surcharge at the cost of
     # one more reasoning step for the model.
     TAVILY_INCLUDE_ANSWER: bool = True
+    # The result count is not configurable: chat.py passes max_results=5 explicitly
+    # (TAVILY_MAX_RESULTS existed here and was read nowhere).
 
     # Image Generation (DALL-E 3, SiliconFlow / Flux.1)
     IMAGE_GEN_PROVIDER: str = "auto"  # 'auto', 'openai', 'siliconflow', 'openrouter'

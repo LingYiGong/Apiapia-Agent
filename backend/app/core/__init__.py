@@ -1,24 +1,11 @@
-from app.core.config import settings
-from app.core.database import Base, engine, get_db, init_db
-from app.core.security import (
-    verify_password,
-    get_password_hash,
-    create_access_token,
-    decode_access_token,
-    encrypt_api_key,
-    decrypt_api_key
-)
+"""This module is intentionally empty.
 
-__all__ = [
-    "settings",
-    "Base",
-    "engine",
-    "get_db",
-    "init_db",
-    "verify_password",
-    "get_password_hash",
-    "create_access_token",
-    "decode_access_token",
-    "encrypt_api_key",
-    "decrypt_api_key"
-]
+It used to re-export settings, Base, engine, get_db, init_db and the security
+helpers. Nothing in the codebase imported from the package — every caller used
+``from app.core.config import settings`` or ``from app.core.database import get_db``
+— and the eager imports meant merely touching ``app.core.*`` pulled in the engine
+factory, the settings object and the JWT/Fernet helpers whether or not the caller
+needed them.
+
+Import submodules directly instead.
+"""

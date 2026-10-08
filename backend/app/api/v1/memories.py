@@ -1,52 +1,20 @@
+import asyncio
 import logging
-from typing import List, Dict, Any, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, Header, status
+from datetime import datetime, timezone
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import JSONResponse
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 from app.models.user import User
 from app.schemas.memory import (
     MemoryUpdate,
     MemorySearchResponse,
     MemoryPageResponse,
 )
-from app.api.v1.deps import get_current_user
-from app.core.database import get_db
-from app.core.security import decode_access_token
+from app.api.v1.deps import get_current_user, get_current_user_allow_query_token
 from app.services.memory.service import memory_service
 
 logger = logging.getLogger("memories_api")
 
 router = APIRouter(prefix="/memories", tags=["memories"])
-
-
-async def get_user_for_export(
-    token: Optional[str] = Query(None),
-    authorization: Optional[str] = Header(None),
-    db: AsyncSession = Depends(get_db)
-) -> User:
-    raw_token = None
-    if authorization and authorization.startswith("Bearer "):
-        raw_token = authorization.split(" ", 1)[1].strip()
-    elif token:
-        raw_token = token.strip()
-
-    if not raw_token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    user_id = decode_access_token(raw_token)
-    if not user_id:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-    stmt = select(User).where(User.id == user_id)
-    user = (await db.execute(stmt)).scalar_one_or_none()
-    if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
-    if hasattr(user, "is_active") and not user.is_active:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User deactivated")
-    return user
 
 
 @router.get("", response_model=MemoryPageResponse)
@@ -66,8 +34,11 @@ async def list_memories(
     ⚠️ 响应体形状是带 items 的对象（此前是裸 list），属破坏性变更。
     目前唯一的前端调用方是 MemoryView.tsx。
     """
-    page = memory_service.list_memories_page(
-        user_id=current_user.id, limit=limit, offset=offset
+    page = await asyncio.to_thread(
+        memory_service.list_memories_page,
+        user_id=current_user.id,
+        limit=limit,
+        offset=offset,
     )
     return MemoryPageResponse(**page)
 
@@ -88,12 +59,15 @@ async def search_memories(
     第 1 页末条相关），这是相似度排序下 offset 分页的固有性质；由于前端
     会重排，这个瑕疵不会出现在界面上。
     """
-    page = memory_service.search_memory_page(
-        user_id=current_user.id, query=q, limit=limit, offset=offset
+    page = await asyncio.to_thread(
+        memory_service.search_memory_page,
+        user_id=current_user.id,
+        query=q,
+        limit=limit,
+        offset=offset,
     )
     return MemorySearchResponse(
         query=q,
-        count=page["total"],
         total=page["total"],
         results=page["items"],
         has_more=page["has_more"],
@@ -102,7 +76,7 @@ async def search_memories(
 
 @router.get("/export")
 async def export_memories(
-    current_user: User = Depends(get_user_for_export)
+    current_user: User = Depends(get_current_user_allow_query_token)
 ):
     """Export all user memories as JSON for data ownership and migration (Section 11 & 23).
 
@@ -111,12 +85,17 @@ async def export_memories(
     （README 明确承诺「一键导出 JSON 实现个人数据完全自主」），静默残缺的
     备份比不提供更糟。现在走 list_all_memories，不设条数上限。
     """
-    memories = memory_service.list_all_memories(user_id=current_user.id)
+    memories = await asyncio.to_thread(
+        memory_service.list_all_memories, user_id=current_user.id
+    )
     return JSONResponse(
         content={
             "user_id": current_user.id,
             "username": current_user.username,
-            "export_time": current_user.updated_at.isoformat() if current_user.updated_at else None,
+            # When the export ran. This used to be current_user.updated_at — the
+            # last time the *account row* changed — so an export taken today after
+            # a settings edit six weeks ago was labelled with that edit date.
+            "export_time": datetime.now(timezone.utc).isoformat(),
             "total": len(memories),
             "memories": memories
         },

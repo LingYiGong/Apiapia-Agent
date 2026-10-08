@@ -27,7 +27,18 @@ class Conversation(Base):
 
     # Relationships
     user = relationship("User", back_populates="conversations")
-    messages = relationship("Message", back_populates="conversation", cascade="all, delete-orphan", order_by="Message.created_at", lazy="selectin")
+    # lazy="select" (the default) on purpose. This used to be lazy="selectin",
+    # which silently attaches a second query to *every* Conversation load and pulls
+    # the entire message history back with it. The sidebar endpoint
+    # (GET /conversations) then did O(total message bytes) of IO per page view —
+    # and user-uploaded images live in messages.content as full base64 data URIs,
+    # so a couple of megabytes per picture came along for the ride.
+    #
+    # Nothing reads conv.messages; /conversations/{id}/messages queries Message
+    # directly. Leaving it lazy keeps that property from silently regressing, while
+    # still allowing the cascade below to load children if a Conversation is ever
+    # hard-deleted (nothing in the codebase does that today — deletes are soft).
+    messages = relationship("Message", back_populates="conversation", cascade="all, delete-orphan", order_by="Message.created_at")
 
 
 class Message(Base):
@@ -50,6 +61,14 @@ class Message(Base):
     # JSON array of {url, prompt, provider, model}; url may be a base64 data URI
     # so that generated art survives conversation reloads.
     generated_images = Column(Text, nullable=True)
+    # JSON array of {id, path, ext, bytes, name} for images the *user* uploaded.
+    #
+    # These used to be embedded into `content` as inline base64 markdown. That made
+    # every affected message megabytes long, which in turn made the messages list,
+    # the stats joins and the sidebar all pay for the image bytes even though none
+    # of them display them. The bytes live in MEDIA_DIR like generated art; only
+    # this small record stays in the row.
+    user_attachments = Column(Text, nullable=True)
     # JSON array of tool invocations, so the tool-call cards survive a reload.
     tool_invocations = Column(Text, nullable=True)
     # Time to first token in ms; kept separately from duration_ms so the UI can

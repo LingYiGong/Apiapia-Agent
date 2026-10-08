@@ -1,4 +1,5 @@
 import type { SearchResultItem } from "@/types";
+import { getMediaImageUrl } from "@/lib/api";
 
 /**
  * 用户消息正文的解析。
@@ -8,10 +9,31 @@ import type { SearchResultItem } from "@/types";
  * base64。这些纯函数此前住在 ChatMessageItem 里，与气泡样式混在一起。
  */
 
+/**
+ * 图片引用的三种来源：
+ *  - `data:image/...;base64,...`   历史消息（后端曾经把整张图内联进正文）
+ *  - `https?://...`               直接外链
+ *  - `/api/media/images/<32位hex>` 后端落盘后的引用形式，由 resolveImageUrl 补全
+ */
 const IMG_RE =
-  /!\[([^\]]*)\]\(((?:data:image\/[^;)]+;base64,[A-Za-z0-9+/=]+)|(?:https?:\/\/[^\s)]+))\)/gi;
+  /!\[([^\]]*)\]\(((?:data:image\/[^;)]+;base64,[A-Za-z0-9+/=]+)|(?:https?:\/\/[^\s)]+)|(?:\/api\/media\/images\/[0-9a-f]{32}))\)/gi;
 const RAW_IMG_RE = /(data:image\/[a-zA-Z0-9.+_-]+;base64,[A-Za-z0-9+/=]+)/g;
 const DOC_RE = /📄\s*\*{0,2}\[?(?:附件文件|附件文档|附带文件):\s*([^\]\*\n]+)\]?\*{0,2}/gi;
+const MEDIA_REF_RE = /^\/api\/media\/images\/([0-9a-f]{32})$/;
+
+/**
+ * 把正文里的图片引用解析成可直接喂给 <img src> 的地址。
+ *
+ * 落盘引用 `/api/media/images/{id}` 是相对路径，且媒体接口需要 JWT，所以不能
+ * 直接当 URL 用 —— 必须经 getMediaImageUrl 拼上 `?token=`，否则 <img> 会 401。
+ * data URI 与外链原样返回。
+ *
+ * MEDIA_REF_RE 不带 /g，exec 不会推进 lastIndex，可反复调用。
+ */
+function resolveImageUrl(raw: string): string {
+  const refMatch = MEDIA_REF_RE.exec(raw);
+  return refMatch ? getMediaImageUrl(refMatch[1]) : raw;
+}
 
 export interface ParsedUserMessage {
   text: string;
@@ -19,13 +41,6 @@ export interface ParsedUserMessage {
   docs: string[];
 }
 
-/**
- * 解析用户消息中的图片与文档。
- *
- * 注意：这个函数要对全文跑一遍正则，而带内联 base64 图片的 content 可达数 MB ——
- * 调用方必须把它包进 useMemo（见 ChatMessageItem 的 parsedUserMedia），
- * 否则每帧重扫足以让整页掉帧。
- */
 /**
  * 收集某个带 /g 的正则的全部匹配。
  *
@@ -41,6 +56,13 @@ function collect(source: string, re: RegExp): RegExpExecArray[] {
   return Array.from(source.matchAll(re));
 }
 
+/**
+ * 解析用户消息中的图片与文档。
+ *
+ * 注意：历史消息的 content 可能带内联 base64，可达数 MB —— 调用方必须把它包进
+ * useMemo（见 ChatMessageItem 的 parsedUserMedia），否则每帧重扫足以让整页掉帧。
+ * 落盘引用形式没有这个问题，正则会快速跳过。
+ */
 export function parseUserMessage(content: string): ParsedUserMessage {
   if (!content) return { text: "", images: [], docs: [] };
 
@@ -48,7 +70,7 @@ export function parseUserMessage(content: string): ParsedUserMessage {
   const docs: string[] = [];
 
   for (const match of collect(content, IMG_RE)) {
-    images.push({ name: match[1] || "图片", url: match[2] });
+    images.push({ name: match[1] || "图片", url: resolveImageUrl(match[2]) });
   }
 
   // 没有标准 markdown 图语法、但正文里直接含 data:image 的情况

@@ -22,9 +22,8 @@ class MemoryPageResponse(BaseModel):
 
 class MemorySearchResponse(BaseModel):
     query: str
-    #: 与 total 同值，保留是为了兼容既有调用方（此前 count = len(results)）
-    count: int
-    #: 检索命中的**总**条数，不是本页条数
+    #: 检索命中的**总**条数（不是本页条数）。注意这是下界：向量检索一次最多返回
+    #: want 条，真实命中数未知。前端 MemoryView 只读 total / results / has_more。
     total: int
     results: List[Dict[str, Any]]
     has_more: bool

@@ -266,7 +266,10 @@ export const UsageView: React.FC<UsageViewProps> = ({
     if (!auditUser) return;
     setRestoreLoading(convId);
     try {
-      await apiRequest(`/stats/admin/conversations/${convId}/restore`, { method: "POST" });
+      // Restore lives at the conversation resource, not under /stats. There used to
+      // be a second copy here that forwarded to it purely to reshape the response;
+      // this call never used that response, so the duplicate could go.
+      await apiRequest(`/conversations/${convId}/restore`, { method: "POST" });
       await fetchAuditList(auditUser.id);
       await fetchStats();
       toast.success(`已恢复对话「${title}」`);

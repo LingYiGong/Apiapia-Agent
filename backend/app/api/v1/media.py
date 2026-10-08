@@ -1,15 +1,15 @@
-from typing import Any, Dict, List, Optional
+from typing import Optional
 import json
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import FileResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.security import decode_access_token
 from app.models.conversation import Conversation, Message
 from app.models.user import User
+from app.api.v1.deps import get_current_user_allow_query_token
 from app.services.media_storage import media_storage, MediaStorageError
 
 router = APIRouter(prefix="/media", tags=["media"])
@@ -23,51 +23,15 @@ CONTENT_TYPES = {
 }
 
 
-async def get_user_for_media(
-    token: Optional[str] = Query(None),
-    authorization: Optional[str] = Header(None),
-    db: AsyncSession = Depends(get_db)
-) -> User:
-    """
-    Accept the JWT either as a Bearer header or a ``?token=`` query parameter.
-
-    The query form is required because an ``<img src>`` request cannot carry an
-    Authorization header, and the browser has to be able to lazy-load artwork.
-    """
-    raw_token = None
-    if authorization and authorization.startswith("Bearer "):
-        raw_token = authorization.split(" ", 1)[1].strip()
-    elif token:
-        raw_token = token.strip()
-
-    if not raw_token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    user_id = decode_access_token(raw_token)
-    if not user_id:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-
-    stmt = select(User).where(User.id == user_id)
-    user = (await db.execute(stmt)).scalar_one_or_none()
-    if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
-    if hasattr(user, "is_active") and not user.is_active:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User deactivated")
-    return user
-
-
 @router.get("/images/{image_id}")
 async def get_image(
     image_id: str,
     download: int = Query(0),
-    current_user: User = Depends(get_user_for_media),
+    current_user: User = Depends(get_current_user_allow_query_token),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Stream one generated image back to its owner.
+    Stream one generated or uploaded image back to its owner.
 
     Ownership is resolved through the message that references the image, so a
     caller can never read another account's artwork by guessing an id.
@@ -77,9 +41,23 @@ async def get_image(
 
     # The id lives inside a JSON blob, so find candidate rows by substring and
     # confirm the exact match afterwards.
-    stmt = select(Message.id, Message.conversation_id, Message.generated_images).where(
-        Message.generated_images.isnot(None),
-        Message.generated_images.contains(image_id),
+    #
+    # Only the two JSON columns are searched, never messages.content. content is
+    # where the markdown reference lives, but it does not carry the on-disk path —
+    # user_attachments does — so a content-only hit would be a row we could locate
+    # and then not serve. Searching it would also put a LIKE scan over the one
+    # column that, for pre-existing rows, still holds megabytes of inline base64.
+    stmt = (
+        select(
+            Message.id,
+            Message.conversation_id,
+            Message.generated_images,
+            Message.user_attachments,
+        )
+        .where(
+            Message.generated_images.contains(image_id)
+            | Message.user_attachments.contains(image_id),
+        )
     )
     rows = (await db.execute(stmt)).all()
 
@@ -87,24 +65,31 @@ async def get_image(
     rel_path: Optional[str] = None
     ext: Optional[str] = None
 
-    for msg_id, conversation_id, raw in rows:
-        try:
-            entries = json.loads(raw) if isinstance(raw, str) else raw
-        except (TypeError, ValueError):
-            continue
-        if not isinstance(entries, list):
-            continue
-        for entry in entries:
-            if not isinstance(entry, dict) or entry.get("id") != image_id:
+    for msg_id, conversation_id, generated, uploads in rows:
+        for blob in (generated, uploads):
+            if not blob:
                 continue
-            rel_path = entry.get("path")
-            ext = entry.get("ext")
-            owner_id = conversation_id
-            break
+            try:
+                entries = json.loads(blob) if isinstance(blob, str) else blob
+            except (TypeError, ValueError):
+                continue
+            if not isinstance(entries, list):
+                continue
+            for entry in entries:
+                if not isinstance(entry, dict) or entry.get("id") != image_id:
+                    continue
+                rel_path = entry.get("path")
+                ext = entry.get("ext")
+                # owner_id comes from the same row as rel_path, so ownership can
+                # never be attributed to a different conversation than the file.
+                owner_id = conversation_id
+                break
+            if rel_path:
+                break
         if rel_path:
             break
 
-    if not rel_path:
+    if not rel_path or not owner_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="图片不存在或已删除")
 
     conv_stmt = select(Conversation.user_id).where(Conversation.id == owner_id)

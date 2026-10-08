@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional, Tuple
 
 from app.services.memory.service import memory_service
+from app.services.memory.credentials import resolve_memory_credential
 
 logger = logging.getLogger("memory_extraction")
 
@@ -20,34 +21,29 @@ _client_cache: Dict[Tuple[str, str], Any] = {}
 def _get_llm_client(memory_model: str = "gpt-4o-mini") -> Tuple[Optional[Any], str]:
     """
     Return (OpenAI-compatible client, resolved_model).
-    Prefers OpenAI key; falls back to OpenRouter.
-    Reuses client instance to maintain HTTP connection pooling.
-    Returns (None, model) when no key is configured.
+
+    Credentials come from the shared resolver so this path and the Mem0 config in
+    service.py cannot disagree about which endpoint a model name belongs to — they
+    used to, and a bare ``gpt-4o-mini`` would extract fine and then fail to store.
+
+    The client is cached to keep HTTP connection pooling; OpenAI keys are long
+    lived and few, so the cache cannot grow without bound in practice.
     """
     try:
         from openai import OpenAI
-        from app.core.config import settings
 
-        api_key = None
-        base_url = None
-        target_model = memory_model
+        credential = resolve_memory_credential(memory_model)
+        model = credential["llm_model"]
+        if not credential["available"]:
+            return None, model
 
-        if settings.OPENAI_API_KEY and settings.OPENAI_API_KEY.strip():
-            api_key = settings.OPENAI_API_KEY
-            base_url = settings.OPENAI_BASE_URL or "https://api.openai.com/v1"
-        elif settings.OPENROUTER_API_KEY and settings.OPENROUTER_API_KEY.strip():
-            api_key = settings.OPENROUTER_API_KEY
-            base_url = "https://openrouter.ai/api/v1"
-            target_model = memory_model if "/" in memory_model else f"openai/{memory_model}"
-
-        if not api_key:
-            return None, target_model
-
-        cache_key = (api_key, base_url or "")
+        cache_key = (credential["api_key"], credential["base_url"] or "")
         if cache_key not in _client_cache:
-            _client_cache[cache_key] = OpenAI(api_key=api_key, base_url=base_url)
+            _client_cache[cache_key] = OpenAI(
+                api_key=credential["api_key"], base_url=credential["base_url"]
+            )
 
-        return _client_cache[cache_key], target_model
+        return _client_cache[cache_key], model
 
     except ImportError:
         logger.warning("openai package not installed; cannot run smart extraction.")
@@ -382,20 +378,7 @@ def sanitize_messages_for_memory(
     return cleaned
 
 
-# ── Public API (backward-compatible) ──────────────────────────────────────────
-
-def extract_memories_task(
-    user_id: str,
-    messages: List[Dict[str, str]],
-    metadata: Optional[Dict[str, Any]] = None,
-    memory_model: Optional[str] = None,
-):
-    """
-    Background worker — now delegates to smart_extract_memories_task.
-    Signature kept identical to v1 for backward compatibility.
-    """
-    smart_extract_memories_task(user_id, messages, metadata, memory_model)
-
+# ── Public API ────────────────────────────────────────────────────────────────
 
 async def schedule_memory_extraction(
     user_id: str,
@@ -403,6 +386,13 @@ async def schedule_memory_extraction(
     metadata: Optional[Dict[str, Any]] = None,
     memory_model: Optional[str] = None,
 ):
-    """Schedule extraction to run on background executor without blocking the caller."""
+    """Run extraction on the executor so the caller's event loop keeps moving.
+
+    This used to go through an ``extract_memories_task`` wrapper whose only body was
+    a call to ``smart_extract_memories_task``; the wrapper existed to keep a v1
+    signature alive and nothing outside this module imported it.
+    """
     loop = asyncio.get_running_loop()
-    loop.run_in_executor(None, extract_memories_task, user_id, messages, metadata, memory_model)
+    loop.run_in_executor(
+        None, smart_extract_memories_task, user_id, messages, metadata, memory_model
+    )

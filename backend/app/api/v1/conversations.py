@@ -1,5 +1,6 @@
-from typing import List
+from typing import List, Optional
 from datetime import datetime, timezone
+import asyncio
 import json
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
@@ -21,6 +22,71 @@ from app.services.memory.service import memory_service
 from app.services.media_storage import media_storage
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
+
+
+async def _load_conversation(
+    db: AsyncSession,
+    conversation_id: str,
+    user_id: Optional[str] = None,
+    *,
+    include_deleted: bool = False,
+) -> Conversation:
+    """Fetch one conversation, optionally scoped to its owner.
+
+    Every route here needs the same lookup, and getting the scope subtly wrong is
+    how a cross-account read happens, so it lives in exactly one place:
+
+    * ``user_id`` given → must match, else 404 (never 403: a 403 would confirm the
+      id exists in someone else's account)
+    * ``user_id=None`` → admin path, no owner filter
+    * ``include_deleted=False`` → soft-deleted rows are invisible to non-admins
+    """
+    conditions = [Conversation.id == conversation_id]
+    if user_id is not None:
+        conditions.append(Conversation.user_id == user_id)
+    if not include_deleted:
+        conditions.append(Conversation.is_deleted == False)
+
+    stmt = select(Conversation).where(*conditions)
+    conv = (await db.execute(stmt)).scalar_one_or_none()
+    if not conv:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found"
+        )
+    return conv
+
+
+async def _require_conversation(
+    db: AsyncSession,
+    conversation_id: str,
+    user: User,
+    *,
+    require_active: bool = True,
+) -> Conversation:
+    """Owner-scoped fetch for the routes a normal user can reach."""
+    return await _load_conversation(
+        db,
+        conversation_id,
+        user.id,
+        include_deleted=not require_active,
+    )
+
+
+async def _ensure_last_message_at(db: AsyncSession, conv: Conversation) -> Conversation:
+    """Backfill ``last_message_at`` for rows written before the column existed.
+
+    ``init_db`` migrates and backfills it once, but a conversation created through
+    any path that bypasses that migration can still be null, and the sidebar sorts
+    on it. Kept as a lazy fill rather than trusting the migration, because a null
+    here silently pushes a conversation to the bottom of the list.
+    """
+    if conv.last_message_at:
+        return conv
+    last_msg_time = await db.scalar(
+        select(func.max(Message.created_at)).where(Message.conversation_id == conv.id)
+    )
+    conv.last_message_at = last_msg_time or conv.created_at
+    return conv
 
 
 @router.get("", response_model=List[ConversationResponse])
@@ -123,13 +189,11 @@ async def reorder_pinned_conversations(
         found[cid].updated_at = datetime.now(timezone.utc)
 
     await db.commit()
+    # No per-row refresh: the session runs with expire_on_commit=False, so the
+    # instances already carry the new pin_order and a refresh would only add one
+    # round trip per conversation.
     for c in pinned:
-        await db.refresh(c)
-        if not c.last_message_at:
-            last_msg_time = await db.scalar(
-                select(func.max(Message.created_at)).where(Message.conversation_id == c.id)
-            )
-            c.last_message_at = last_msg_time or c.created_at
+        await _ensure_last_message_at(db, c)
     return sorted(pinned, key=lambda c: c.pin_order)
 
 
@@ -164,20 +228,8 @@ async def get_conversation(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    stmt = select(Conversation).where(
-        Conversation.id == conversation_id,
-        Conversation.user_id == current_user.id,
-        Conversation.is_deleted == False
-    )
-    conv = (await db.execute(stmt)).scalar_one_or_none()
-    if not conv:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
-    if not conv.last_message_at:
-        last_msg_time = await db.scalar(
-            select(func.max(Message.created_at)).where(Message.conversation_id == conv.id)
-        )
-        conv.last_message_at = last_msg_time or conv.created_at
-    return conv
+    conv = await _require_conversation(db, conversation_id, current_user)
+    return await _ensure_last_message_at(db, conv)
 
 
 @router.patch("/{conversation_id}", response_model=ConversationResponse)
@@ -187,14 +239,7 @@ async def update_conversation(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    stmt = select(Conversation).where(
-        Conversation.id == conversation_id,
-        Conversation.user_id == current_user.id,
-        Conversation.is_deleted == False
-    )
-    conv = (await db.execute(stmt)).scalar_one_or_none()
-    if not conv:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+    conv = await _require_conversation(db, conversation_id, current_user)
 
     if conv_in.title is not None:
         conv.title = conv_in.title
@@ -217,13 +262,7 @@ async def update_conversation(
     conv.updated_at = datetime.now(timezone.utc)
 
     await db.commit()
-    await db.refresh(conv)
-    if not conv.last_message_at:
-        last_msg_time = await db.scalar(
-            select(func.max(Message.created_at)).where(Message.conversation_id == conv.id)
-        )
-        conv.last_message_at = last_msg_time or conv.created_at
-    return conv
+    return await _ensure_last_message_at(db, conv)
 
 
 @router.post("/{conversation_id}/pin", response_model=ConversationResponse)
@@ -233,14 +272,7 @@ async def pin_conversation(
     db: AsyncSession = Depends(get_db)
 ):
     """Pin a conversation (goes to the end of the pinned list)."""
-    stmt = select(Conversation).where(
-        Conversation.id == conversation_id,
-        Conversation.user_id == current_user.id,
-        Conversation.is_deleted == False
-    )
-    conv = (await db.execute(stmt)).scalar_one_or_none()
-    if not conv:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+    conv = await _require_conversation(db, conversation_id, current_user)
 
     if not conv.is_pinned:
         max_order = await db.scalar(
@@ -254,13 +286,7 @@ async def pin_conversation(
         conv.pin_order = (max_order + 1) if max_order is not None else 0
         conv.updated_at = datetime.now(timezone.utc)
         await db.commit()
-        await db.refresh(conv)
-    if not conv.last_message_at:
-        last_msg_time = await db.scalar(
-            select(func.max(Message.created_at)).where(Message.conversation_id == conv.id)
-        )
-        conv.last_message_at = last_msg_time or conv.created_at
-    return conv
+    return await _ensure_last_message_at(db, conv)
 
 
 @router.delete("/{conversation_id}/pin", response_model=ConversationResponse)
@@ -270,26 +296,13 @@ async def unpin_conversation(
     db: AsyncSession = Depends(get_db)
 ):
     """Unpin a conversation."""
-    stmt = select(Conversation).where(
-        Conversation.id == conversation_id,
-        Conversation.user_id == current_user.id,
-        Conversation.is_deleted == False
-    )
-    conv = (await db.execute(stmt)).scalar_one_or_none()
-    if not conv:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+    conv = await _require_conversation(db, conversation_id, current_user)
 
     conv.is_pinned = False
     conv.pin_order = 0
     conv.updated_at = datetime.now(timezone.utc)
     await db.commit()
-    await db.refresh(conv)
-    if not conv.last_message_at:
-        last_msg_time = await db.scalar(
-            select(func.max(Message.created_at)).where(Message.conversation_id == conv.id)
-        )
-        conv.last_message_at = last_msg_time or conv.created_at
-    return conv
+    return await _ensure_last_message_at(db, conv)
 
 
 @router.delete("/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -302,14 +315,7 @@ async def delete_conversation(
     CRITICAL: Perform SOFT DELETE instead of physical purge.
     Preserves all messages, token counts, and audit logs while hiding it from user's active list.
     """
-    stmt = select(Conversation).where(
-        Conversation.id == conversation_id,
-        Conversation.user_id == current_user.id,
-        Conversation.is_deleted == False
-    )
-    conv = (await db.execute(stmt)).scalar_one_or_none()
-    if not conv:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+    conv = await _require_conversation(db, conversation_id, current_user)
 
     conv.is_deleted = True
     conv.deleted_at = datetime.now(timezone.utc)
@@ -323,11 +329,16 @@ async def restore_conversation(
     admin_user: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db)
 ):
-    """Admin-only: restore any user's soft-deleted conversation back to its owner's list."""
-    stmt = select(Conversation).where(Conversation.id == conversation_id)
-    conv = (await db.execute(stmt)).scalar_one_or_none()
-    if not conv:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+    """Admin-only: restore any user's soft-deleted conversation back to its owner's list.
+
+    This is the only implementation. It used to be reachable at two URLs, one of
+    which was a thin forwarder in stats.py that imported and called this function
+    directly — bypassing FastAPI's dependency resolution — purely to attach a
+    different response shape for the admin console.
+    """
+    conv = await _load_conversation(
+        db, conversation_id, include_deleted=True
+    )
 
     conv.is_deleted = False
     conv.deleted_at = None
@@ -343,14 +354,9 @@ async def list_messages(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    # Verify conversation belongs to user
-    conv_stmt = select(Conversation).where(
-        Conversation.id == conversation_id,
-        Conversation.user_id == current_user.id
-    )
-    conv = (await db.execute(conv_stmt)).scalar_one_or_none()
-    if not conv:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+    # Ownership check first; deliberately include_deleted so a user can still read
+    # a conversation they themselves deleted until an admin restores it.
+    await _require_conversation(db, conversation_id, current_user, require_active=False)
 
     msg_stmt = (
         select(Message)
@@ -369,16 +375,8 @@ async def delete_message(
     db: AsyncSession = Depends(get_db)
 ):
     """Delete a single message. Used by the per-message delete affordance."""
-    conv_stmt = select(Conversation).where(
-        Conversation.id == conversation_id,
-        Conversation.user_id == current_user.id
-    )
-    if not (await db.execute(conv_stmt)).scalar_one_or_none():
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
-
-    msg = await db.get(Message, message_id)
-    if not msg or msg.conversation_id != conversation_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message not found")
+    await _require_conversation(db, conversation_id, current_user, require_active=False)
+    msg = await _load_message(db, conversation_id, message_id)
 
     _purge_message_media(msg)
     await db.delete(msg)
@@ -400,16 +398,8 @@ async def truncate_from_message(
     This is what backs "edit and resend": the edited turn and the assistant reply
     that followed it are removed so the branch can be rebuilt cleanly.
     """
-    conv_stmt = select(Conversation).where(
-        Conversation.id == conversation_id,
-        Conversation.user_id == current_user.id
-    )
-    if not (await db.execute(conv_stmt)).scalar_one_or_none():
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
-
-    anchor = await db.get(Message, message_id)
-    if not anchor or anchor.conversation_id != conversation_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message not found")
+    await _require_conversation(db, conversation_id, current_user, require_active=False)
+    anchor = await _load_message(db, conversation_id, message_id)
 
     doomed = (
         await db.execute(
@@ -431,20 +421,39 @@ async def truncate_from_message(
     return {"deleted": removed}
 
 
+async def _load_message(db: AsyncSession, conversation_id: str, message_id: str) -> Message:
+    """Fetch a message and prove it belongs to the given conversation.
+
+    Checking both halves is not redundant: without the conversation check, a caller
+    who owns any conversation could delete a message from somebody else's by id.
+    """
+    msg = await db.get(Message, message_id)
+    if not msg or msg.conversation_id != conversation_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message not found")
+    return msg
+
+
 def _purge_message_media(msg: Message) -> None:
-    """Delete image files referenced by a message that is being removed."""
-    raw = getattr(msg, "generated_images", None)
-    if not raw:
-        return
-    try:
-        entries = json.loads(raw) if isinstance(raw, str) else raw
-    except (TypeError, ValueError):
-        return
-    if not isinstance(entries, list):
-        return
-    for entry in entries:
-        if isinstance(entry, dict) and entry.get("path"):
-            media_storage.delete(entry["path"])
+    """Delete image files referenced by a message that is being removed.
+
+    Both sources own files under MEDIA_DIR: the generated_images JSON and the
+    user_attachments JSON. chat.py writes them together with the durable reference
+    in `content`, so the JSON records are always in step with the body and there is
+    no third place to look.
+    """
+    for attribute in ("generated_images", "user_attachments"):
+        raw = getattr(msg, attribute, None)
+        if not raw:
+            continue
+        try:
+            entries = json.loads(raw) if isinstance(raw, str) else raw
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(entries, list):
+            continue
+        for entry in entries:
+            if isinstance(entry, dict) and entry.get("path"):
+                media_storage.delete(entry["path"])
 
 
 async def _sync_conversation_timestamp(db: AsyncSession, conversation_id: str) -> None:
@@ -468,20 +477,19 @@ async def get_conversation_memories(
     db: AsyncSession = Depends(get_db)
 ):
     """Retrieve memories associated with or relevant to this conversation."""
-    conv_stmt = select(Conversation).where(
-        Conversation.id == conversation_id,
-        Conversation.user_id == current_user.id
-    )
-    conv = (await db.execute(conv_stmt)).scalar_one_or_none()
-    if not conv:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+    await _require_conversation(db, conversation_id, current_user, require_active=False)
 
     recalled_memories = []
     existing_ids = set()
 
     # 1. First check if any memory was directly extracted from this conversation (metadata.conversation_id)
     try:
-        all_user_mems = memory_service.list_memories(user_id=current_user.id)
+        # Off the event loop: list_memories is synchronous and reads the whole
+        # user's memory set out of pgvector. Inline it would stall every other
+        # request this worker is serving.
+        all_user_mems = await asyncio.to_thread(
+            memory_service.list_memories, current_user.id
+        )
         for mem in all_user_mems:
             meta = mem.get("metadata") or {}
             if isinstance(meta, dict) and meta.get("conversation_id") == conversation_id:
@@ -510,10 +518,11 @@ async def get_conversation_memories(
 
     if last_user_msg and last_user_msg.content.strip():
         try:
-            semantic_mems, _ = retrieve_relevant_memories(
+            semantic_mems, _ = await asyncio.to_thread(
+                retrieve_relevant_memories,
                 user_id=current_user.id,
                 query=last_user_msg.content,
-                limit=5
+                limit=5,
             )
             for sm in semantic_mems:
                 sm_id = sm.get("id")

@@ -3,6 +3,7 @@ import logging
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional, Tuple
 from app.core.config import settings
+from app.services.memory.credentials import resolve_memory_credential
 
 logger = logging.getLogger("mem0_service")
 
@@ -11,6 +12,23 @@ class MemoryService:
     """
     Adapter layer encapsulating Mem0 OSS (mem0ai==2.2.1).
     Explicitly configured with PostgreSQL + pgvector and persistent SQLite history.
+
+    THREADING CONTRACT
+    ------------------
+    Every method here is **synchronous** and uses blocking drivers (psycopg2, the
+    sync OpenAI client), so callers must invoke it through ``asyncio.to_thread``.
+    Doing so from an async endpoint is mandatory, not an optimisation: a single
+    inline call parks the event loop for the whole pgvector round trip and stalls
+    every other request on the same worker.
+
+    ``_memory_instances`` is process-wide, so one Mem0 object is shared by all
+    threads. Concurrent *reads* against it (list / search from a request handler)
+    now overlap with the background extraction and dreaming tasks that were always
+    running in ``run_in_executor``. That is the same exposure as before, only more
+    frequent — worth watching for intermittent connection errors under load. If any
+    show up, the fix is a ``threading.RLock`` around the public methods below, not
+    reverting the ``to_thread`` calls: those are what stop the event loop from
+    stalling, which is the more serious of the two problems.
     """
 
     def __init__(self):
@@ -18,60 +36,31 @@ class MemoryService:
         self._last_init_error: Optional[str] = None
 
     def is_configured(self) -> bool:
-        """Check if any valid key (OpenAI or OpenRouter) or local provider is available."""
-        return bool(
-            (settings.OPENAI_API_KEY and settings.OPENAI_API_KEY.strip()) or
-            (settings.OPENROUTER_API_KEY and settings.OPENROUTER_API_KEY.strip()) or
-            (settings.MEM0_EMBEDDER_PROVIDER == "huggingface")
-        )
+        """Check if any valid key (OpenAI or OpenRouter) is available."""
+        return resolve_memory_credential()["available"]
 
     def _get_config(self, memory_model: Optional[str] = None) -> Dict[str, Any]:
         os.makedirs(settings.MEM0_DATA_DIR, exist_ok=True)
         history_db_path = os.path.join(settings.MEM0_DATA_DIR, "mem0_history.db")
 
-        # Automatically resolve LLM credentials: use OpenAI if present, else fallback to OpenRouter
-        if settings.OPENAI_API_KEY and settings.OPENAI_API_KEY.strip():
-            llm_key = settings.OPENAI_API_KEY
-            llm_base_url = settings.OPENAI_BASE_URL
-            default_llm_model = "gpt-4o-mini"
-        elif settings.OPENROUTER_API_KEY and settings.OPENROUTER_API_KEY.strip():
-            llm_key = settings.OPENROUTER_API_KEY
-            llm_base_url = "https://openrouter.ai/api/v1"
-            default_llm_model = "openai/gpt-4o-mini"
-        else:
-            llm_key = ""
-            llm_base_url = None
-            default_llm_model = "gpt-4o-mini"
-
-        chosen_model = memory_model.strip() if (memory_model and memory_model.strip()) else default_llm_model
-
-        # Automatically resolve Embedder credentials: use OpenAI if present, else fallback to OpenRouter
-        if settings.OPENAI_API_KEY and settings.OPENAI_API_KEY.strip():
-            embed_key = settings.OPENAI_API_KEY
-            embed_base_url = settings.OPENAI_BASE_URL
-            embed_model = "text-embedding-3-small"
-        elif settings.OPENROUTER_API_KEY and settings.OPENROUTER_API_KEY.strip():
-            embed_key = settings.OPENROUTER_API_KEY
-            embed_base_url = "https://openrouter.ai/api/v1"
-            embed_model = "openai/text-embedding-3-small"
-        else:
-            embed_key = ""
-            embed_base_url = None
-            embed_model = "text-embedding-3-small"
+        # One resolver for the LLM and the embedder. They used to be resolved
+        # separately here and in extraction.py, and the two copies disagreed on
+        # whether an OpenRouter model id needs the "openai/" prefix.
+        credential = resolve_memory_credential(memory_model)
 
         llm_config: Dict[str, Any] = {
-            "model": chosen_model,
-            "api_key": llm_key,
+            "model": credential["llm_model"],
+            "api_key": credential["api_key"],
         }
-        if llm_base_url:
-            llm_config["openai_base_url"] = llm_base_url
+        if credential["base_url"]:
+            llm_config["openai_base_url"] = credential["base_url"]
 
         embed_config: Dict[str, Any] = {
-            "model": embed_model,
-            "api_key": embed_key,
+            "model": credential["embed_model"],
+            "api_key": credential["api_key"],
         }
-        if embed_base_url:
-            embed_config["openai_base_url"] = embed_base_url
+        if credential["base_url"]:
+            embed_config["openai_base_url"] = credential["base_url"]
 
         # Dynamically extract postgres connection parameters from MEM0_DATABASE_URL or DATABASE_URL
         db_user = settings.POSTGRES_USER

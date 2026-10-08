@@ -2,9 +2,9 @@ from pydantic import BaseModel, Field
 from datetime import datetime
 from typing import Optional
 
-#: Provider names the LLM factory knows how to build. Kept in sync with
-#: app/services/llm/factory.py::get_llm_provider.
-SUPPORTED_PROVIDERS = ("openai", "anthropic", "gemini", "ollama", "openrouter")
+# Re-exported for the credential endpoints, which validate a submitted provider
+# name against it. The authoritative definition is app.services.llm.factory.
+from app.services.llm.factory import SUPPORTED_PROVIDERS  # noqa: F401
 
 #: Generous upper bound for a provider key. Real keys are 30-200 chars; the cap
 #: exists so the Text column cannot be used to store arbitrary payloads.
@@ -12,13 +12,20 @@ MAX_API_KEY_LEN = 512
 
 
 class UserSettingUpdate(BaseModel):
-    default_model: Optional[str] = None
-    memory_model: Optional[str] = None
-    image_model: Optional[str] = None
+    # Length caps mirror the column widths in models/setting.py. Without them an
+    # over-long value reached Postgres and came back as an unhandled
+    # DataError — a 500 with a driver message, for what is really bad input.
+    # With them it is a 422 that names the offending field.
+    default_model: Optional[str] = Field(default=None, max_length=100)
+    memory_model: Optional[str] = Field(default=None, max_length=100)
+    image_model: Optional[str] = Field(default=None, max_length=120)
     system_prompt: Optional[str] = None
-    temperature: Optional[float] = None
+    # 0-2 is the range every provider in SUPPORTED_PROVIDERS accepts. Unbounded,
+    # this value is forwarded verbatim, so a stray 1000 came back as an opaque
+    # upstream 400 from whichever provider happened to be selected.
+    temperature: Optional[float] = Field(default=None, ge=0.0, le=2.0)
     memory_enabled: Optional[bool] = None
-    web_search_mode: Optional[str] = None
+    web_search_mode: Optional[str] = Field(default=None, max_length=10)
 
 
 class UserSettingResponse(BaseModel):

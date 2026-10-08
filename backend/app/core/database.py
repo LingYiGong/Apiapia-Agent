@@ -50,6 +50,7 @@ async def init_db():
                     ALTER TABLE messages ADD COLUMN IF NOT EXISTS duration_ms integer DEFAULT 0;
                     ALTER TABLE messages ADD COLUMN IF NOT EXISTS search_results text;
                     ALTER TABLE messages ADD COLUMN IF NOT EXISTS generated_images text;
+                    ALTER TABLE messages ADD COLUMN IF NOT EXISTS user_attachments text;
                     ALTER TABLE messages ADD COLUMN IF NOT EXISTS tool_invocations text;
                     ALTER TABLE messages ADD COLUMN IF NOT EXISTS thinking_duration_ms integer DEFAULT 0;
                     ALTER TABLE messages ADD COLUMN IF NOT EXISTS finish_reason varchar(20) DEFAULT 'stop';

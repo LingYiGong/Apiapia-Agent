@@ -1,89 +1,29 @@
 import json
 import logging
-from pathlib import Path
 from typing import List, Dict, Any, Set
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from app.core.config import settings
 from app.models.user import User
 from app.api.v1.deps import get_current_user
+from app.services.catalog import (
+    OPENROUTER_FREE_MODEL_ID,
+    check_user_can_use_model,
+    has_full_model_access,
+    is_free_model,
+    load_stored_models,
+    save_stored_models,
+)
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/models", tags=["models"])
 
-# Persistent synced models file located in backend/app/synced_models.json
-SYNCED_MODELS_FILE = Path(__file__).resolve().parent.parent.parent / "synced_models.json"
-
-
-def is_free_model(m: dict) -> bool:
-    mid = (m.get("id") or "").lower()
-    mname = (m.get("name") or "").lower()
-    return bool(
-        m.get("is_free")
-        or mid == "openrouter/free"
-        or "openrouter/free" in mid
-        or ":free" in mid
-        or "/free" in mid
-        or "-free" in mid
-        or "(free)" in mname
-        or "free" in mname
-        or "免费" in mname
-        or m.get("provider") == "ollama"
-    )
-
-
-def has_full_model_access(user: User) -> bool:
-    """
-    Whether the account is entitled to billable models at all.
-
-    Used both for chat model gating and for billable side features such as
-    AI image generation, so the rule stays defined in exactly one place.
-    """
-    return bool(getattr(user, "is_superuser", False) or getattr(user, "can_access_all_models", False))
-
-
-def check_user_can_use_model(user: User, model_id: str) -> bool:
-    if has_full_model_access(user):
-        return True
-    mid = (model_id or "").lower()
-    if mid == "openrouter/free" or "openrouter/free" in mid or ":free" in mid or "/free" in mid or "-free" in mid or "ollama" in mid or "免费" in mid:
-        return True
-    stored = load_stored_models()
-    matched = next((m for m in stored if m.get("id") == model_id), None)
-    if matched:
-        return is_free_model(matched)
-    return False
-
-
-def load_stored_models() -> List[Dict[str, Any]]:
-    """
-    Read saved models from synced_models.json file.
-    No models are hardcoded in the codebase.
-    """
-    if SYNCED_MODELS_FILE.exists():
-        try:
-            with open(SYNCED_MODELS_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                if isinstance(data, list):
-                    return data
-        except Exception as e:
-            logger.error(f"Error reading synced_models.json: {e}")
-    return []
-
-
-def save_stored_models(models: List[Dict[str, Any]]):
-    """Write models list to JSON file."""
-    try:
-        SYNCED_MODELS_FILE.parent.mkdir(parents=True, exist_ok=True)
-        with open(SYNCED_MODELS_FILE, "w", encoding="utf-8") as f:
-            json.dump(models, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        logger.error(f"Error writing synced_models.json: {e}")
-
-
-# In-memory cache for OpenRouter live search
-_openrouter_cache = {"models": [], "expires_at": 0}
+# The catalog itself (SYNCED_MODELS_FILE, load/save_stored_models, is_free_model,
+# has_full_model_access, check_user_can_use_model) now lives in
+# app/services/catalog.py. It is imported by four modules, and keeping it in this
+# router meant api.v1.chat → api.v1.settings → api.v1.models — the API layer
+# importing itself.
 
 
 async def fetch_gemini_models_from_api(api_key: str) -> List[Dict[str, Any]]:
@@ -253,36 +193,17 @@ async def fetch_ollama_models_from_api(base_url: str) -> List[Dict[str, Any]]:
     return models
 
 
-@router.get("/available")
-async def list_available_models():
-    """List available model catalog loaded directly from synced_models.json."""
-    return load_stored_models()
-
-
-@router.get("/openrouter")
-async def list_openrouter_models(q: str = ""):
-    """
-    Fetch all supported models directly from OpenRouter's live API with cache.
-    """
-    import time
-    now = time.time()
-    raw_models = []
-
-    if _openrouter_cache["models"] and _openrouter_cache["expires_at"] > now:
-        raw_models = _openrouter_cache["models"]
-    else:
-        raw_models = await fetch_openrouter_models_from_api(settings.OPENROUTER_API_KEY)
-        if raw_models:
-            _openrouter_cache["models"] = raw_models
-            _openrouter_cache["expires_at"] = now + 600
-
-    if q and q.strip():
-        search = q.strip().lower()
-        return [
-            m for m in raw_models
-            if search in m["id"].lower() or search in m["name"].lower()
-        ]
-    return raw_models
+# Two routes used to live here and are gone:
+#
+#   GET /available   — returned the raw catalog. /configured is a strict superset
+#                      for every caller that has a token, and nothing in the
+#                      frontend ever called it.
+#   GET /openrouter  — fetched the live OpenRouter catalog on demand, through a
+#                      separate 10-minute cache. **Neither had auth**, so it was
+#                      also an unauthenticated outbound proxy to a third party,
+#                      with no rate limit. POST /sync covers the same need behind
+#                      a login, and persists the result instead of re-fetching on
+#                      every request.
 
 
 @router.get("/configured")
@@ -314,11 +235,13 @@ async def list_configured_models(
         if m.get("provider") in active_providers
     ]
 
-    # Ensure openrouter/free is always present if openrouter provider is active
+    # Ensure openrouter/free is always present if openrouter provider is active.
+    # The id comes from the shared constant so this injection, the entitlement
+    # check and the display sort cannot name different things.
     if "openrouter" in active_providers or bool(settings.OPENROUTER_API_KEY):
-        if not any(m.get("id") == "openrouter/free" for m in configured_models):
+        if not any(m.get("id") == OPENROUTER_FREE_MODEL_ID for m in configured_models):
             configured_models.insert(0, {
-                "id": "openrouter/free",
+                "id": OPENROUTER_FREE_MODEL_ID,
                 "name": "OpenRouter Free (官方聚合免费模型)",
                 "provider": "openrouter",
                 "description": "由 OpenRouter 官方智能路由至当前最佳可用的免费大模型，稳定可靠",
@@ -332,7 +255,7 @@ async def list_configured_models(
 
     def get_model_sort_priority(m: dict):
         mid = (m.get("id") or "").lower()
-        if mid == "openrouter/free":
+        if mid == OPENROUTER_FREE_MODEL_ID:
             return (0, 0, mid)
         if is_free_model(m):
             return (1, 0, mid)
@@ -429,7 +352,10 @@ async def sync_models_from_providers(
         )
 
     # 1. Load currently stored models from synced_models.json
-    current_models = load_stored_models()
+    # Shallow-copied per entry: load_stored_models() hands back the cached objects,
+    # and step 7 updates them in place while merging. Without the copy a failed
+    # write would leave the cache holding mutated entries under the *old* file key.
+    current_models = [dict(m) for m in load_stored_models()]
     known_ids: Set[str] = {m["id"] for m in current_models}
 
     new_models: List[Dict[str, Any]] = []

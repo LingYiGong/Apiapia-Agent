@@ -18,9 +18,13 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
+from urllib.parse import unquote_to_bytes
 
-import httpx
-
+from app.core.net import (
+    ContentTooLargeError,
+    UnsafeURLError,
+    fetch_public_bytes,
+)
 from app.core.config import settings
 
 logger = logging.getLogger("media_storage")
@@ -109,27 +113,44 @@ class MediaStorage:
             header, _, payload = url.partition(",")
             if not payload:
                 raise MediaStorageError("非法的 data URI")
+            # Check the encoded length *before* decoding. The remote-URL branch is
+            # capped while streaming; without this the inline path would be the one
+            # way a provider response could still allocate without bound, since a
+            # provider that answers with b64_json hands us the whole image inline.
+            estimated_bytes = (len(payload) * 3) // 4
+            if estimated_bytes > REMOTE_FETCH_MAX_BYTES:
+                raise MediaStorageError(
+                    f"图片体积超出上限: 内联数据约 {estimated_bytes} 字节，"
+                    f"上限 {REMOTE_FETCH_MAX_BYTES} 字节"
+                )
             if ";base64" in header:
                 try:
                     data = base64.b64decode(payload, validate=False)
                 except (binascii.Error, ValueError) as e:
                     raise MediaStorageError(f"base64 解码失败: {e}")
             else:
-                from urllib.parse import unquote_to_bytes
                 data = unquote_to_bytes(payload)
             mime = header[5:].split(";")[0]
             return data, self.sniff_ext(data, mime)
 
         if url.startswith(("http://", "https://")):
-            async with httpx.AsyncClient(timeout=REMOTE_FETCH_TIMEOUT_SECONDS, follow_redirects=True) as client:
-                resp = await client.get(url)
-                if resp.status_code != 200:
-                    raise MediaStorageError(f"下载图片失败 [{resp.status_code}]")
-                data = resp.content
-            if len(data) > REMOTE_FETCH_MAX_BYTES:
-                raise MediaStorageError(f"图片体积超出上限: {len(data)}")
-            mime = resp.headers.get("content-type", "")
-            return data, self.sniff_ext(data, mime)
+            # The URL is whatever the provider handed back, so it is one hop further
+            # removed from trust than a user-supplied link — but it is still a URL
+            # this process is about to fetch, so it gets the same public-address
+            # check and the same streaming byte cap. A provider that is MITM'd, or
+            # that simply returns a link into the private network, must not be able
+            # to use this server as its fetch proxy.
+            try:
+                fetched = await fetch_public_bytes(
+                    url,
+                    max_bytes=REMOTE_FETCH_MAX_BYTES,
+                    timeout=REMOTE_FETCH_TIMEOUT_SECONDS,
+                )
+            except UnsafeURLError as e:
+                raise MediaStorageError(f"拒绝抓取非公开图片地址：{e}") from e
+            except ContentTooLargeError as e:
+                raise MediaStorageError(f"图片体积超出上限: {e}") from e
+            return fetched.data, self.sniff_ext(fetched.data, fetched.content_type)
 
         raise MediaStorageError("不支持的图片地址协议")
 
@@ -179,4 +200,73 @@ async def store_generated_image(
         "prompt": prompt,
         "provider": provider,
         "model": model,
+    }
+
+
+#: Path prefix of the authenticated media endpoint, written into messages.content
+#: in place of the old inline data URL. Relative, because the media URL is built
+#: per request (it needs the caller's JWT) — see the frontend's getMediaImageUrl.
+MEDIA_IMAGE_PATH_PREFIX = "/api/media/images/"
+
+
+def store_uploaded_image(
+    data_url: str,
+    name: str,
+) -> Optional[Dict[str, Any]]:
+    """Persist one user-uploaded image from its inline data URL.
+
+    Returns the same record shape as :func:`store_generated_image` plus ``name``,
+    or ``None`` when the payload cannot be stored. Returning None rather than
+    raising is deliberate: the caller's fallback is to keep the original inline
+    markdown, so a storage hiccup degrades to "bigger row" rather than to a lost
+    attachment the user can no longer see.
+
+    The bytes are the user's own upload, so no network fetch is involved and
+    :func:`materialize`'s remote guards do not apply — but the size ceiling does,
+    since it is the same unbounded-allocation hazard.
+    """
+    if not data_url or not data_url.startswith("data:"):
+        return None
+
+    header, _, payload = data_url.partition(",")
+    if not payload:
+        logger.warning("Refusing to store attachment %s: malformed data URL", name)
+        return None
+
+    estimated_bytes = (len(payload) * 3) // 4
+    if estimated_bytes > REMOTE_FETCH_MAX_BYTES:
+        logger.warning(
+            "Refusing to store attachment %s: ~%d bytes exceeds %d",
+            name, estimated_bytes, REMOTE_FETCH_MAX_BYTES,
+        )
+        return None
+
+    if ";base64" in header:
+        try:
+            data = base64.b64decode(payload, validate=False)
+        except (binascii.Error, ValueError) as e:
+            logger.warning("Failed to decode attachment %s: %s", name, e)
+            return None
+    else:
+        data = unquote_to_bytes(payload)
+
+    if not data:
+        return None
+
+    ext = media_storage.sniff_ext(data, header[5:].split(";")[0])
+    try:
+        image_id = media_storage.new_image_id()
+        rel = media_storage.relative_path(image_id, ext)
+        size = media_storage.write(rel, data)
+    except (MediaStorageError, OSError) as e:
+        logger.warning("Failed to persist attachment %s: %s", name, e)
+        return None
+
+    logger.info("Stored uploaded image %s (%s, %d bytes) as %s", name, ext, size, image_id)
+    return {
+        "id": image_id,
+        "path": rel,
+        "ext": ext,
+        "bytes": size,
+        "name": name,
     }

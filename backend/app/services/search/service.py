@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import re
 import urllib.parse
@@ -38,7 +37,8 @@ class WebSearchService:
     """
     High-availability web search service.
     Primary: Tavily AI-native search when TAVILY_API_KEY is configured.
-    Fallback: DuckDuckGo HTML & API (100% free, no key required).
+    Fallback: DuckDuckGo over plain HTTP — html endpoint, lite endpoint, then the
+    Instant Answer API. Zero third-party dependencies.
     """
 
     def __init__(self):
@@ -52,19 +52,6 @@ class WebSearchService:
             "Accept-Language": "zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7",
         }
 
-    def _sync_ddgs_search(self, query: str, max_results: int) -> List[Dict[str, str]]:
-        from duckduckgo_search import DDGS
-        results = []
-        with DDGS() as ddgs:
-            ddg_gen = ddgs.text(query, max_results=max_results)
-            for item in ddg_gen:
-                results.append({
-                    "title": item.get("title", ""),
-                    "url": item.get("href") or item.get("url", ""),
-                    "snippet": item.get("body") or item.get("snippet", "")
-                })
-        return results
-
     def is_tavily_configured(self) -> bool:
         """Check if Tavily API key is available (same pattern as MemoryService.is_configured)."""
         return bool(settings.TAVILY_API_KEY and settings.TAVILY_API_KEY.strip())
@@ -75,7 +62,7 @@ class WebSearchService:
         max_results: int = 5,
         topic: str = "general",
         time_range: Optional[str] = None
-    ) -> List[Dict[str, str]]:
+    ) -> WebSearchOutcome:
         """
         Execute web search with multi-tier fallback.
         topic/time_range follow Tavily official enums and are only sent to Tavily;
@@ -115,41 +102,26 @@ class WebSearchService:
             except Exception as e:
                 logger.warning("Tavily search failed: %s. Falling back to DuckDuckGo.", str(e))
 
-        # 2. Try DuckDuckGo via duckduckgo_search library in worker thread (non-blocking)
-        try:
-            results = await asyncio.to_thread(self._sync_ddgs_search, clean_q, max_results)
-            if results:
-                logger.info("DuckDuckGo library search succeeded: %d items", len(results))
-                return WebSearchOutcome(results[:max_results])
-        except Exception as e:
-            logger.debug("duckduckgo_search library failed or not installed: %s. Using HTTP fallback.", str(e))
-
-        # 3. Try DuckDuckGo HTML direct HTTP scraping (zero external dependencies)
-        try:
-            html_results = await self._search_duckduckgo_html(clean_q, max_results=max_results)
-            if html_results:
-                logger.info("DuckDuckGo HTML scraping succeeded: %d items", len(html_results))
-                return WebSearchOutcome(html_results[:max_results])
-        except Exception as e:
-            logger.warning("DuckDuckGo HTML scraping failed: %s", str(e))
-
-        # 4. Try DuckDuckGo Lite endpoint
-        try:
-            lite_results = await self._search_duckduckgo_lite(clean_q, max_results=max_results)
-            if lite_results:
-                logger.info("DuckDuckGo Lite search succeeded: %d items", len(lite_results))
-                return WebSearchOutcome(lite_results[:max_results])
-        except Exception as e:
-            logger.warning("DuckDuckGo Lite search failed: %s", str(e))
-
-        # 5. Try DuckDuckGo Instant Answer API as final fallback
-        try:
-            api_results = await self._search_duckduckgo_api(clean_q)
-            if api_results:
-                logger.info("DuckDuckGo Instant Answer API succeeded: %d items", len(api_results))
-                return WebSearchOutcome(api_results[:max_results])
-        except Exception as e:
-            logger.warning("DuckDuckGo Instant Answer API failed: %s", str(e))
+        # 2-4. DuckDuckGo over plain HTTP.
+        #
+        # These run in sequence, so every tier's timeout is added to the user's
+        # wait for a first token when the ones above it fail. Timeouts are
+        # deliberately tight (8s, 8s, 6s) for that reason: a stale answer is
+        # worth less than no answer. When Tavily is configured it normally answers
+        # first and none of this runs.
+        tiers = (
+            ("html", self._search_duckduckgo_html),
+            ("lite", self._search_duckduckgo_lite),
+            ("instant-answer", self._search_duckduckgo_api),
+        )
+        for label, tier in tiers:
+            try:
+                results = await tier(clean_q, max_results=max_results)
+                if results:
+                    logger.info("DuckDuckGo %s tier succeeded: %d items", label, len(results))
+                    return WebSearchOutcome(results[:max_results])
+            except Exception as e:
+                logger.warning("DuckDuckGo %s tier failed: %s", label, e)
 
         logger.warning("All web search attempts returned empty for query '%s'", clean_q)
         return WebSearchOutcome([], provider="none")
@@ -200,11 +172,13 @@ class WebSearchService:
         raw_answer = data.get("answer")
         answer = raw_answer.strip() if isinstance(raw_answer, str) else ""
         if not answer:
+            if settings.TAVILY_INCLUDE_ANSWER:
+                # include_answer was requested and billed for, but came back empty.
+                # Worth a warning: it usually means the plan does not cover it.
+                logger.warning("Tavily returned no 'answer' for query '%.60s'", query)
             answer = None
         elif len(answer) > MAX_ANSWER_CHARS:
             answer = answer[:MAX_ANSWER_CHARS].rstrip() + "..."
-        elif settings.TAVILY_INCLUDE_ANSWER:
-            logger.warning("Tavily returned results but no 'answer' field for query '%.60s'", query)
 
         results: List[Dict[str, str]] = []
         for item in data.get("results", []) or []:
@@ -309,7 +283,14 @@ class WebSearchService:
 
             return results
 
-    async def _search_duckduckgo_api(self, query: str) -> List[Dict[str, str]]:
+    async def _search_duckduckgo_api(self, query: str, max_results: int = 5) -> List[Dict[str, str]]:
+        """Instant Answer API — the last-resort tier.
+
+        Returns at most a handful of encyclopaedic entries, never a ranked web
+        result list, so it is only useful when the two scraping tiers were blocked.
+        ``max_results`` was ignored and the cap hardcoded at 4; now it is honoured
+        so all three fallback tiers share one signature and one call shape.
+        """
         url = "https://api.duckduckgo.com/"
         params = {"q": query, "format": "json", "no_html": "1", "skip_disambig": "1"}
         async with httpx.AsyncClient(timeout=6.0, headers=self.headers) as client:
@@ -331,7 +312,7 @@ class WebSearchService:
                         "url": topic.get("FirstURL"),
                         "snippet": topic.get("Text")
                     })
-                    if len(results) >= 4:
+                    if len(results) >= max_results:
                         break
             return results
 

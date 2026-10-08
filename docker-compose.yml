@@ -42,6 +42,10 @@ services:
       retries: 5
       start_period: 2s
     environment:
+      # Must match the repo-root VERSION file and frontend/package.json — the three
+      # ship as one artefact. The backend used to hardcode 2.9.0 in two places and
+      # drifted from the 2.12.0 frontend.
+      APP_VERSION: ${APP_VERSION:-2.13.0}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-apiapia}
@@ -52,8 +56,6 @@ services:
       SECRET_KEY: ${SECRET_KEY:-change-this-to-a-super-secret-jwt-key-min-32-chars-long}
       API_KEY_ENCRYPTION_KEY: ${API_KEY_ENCRYPTION_KEY:-dGhpc2lzYTMyeWVhcnNvbGRzZWNyZXRrZXkxMjM0NTY=}
       MEM0_VERSION: ${MEM0_VERSION:-2.2.1}
-      MEM0_LLM_PROVIDER: ${MEM0_LLM_PROVIDER:-openai}
-      MEM0_EMBEDDER_PROVIDER: ${MEM0_EMBEDDER_PROVIDER:-openai}
       MEM0_DATA_DIR: /app/data/mem0
       MEDIA_DIR: ${MEDIA_DIR:-/app/data/media}
       DEFAULT_MODEL: ${DEFAULT_MODEL:-gpt-4o-mini}
@@ -68,7 +70,6 @@ services:
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-}
       TAVILY_API_KEY: ${TAVILY_API_KEY:-}
       TAVILY_SEARCH_DEPTH: ${TAVILY_SEARCH_DEPTH:-advanced}
-      TAVILY_MAX_RESULTS: ${TAVILY_MAX_RESULTS:-5}
       TAVILY_INCLUDE_ANSWER: ${TAVILY_INCLUDE_ANSWER:-True}
       IMAGE_GEN_PROVIDER: ${IMAGE_GEN_PROVIDER:-auto}
       IMAGE_GEN_MODEL: ${IMAGE_GEN_MODEL:-dall-e-3}

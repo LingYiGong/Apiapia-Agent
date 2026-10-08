@@ -102,7 +102,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     Icon: BarChart3,
     tint: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
     inDesktopNav: true,
-    inMobileTabBar: true,
+    inMobileTabBar: false,
   },
   {
     id: "settings",
@@ -115,7 +115,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     Icon: Settings,
     tint: "bg-slate-500/10 text-slate-600 dark:text-slate-300",
     inDesktopNav: true,
-    inMobileTabBar: true,
+    inMobileTabBar: false,
   },
 ];
 

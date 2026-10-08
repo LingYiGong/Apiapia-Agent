@@ -29,8 +29,10 @@ export function sanitizeDisplayContent(raw: string): string {
     raw
       // 1. 裸的工具/函数调用容器与悬空的参数标签
       .replace(/<\/?(?:tool(?:_call)?|func(?:tion)?(?:_call)?|action|invoke|plugin_call|code_interpreter|call)[\s\S]*?(?:<\/(?:tool(?:_call)?|func(?:tion)?(?:_call)?|action|invoke|plugin_call|code_interpreter|call)>|$)/gi, "")
+      .replace(/<\|(?:tool(?:_call|_calls)?_start|action_start|plugin_start)\|?>[\s\S]*?(?:<\|(?:tool(?:_call|_calls)?_end|action_end|plugin_end)\|?>|$)/gi, "")
       .replace(/<\/?(?:arg_key|arg_value|parameter|parameters|arguments)[\s\S]*?>/gi, "")
-      .replace(/\[(?:ACTION|SEARCH|TOOL|CALL|OBSERVATION):\s*[^\]]+\]/gi, "")
+      .replace(/\[(?:ACTION|SEARCH|TOOL|CALL|OBSERVATION|google|search):\s*[^\]]+\]/gi, "")
+      .replace(/\[(?:google|search)\([^\]]*\)\]/gi, "")
       // 2. ReAct 残留
       .replace(/\n\s*(?:Action|Action Input|Observation):\s*[\s\S]*?(?=\n\s*(?:Thought|Final Answer)|$)/gi, "")
       // 3. 护栏/内容审核分类器的输出

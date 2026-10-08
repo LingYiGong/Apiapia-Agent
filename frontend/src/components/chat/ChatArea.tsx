@@ -280,8 +280,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
   const handleCopyMessage = useCallback((text: string, idx: number) => {
     if (!text) return;
-    // Clean any think tags from copy text
-    const cleanText = text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim() || text;
+    // Clean any think tags from copy text and strictly trim leading/trailing newlines
+    const cleanText = text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+    if (!cleanText) return;
     navigator.clipboard.writeText(cleanText);
     setCopiedIdx(idx);
     setTimeout(() => setCopiedIdx(null), 2000);
@@ -606,12 +607,11 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               ) : (
                 /* Stage 2: Streaming Output with Typing Cursor */
                 <div>
-                  {/* 流式过程中的实时引用来源。与历史消息里的来源面板共用
-                      <SearchSources>，此前这里是同一段约 50 行的 JSX 副本。 */}
+                  {/* 流式过程中的实时引用来源。与思考过程一致，回答时保持折叠 */}
                   {streamingSearchResults && streamingSearchResults.length > 0 && (
                     <SearchSources
                       results={streamingSearchResults}
-                      defaultOpen
+                      defaultOpen={false}
                       className="mb-3"
                     />
                   )}

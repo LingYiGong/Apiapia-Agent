@@ -22,7 +22,11 @@ from app.services.memory.retrieval import retrieve_relevant_memories, should_ret
 from app.services.memory.extraction import schedule_memory_extraction
 from app.services.memory.dreaming import schedule_dreaming
 from app.services.document_parser import parse_attachment, fetch_and_parse_url, extract_urls
-from app.services.search import web_search_service, should_search_web
+from app.services.search import (
+    web_search_service,
+    should_search_web,
+    evaluate_and_generate_search_query,
+)
 from app.services.image_gen import should_generate_image, image_gen_service
 from app.services.media_storage import (
     MEDIA_IMAGE_PATH_PREFIX,
@@ -104,6 +108,9 @@ def estimate_token_count(text: str) -> int:
 
 
 LEAK_TRIGGERS = [
+    "<|tool",
+    "<|plugin",
+    "<|action",
     "<tool",
     "<func",
     "<action",
@@ -114,6 +121,8 @@ LEAK_TRIGGERS = [
     "[SEARCH:",
     "[ACTION:",
     "[TOOL:",
+    "[google(",
+    "[search(",
     "User Safety:",
     "Response Safety:",
     "Input Safety:",
@@ -128,6 +137,9 @@ LEAK_TRIGGERS = [
 ]
 
 LEAK_CLOSING = [
+    "<|tool_call_end|>",
+    "<|tool_calls_end|>",
+    "<|im_end|>",
     "</tool_call>",
     "</tool>",
     "</function>",
@@ -161,8 +173,10 @@ def sanitize_llm_output(text: str) -> str:
         cleaned,
         flags=re.IGNORECASE
     )
+    cleaned = re.sub(r'<\|(?:tool(?:_call|_calls)?_start|action_start|plugin_start)\|?>[\s\S]*?(?:<\|(?:tool(?:_call|_calls)?_end|action_end|plugin_end)\|?>|$)', '', cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r'<\/?(?:arg_key|arg_value|parameter|parameters|arguments)[\s\S]*?>', '', cleaned, flags=re.IGNORECASE)
-    cleaned = re.sub(r'\[(?:ACTION|SEARCH|TOOL|CALL|OBSERVATION):\s*[^\]]+\]', '', cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r'\[(?:ACTION|SEARCH|TOOL|CALL|OBSERVATION|google|search):\s*[^\]]+\]', '', cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r'\[(?:google|search)\([^\]]*\)\]', '', cleaned, flags=re.IGNORECASE)
 
     # 2. Strip ReAct-style leftover traces if present without execution
     cleaned = re.sub(r'\n\s*(?:Action|Action Input|Observation):\s*[\s\S]*?(?=\n\s*(?:Thought|Final Answer)|$)', '', cleaned, flags=re.IGNORECASE)
@@ -449,7 +463,10 @@ async def chat_stream(
             or (user_settings.web_search_mode if user_settings else None)
             or "auto"
         )
-        need_search, search_query, search_topic, search_time_range = should_search_web(chat_req.message, mode=search_mode)
+        need_search = False
+        search_query = ""
+        search_topic = "general"
+        search_time_range = None
         need_image_gen, img_prompt, img_size = should_generate_image(chat_req.message)
         # 'stop' | 'abort' | 'error' — persisted so the UI can tell a complete
         # reply apart from one the user cut short or that failed.
@@ -460,6 +477,18 @@ async def chat_stream(
         yield_allowed = True
 
         try:
+            # 0. Intelligent web search decision & context-aware query generation (ChatGPT style)
+            if search_mode != "off":
+                need_search, search_query, search_topic, search_time_range = await evaluate_and_generate_search_query(
+                    user_message=chat_req.message or "",
+                    recent_messages=recent_msgs,
+                    mode=search_mode,
+                    model=model_to_use,
+                    provider=provider_name,
+                    api_key=caller_api_key,
+                    base_url=caller_base_url,
+                )
+
             # 1. Check and execute AI Image Generation if requested
             if need_image_gen and img_prompt:
                 tool_call_id = f"img_{int(time.time() * 1000)}"

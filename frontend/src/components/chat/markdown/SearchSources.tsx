@@ -29,8 +29,8 @@ export function hostnameOf(url?: string): string {
 export function SearchSources({
   results,
   className,
-  /** 流式过程中默认展开：来源刚出现时用户往往正想看清引了什么 */
-  defaultOpen,
+  /** 默认折叠，与思考过程一致；只有显式指定 defaultOpen 为 true 时才展开 */
+  defaultOpen = false,
 }: {
   results: readonly SearchResultItem[];
   className?: string;

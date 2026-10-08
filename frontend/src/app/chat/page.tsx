@@ -605,7 +605,7 @@ export default function ChatPage({
       // Add user message to UI immediately
       const userMsg: Message = {
         role: "user",
-        content: text,
+        content: (text || "").trim(),
         attachments: attachments && attachments.length > 0 ? attachments : undefined,
         model: currentModel,
         created_at: new Date().toISOString(),

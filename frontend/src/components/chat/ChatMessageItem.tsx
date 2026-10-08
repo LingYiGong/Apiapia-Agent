@@ -232,7 +232,9 @@ export const ChatMessageItem = memo(function ChatMessageItem({
       return (
         <>
           <AttachmentItems attachments={attachments} onImageClick={onImageClick} />
-          <div className="whitespace-pre-wrap break-words">{msg.content}</div>
+          {msg.content?.trim() && (
+            <div className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{msg.content.trim()}</div>
+          )}
         </>
       );
     }
@@ -240,6 +242,9 @@ export const ChatMessageItem = memo(function ChatMessageItem({
     const parsed = parsedUserMedia;
     if (!parsed) return null;
     const hasMedia = parsed.images.length > 0 || parsed.docs.length > 0;
+
+    const trimmedText = (parsed.text || "").trim();
+    const fallbackText = (msg.content || "").trim();
 
     return (
       <>
@@ -258,14 +263,10 @@ export const ChatMessageItem = memo(function ChatMessageItem({
             ))}
           </MediaGrid>
         )}
-        {parsed.text ? (
-          <div className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
-            {parsed.text}
-          </div>
-        ) : !hasMedia ? (
-          <div className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
-            {msg.content}
-          </div>
+        {trimmedText ? (
+          <div className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{trimmedText}</div>
+        ) : !hasMedia && fallbackText ? (
+          <div className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{fallbackText}</div>
         ) : null}
       </>
     );
@@ -308,43 +309,60 @@ export const ChatMessageItem = memo(function ChatMessageItem({
               )}
 
               {msg.toolInvocations && msg.toolInvocations.length > 0 && (
-                <div className="mb-2.5 space-y-1.5">
-                  {msg.toolInvocations.map((tool) => (
-                    <div
-                      key={tool.toolCallId}
-                      className="rounded-xl border border-border/70 bg-surface-3/30 p-2.5 text-xs transition-all"
+                <details
+                  open={false}
+                  className="group mb-2.5 overflow-hidden rounded-xl border border-border/70 bg-surface-3/30 text-xs transition-all"
+                >
+                  <summary className="flex cursor-pointer select-none items-center justify-between p-2.5 font-medium text-foreground transition-colors hover:bg-surface-3/50">
+                    <span className="flex items-center gap-1.5">
+                      <Cpu className="h-3.5 w-3.5 text-primary" />
+                      <span>工具调用与检索记录（{msg.toolInvocations.length} 项）</span>
+                    </span>
+                    <span
+                      aria-hidden="true"
+                      className="ml-2 shrink-0 text-2xs text-muted-foreground transition-transform group-open:rotate-180"
                     >
-                      <div className="flex items-center justify-between font-medium">
-                        <div className="flex items-center gap-2">
-                          {tool.state === "call" ? (
-                            <RotateCw className="h-3.5 w-3.5 animate-spin text-primary" />
-                          ) : tool.toolName === "image_generation" ? (
-                            <Palette className="h-3.5 w-3.5 text-primary" />
-                          ) : (
-                            <Cpu className="h-3.5 w-3.5 text-primary" />
-                          )}
-                          <span className="font-semibold text-foreground">
-                            {tool.toolName === "search" || tool.toolName === "web_search"
-                              ? "执行联网检索"
-                              : tool.toolName === "image_generation"
-                              ? "执行 AI 图像绘制"
-                              : `调用工具: ${tool.toolName}`}
+                      ▼
+                    </span>
+                  </summary>
+                  <div className="space-y-1.5 border-t border-border/40 p-2">
+                    {msg.toolInvocations.map((tool) => (
+                      <div
+                        key={tool.toolCallId}
+                        className="rounded-lg border border-border/60 bg-card p-2 text-xs"
+                      >
+                        <div className="flex items-center justify-between font-medium">
+                          <div className="flex items-center gap-2">
+                            {tool.state === "call" ? (
+                              <RotateCw className="h-3.5 w-3.5 animate-spin text-primary" />
+                            ) : tool.toolName === "image_generation" ? (
+                              <Palette className="h-3.5 w-3.5 text-primary" />
+                            ) : (
+                              <Cpu className="h-3.5 w-3.5 text-primary" />
+                            )}
+                            <span className="font-semibold text-foreground">
+                              {tool.toolName === "search" || tool.toolName === "web_search"
+                                ? "执行联网检索"
+                                : tool.toolName === "image_generation"
+                                ? "执行 AI 图像绘制"
+                                : `调用工具: ${tool.toolName}`}
+                            </span>
+                          </div>
+                          <span className="font-mono text-2xs text-muted-foreground">
+                            {tool.state === "call" ? "运行中..." : "已完成"}
                           </span>
                         </div>
-                        <span className="font-mono text-2xs text-muted-foreground">
-                          {tool.state === "call" ? "运行中..." : "已完成"}
-                        </span>
+                        {tool.state === "result" && tool.result && (
+                          <div className="mt-1.5 break-words border-t border-border/40 pt-1.5 font-mono text-2xs text-muted-foreground">
+                            {typeof tool.result === "string"
+                              ? tool.result
+                              : JSON.stringify(tool.result)}
+                          </div>
+                        )}
                       </div>
-                      {tool.state === "result" && tool.result && (
-                        <div className="mt-1.5 break-words border-t border-border/40 pt-1.5 font-mono text-2xs text-muted-foreground">
-                          {typeof tool.result === "string"
-                            ? tool.result
-                            : JSON.stringify(tool.result)}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                </details>
               )}
 
               {msg.generatedImages && msg.generatedImages.length > 0 && (
@@ -524,7 +542,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
             )}
             <CopyButton
               isCopied={isCopied}
-              onClick={() => onCopy(stripAttachmentMarkup(msg.content || ""), idx)}
+              onClick={() => onCopy(stripAttachmentMarkup(msg.content || "").trim(), idx)}
               copyLabel="复制提问"
             />
           </div>

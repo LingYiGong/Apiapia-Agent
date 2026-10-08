@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v2.15.0-indigo?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/version-v2.16.0-indigo?style=flat-square" alt="Version">
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
   <img src="https://img.shields.io/badge/Mem0%20OSS-2.2.1-orange?style=flat-square" alt="Mem0">
@@ -22,7 +22,33 @@
 
 ---
 
-## v2.15.0 发布说明
+## v2.16.0 发布说明
+
+本版本是一次**智能联网搜索调度、模型自主工具格式防护与交互排版优化**升级。核心将原先依赖静态正则的联网判断全面升级为 ChatGPT (SearchGPT) 级的智能语义研判与搜索词重写体系，并解决了开源模型在无外部工具时发生的格式伪代码泄漏与多余换行符问题。
+
+### ChatGPT 级智能联网搜索调度系统 (SearchGPT-style Autonomous Search)
+
+- **智能意图研判与上下文关键词重写 (`Query Rewriter`)**：
+  - 淘汰死板的纯正则表达式判断，引入轻量高效的 LLM 上下文意图分析层。自动结合现实物理时钟基准与多轮对话历史，动态研判问题是否具备强时效性或需要实时资料。
+  - **多轮代词消歧能力**：当用户在第二轮输入口语化短问句（如“那它的价格是多少？什么时候发售？”）时，自动结合上文补齐核心主体，提炼生成精准的高质量布尔搜索词（例如：`苹果 2026 春季新品 售价 发售时间`），搜索精度大幅提升。
+  - **毫秒级快速短路机制**：对日常闲聊问候（“你好”）、代码解释、文本翻译润色等任务维持 0ms 本地启发式短路规则，不消耗额外 Token 与延迟；在上游模型异常时自动平滑降级，确保对话流永不断连。
+
+### 模型工具格式防泄漏与全链路净化 (Tool Call Leakage Shield)
+
+- **开源模型伪工具标记全链路拦截**：
+  - 针对部分开源模型（如 Qwen2.5 / DeepSeek 等）在缺少联网数据时可能自发输出 `<|tool_call_start|>[google(...)]<|tool_call_end|>` 等未执行伪代码的问题，在**流式窗口拦截器、后端落库过滤、前端 Markdown 渲染器**三层同时部署了净化过滤网，彻底杜绝特殊符号漏出到屏幕。
+  - 系统提示词新增强约束负向规则，勒令模型无论何时严禁在正文中泄漏内部工具语法。
+
+### 交互体验与 UI 排版优化
+
+- **联网检索面板折叠体验优化**：
+  - 流式回答与历史记录中的“参考了 N 个网页来源”卡片默认保持折叠状态（与“思考过程”保持一致），生成正文时不抢占视线，点击即可平滑展开查看引用的具体网页链接与摘要。
+  - 历史记录中的工具调用与底层检索耗时统一收拢进紧凑的折叠面板（`工具调用与检索记录（N 项） ▼`）。
+- **提问文本复制多余换行修复**：
+  - 解决发送提问或复制历史提问时末尾多出一个换行符的问题。
+  - 优化气泡 DOM 节点渲染与复制逻辑，无论是点击「复制提问」按钮，还是用鼠标双击、三击高亮选中提问文字，均保证内容纯净紧凑，杜绝末尾空白行。
+
+---
 
 本版本是一次**提示词工程安全、长上下文调度与交互扩展升级**。针对多轮长对话历史裁剪、第三方外部文档注入攻击、Prompt Caching 命中优化、单条消息精准引用以及快捷提示词指令进行了全面重构与补齐。
 

@@ -98,8 +98,11 @@ export function stripAttachmentMarkup(content: string): string {
   if (!content) return "";
   return content
     .replace(IMG_RE, "")
+    .replace(RAW_IMG_RE, "")
     .replace(DOC_RE, "")
-    .replace(/\n{3,}/g, "\n\n")
+    .replace(/^\s+/, "")
+    .replace(/\s+$/, "")
+    .replace(/\r\n/g, "\n")
     .trim();
 }
 

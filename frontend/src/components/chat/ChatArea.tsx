@@ -863,88 +863,173 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                   )}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" side="top" className="w-48 rounded-2xl p-1.5 shadow-lg">
-                <DropdownMenuItem
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-medium cursor-pointer"
-                >
-                  <Paperclip className="h-4 w-4 text-primary shrink-0" />
-                  <div className="flex-1 truncate">上传图片或文件</div>
-                </DropdownMenuItem>
+              <DropdownMenuContent
+                align="start"
+                side="top"
+                sideOffset={10}
+                collisionPadding={12}
+                className="z-50 w-[300px] sm:w-[320px] select-none rounded-[22px] border border-border/50 bg-background/95 p-2 backdrop-blur-2xl shadow-[0_20px_50px_rgba(0,0,0,0.22)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.6)] animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95"
+              >
+                <div className="px-2.5 pt-1.5 pb-2 border-b border-border/40 mb-1 flex items-center justify-between">
+                  <span className="text-2xs font-semibold uppercase tracking-wider text-muted-foreground font-mono">
+                    创作与功能
+                  </span>
+                  {creationMode !== "chat" && (
+                    <button
+                      type="button"
+                      onClick={() => onChangeCreationMode?.("chat")}
+                      className="text-2xs text-primary hover:underline font-medium cursor-pointer"
+                    >
+                      恢复默认对话
+                    </button>
+                  )}
+                </div>
 
-                <DropdownMenuSeparator className="my-1" />
-
-                {onToggleWebSearchMode && (
+                <div className="space-y-1">
+                  {/* 1. 上传图片或文件 */}
                   <DropdownMenuItem
-                    onClick={(e) => {
-                      e.preventDefault();
-                      onToggleWebSearchMode();
-                    }}
-                    className="flex items-center justify-between rounded-xl px-2.5 py-2 text-xs font-medium cursor-pointer"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-start gap-3 rounded-2xl p-2.5 cursor-pointer transition-colors hover:bg-surface-3 focus:bg-surface-3 active:scale-[0.99]"
                   >
-                    <div className="flex items-center gap-2.5 truncate">
-                      <Globe
-                        className={cn(
-                          "h-4 w-4 shrink-0",
-                          webSearchMode === "on"
-                            ? "text-sky-500"
-                            : webSearchMode === "auto"
-                            ? "text-primary"
-                            : "text-muted-foreground"
-                        )}
-                      />
-                      <span>联网检索</span>
+                    <div className="h-8 w-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5">
+                      <Paperclip className="h-4 w-4" />
                     </div>
-                    <span
-                      className={cn(
-                        "font-mono text-2xs px-1.5 py-0.5 rounded-md",
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-foreground">上传图片或文件</span>
+                      </div>
+                      <p className="mt-0.5 text-2xs leading-relaxed text-muted-foreground">
+                        分析文档、提取数据或让多模态视觉模型理解图片
+                      </p>
+                    </div>
+                  </DropdownMenuItem>
+
+                  {/* 2. 联网检索 */}
+                  {onToggleWebSearchMode && (
+                    <DropdownMenuItem
+                      onClick={(e) => {
+                        e.preventDefault();
+                        onToggleWebSearchMode();
+                      }}
+                      className="flex items-start gap-3 rounded-2xl p-2.5 cursor-pointer transition-colors hover:bg-surface-3 focus:bg-surface-3 active:scale-[0.99]"
+                    >
+                      <div className={cn(
+                        "h-8 w-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 transition-colors",
                         webSearchMode === "on"
-                          ? "bg-sky-500/15 text-sky-600 dark:text-sky-400 font-semibold"
+                          ? "bg-sky-500/15 text-sky-600 dark:text-sky-400"
                           : webSearchMode === "auto"
-                          ? "bg-primary/10 text-primary font-semibold"
-                          : "text-muted-foreground"
+                          ? "bg-primary/10 text-primary"
+                          : "bg-surface-3 text-muted-foreground"
+                      )}>
+                        <Globe className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold text-foreground">联网检索</span>
+                          <span
+                            className={cn(
+                              "font-mono text-2xs px-1.5 py-0.5 rounded-md",
+                              webSearchMode === "on"
+                                ? "bg-sky-500/15 text-sky-600 dark:text-sky-400 font-semibold"
+                                : webSearchMode === "auto"
+                                ? "bg-primary/10 text-primary font-semibold"
+                                : "text-muted-foreground bg-surface-3"
+                            )}
+                          >
+                            {webSearchMode === "auto" ? "自动判断" : webSearchMode === "on" ? "强制开启" : "已关闭"}
+                          </span>
+                        </div>
+                        <p className="mt-0.5 text-2xs leading-relaxed text-muted-foreground">
+                          {webSearchMode === "auto"
+                            ? "智能研判时效意图，结合实时互联网信息解答"
+                            : webSearchMode === "on"
+                            ? "每次提问都强制检索最新网页与网络热点"
+                            : "仅依赖模型自身知识库回答，不访问外网"}
+                        </p>
+                      </div>
+                    </DropdownMenuItem>
+                  )}
+
+                  {/* 3. 生成图片 */}
+                  <DropdownMenuItem
+                    onClick={() => onChangeCreationMode?.(creationMode === "image" ? "chat" : "image")}
+                    className={cn(
+                      "flex items-start gap-3 rounded-2xl p-2.5 cursor-pointer transition-colors active:scale-[0.99]",
+                      creationMode === "image"
+                        ? "bg-amber-500/10 border border-amber-500/30"
+                        : "hover:bg-surface-3 focus:bg-surface-3"
+                    )}
+                  >
+                    <div className="h-8 w-8 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
+                      <Palette className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-foreground">生成图片</span>
+                        {creationMode === "image" && (
+                          <span className="flex items-center gap-1 font-mono text-2xs font-semibold text-amber-600 dark:text-amber-400">
+                            <Check className="h-3 w-3 stroke-[3]" /> 当前模式
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-0.5 text-2xs leading-relaxed text-muted-foreground">
+                        调用文生图模型，将自然语言创意绘制为高清图像
+                      </p>
+                    </div>
+                  </DropdownMenuItem>
+
+                  {/* 4. 生成视频 */}
+                  {isTrialMode ? (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        toast.info("当前账号处于体验模式，暂不支持使用 AI 视频生成功能。如需开通，请联系管理员获取完整权限。");
+                      }}
+                      className="flex items-start gap-3 rounded-2xl p-2.5 opacity-55 cursor-not-allowed hover:bg-transparent focus:bg-transparent"
+                    >
+                      <div className="h-8 w-8 rounded-xl bg-surface-3 text-muted-foreground flex items-center justify-center shrink-0 mt-0.5">
+                        <Video className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold text-foreground">生成视频</span>
+                          <span className="font-mono text-2xs text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded-md">
+                            体验账号受限
+                          </span>
+                        </div>
+                        <p className="mt-0.5 text-2xs leading-relaxed text-muted-foreground">
+                          调用前沿 AI 视频生成大模型制作动画与短视频
+                        </p>
+                      </div>
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem
+                      onClick={() => onChangeCreationMode?.(creationMode === "video" ? "chat" : "video")}
+                      className={cn(
+                        "flex items-start gap-3 rounded-2xl p-2.5 cursor-pointer transition-colors active:scale-[0.99]",
+                        creationMode === "video"
+                          ? "bg-purple-500/10 border border-purple-500/30"
+                          : "hover:bg-surface-3 focus:bg-surface-3"
                       )}
                     >
-                      {webSearchMode === "auto" ? "自动" : webSearchMode === "on" ? "开启" : "关闭"}
-                    </span>
-                  </DropdownMenuItem>
-                )}
-
-                <DropdownMenuItem
-                  onClick={() => onChangeCreationMode?.(creationMode === "image" ? "chat" : "image")}
-                  className="flex items-center justify-between rounded-xl px-2.5 py-2 text-xs font-medium cursor-pointer"
-                >
-                  <div className="flex items-center gap-2.5 truncate">
-                    <Palette className="h-4 w-4 text-amber-500 shrink-0" />
-                    <span>生成图片</span>
-                  </div>
-                  {creationMode === "image" && <Check className="h-3.5 w-3.5 text-amber-500 shrink-0" />}
-                </DropdownMenuItem>
-
-                {isTrialMode ? (
-                  <DropdownMenuItem
-                    onClick={() => {
-                      toast.info("当前账号处于体验模式，暂不支持使用 AI 视频生成功能。如需开通，请联系管理员获取完整权限。");
-                    }}
-                    className="flex items-center justify-between rounded-xl px-2.5 py-2 text-xs font-medium opacity-50 cursor-not-allowed"
-                  >
-                    <div className="flex items-center gap-2.5 truncate">
-                      <Video className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <span>生成视频 (体验账号暂不可用)</span>
-                    </div>
-                  </DropdownMenuItem>
-                ) : (
-                  <DropdownMenuItem
-                    onClick={() => onChangeCreationMode?.(creationMode === "video" ? "chat" : "video")}
-                    className="flex items-center justify-between rounded-xl px-2.5 py-2 text-xs font-medium cursor-pointer"
-                  >
-                    <div className="flex items-center gap-2.5 truncate">
-                      <Video className="h-4 w-4 text-purple-500 shrink-0" />
-                      <span>生成视频</span>
-                    </div>
-                    {creationMode === "video" && <Check className="h-3.5 w-3.5 text-purple-500 shrink-0" />}
-                  </DropdownMenuItem>
-                )}
+                      <div className="h-8 w-8 rounded-xl bg-purple-500/15 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0 mt-0.5">
+                        <Video className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold text-foreground">生成视频</span>
+                          {creationMode === "video" && (
+                            <span className="flex items-center gap-1 font-mono text-2xs font-semibold text-purple-600 dark:text-purple-400">
+                              <Check className="h-3 w-3 stroke-[3]" /> 当前模式
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-0.5 text-2xs leading-relaxed text-muted-foreground">
+                          输入剧本文案，由 AI 视频大模型生成高清动效与视频
+                        </p>
+                      </div>
+                    </DropdownMenuItem>
+                  )}
+                </div>
               </DropdownMenuContent>
             </DropdownMenu>
             <Textarea

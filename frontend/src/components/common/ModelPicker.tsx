@@ -155,15 +155,14 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
   }, [options, search, filterKey, availableGroups]);
 
   /**
-   * 打开时清空搜索、把焦点交给搜索框，并把高亮对齐到当前选中项。
-   * 依赖刻意只写 [open]：options / value 变化不应在用户浏览列表时抢走焦点。
+   * 打开时清空搜索，并把高亮对齐到当前选中项。
+   * 不默认聚焦输入框，避免移动端/触屏设备打开弹窗时直接顶出软键盘。
+   * 用户需要搜索时手动点击输入框才会获得焦点并呼出键盘。
    */
   useEffect(() => {
     if (!open) return;
     setSearch("");
     setActiveIndex(visible.findIndex((o) => o.id === value));
-    const t = window.setTimeout(() => searchInputRef.current?.focus(), 0);
-    return () => window.clearTimeout(t);
   }, [open]);
 
   // 高亮项滚动进可视区，否则 ↑ 移到列表外时用户看不到自己在哪

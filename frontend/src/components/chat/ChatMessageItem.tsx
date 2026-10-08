@@ -14,7 +14,7 @@ import {
   stripAttachmentMarkup,
 } from "@/components/chat/markdown";
 import { messageEditingRef } from "@/lib/messageEditGuard";
-import { formatClock, formatDuration } from "@/lib/format";
+import { formatClock, formatDateTime, formatDuration } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
   AlertTriangle,
@@ -397,7 +397,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
               {msg.created_at && (
                 <MetaBadge
                   icon={Clock}
-                  value={formatClock(msg.created_at)}
+                  value={formatDateTime(msg.created_at)}
                   label="回复时间"
                 />
               )}

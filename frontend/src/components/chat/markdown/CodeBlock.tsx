@@ -167,7 +167,7 @@ export function SvgRenderer({ svgCode }: { svgCode: string }) {
         </div>
       ) : (
         <div className="overflow-x-auto bg-[#0d0d0d] p-4 font-mono text-footnote leading-[1.65] text-[#ececec]">
-          <code>{svgCode}</code>
+          <code className="block whitespace-pre font-mono">{svgCode}</code>
         </div>
       )}
     </div>
@@ -234,7 +234,7 @@ export function CodeBlock({ children, className }: any) {
         </div>
       </div>
       <div className="overflow-x-auto p-4 font-mono text-footnote leading-[1.65] text-[#ececec]">
-        <code>{children}</code>
+        <code className="block whitespace-pre font-mono">{children}</code>
       </div>
     </div>
   );

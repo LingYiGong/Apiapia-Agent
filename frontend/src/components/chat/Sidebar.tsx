@@ -23,7 +23,15 @@ import {
   GripVertical,
   Pencil,
   MessageSquare,
+  MoreHorizontal,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface SidebarProps {
   conversations: Conversation[];
@@ -206,10 +214,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
         </div>
 
-        {/* 右侧操作区：常驻可见，relative + z-10 确保盖住滚动条等 overlay */}
+        {/* 右侧操作区：三点菜单，仅在鼠标悬停当前行或菜单展开时显示 */}
         <div className="relative z-10 ml-1 flex shrink-0 items-center gap-0.5">
           {opts.showSortControls && (
-            <span className="flex shrink-0 items-center" onClick={(e) => e.stopPropagation()}>
+            <span
+              className="flex shrink-0 items-center opacity-0 transition-opacity group-hover:opacity-100"
+              onClick={(e) => e.stopPropagation()}
+            >
               <ActionTooltip label="上移" side="top">
                 <Button
                   type="button"
@@ -239,62 +250,69 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </span>
           )}
 
-          <ActionTooltip label={pinnedActive ? "取消置顶" : "置顶"} side="top">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={(e) => {
-                e.stopPropagation();
-                onTogglePin(c.id, !pinnedActive);
-              }}
-              className={cn(
-                "h-7 w-7 shrink-0 hover:text-primary",
-                pinnedActive ? "text-primary" : "opacity-60 hover:opacity-100"
-              )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={(e) => e.stopPropagation()}
+                aria-label="会话操作"
+                className="h-7 w-7 shrink-0 text-muted-foreground opacity-0 transition-opacity hover:bg-muted/60 hover:text-foreground group-hover:opacity-100 data-[state=open]:opacity-100"
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              sideOffset={4}
+              onClick={(e) => e.stopPropagation()}
+              className="w-36 rounded-xl border-border/60 bg-popover/95 p-1 shadow-lg backdrop-blur-md"
             >
-              {pinnedActive ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
-              <span className="sr-only">{pinnedActive ? "取消置顶" : "置顶"}</span>
-            </Button>
-          </ActionTooltip>
+              <DropdownMenuItem
+                onClick={() => onTogglePin(c.id, !pinnedActive)}
+                className="flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-foreground focus:bg-muted"
+              >
+                {pinnedActive ? (
+                  <>
+                    <PinOff className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span>取消置顶</span>
+                  </>
+                ) : (
+                  <>
+                    <Pin className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span>置顶会话</span>
+                  </>
+                )}
+              </DropdownMenuItem>
 
-          <ActionTooltip label="重命名对话" side="top">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={(e) => {
-                e.stopPropagation();
-                setRenamingId(c.id);
-              }}
-              className="h-7 w-7 shrink-0 opacity-60 hover:text-primary hover:opacity-100"
-            >
-              <Pencil className="h-4 w-4" />
-              <span className="sr-only">重命名对话</span>
-            </Button>
-          </ActionTooltip>
+              <DropdownMenuItem
+                onClick={() => setRenamingId(c.id)}
+                className="flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-foreground focus:bg-muted"
+              >
+                <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                <span>重命名</span>
+              </DropdownMenuItem>
 
-          <ActionTooltip label="删除对话" side="top">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={(e) => {
-                e.stopPropagation();
-                ask({
-                  title: "删除该历史会话",
-                  description: `确定要删除对话「${c.title || "新建对话"}」吗？删除后将无法恢复，该操作不可撤销。`,
-                  confirmText: "删除",
-                  danger: true,
-                  onConfirm: () => onDelete(c.id),
-                });
-              }}
-              className="h-7 w-7 shrink-0 opacity-60 hover:text-destructive hover:opacity-100"
-            >
-              <Trash2 className="h-4 w-4" />
-              <span className="sr-only">删除对话</span>
-            </Button>
-          </ActionTooltip>
+              <DropdownMenuSeparator className="my-1 opacity-60" />
+
+              <DropdownMenuItem
+                onClick={() =>
+                  ask({
+                    title: "删除该历史会话",
+                    description: `确定要删除对话「${c.title || "新建对话"}」吗？删除后将无法恢复，该操作不可撤销。`,
+                    confirmText: "删除",
+                    danger: true,
+                    onConfirm: () => onDelete(c.id),
+                  })
+                }
+                className="flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-destructive focus:bg-destructive/10 focus:text-destructive"
+              >
+                <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                <span>删除对话</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     );

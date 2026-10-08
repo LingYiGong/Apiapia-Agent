@@ -20,7 +20,7 @@ import { SegmentedControl, type SegmentedOption } from "@/components/common/Segm
  */
 
 /** 三档选项的唯一来源。ThemeToggle 与 ThemeSegments 共用。 */
-export const THEME_OPTIONS: readonly SegmentedOption<Theme>[] = [
+const THEME_OPTIONS: readonly SegmentedOption<Theme>[] = [
   { value: "system", label: "跟随系统", icon: Monitor },
   { value: "light", label: "浅色", icon: Sun, iconClassName: "text-amber-500" },
   { value: "dark", label: "深色", icon: Moon, iconClassName: "text-indigo-400" },

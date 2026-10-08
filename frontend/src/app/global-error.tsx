@@ -56,16 +56,40 @@ export default function GlobalError({
           justifyContent: "center",
           background: dark ? "#000000" : "#ffffff",
           color: dark ? "#ffffff" : "#000000",
-          fontFamily:
-            '-apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif',
+fontFamily:
+            /* 与 globals.css 的 --font-sans 同栈同序：拉丁字体在前、CJK 在后。
+               此前此处漏了 system-ui / Segoe UI，Windows 上 `-apple-system`
+               与 `BlinkMacSystemFont` 双双失效后，拉丁文字会直接落到
+               Microsoft YaHei。本文件刻意不引 globals.css（根布局崩溃时任何
+               可能再抛错的依赖都不能引入），只能内联抄一份 —— 因此修改
+               globals.css 的 --font-sans 时必须同步这里。 */
+            '-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "SF Pro", system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif',
           padding: "1.5rem",
         }}
       >
+        {/* 18px / 14px 对应 tailwind.config.ts 的 text-lg 与 text-sm；
+            letterSpacing 同步取 Apple SF Pro tracking 表对应值换算成的 em
+            （18pt -0.44px → -0.0244em，14pt -0.15px → -0.0107em）。 */}
         <div style={{ textAlign: "center", maxWidth: "24rem" }}>
-          <h1 style={{ fontSize: "1.125rem", fontWeight: 600, marginBottom: "0.5rem" }}>
+          <h1
+            style={{
+              fontSize: "1.125rem",
+              letterSpacing: "-0.0244em",
+              fontWeight: 600,
+              marginBottom: "0.5rem",
+            }}
+          >
             应用无法启动
           </h1>
-          <p style={{ fontSize: "0.875rem", lineHeight: 1.6, opacity: 0.7, marginBottom: "1.25rem" }}>
+          <p
+            style={{
+              fontSize: "0.875rem",
+              letterSpacing: "-0.0107em",
+              lineHeight: 1.6,
+              opacity: 0.7,
+              marginBottom: "1.25rem",
+            }}
+          >
             初始化时发生错误。可以尝试重新加载；若持续失败，请清除本站数据后重试。
           </p>
           <button
@@ -79,6 +103,7 @@ export default function GlobalError({
               color: "inherit",
               font: "inherit",
               fontSize: "0.875rem",
+              letterSpacing: "-0.0107em",
               cursor: "pointer",
             }}
           >

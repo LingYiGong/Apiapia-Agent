@@ -9,13 +9,9 @@ const config: Config = {
   ],
   prefix: "",
   theme: {
-    container: {
-      center: true,
-      padding: "2rem",
-      screens: {
-        "2xl": "1400px",
-      },
-    },
+    // 原先这里有 container 配置（center + 2rem padding + 2xl:1400px）。
+    // 全站 0 处使用 `container` 类 —— 布局宽度一律由各视图的
+    // `max-w-*` + `mx-auto` 自己控制，因此整段删除。
     extend: {
       colors: {
         border: "hsl(var(--border))",
@@ -26,16 +22,10 @@ const config: Config = {
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
-          50: "#eef2ff",
-          100: "#e0e7ff",
-          200: "#c7d2fe",
-          300: "#a5b4fc",
-          400: "#818cf8",
-          500: "#6366f1",
-          600: "#4f46e5",
-          700: "#4338ca",
-          800: "#3730a3",
-          900: "#312e81",
+          // 原先这里还有一整套 50..900 的 indigo 阶梯（shadcn 样板）。
+          // 全站 0 处引用 —— 实际用的是 Tailwind 内置的 `indigo-*` 原始色板
+          // （如 text-indigo-600），所以这 10 个自定义档位既没被用到，
+          // 又和内层色板同名易混，整段删除。
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
@@ -139,22 +129,14 @@ const config: Config = {
         "4xl": ["34px", { lineHeight: "41px", letterSpacing: "0.4px" }], //     Large Title
       },
       keyframes: {
-        "accordion-down": {
-          from: { height: "0" },
-          to: { height: "var(--radix-accordion-content-height)" },
-        },
-        "accordion-up": {
-          from: { height: "var(--radix-accordion-content-height)" },
-          to: { height: "0" },
-        },
         shimmer: {
           "0%": { backgroundPosition: "-200% 0" },
           "100%": { backgroundPosition: "200% 0" },
         },
       },
       animation: {
-        "accordion-down": "accordion-down 0.2s ease-out",
-        "accordion-up": "accordion-up 0.2s ease-out",
+        // accordion-down / accordion-up 此前在此定义，但 `@tailwindcss/accordion`
+        // 并未安装，全站 0 处引用 `animate-accordion-*` —— 已删。
         shimmer: "shimmer 1.5s infinite linear",
       },
     },

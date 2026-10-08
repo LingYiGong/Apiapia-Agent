@@ -21,7 +21,7 @@ export interface UserAvatarProps {
 }
 
 /** 取首字符并大写。中文取第一个字，英文取第一个字母。 */
-export function initialOf(username?: string): string {
+function initialOf(username?: string): string {
   return (username || "?").trim().slice(0, 1).toUpperCase();
 }
 

@@ -72,7 +72,7 @@ export function SaveStatus({
   );
 }
 
-export function SaveButton({
+function SaveButton({
   state,
   onSave,
   size = "sm",

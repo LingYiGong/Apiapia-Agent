@@ -85,7 +85,7 @@ export function MemoryCard({
             "min-w-0 flex-1 whitespace-pre-wrap break-words font-normal leading-relaxed text-foreground/90 select-text",
             // 正文在窄栏与宽列表之间差 2px，这个差异是有意的；
             // 但行高、字重、颜色、换行策略必须一致，否则两边观感会分叉。
-            isWide ? "text-subhead" : "text-footnote"
+            isWide ? "text-subhead sm:text-base" : "text-footnote"
           )}
         >
           {text}

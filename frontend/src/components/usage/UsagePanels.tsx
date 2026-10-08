@@ -236,7 +236,7 @@ export function ModelBreakdown({
 
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="truncate text-xs font-semibold text-foreground">
+                      <span className="truncate text-xs font-semibold text-foreground sm:text-footnote">
                         {m.model}
                       </span>
                       {m.is_free && <FreeBadge />}

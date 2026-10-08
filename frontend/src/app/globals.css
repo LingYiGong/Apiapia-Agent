@@ -160,17 +160,15 @@
 
 /* Apple HIG iOS Layout Utilities
    ------------------------------------------------------------------
-   排版类此前在这里和 tailwind.config.ts 的 fontSize 里各写了一份，而全站
-   0 处引用；真正在用的 `text-[11px]` 之类任意值现已全部收敛为刻度类
-   （见 tailwind.config.ts fontSize 的 Apple 校准表）。
-   这里只剩触控目标尺寸这一条。 */
-@layer utilities {
-  /* Apple HIG Standard Touch Target: minimum 44pt x 44pt */
-  .apple-touch-target {
-    min-height: 44px;
-    min-width: 44px;
-  }
-}
+   这里此前有两块内容：
+   1. `.apple-*` 排版类 —— 从未被引用（全站 0 处），已删；字号改由
+      tailwind.config.ts 的 Apple 校准刻度统一治理。
+   2. `.apple-touch-target`（min 44×44）—— 同样 0 处引用，已删。
+      触控目标尺寸目前是靠各组件的 `h-9` / `h-10` / `size-11` 等刻度
+      手工保证的，没有统一工具类。若将来要收敛，应先落地使用方再补类，
+      而不是留一个从不生效的声明。
+   若日后确需工具类，注意 @layer utilities 内的规则必须真正被引用，
+   否则它和不存在等价。 */
 
 /* Clean root height & lock window-level scroll to prevent iOS upward shift.
    h-dvh / min-h-dvh 由 Tailwind 3.4 自带，此处不再重复定义。 */

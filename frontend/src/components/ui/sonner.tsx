@@ -27,9 +27,15 @@ const Toaster = ({ ...props }: ToasterProps) => {
       offset={TOASTER_TOP_OFFSET}
       toastOptions={{
         classNames: {
+          /* 字号必须显式声明。此前这里只给了颜色，Toast 全部继承 body 的
+             16px 且拿不到 tailwind.config.ts fontSize 刻度里的 Apple
+             tracking（Sonner 渲染进 body 下的 portal）。改用刻度类后
+             toast=14px / description=12px，符合 shadcn 惯例，也落在
+             Apple Footnote 13pt 与 Caption 1 12pt 附近。 */
           toast:
-            "group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg",
-          description: "group-[.toast]:text-muted-foreground",
+            "group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg group-[.toaster]:text-sm",
+          description:
+            "group-[.toast]:text-muted-foreground group-[.toast]:text-xs",
           actionButton:
             "group-[.toast]:bg-primary group-[.toast]:text-primary-foreground",
           cancelButton:

@@ -67,7 +67,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh-CN" suppressHydrationWarning className="h-full">
-      <body className="h-full bg-background font-sans text-foreground antialiased">
+      <body className="h-full bg-background font-sans text-base text-foreground antialiased">
         <ThemeProvider>
           <AuthProvider>
             {/* 全应用共用一个 TooltipProvider，鼠标横扫一排图标按钮时

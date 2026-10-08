@@ -298,7 +298,7 @@ export const SwipeableConversationCard = ({
             >
               <span
                 className={cn(
-                  "truncate text-subhead font-medium leading-snug",
+                  "truncate text-base font-medium leading-snug sm:text-body",
                   isSelected ? "font-semibold text-primary" : "text-foreground"
                 )}
               >

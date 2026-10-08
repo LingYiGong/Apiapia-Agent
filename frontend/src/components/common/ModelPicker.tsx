@@ -247,7 +247,7 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
             )}
             <span
               className={cn(
-                "truncate text-footnote",
+                "truncate text-footnote sm:text-sm",
                 !isCompact && "font-medium",
                 selectedOption || value ? "text-foreground" : "text-muted-foreground",
                 isRawIdFallback && "font-mono"

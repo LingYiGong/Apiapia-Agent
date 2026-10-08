@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
  * 这里补上 roving tabindex + 方向键，与原生 radio group 行为一致。
  */
 
-export const SYSTEM_PROMPT_PRESETS = [
+const SYSTEM_PROMPT_PRESETS = [
   {
     id: "default",
     label: "默认助手",
@@ -153,7 +153,7 @@ export function PersonaPicker({
                   {isActive && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />}
                 </div>
                 <span className="block text-footnote font-medium text-foreground">{preset.label}</span>
-                <span className="mt-0.5 line-clamp-1 text-2xs leading-snug text-muted-foreground">
+                <span className="mt-0.5 line-clamp-1 text-xs leading-snug text-muted-foreground">
                   {preset.desc}
                 </span>
               </button>
@@ -183,7 +183,7 @@ export function PersonaPicker({
   );
 }
 
-export const TEMPERATURE_PRESETS = [
+const TEMPERATURE_PRESETS = [
   { id: "precise", label: "严谨精确", value: 0.2, icon: Target },
   { id: "balanced", label: "日常平衡", value: 0.7, icon: Scale },
   { id: "creative", label: "发散创意", value: 1.0, icon: Palette },

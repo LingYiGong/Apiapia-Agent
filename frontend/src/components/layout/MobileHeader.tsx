@@ -82,7 +82,7 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
         </button>
 
         {title ? (
-          <h1 className="min-w-0 flex-1 truncate text-center text-[17px] font-semibold tracking-tight text-foreground">
+          <h1 className="min-w-0 flex-1 truncate text-center text-body font-semibold text-foreground">
             {title}
           </h1>
         ) : (

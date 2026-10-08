@@ -86,7 +86,7 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({
         align="end"
         className="w-36 rounded-2xl border border-border/60 bg-background/90 p-1 shadow-xl backdrop-blur-2xl"
       >
-        <DropdownMenuLabel className="px-2 py-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+        <DropdownMenuLabel className="px-2 py-1 text-2xs font-medium uppercase tracking-wider text-muted-foreground">
           界面外观
         </DropdownMenuLabel>
         <DropdownMenuSeparator className="my-1 opacity-60" />

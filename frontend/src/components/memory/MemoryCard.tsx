@@ -85,7 +85,7 @@ export function MemoryCard({
             "min-w-0 flex-1 whitespace-pre-wrap break-words font-normal leading-relaxed text-foreground/90 select-text",
             // 正文在窄栏与宽列表之间差 2px，这个差异是有意的；
             // 但行高、字重、颜色、换行策略必须一致，否则两边观感会分叉。
-            isWide ? "text-[15px]" : "text-[13px]"
+            isWide ? "text-subhead" : "text-footnote"
           )}
         >
           {text}
@@ -105,7 +105,7 @@ export function MemoryCard({
          */
         <div
           className={cn(
-            "flex flex-wrap items-center gap-1.5 border-t border-border/40 pt-2 text-[11px] text-muted-foreground/70",
+            "flex flex-wrap items-center gap-1.5 border-t border-border/40 pt-2 text-2xs text-muted-foreground/70",
             icon && "pl-11"
           )}
         >
@@ -116,7 +116,7 @@ export function MemoryCard({
             </span>
           )}
           {badge && (
-            <span className="shrink-0 select-none rounded-md bg-surface-3/60 px-1.5 py-0.5 font-normal text-[10px] text-muted-foreground/80">
+            <span className="shrink-0 select-none rounded-md bg-surface-3/60 px-1.5 py-0.5 font-normal text-2xs text-muted-foreground/80">
               {badge}
             </span>
           )}

@@ -81,7 +81,7 @@ export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
       aria-label={`${user.username} 的账户菜单`}
       className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-border/80 bg-muted/60 p-1 pr-2 text-xs font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring sm:gap-2 sm:pr-2.5"
     >
-      <UserAvatar username={user.username} className="h-6 w-6" textClassName="text-[10px]" />
+      <UserAvatar username={user.username} className="h-6 w-6" textClassName="text-2xs" />
       <span className="max-w-[80px] truncate font-medium sm:max-w-[120px]">
         {user.username}
       </span>
@@ -93,7 +93,7 @@ export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
       aria-label={`${user.username} 的账户菜单`}
       className="flex h-8 w-8 shrink-0 cursor-pointer select-none items-center justify-center rounded-full border border-border/70 bg-muted/40 shadow-2xs transition-all hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 active:scale-95"
     >
-      <UserAvatar username={user.username} className="h-7 w-7" textClassName="text-[11px]" />
+      <UserAvatar username={user.username} className="h-7 w-7" textClassName="text-2xs" />
     </button>
   );
 
@@ -113,11 +113,11 @@ export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
             username={user.username}
             gradient
             className="h-10 w-10 shrink-0 border border-primary/20 shadow-xs"
-            textClassName="text-[14px]"
+            textClassName="text-sm"
           />
           <div className="flex min-w-0 flex-1 flex-col">
             <div className="flex items-center justify-between gap-1.5">
-              <span className="truncate text-[14px] font-semibold tracking-tight text-foreground">
+              <span className="truncate text-sm font-semibold text-foreground">
                 {user.username}
               </span>
               {user.is_superuser ? (
@@ -126,7 +126,7 @@ export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
                 <StandardUserBadge size="sm" />
               )}
             </div>
-            <span className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">
+            <span className="mt-0.5 truncate font-mono text-2xs text-muted-foreground">
               {user.is_superuser ? "超级管理员权限已就绪" : "已登录标准用户"}
             </span>
           </div>
@@ -144,7 +144,7 @@ export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
           <>
             <div className="px-2 py-1.5">
               <div className="mb-1.5 flex items-center justify-between">
-                <span className="font-mono text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <span className="font-mono text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
                   外观风格
                 </span>
               </div>
@@ -172,7 +172,7 @@ export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
             const label = (
               <span
                 className={cn(
-                  "truncate text-[13px] font-medium text-foreground",
+                  "truncate text-footnote font-medium text-foreground",
                   active && "font-semibold"
                 )}
               >
@@ -223,7 +223,7 @@ export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
         {/* 4. 退出登录 */}
         <DropdownMenuItem
           onClick={logout}
-          className="flex w-full cursor-pointer items-center gap-2.5 rounded-xl px-2.5 py-2 text-[13px] font-medium text-destructive transition-all hover:bg-destructive/10 focus:bg-destructive/10 active:scale-[0.98] dark:text-destructive"
+          className="flex w-full cursor-pointer items-center gap-2.5 rounded-xl px-2.5 py-2 text-footnote font-medium text-destructive transition-all hover:bg-destructive/10 focus:bg-destructive/10 active:scale-[0.98] dark:text-destructive"
         >
           <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
             <LogOut className="h-3.5 w-3.5" />

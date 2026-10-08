@@ -76,7 +76,7 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
             Apiapia 助理
           </span>
           {subtitle && (
-            <span className="text-[11px] text-muted-foreground truncate">
+            <span className="text-2xs text-muted-foreground truncate">
               {subtitle}
             </span>
           )}

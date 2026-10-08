@@ -121,7 +121,7 @@ export function SvgRenderer({ svgCode }: { svgCode: string }) {
           <span>SVG 矢量画作</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="flex rounded-lg border border-border/60 bg-background/80 p-0.5 text-[11px]">
+          <div className="flex rounded-lg border border-border/60 bg-background/80 p-0.5 text-2xs">
             {modeButton("preview", "预览图形")}
             {modeButton("code", "查看代码")}
           </div>
@@ -130,7 +130,7 @@ export function SvgRenderer({ svgCode }: { svgCode: string }) {
             variant="ghost"
             size="sm"
             onClick={() => copy(svgCode)}
-            className="h-7 gap-1 rounded-lg px-2 text-[11px] text-muted-foreground hover:bg-surface-3 hover:text-foreground"
+            className="h-7 gap-1 rounded-lg px-2 text-2xs text-muted-foreground hover:bg-surface-3 hover:text-foreground"
           >
             {copied ? (
               <Check className="h-3 w-3 text-emerald-500" />
@@ -144,7 +144,7 @@ export function SvgRenderer({ svgCode }: { svgCode: string }) {
             variant="ghost"
             size="sm"
             onClick={() => downloadTextFile(`vector-artwork-${Date.now()}.svg`, svgCode, "image/svg+xml;charset=utf-8")}
-            className="h-7 gap-1 rounded-lg bg-primary/10 px-2 text-[11px] font-medium text-primary transition-colors hover:bg-primary/20"
+            className="h-7 gap-1 rounded-lg bg-primary/10 px-2 text-2xs font-medium text-primary transition-colors hover:bg-primary/20"
           >
             <Download className="h-3 w-3" />
             <span>下载 SVG</span>
@@ -166,7 +166,7 @@ export function SvgRenderer({ svgCode }: { svgCode: string }) {
           />
         </div>
       ) : (
-        <div className="overflow-x-auto bg-[#0d0d0d] p-4 font-mono text-[13px] leading-[1.65] text-[#ececec]">
+        <div className="overflow-x-auto bg-[#0d0d0d] p-4 font-mono text-footnote leading-[1.65] text-[#ececec]">
           <code>{svgCode}</code>
         </div>
       )}
@@ -192,13 +192,13 @@ export function CodeBlock({ children, className }: any) {
   return (
     <div className="my-3.5 overflow-hidden rounded-2xl border border-border/70 bg-[#0d0d0d] shadow-xs">
       <div className="flex items-center justify-between border-b border-white/5 bg-[#1f1f23] px-4 py-2 text-xs text-muted-foreground select-none">
-        <span className="font-mono text-[11px] font-medium uppercase tracking-wide text-slate-300">
+        <span className="font-mono text-2xs font-medium uppercase tracking-wide text-slate-300">
           {lang || "code"}
         </span>
         <button
           type="button"
           onClick={() => copy(codeText)}
-          className="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-medium text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
+          className="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-2xs font-medium text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
         >
           {copied ? (
             <Check className="h-3.5 w-3.5 text-emerald-400" />
@@ -208,7 +208,7 @@ export function CodeBlock({ children, className }: any) {
           <span>{copied ? "已复制" : "复制代码"}</span>
         </button>
       </div>
-      <div className="overflow-x-auto p-4 font-mono text-[13.5px] leading-[1.65] text-[#ececec]">
+      <div className="overflow-x-auto p-4 font-mono text-footnote leading-[1.65] text-[#ececec]">
         <code>{children}</code>
       </div>
     </div>

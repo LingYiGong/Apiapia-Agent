@@ -115,7 +115,7 @@ export function SegmentedControl<T extends string>({
             className={cn(
               "inline-flex items-center justify-center gap-1.5 rounded-lg font-medium transition-all",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-surface-3",
-              isSm ? "h-6 px-2.5 text-[11px]" : "h-7 px-3 text-xs",
+              isSm ? "h-6 px-2.5 text-2xs" : "h-7 px-3 text-xs",
               active
                 ? opt.activeClassName ??
                   "bg-background text-foreground font-semibold shadow-2xs"

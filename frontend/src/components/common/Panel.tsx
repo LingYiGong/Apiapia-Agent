@@ -65,7 +65,7 @@ export function SectionLabel({
   return (
     <div
       className={cn(
-        "px-1 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground select-none",
+        "px-1 pb-1.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground select-none",
         className
       )}
       {...props}
@@ -115,7 +115,7 @@ export function SectionHeader({
           </div>
         )}
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold tracking-tight text-foreground truncate">
+          <h2 className="text-sm font-semibold text-foreground truncate">
             {title}
           </h2>
           {description && <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>}

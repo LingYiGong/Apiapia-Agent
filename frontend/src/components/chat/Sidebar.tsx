@@ -135,7 +135,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         }}
         onClick={() => onSelect(c.id)}
         className={cn(
-          "group flex items-center gap-1 rounded-xl border px-2.5 py-2 text-[13px] tracking-[-0.01em] transition-colors",
+          "group flex items-center gap-1 rounded-xl border px-2.5 py-2 text-footnote transition-colors",
           isSelected
             ? "border-border/70 bg-card text-foreground shadow-xs dark:bg-surface-3"
             : "border-transparent text-muted-foreground hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10",
@@ -172,7 +172,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 if (e.key === "Escape") setRenamingId(null);
               }}
               aria-label="重命名对话"
-              className="w-full border-b border-primary/50 bg-transparent px-0 py-0.5 text-[13px] text-foreground outline-none"
+              className="w-full border-b border-primary/50 bg-transparent px-0 py-0.5 text-footnote text-foreground outline-none"
             />
           ) : (
             <button
@@ -190,7 +190,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
           )}
           {timeDisplay && (
-            <span className="mt-0.5 truncate font-mono text-[11px] tracking-tight text-muted-foreground select-none">
+            <span className="mt-0.5 truncate font-mono text-2xs text-muted-foreground select-none">
               {timeDisplay}
             </span>
           )}
@@ -346,7 +346,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <>
                     {pinned.length > 0 && (
                       <div className="space-y-1">
-                        <div className="px-3 pb-0.5 pt-1 text-[10px] font-semibold tracking-wider text-muted-foreground select-none">
+                        <div className="px-3 pb-0.5 pt-1 text-2xs font-semibold tracking-wider text-muted-foreground select-none">
                           置顶（{pinned.length}，可拖拽排序）
                         </div>
                         {pinned.map((c, idx) =>
@@ -357,7 +357,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           })
                         )}
                         {unpinned.length > 0 && (
-                          <div className="mt-2 border-t border-border/60 px-3 pb-0.5 pt-2 text-[10px] font-semibold tracking-wider text-muted-foreground select-none">
+                          <div className="mt-2 border-t border-border/60 px-3 pb-0.5 pt-2 text-2xs font-semibold tracking-wider text-muted-foreground select-none">
                             全部对话
                           </div>
                         )}

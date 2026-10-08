@@ -364,9 +364,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           两者由断点互斥，不再同屏出现两套保存按钮。 */}
       <div className="hidden items-center justify-between gap-4 border-b border-border/40 pb-4 md:flex">
         <div className="flex items-center gap-2.5">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">偏好设置</h1>
+          <h1 className="text-2xl font-semibold text-foreground">偏好设置</h1>
           {user.is_superuser && (
-            <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-600 shadow-none dark:text-amber-400">
+            <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-2xs font-medium text-amber-600 shadow-none dark:text-amber-400">
               管理员
             </span>
           )}
@@ -396,12 +396,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <SectionLabel className="pb-0">默认模型设置</SectionLabel>
               <div className="flex items-center gap-2">
                 {isTrialMode && (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium normal-case tracking-normal text-emerald-600 dark:text-emerald-400">
+                  <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-2xs font-medium normal-case tracking-normal text-emerald-600 dark:text-emerald-400">
                     <Zap className="h-2.5 w-2.5" />
                     体验模式 · 仅免费
                   </span>
                 )}
-                <span className="font-mono text-[11px] font-normal normal-case tracking-normal text-muted-foreground">
+                <span className="font-mono text-2xs font-normal normal-case tracking-normal text-muted-foreground">
                   {availableModels.length} 语言 · {imageModels.length} 绘图
                 </span>
               </div>
@@ -413,7 +413,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-primary/25 bg-primary/10 text-primary">
                   <Brain className="h-3.5 w-3.5" />
                 </span>
-                <span className="text-[12px] font-semibold tracking-tight text-foreground">
+                <span className="text-xs font-semibold text-foreground">
                   语言模型
                 </span>
                 <SyncModelsButton
@@ -451,7 +451,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-violet-500/25 bg-violet-500/10 text-violet-600 dark:text-violet-400">
                     <Palette className="h-3.5 w-3.5" />
                   </span>
-                  <span className="text-[12px] font-semibold tracking-tight text-foreground">
+                  <span className="text-xs font-semibold text-foreground">
                     绘图模型
                   </span>
                   <SyncModelsButton
@@ -505,7 +505,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <div className="flex items-center justify-between gap-4 p-3.5 sm:p-4">
                 <Label
                   htmlFor="memory-switch"
-                  className="cursor-pointer text-[14px] font-medium tracking-tight text-foreground"
+                  className="cursor-pointer text-sm font-medium text-foreground"
                 >
                   自动提取与上下文检索
                 </Label>
@@ -522,7 +522,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <div className="space-y-2.5 bg-surface-3/20 p-3.5 sm:p-4">
                   <Label
                     htmlFor="memory-model-select"
-                    className="text-[12px] font-medium text-muted-foreground"
+                    className="text-xs font-medium text-muted-foreground"
                   >
                     提取模型 (Memory LLM)
                   </Label>
@@ -579,8 +579,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <div className="flex items-center gap-3">
                   <BrandLogo size={36} className="shadow-2xs" />
                   <div className="flex items-center gap-2">
-                    <span className="text-[14px] font-semibold text-foreground">Apiapia</span>
-                    <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 font-mono text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                    <span className="text-sm font-semibold text-foreground">Apiapia</span>
+                    <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 font-mono text-2xs font-medium text-emerald-600 dark:text-emerald-400">
                       v{CURRENT_VERSION}
                     </span>
                   </div>
@@ -591,7 +591,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   variant="outline"
                   size="sm"
                   onClick={triggerManualUpdateCheck}
-                  className="h-7 shrink-0 cursor-pointer gap-1.5 rounded-full border-border/50 bg-surface-3/30 px-3 text-[12px] font-medium text-foreground transition-colors hover:bg-surface-3 active:scale-95"
+                  className="h-7 shrink-0 cursor-pointer gap-1.5 rounded-full border-border/50 bg-surface-3/30 px-3 text-xs font-medium text-foreground transition-colors hover:bg-surface-3 active:scale-95"
                 >
                   <RefreshCw className="h-3 w-3" />
                   <span>检查更新</span>
@@ -606,13 +606,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 ].map(([label, value]) => (
                   <div
                     key={label}
-                    className="flex items-center justify-between px-4 py-2.5 text-[13px] sm:px-5"
+                    className="flex items-center justify-between px-4 py-2.5 text-footnote sm:px-5"
                   >
                     <dt className="text-muted-foreground">{label}</dt>
                     <dd className="font-medium text-foreground">{value}</dd>
                   </div>
                 ))}
-                <div className="flex items-center justify-between px-4 py-2.5 text-[13px] sm:px-5">
+                <div className="flex items-center justify-between px-4 py-2.5 text-footnote sm:px-5">
                   <dt className="text-muted-foreground">更新策略</dt>
                   <dd className="flex items-center gap-1.5 font-medium text-emerald-600 dark:text-emerald-400">
                     <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />

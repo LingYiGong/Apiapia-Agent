@@ -36,7 +36,7 @@ export function StatCard({
   return (
     <Panel interactive className="space-y-3 p-4 sm:p-5">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[12px] font-medium tracking-tight text-muted-foreground">
+        <span className="text-xs font-medium text-muted-foreground">
           {label}
         </span>
         <div
@@ -51,7 +51,7 @@ export function StatCard({
       <div>
         <div
           className={cn(
-            "text-2xl font-semibold tabular-nums tracking-tight text-foreground sm:text-3xl",
+            "text-2xl font-semibold tabular-nums text-foreground sm:text-3xl",
             truncateValue && "truncate"
           )}
         >
@@ -64,7 +64,7 @@ export function StatCard({
       {footer && (
         <div
           className={cn(
-            "flex items-center gap-1.5 truncate border-t border-border/30 pt-2 font-mono text-[11px] text-muted-foreground/90",
+            "flex items-center gap-1.5 truncate border-t border-border/30 pt-2 font-mono text-2xs text-muted-foreground/90",
             footerClassName
           )}
         >
@@ -78,7 +78,7 @@ export function StatCard({
 /** 「xx 正常」之类的绿点状态条。 */
 export function LiveDotStat({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-1.5 border-t border-border/30 pt-2 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+    <div className="flex items-center gap-1.5 border-t border-border/30 pt-2 text-2xs font-medium text-emerald-600 dark:text-emerald-400">
       <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
       <span className="truncate">{children}</span>
     </div>
@@ -96,7 +96,7 @@ export function StatusPill({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[11px] font-medium",
+        "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-2xs font-medium",
         tone === "success"
           ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
           : "border-destructive/20 bg-destructive/10 text-destructive"
@@ -116,7 +116,7 @@ export function StatusPill({
 /** 「免费」徽章。表格与列表里多处复用。 */
 export function FreeBadge() {
   return (
-    <span className="shrink-0 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0 text-[9px] font-medium text-emerald-600 shadow-none dark:text-emerald-400">
+    <span className="shrink-0 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0 text-2xs font-medium text-emerald-600 shadow-none dark:text-emerald-400">
       免费
     </span>
   );
@@ -153,7 +153,7 @@ export function CostValue({
       >
         ¥{cny.toFixed(2)}
       </span>
-      <span className="block font-mono text-[10px] text-muted-foreground">
+      <span className="block font-mono text-2xs text-muted-foreground">
         ${usd.toFixed(4)}
       </span>
     </div>

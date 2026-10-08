@@ -487,7 +487,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         {/* Current Streaming Message (ChatGPT style seamless container) */}
         {isStreaming && (
           <div className="max-w-3xl w-full mx-auto">
-            <div className="w-full bg-transparent border-0 shadow-none px-0 py-0.5 text-foreground leading-[1.75] text-[15px] sm:text-base min-w-0 break-words [overflow-wrap:anywhere]">
+            <div className="w-full bg-transparent border-0 shadow-none px-0 py-0.5 text-foreground leading-[1.75] text-subhead sm:text-base min-w-0 break-words [overflow-wrap:anywhere]">
               {isWaitingForFirstToken || !streamingContent ? (
                 /* Stage 1: Waiting / Thinking Live Indicator */
                 <div className="py-1">
@@ -498,7 +498,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                       {streamStartedAt && (
                         <ElapsedSeconds
                           startedAt={streamStartedAt}
-                          className="font-mono text-[10px] opacity-70"
+                          className="font-mono text-2xs opacity-70"
                         />
                       )}
                     </div>
@@ -509,7 +509,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                       {streamStartedAt && (
                         <ElapsedSeconds
                           startedAt={streamStartedAt}
-                          className="font-mono text-[10px] opacity-70"
+                          className="font-mono text-2xs opacity-70"
                         />
                       )}
                     </div>
@@ -533,7 +533,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                     <span className="ml-1.5 inline-block h-[18px] w-2 translate-y-0.5 animate-pulse rounded-xs bg-primary/80" />
                   </div>
 
-                  <div className="mt-3 flex items-center justify-between gap-1.5 border-t border-border/40 pt-2 font-mono text-[11px] text-muted-foreground opacity-60">
+                  <div className="mt-3 flex items-center justify-between gap-1.5 border-t border-border/40 pt-2 font-mono text-2xs text-muted-foreground opacity-60">
                     <div className="flex items-center gap-1.5">
                       <Cpu className="h-3 w-3 animate-spin text-primary" />
                       <span>{currentModel}</span>
@@ -615,7 +615,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                     <p className="text-xs font-medium truncate" title={att.name}>
                       {att.name}
                     </p>
-                    <p className="text-[10px] text-muted-foreground font-mono">
+                    <p className="text-2xs text-muted-foreground font-mono">
                       {formatFileSize(att.size)}
                     </p>
                   </div>
@@ -702,7 +702,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                         : "text-muted-foreground"
                     )}
                   />
-                  <span className="hidden sm:inline font-mono text-[11px]">
+                  <span className="hidden sm:inline font-mono text-2xs">
                     {webSearchMode === "auto" ? "联网:自动" : webSearchMode === "on" ? "联网:开启" : "联网:关闭"}
                   </span>
                 </Button>
@@ -719,7 +719,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               // 此前输入框既无 <label> 也无 aria-label，屏幕阅读器只会念出
               // placeholder，且 placeholder 一输入就消失。
               aria-label="向 Apiapia 发送消息"
-              className="border-0 bg-transparent shadow-none focus-visible:ring-0 px-2.5 sm:px-3 py-2 text-[16px] sm:text-[15px] tracking-[-0.011em] max-h-32 sm:max-h-44 leading-relaxed resize-none min-h-[36px]"
+              className="border-0 bg-transparent shadow-none focus-visible:ring-0 px-2.5 sm:px-3 py-2 text-base sm:text-body max-h-32 sm:max-h-44 leading-relaxed resize-none min-h-[36px]"
             />
             {isStreaming ? (
               <ActionTooltip label="停止生成" side="top">
@@ -796,7 +796,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               </div>
 
               {/* Bottom hint */}
-              <p className="text-[11px] text-white/50 mt-2 select-none">
+              <p className="text-2xs text-white/50 mt-2 select-none">
                 按 Esc 或点击遮罩空白区域关闭
               </p>
             </>

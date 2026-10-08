@@ -86,7 +86,7 @@ export function AiImageCard({
         <div className="flex items-center gap-1.5">
           <Badge
             variant="secondary"
-            className="h-[18px] px-1.5 py-0 font-mono text-[10px] font-normal"
+            className="h-[18px] px-1.5 py-0 font-mono text-2xs font-normal"
           >
             {image.provider} · {image.model}
           </Badge>
@@ -95,7 +95,7 @@ export function AiImageCard({
             variant="ghost"
             size="sm"
             onClick={handleDownload}
-            className="h-7 gap-1 rounded-lg bg-primary/10 px-2 text-[11px] font-medium text-primary transition-colors hover:bg-primary/20"
+            className="h-7 gap-1 rounded-lg bg-primary/10 px-2 text-2xs font-medium text-primary transition-colors hover:bg-primary/20"
           >
             <Download className="h-3 w-3" />
             <span>下载</span>
@@ -150,7 +150,7 @@ export function AiImageCard({
       </div>
 
       <div
-        className="truncate border-t border-border/40 px-3.5 py-2 text-[12px] text-muted-foreground"
+        className="truncate border-t border-border/40 px-3.5 py-2 text-xs text-muted-foreground"
         title={image.prompt}
       >
         💡 {image.prompt}

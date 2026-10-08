@@ -57,7 +57,7 @@ export function DocChip({ name, size }: { name: string; /** 字节数。省略�
     >
       <FileText className="h-4 w-4 shrink-0 text-indigo-200" />
       <span className="truncate font-medium">{name}</span>
-      {size ? <span className="font-mono text-[10px] text-indigo-200">{formatFileSize(size)}</span> : null}
+      {size ? <span className="font-mono text-2xs text-indigo-200">{formatFileSize(size)}</span> : null}
     </span>
   );
 }

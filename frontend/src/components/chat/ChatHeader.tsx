@@ -80,7 +80,7 @@ export const MobileChatHeader: React.FC<MobileChatHeaderProps> = ({
                 className="h-8 shrink-0 cursor-pointer gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 text-xs font-medium text-primary transition-colors hover:bg-primary/15 active:scale-95"
               >
                 <Brain className="h-4 w-4 shrink-0 text-primary" />
-                <span className="font-mono text-[11px] font-semibold">{memoriesCount}</span>
+                <span className="font-mono text-2xs font-semibold">{memoriesCount}</span>
                 <span className="sr-only">条关联记忆，点击查看</span>
               </Button>
             </ActionTooltip>

@@ -75,12 +75,12 @@ function CopyButton({
         {isCopied ? (
           <>
             <Check className="h-3.5 w-3.5 text-emerald-500" />
-            <span className="text-[11px] font-medium text-emerald-500">已复制</span>
+            <span className="text-2xs font-medium text-emerald-500">已复制</span>
           </>
         ) : (
           <>
             <Copy className="h-3.5 w-3.5" />
-            <span className="text-[11px]">复制</span>
+            <span className="text-2xs">复制</span>
           </>
         )}
       </Button>
@@ -194,7 +194,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
             }}
             rows={3}
             aria-label="编辑这条提问"
-            className="w-full resize-none rounded-2xl border border-primary/40 bg-background px-4 py-3 text-[15px] leading-relaxed focus:outline-none focus:ring-2 focus:ring-primary/30"
+            className="w-full resize-none rounded-2xl border border-primary/40 bg-background px-4 py-3 text-subhead leading-relaxed focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
           <div className="flex items-center justify-end gap-2">
             <Button
@@ -202,7 +202,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
               variant="ghost"
               size="sm"
               onClick={() => setEditing(false)}
-              className="h-7 rounded-lg px-2.5 text-[11px]"
+              className="h-7 rounded-lg px-2.5 text-2xs"
             >
               取消
             </Button>
@@ -211,7 +211,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
               variant="default"
               size="sm"
               onClick={commitEdit}
-              className="h-7 rounded-lg px-2.5 text-[11px]"
+              className="h-7 rounded-lg px-2.5 text-2xs"
             >
               发送
             </Button>
@@ -276,7 +276,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
           className={cn(
             "min-w-0 max-w-full break-words [overflow-wrap:anywhere]",
             isUser
-              ? "rounded-[24px] bg-[#f4f4f4] px-5 py-3 text-[15px] leading-relaxed text-foreground shadow-2xs dark:bg-surface-3"
+              ? "rounded-[24px] bg-[#f4f4f4] px-5 py-3 text-subhead leading-relaxed text-foreground shadow-2xs dark:bg-surface-3"
               : isErrorMsg
               ? "w-full rounded-2xl border border-destructive/30 bg-destructive/5 p-3.5 shadow-sm"
               : "w-full border-0 bg-transparent px-0 py-0.5 text-foreground leading-[1.75] shadow-none"
@@ -324,12 +324,12 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                               : `调用工具: ${tool.toolName}`}
                           </span>
                         </div>
-                        <span className="font-mono text-[10px] text-muted-foreground">
+                        <span className="font-mono text-2xs text-muted-foreground">
                           {tool.state === "call" ? "运行中..." : "已完成"}
                         </span>
                       </div>
                       {tool.state === "result" && tool.result && (
-                        <div className="mt-1.5 break-words border-t border-border/40 pt-1.5 font-mono text-[11px] text-muted-foreground">
+                        <div className="mt-1.5 break-words border-t border-border/40 pt-1.5 font-mono text-2xs text-muted-foreground">
                           {typeof tool.result === "string"
                             ? tool.result
                             : JSON.stringify(tool.result)}
@@ -359,7 +359,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
 
         {/* 助手消息：操作栏 + 元信息 */}
         {!isUser && !isErrorMsg && (
-          <div className="mt-2 flex flex-wrap items-center justify-between gap-2 px-0.5 text-[11px] text-muted-foreground select-none">
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-2 px-0.5 text-2xs text-muted-foreground select-none">
             <div className="flex items-center gap-1">
               <CopyButton
                 isCopied={isCopied}
@@ -369,7 +369,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
 
               {msg.finish_reason === "abort" && (
                 <ActionTooltip label="你在生成过程中点击了停止，此处为已生成的部分内容" side="bottom">
-                  <span className="inline-flex h-7 cursor-default items-center gap-1 rounded-lg border border-amber-500/25 bg-amber-500/10 px-2 text-[11px] font-medium text-amber-600 dark:text-amber-400">
+                  <span className="inline-flex h-7 cursor-default items-center gap-1 rounded-lg border border-amber-500/25 bg-amber-500/10 px-2 text-2xs font-medium text-amber-600 dark:text-amber-400">
                     <Square className="h-2.5 w-2.5 fill-current" />
                     <span>已停止</span>
                   </span>
@@ -387,7 +387,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                     className="flex h-7 items-center gap-1.5 rounded-lg px-2 text-muted-foreground transition-colors hover:bg-surface-3/80 hover:text-foreground disabled:opacity-50"
                   >
                     <RotateCw className={cn("h-3.5 w-3.5", regenerating && "animate-spin")} />
-                    <span className="text-[11px]">重新生成</span>
+                    <span className="text-2xs">重新生成</span>
                   </Button>
                 </ActionTooltip>
               )}
@@ -406,7 +406,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                 <ActionTooltip label="回复模型" side="top">
                   <Badge
                     variant="secondary"
-                    className="h-[18px] cursor-default px-1.5 py-0 font-mono text-[10px] font-normal"
+                    className="h-[18px] cursor-default px-1.5 py-0 font-mono text-2xs font-normal"
                   >
                     <Cpu className="mr-1 h-2.5 w-2.5 text-primary" />
                     <span>{msg.model}</span>
@@ -439,7 +439,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                   icon={Cpu}
                   value={`Tokens: ${totalTokens}`}
                   label="Token 消耗（输入+输出）"
-                  className="text-[10px] text-slate-500 dark:text-slate-400"
+                  className="text-2xs text-slate-500 dark:text-slate-400"
                 />
               ) : null}
             </div>
@@ -448,7 +448,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
 
         {/* 用户消息操作栏：与助手消息同一位置，便于扫读 */}
         {isUser && !editing && msg.id && onEditMessage && (
-          <div className="mt-2 flex flex-wrap items-center justify-end gap-1 px-0.5 text-[11px] text-muted-foreground select-none">
+          <div className="mt-2 flex flex-wrap items-center justify-end gap-1 px-0.5 text-2xs text-muted-foreground select-none">
             <ActionTooltip label="编辑这条提问并重新发送" side="bottom">
               <Button
                 type="button"
@@ -458,7 +458,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                 className="flex h-7 items-center gap-1.5 rounded-lg px-2 text-muted-foreground transition-colors hover:bg-surface-3/80 hover:text-foreground"
               >
                 <PenLine className="h-3.5 w-3.5" />
-                <span className="text-[11px]">编辑</span>
+                <span className="text-2xs">编辑</span>
               </Button>
             </ActionTooltip>
             <CopyButton

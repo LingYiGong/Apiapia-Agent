@@ -370,7 +370,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
               placeholder="搜索记忆…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-10 rounded-xl border-border/40 bg-surface-3/50 pl-9 pr-9 text-[14px] focus-visible:bg-background focus-visible:ring-1 focus-visible:ring-ring"
+              className="h-10 rounded-xl border-border/40 bg-surface-3/50 pl-9 pr-9 text-sm focus-visible:bg-background focus-visible:ring-1 focus-visible:ring-ring"
             />
             {searchQuery && (
               <button
@@ -427,7 +427,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
             （向量检索没有 count 接口），所以还有下一页时用「N+」表示
             「至少 N 条」，不谎报一个具体数字。
           */}
-          <span className="shrink-0 font-mono text-[10px] opacity-60">
+          <span className="shrink-0 font-mono text-2xs opacity-60">
             {hasMore
               ? isSearching
                 ? `(已找到 ${memories.length}+ 条)`
@@ -440,7 +440,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
           <button
             type="button"
             onClick={handleResetSearch}
-            className="flex shrink-0 cursor-pointer items-center gap-1 text-[11px] normal-case tracking-normal text-primary hover:underline"
+            className="flex shrink-0 cursor-pointer items-center gap-1 text-2xs normal-case tracking-normal text-primary hover:underline"
           >
             <RotateCcw className="h-3 w-3" />
             <span>显示全部</span>
@@ -470,9 +470,9 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
           {groupedSections.map((sec) => (
             <div key={sec.key} className="space-y-2.5">
               <div className="flex items-center justify-between px-1">
-                <span className="text-[12px] font-semibold tracking-tight text-muted-foreground/80 select-none">
+                <span className="text-xs font-semibold text-muted-foreground/80 select-none">
                   {sec.title}
-                  <span className="ml-1.5 font-mono text-[10px] opacity-50">
+                  <span className="ml-1.5 font-mono text-2xs opacity-50">
                     ({sec.items.length})
                   </span>
                 </span>
@@ -545,7 +545,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
                   size="sm"
                   onClick={loadMore}
                   disabled={loadingMore}
-                  className="h-9 cursor-pointer gap-1.5 rounded-xl border-border/50 bg-surface-3/40 px-5 text-[13px] font-medium text-foreground transition-colors hover:bg-surface-3 active:scale-95"
+                  className="h-9 cursor-pointer gap-1.5 rounded-xl border-border/50 bg-surface-3/40 px-5 text-footnote font-medium text-foreground transition-colors hover:bg-surface-3 active:scale-95"
                 >
                   <RotateCcw
                     className={cn("h-3.5 w-3.5", loadingMore && "animate-spin")}
@@ -557,7 +557,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
           )}
 
           {!hasMore && memories.length > 0 && (
-            <p className="pt-2 pb-1 text-center text-[11px] text-muted-foreground/60 select-none">
+            <p className="pt-2 pb-1 text-center text-2xs text-muted-foreground/60 select-none">
               已显示全部 {totalCount} 条记忆
             </p>
           )}
@@ -584,10 +584,10 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
                 <Brain className="h-5 w-5" />
               </div>
               <div className="min-w-0 flex-1">
-                <DialogTitle className="text-[17px] font-semibold tracking-tight text-foreground">
+                <DialogTitle className="text-body font-semibold text-foreground">
                   编辑长期记忆
                 </DialogTitle>
-                <DialogDescription className="mt-0.5 text-[12.5px] font-normal leading-normal text-muted-foreground">
+                <DialogDescription className="mt-0.5 text-xs font-normal leading-normal text-muted-foreground">
                   修改此条记忆内容，AI 将在全站对话中以修改后的事实作为参考。
                 </DialogDescription>
               </div>
@@ -619,9 +619,9 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
                   }
                 }}
                 placeholder="修改记忆内容..."
-                className="min-h-[100px] w-full resize-none border-0 bg-transparent p-0 text-[14px] leading-relaxed placeholder:text-muted-foreground/60 focus-visible:outline-none focus-visible:ring-0"
+                className="min-h-[100px] w-full resize-none border-0 bg-transparent p-0 text-sm leading-relaxed placeholder:text-muted-foreground/60 focus-visible:outline-none focus-visible:ring-0"
               />
-              <div className="flex items-center justify-between border-t border-border/30 pt-2 text-[11px] text-muted-foreground/70">
+              <div className="flex items-center justify-between border-t border-border/30 pt-2 text-2xs text-muted-foreground/70">
                 <span>支持 ⌘ + 回车 完成修改</span>
                 <span>{editText.trim().length} 字</span>
               </div>
@@ -633,7 +633,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
                 variant="outline"
                 size="sm"
                 onClick={() => setEditingItem(null)}
-                className="h-9 cursor-pointer rounded-xl border-border/50 bg-surface-3/30 px-4 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground active:scale-95"
+                className="h-9 cursor-pointer rounded-xl border-border/50 bg-surface-3/30 px-4 text-footnote font-medium text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground active:scale-95"
               >
                 取消
               </Button>
@@ -641,7 +641,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
                 type="submit"
                 size="sm"
                 disabled={isSavingEdit || !editText.trim()}
-                className="h-9 cursor-pointer rounded-xl bg-primary px-5 text-[13px] font-semibold text-primary-foreground shadow-xs transition-all hover:bg-primary/90 active:scale-95 disabled:opacity-40"
+                className="h-9 cursor-pointer rounded-xl bg-primary px-5 text-footnote font-semibold text-primary-foreground shadow-xs transition-all hover:bg-primary/90 active:scale-95 disabled:opacity-40"
               >
                 {isSavingEdit ? "正在保存..." : "完成"}
               </Button>

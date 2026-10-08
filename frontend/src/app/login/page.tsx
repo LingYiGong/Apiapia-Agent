@@ -123,7 +123,7 @@ export default function LoginPage() {
       <header className="relative z-10 flex w-full max-w-5xl items-center justify-between mx-auto pt-[max(0.75rem,env(safe-area-inset-top,0px))] pb-2 sm:pt-4 sm:pb-3 shrink-0">
         <div className="flex items-center gap-2">
           <BrandLogo size={28} className="shadow-xs" />
-          <span className="text-[14px] font-medium tracking-tight text-foreground/85">
+          <span className="text-sm font-medium text-foreground/85">
             Apiapia
           </span>
         </div>
@@ -138,10 +138,10 @@ export default function LoginPage() {
           {/* Brand Header */}
           <div className="flex flex-col items-center text-center mb-4 sm:mb-5">
             <BrandLogo size={64} className="mb-2.5 drop-shadow-md transition-transform hover:scale-105" />
-            <h1 className="text-[21px] sm:text-[24px] font-semibold tracking-[-0.025em] text-foreground">
+            <h1 className="text-2xl sm:text-3xl font-semibold text-foreground">
               {isRegister ? "创建 Apiapia 账户" : "登录 Apiapia"}
             </h1>
-            <p className="mt-0.5 text-[12.5px] sm:text-[13.5px] text-muted-foreground font-normal">
+            <p className="mt-0.5 text-xs sm:text-footnote text-muted-foreground font-normal">
               {isRegister
                 ? "开启拥有长期记忆的私人猫咪助理"
                 : "探索拥有长期记忆的个人 AI 空间"}
@@ -153,7 +153,7 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() => handleTabChange(false)}
-              className={`flex-1 rounded-full py-1.5 text-[13px] font-medium transition-all duration-200 ${
+              className={`flex-1 rounded-full py-1.5 text-footnote font-medium transition-all duration-200 ${
                 !isRegister
                   ? "bg-card text-foreground shadow-[0_1px_4px_rgba(0,0,0,0.08)]"
                   : "text-muted-foreground hover:text-foreground"
@@ -164,7 +164,7 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() => handleTabChange(true)}
-              className={`flex-1 rounded-full py-1.5 text-[13px] font-medium transition-all duration-200 ${
+              className={`flex-1 rounded-full py-1.5 text-footnote font-medium transition-all duration-200 ${
                 isRegister
                   ? "bg-card text-foreground shadow-[0_1px_4px_rgba(0,0,0,0.08)]"
                   : "text-muted-foreground hover:text-foreground"
@@ -180,7 +180,7 @@ export default function LoginPage() {
           {error && (
             <Alert
               variant="destructive"
-              className="mb-4 items-start gap-2.5 rounded-2xl border-destructive/20 bg-destructive/10 p-2.5 text-[12.5px] text-destructive animate-in fade-in slide-in-from-top-1 duration-200 [&>svg+div]:translate-y-0 [&>svg]:static [&>svg~*]:pl-0"
+              className="mb-4 items-start gap-2.5 rounded-2xl border-destructive/20 bg-destructive/10 p-2.5 text-xs text-destructive animate-in fade-in slide-in-from-top-1 duration-200 [&>svg+div]:translate-y-0 [&>svg]:static [&>svg~*]:pl-0"
             >
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
               <AlertDescription className="leading-snug text-destructive [&_p]:leading-snug">
@@ -195,7 +195,7 @@ export default function LoginPage() {
             <div className="space-y-1">
               <label
                 htmlFor="account-input"
-                className="ml-1 text-[12px] font-medium text-foreground/80"
+                className="ml-1 text-xs font-medium text-foreground/80"
               >
                 {isRegister ? "用户名" : "账户"}
               </label>
@@ -214,7 +214,7 @@ export default function LoginPage() {
                   autoComplete="username"
                   autoCapitalize="none"
                   autoCorrect="off"
-                  className="w-full bg-transparent text-[14px] text-foreground outline-none placeholder:text-muted-foreground/40"
+                  className="w-full bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground/40"
                 />
                 {username && (
                   <button
@@ -236,7 +236,7 @@ export default function LoginPage() {
               <div className="space-y-1 animate-in fade-in slide-in-from-top-1 duration-200">
                 <label
                   htmlFor="email-input"
-                  className="ml-1 text-[12px] font-medium text-foreground/80"
+                  className="ml-1 text-xs font-medium text-foreground/80"
                 >
                   电子邮箱
                 </label>
@@ -252,7 +252,7 @@ export default function LoginPage() {
                     autoComplete="email"
                     autoCapitalize="none"
                     autoCorrect="off"
-                    className="w-full bg-transparent text-[14px] text-foreground outline-none placeholder:text-muted-foreground/40"
+                    className="w-full bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground/40"
                   />
                   {email && (
                     <button
@@ -274,7 +274,7 @@ export default function LoginPage() {
             <div className="space-y-1">
               <label
                 htmlFor="password-input"
-                className="ml-1 text-[12px] font-medium text-foreground/80"
+                className="ml-1 text-xs font-medium text-foreground/80"
               >
                 {isRegister ? "设置密码" : "密码"}
               </label>
@@ -289,7 +289,7 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder={isRegister ? "至少包含 6 位字符" : "请输入密码"}
                   autoComplete={isRegister ? "new-password" : "current-password"}
-                  className="w-full bg-transparent text-[14px] text-foreground outline-none placeholder:text-muted-foreground/40"
+                  className="w-full bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground/40"
                 />
                 <button
                   type="button"
@@ -314,7 +314,7 @@ export default function LoginPage() {
               <div className="space-y-1 animate-in fade-in slide-in-from-top-1 duration-200">
                 <label
                   htmlFor="confirm-password-input"
-                  className="ml-1 text-[12px] font-medium text-foreground/80"
+                  className="ml-1 text-xs font-medium text-foreground/80"
                 >
                   确认密码
                 </label>
@@ -328,7 +328,7 @@ export default function LoginPage() {
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="请再次输入密码"
                     autoComplete="new-password"
-                    className="w-full bg-transparent text-[14px] text-foreground outline-none placeholder:text-muted-foreground/40"
+                    className="w-full bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground/40"
                   />
                   <button
                     type="button"
@@ -353,7 +353,7 @@ export default function LoginPage() {
             <Button
               type="submit"
               disabled={submitting}
-              className="mt-4 sm:mt-5 flex h-11 sm:h-12 w-full items-center justify-center gap-2 rounded-2xl bg-primary text-[14.5px] font-medium text-primary-foreground shadow-sm shadow-primary/25 transition-all duration-200 hover:opacity-95 active:scale-[0.985] disabled:opacity-50"
+              className="mt-4 sm:mt-5 flex h-11 sm:h-12 w-full items-center justify-center gap-2 rounded-2xl bg-primary text-sm font-medium text-primary-foreground shadow-sm shadow-primary/25 transition-all duration-200 hover:opacity-95 active:scale-[0.985] disabled:opacity-50"
             >
               {submitting ? (
                 <>
@@ -371,7 +371,7 @@ export default function LoginPage() {
 
           {/* Privacy & Trust Badge */}
           <div className="mt-5 border-t border-border/60 pt-3 text-center">
-            <div className="flex items-center justify-center gap-1.5 text-[11.5px] text-muted-foreground">
+            <div className="flex items-center justify-center gap-1.5 text-2xs text-muted-foreground">
               <ShieldCheck className="h-3.5 w-3.5 text-primary/70 shrink-0" />
               <span>端到端加密 · 个人对话与记忆仅归您所有</span>
             </div>
@@ -381,7 +381,7 @@ export default function LoginPage() {
 
       {/* Apple Minimalist Footer */}
       <footer className="relative z-10 w-full max-w-5xl py-1 sm:py-2 text-center mx-auto">
-        <p className="text-[11px] sm:text-[12px] text-muted-foreground/60 tracking-tight">
+        <p className="text-xs text-muted-foreground/60">
           Apiapia 助理 · v{CURRENT_VERSION}
         </p>
       </footer>

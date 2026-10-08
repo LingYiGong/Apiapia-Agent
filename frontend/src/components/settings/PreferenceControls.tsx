@@ -98,7 +98,7 @@ export function PersonaPicker({
             onClick={() => onPromptChange(systemPrompt)}
             aria-pressed={personaId === "custom"}
             className={cn(
-              "inline-flex cursor-pointer items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-colors active:scale-95",
+              "inline-flex cursor-pointer items-center gap-1 rounded-full border px-2.5 py-0.5 text-2xs font-medium transition-colors active:scale-95",
               personaId === "custom"
                 ? "border-primary bg-primary/10 font-semibold text-primary shadow-2xs"
                 : "border-border/60 bg-surface-3/30 text-muted-foreground hover:bg-surface-3/60 hover:text-foreground"
@@ -107,7 +107,7 @@ export function PersonaPicker({
             <PenLine className="h-3 w-3" />
             <span>自定义</span>
           </button>
-          <span className="font-mono text-[11px] text-muted-foreground">
+          <span className="font-mono text-2xs text-muted-foreground">
             {systemPrompt.length} 字
           </span>
         </div>
@@ -152,8 +152,8 @@ export function PersonaPicker({
                   </div>
                   {isActive && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />}
                 </div>
-                <span className="block text-[13px] font-medium text-foreground">{preset.label}</span>
-                <span className="mt-0.5 line-clamp-1 text-[11px] leading-snug text-muted-foreground">
+                <span className="block text-footnote font-medium text-foreground">{preset.label}</span>
+                <span className="mt-0.5 line-clamp-1 text-2xs leading-snug text-muted-foreground">
                   {preset.desc}
                 </span>
               </button>
@@ -162,7 +162,7 @@ export function PersonaPicker({
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="system-prompt-textarea" className="text-[12px] text-muted-foreground">
+          <Label htmlFor="system-prompt-textarea" className="text-xs text-muted-foreground">
             人设指令
           </Label>
           <Textarea
@@ -175,7 +175,7 @@ export function PersonaPicker({
                 ? "输入自定义的人设指令、口吻偏好与准则..."
                 : "在此设定 AI 助理的角色行为准则..."
             }
-            className="resize-y rounded-xl border-border/60 bg-surface-3/30 text-[13px] leading-relaxed transition-colors focus:bg-background"
+            className="resize-y rounded-xl border-border/60 bg-surface-3/30 text-footnote leading-relaxed transition-colors focus:bg-background"
           />
         </div>
       </Panel>
@@ -200,7 +200,7 @@ export function TemperatureControl({
     <div>
       <div className="flex items-center justify-between gap-2 px-1 pb-1.5">
         <SectionLabel className="pb-0">采样温度 (Temperature)</SectionLabel>
-        <span className="rounded-full border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 font-mono text-[11px] font-semibold text-rose-600 dark:text-rose-400">
+        <span className="rounded-full border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 font-mono text-2xs font-semibold text-rose-600 dark:text-rose-400">
           {value.toFixed(2)}
         </span>
       </div>
@@ -226,7 +226,7 @@ export function TemperatureControl({
               }
             }}
           />
-          <div className="flex justify-between px-0.5 font-mono text-[11px] text-muted-foreground">
+          <div className="flex justify-between px-0.5 font-mono text-2xs text-muted-foreground">
             <span>0.0 严谨精确</span>
             <span>1.0 均衡日常</span>
             <span>2.0 发散创意</span>
@@ -253,7 +253,7 @@ export function TemperatureControl({
                 <Icon
                   className={cn("h-3.5 w-3.5", isActive ? "text-primary" : "text-muted-foreground")}
                 />
-                <span className="text-[12px]">
+                <span className="text-xs">
                   {preset.label} ({preset.value})
                 </span>
               </button>

@@ -137,7 +137,9 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
     >
       <div className="flex h-[var(--tabbar-h)] w-full items-center justify-around pl-[max(0.5rem,var(--sal))] pr-[max(0.5rem,var(--sar))]">
         {/* 由 MOBILE_TAB_ITEMS 统一驱动。5 个页签在 320px 下每个约 62px，
-            配合 text-[10.5px] 仍然放得下。 */}
+            配合 text-2xs（11px = Apple iOS 最小字号）仍然放得下。
+            Apple Tab Bar 规范是 10pt，我们取 11px —— 高于规范下限，
+            且与全站其它辅助文字对齐，避免标签栏成为全站最小的字。 */}
         {MOBILE_TAB_ITEMS.map((item) => {
           const active = activeMobileTab === item.id;
           // 对话页激活时换成「新建」图标 + 文案，点击即新建；
@@ -150,7 +152,7 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
               aria-current={active ? "page" : undefined}
               onClick={() => handleMobileTabClick(item.id)}
               className={cn(
-                "flex h-full flex-1 cursor-pointer flex-col items-center justify-center gap-0.5 py-0.5 text-[10.5px] tracking-tight transition-transform active:scale-95 touch-manipulation",
+                "flex h-full flex-1 cursor-pointer flex-col items-center justify-center gap-0.5 py-0.5 text-2xs transition-transform active:scale-95 touch-manipulation",
                 active
                   ? "font-semibold text-primary"
                   : "font-medium text-muted-foreground/75 hover:text-foreground"

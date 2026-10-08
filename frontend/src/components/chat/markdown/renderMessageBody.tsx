@@ -71,6 +71,15 @@ function renderWithBreaks(node: React.ReactNode): React.ReactNode {
  */
 const remarkPlugins = [remarkGfm];
 
+/**
+ * markdown 排版基准：Apple iOS Body = 17pt / 22pt leading（tracking -0.43px）。
+ * 移动端取 16px（网页最小可读字号，同时也是 iOS 输入框防缩放阈值），
+ * 桌面端升到 17px 与 Apple Body 对齐。leading 用 1.62 而非 Apple 的
+ * 22/17 = 1.294 —— 那个比值是给 SF 拉丁字形调的，中文方块字需要更松
+ * 的行距才不显拥挤。
+ */
+const BODY_TEXT = "text-base sm:text-body leading-[1.62] text-foreground/95";
+
 const baseMarkdownComponents: Record<string, any> = {
   img: ({ node, ...props }: any) => (
     <img
@@ -90,27 +99,33 @@ const baseMarkdownComponents: Record<string, any> = {
   p: ({ node, children, ...props }: any) => (
     <p
       {...props}
-      className="my-2 break-words text-[15px] leading-[1.72] tracking-[-0.01em] text-foreground/95 sm:text-[15.5px] [overflow-wrap:anywhere]"
+      className={`my-2 break-words ${BODY_TEXT} [overflow-wrap:anywhere]`}
     >
       {renderWithBreaks(children)}
     </p>
   ),
   h1: ({ node, ...props }: any) => (
-    <h1
-      {...props}
-      className="mb-2.5 mt-5 text-[20px] font-bold tracking-tight text-foreground sm:text-[22px]"
-    />
+    <h1 {...props} className="mb-2.5 mt-5 text-xl font-bold text-foreground sm:text-2xl" />
   ),
   h2: ({ node, ...props }: any) => (
-    <h2
-      {...props}
-      className="mb-2 mt-4 text-[17px] font-bold tracking-tight text-foreground sm:text-[18px]"
-    />
+    <h2 {...props} className="mb-2 mt-4 text-body font-bold text-foreground sm:text-lg" />
   ),
   h3: ({ node, ...props }: any) => (
-    <h3
+    <h3 {...props} className="mb-1 mt-3 text-subhead font-semibold text-foreground sm:text-base" />
+  ),
+  /* h4–h6 此前未覆盖，走浏览器 UA 默认的 `1em bold`，导致标题层级在 h3
+     之后突然与正文同号、同粗细，层级断掉。这里按 Apple 的 Footnote 13pt
+     起逐级递降。 */
+  h4: ({ node, ...props }: any) => (
+    <h4 {...props} className="mb-1 mt-3 text-footnote font-semibold text-foreground" />
+  ),
+  h5: ({ node, ...props }: any) => (
+    <h5 {...props} className="mb-1 mt-2 text-footnote font-semibold text-foreground/90" />
+  ),
+  h6: ({ node, ...props }: any) => (
+    <h6
       {...props}
-      className="mb-1 mt-3 text-[15px] font-semibold text-foreground sm:text-[16px]"
+      className="mb-1 mt-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
     />
   ),
   table: ({ node, ...props }: any) => (
@@ -124,7 +139,7 @@ const baseMarkdownComponents: Record<string, any> = {
   th: ({ node, children, ...props }: any) => (
     <th
       {...props}
-      className="whitespace-nowrap border-b border-border/70 bg-surface-3/60 px-3.5 py-2.5 text-left text-[13px] font-semibold text-foreground"
+      className="whitespace-nowrap border-b border-border/70 bg-surface-3/60 px-3.5 py-2.5 text-left text-footnote font-semibold text-foreground"
     >
       {renderWithBreaks(children)}
     </th>
@@ -132,7 +147,7 @@ const baseMarkdownComponents: Record<string, any> = {
   td: ({ node, children, ...props }: any) => (
     <td
       {...props}
-      className="whitespace-nowrap border-b border-border/50 px-3.5 py-2.5 align-top text-[13px] text-foreground/90 sm:text-[14px]"
+      className="whitespace-nowrap border-b border-border/50 px-3.5 py-2.5 align-top text-footnote text-foreground/90 sm:text-sm"
     >
       {renderWithBreaks(children)}
     </td>
@@ -145,7 +160,7 @@ const baseMarkdownComponents: Record<string, any> = {
       return (
         <code
           {...props}
-          className="break-all rounded-md bg-surface-3/80 px-1.5 py-0.5 font-mono text-[13px] text-primary [overflow-wrap:anywhere]"
+          className="break-all rounded-md bg-surface-3/80 px-1.5 py-0.5 font-mono text-footnote text-primary [overflow-wrap:anywhere]"
         >
           {children}
         </code>
@@ -160,10 +175,7 @@ const baseMarkdownComponents: Record<string, any> = {
     <ol {...props} className="my-1.5 list-decimal list-outside break-words pl-4 space-y-1 sm:pl-5 [overflow-wrap:anywhere]" />
   ),
   li: ({ node, children, ...props }: any) => (
-    <li
-      {...props}
-      className="my-1 break-words text-[16px] leading-[1.62] tracking-[-0.012em] text-foreground/95 sm:text-[15px] [overflow-wrap:anywhere]"
-    >
+    <li {...props} className={`my-1 break-words ${BODY_TEXT} [overflow-wrap:anywhere]`}>
       {renderWithBreaks(children)}
     </li>
   ),
@@ -245,7 +257,7 @@ function ThinkingBlock({
         </span>
         <span
           aria-hidden="true"
-          className="text-[10px] text-muted-foreground transition-transform group-open:rotate-180"
+          className="text-2xs text-muted-foreground transition-transform group-open:rotate-180"
         >
           ▼
         </span>
@@ -292,7 +304,7 @@ export function renderMessageBody(
           <ThinkingBlock thought={thought} streaming={isStreaming} hasBody={hasBody} />
         )}
         {hasBody ? (
-          <div className="max-w-none break-words leading-relaxed prose prose-sm dark:prose-invert [overflow-wrap:anywhere]">
+          <div className="max-w-none break-words leading-relaxed [overflow-wrap:anywhere]">
             <ReactMarkdown remarkPlugins={remarkPlugins} components={components}>
               {displayMainContent}
             </ReactMarkdown>
@@ -310,7 +322,7 @@ export function renderMessageBody(
   const cleanFallbackContent = sanitizeDisplayContent(content);
 
   return (
-    <div className="max-w-none break-words leading-relaxed prose prose-sm dark:prose-invert [overflow-wrap:anywhere]">
+    <div className="max-w-none break-words leading-relaxed [overflow-wrap:anywhere]">
       <ReactMarkdown remarkPlugins={remarkPlugins} components={components}>
         {cleanFallbackContent}
       </ReactMarkdown>

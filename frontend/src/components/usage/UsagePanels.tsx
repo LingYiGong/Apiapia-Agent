@@ -221,7 +221,7 @@ export function ModelBreakdown({
                 <div className="flex items-center gap-3">
                   <span
                     className={cn(
-                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-lg font-mono text-[11px] font-semibold",
+                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-lg font-mono text-2xs font-semibold",
                       idx === 0
                         ? "border border-amber-500/30 bg-amber-500/15 text-amber-600 dark:text-amber-400"
                         : idx === 1
@@ -241,7 +241,7 @@ export function ModelBreakdown({
                       </span>
                       {m.is_free && <FreeBadge />}
                     </div>
-                    <div className="mt-0.5 font-mono text-[11px] text-muted-foreground">
+                    <div className="mt-0.5 font-mono text-2xs text-muted-foreground">
                       调用 {m.calls} 次 · Token {m.total_tokens.toLocaleString()}
                     </div>
                   </div>
@@ -300,13 +300,13 @@ export function TrendGrid({
             tone="muted"
             className="space-y-1 p-3 text-center transition-all hover:bg-surface-3/40"
           >
-            <div className="font-mono text-[11px] font-medium text-muted-foreground">
+            <div className="font-mono text-2xs font-medium text-muted-foreground">
               {d.date}
             </div>
-            <div className="text-sm font-semibold tabular-nums tracking-tight text-foreground sm:text-base">
+            <div className="text-sm font-semibold tabular-nums text-foreground sm:text-base">
               {d.tokens.toLocaleString()}
             </div>
-            <div className="font-mono text-[10px] text-muted-foreground/80">
+            <div className="font-mono text-2xs text-muted-foreground/80">
               {d.calls} {unitLabel} · ¥{d.cost_cny.toFixed(2)}
             </div>
           </Panel>
@@ -348,7 +348,7 @@ export function MyModelsTable({ items }: { items: MyUsageStats["model_breakdown"
                     key={h}
                     scope="col"
                     className={cn(
-                      "whitespace-nowrap px-4 py-3 text-[11px] font-medium text-muted-foreground",
+                      "whitespace-nowrap px-4 py-3 text-2xs font-medium text-muted-foreground",
                       i === all.length - 1 && "text-right"
                     )}
                   >
@@ -408,7 +408,7 @@ export interface UserActions {
 function ModelAccessCell({ user, actions }: { user: AdminUserUsageItem; actions: UserActions }) {
   if (user.is_superuser) {
     return (
-      <span className="whitespace-nowrap rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 shadow-none dark:text-emerald-400">
+      <span className="whitespace-nowrap rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-2xs font-medium text-emerald-600 shadow-none dark:text-emerald-400">
         完整体验 (管理员)
       </span>
     );
@@ -430,7 +430,7 @@ function ModelAccessCell({ user, actions }: { user: AdminUserUsageItem; actions:
         />
         <span
           className={cn(
-            "whitespace-nowrap text-[11px] font-medium select-none",
+            "whitespace-nowrap text-2xs font-medium select-none",
             on
               ? "font-semibold text-emerald-600 dark:text-emerald-400"
               : "text-amber-600 dark:text-amber-400"
@@ -445,7 +445,7 @@ function ModelAccessCell({ user, actions }: { user: AdminUserUsageItem; actions:
 
 function UserRowMenu({ user, isMe, actions }: { user: AdminUserUsageItem; isMe: boolean; actions: UserActions }) {
   if (isMe) {
-    return <span className="ml-1 whitespace-nowrap text-[11px] italic text-muted-foreground">当前账号</span>;
+    return <span className="ml-1 whitespace-nowrap text-2xs italic text-muted-foreground">当前账号</span>;
   }
   return (
     <DropdownMenu>
@@ -507,7 +507,7 @@ function IdentityCell({ user, isMe }: { user: AdminUserUsageItem; isMe: boolean 
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="font-semibold text-foreground">{user.username}</span>
           {isMe && (
-            <span className="rounded-full bg-surface-3 px-1.5 py-0 text-[10px] font-medium">
+            <span className="rounded-full bg-surface-3 px-1.5 py-0 text-2xs font-medium">
               我
             </span>
           )}
@@ -515,7 +515,7 @@ function IdentityCell({ user, isMe }: { user: AdminUserUsageItem; isMe: boolean 
         </div>
         <span
           title={user.email}
-          className="mt-0.5 block max-w-[200px] truncate font-mono text-[11px] text-muted-foreground"
+          className="mt-0.5 block max-w-[200px] truncate font-mono text-2xs text-muted-foreground"
         >
           {user.email}
         </span>
@@ -529,7 +529,7 @@ function UserCard({ user, isMe, actions }: { user: AdminUserUsageItem; isMe: boo
     <Panel tone="muted" className="space-y-3 p-4">
       <IdentityCell user={user} isMe={isMe} />
 
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 font-mono text-[11px] text-muted-foreground">
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 font-mono text-2xs text-muted-foreground">
         <div className="flex justify-between">
           <dt>对话轮次</dt>
           <dd className="font-semibold tabular-nums text-foreground">{user.messages_count}</dd>
@@ -562,7 +562,7 @@ function UserCard({ user, isMe, actions }: { user: AdminUserUsageItem; isMe: boo
             variant="outline"
             size="sm"
             onClick={() => actions.onOpenAudit(user.user_id, user.username)}
-            className="h-7 cursor-pointer gap-1 rounded-full border-primary/20 bg-primary/5 px-2.5 text-[11px] font-medium text-primary transition-colors hover:bg-primary/10 active:scale-95"
+            className="h-7 cursor-pointer gap-1 rounded-full border-primary/20 bg-primary/5 px-2.5 text-2xs font-medium text-primary transition-colors hover:bg-primary/10 active:scale-95"
           >
             <Eye className="h-3 w-3" />
             <span>审查</span>
@@ -615,14 +615,14 @@ export function UsersTable({
                     <TableHead
                       key={h}
                       scope="col"
-                      className="whitespace-nowrap px-4 py-3 text-[11px] font-medium text-muted-foreground"
+                      className="whitespace-nowrap px-4 py-3 text-2xs font-medium text-muted-foreground"
                     >
                       {h}
                     </TableHead>
                   ))}
                   <TableHead
                     scope="col"
-                    className="whitespace-nowrap px-4 py-3 text-right text-[11px] font-medium text-muted-foreground"
+                    className="whitespace-nowrap px-4 py-3 text-right text-2xs font-medium text-muted-foreground"
                   >
                     操作
                   </TableHead>
@@ -641,14 +641,14 @@ export function UsersTable({
                       </TableCell>
                       <TableCell className="whitespace-nowrap px-4 py-3.5 font-mono tabular-nums">
                         <span className="font-semibold text-foreground">{u.messages_count}</span>
-                        <span className="text-[11px] text-muted-foreground">
+                        <span className="text-2xs text-muted-foreground">
                           {" "}轮 ({u.conversations_count} 会话)
                         </span>
                       </TableCell>
                       <TableCell className="whitespace-nowrap px-4 py-3.5 font-mono font-semibold tabular-nums">
                         {u.total_tokens.toLocaleString()}
                       </TableCell>
-                      <TableCell className="whitespace-nowrap px-4 py-3.5 font-mono text-[11px] tabular-nums text-muted-foreground">
+                      <TableCell className="whitespace-nowrap px-4 py-3.5 font-mono text-2xs tabular-nums text-muted-foreground">
                         <div>↓ 入: {u.prompt_tokens.toLocaleString()}</div>
                         <div>↑ 出: {u.completion_tokens.toLocaleString()}</div>
                       </TableCell>
@@ -659,7 +659,7 @@ export function UsersTable({
                           className="text-left"
                         />
                       </TableCell>
-                      <TableCell className="max-w-[180px] truncate px-4 py-3.5 font-mono text-[11px] text-muted-foreground">
+                      <TableCell className="max-w-[180px] truncate px-4 py-3.5 font-mono text-2xs text-muted-foreground">
                         <span title={u.top_model} className="rounded-md border border-border/30 bg-surface-3/50 px-2 py-0.5">
                           {u.top_model || "未调用"}
                         </span>
@@ -679,7 +679,7 @@ export function UsersTable({
                             variant="outline"
                             size="sm"
                             onClick={() => actions.onOpenAudit(u.user_id, u.username)}
-                            className="h-7 cursor-pointer gap-1 rounded-full border-primary/20 bg-primary/5 px-2.5 text-[11px] font-medium text-primary transition-colors hover:bg-primary/10 active:scale-95"
+                            className="h-7 cursor-pointer gap-1 rounded-full border-primary/20 bg-primary/5 px-2.5 text-2xs font-medium text-primary transition-colors hover:bg-primary/10 active:scale-95"
                           >
                             <Eye className="h-3 w-3" />
                             <span>审查</span>
@@ -802,7 +802,7 @@ export function AuditDialog({
             size="sm"
             onClick={onRefresh}
             disabled={loading}
-            className="h-7 cursor-pointer gap-1 rounded-full px-2.5 text-[11px] text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground"
+            className="h-7 cursor-pointer gap-1 rounded-full px-2.5 text-2xs text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground"
           >
             <RefreshCw className={cn("h-3 w-3", loading && "animate-spin text-primary")} />
             <span>刷新</span>
@@ -832,23 +832,23 @@ export function AuditDialog({
                       {conv.title || "未命名对话"}
                     </h4>
                     {conv.is_deleted ? (
-                      <span className="inline-flex items-center gap-1 rounded-full border border-destructive/20 bg-destructive/10 px-2 py-px text-[10px] font-medium text-destructive">
+                      <span className="inline-flex items-center gap-1 rounded-full border border-destructive/20 bg-destructive/10 px-2 py-px text-2xs font-medium text-destructive">
                         <Trash2 className="mr-0.5 h-2.5 w-2.5" />
                         已删除 ({conv.deleted_at || "回收站"})
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-px text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-px text-2xs font-medium text-emerald-600 dark:text-emerald-400">
                         <CheckCircle2 className="mr-0.5 h-2.5 w-2.5" />
                         正常活跃
                       </span>
                     )}
                     {conv.model && (
-                      <span className="rounded-full bg-surface-3 px-2 py-px font-mono text-[10px]">
+                      <span className="rounded-full bg-surface-3 px-2 py-px font-mono text-2xs">
                         {conv.model}
                       </span>
                     )}
                   </div>
-                  <div className="flex flex-wrap gap-4 font-mono text-[11px] text-muted-foreground">
+                  <div className="flex flex-wrap gap-4 font-mono text-2xs text-muted-foreground">
                     <span>消息: {conv.message_count} 条</span>
                     <span>Token: {(conv.total_tokens ?? 0).toLocaleString()}</span>
                     <span>更新: {conv.updated_at || conv.created_at}</span>
@@ -913,7 +913,7 @@ export function InspectMessagesDialog({
                   <DialogTitle className="max-w-md truncate text-sm font-semibold">
                     {data.conversation.title || "未命名对话"}
                   </DialogTitle>
-                  <DialogDescription className="mt-0.5 text-[11px] text-muted-foreground">
+                  <DialogDescription className="mt-0.5 text-2xs text-muted-foreground">
                     <span>模型: {data.conversation.model}</span>
                     <span> · </span>
                     <span>共 {data.messages.length} 条消息</span>
@@ -939,7 +939,7 @@ export function InspectMessagesDialog({
                       msg.role === "user" ? "items-end" : "items-start"
                     )}
                   >
-                    <div className="flex items-center gap-2 px-1 font-mono text-[10px] text-muted-foreground">
+                    <div className="flex items-center gap-2 px-1 font-mono text-2xs text-muted-foreground">
                       <span className="font-semibold uppercase tracking-wider">{msg.role}</span>
                       <span>{msg.created_at}</span>
                       {!!msg.token_usage && msg.token_usage > 0 && (

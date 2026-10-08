@@ -247,7 +247,7 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
             )}
             <span
               className={cn(
-                "truncate text-[13px]",
+                "truncate text-footnote",
                 !isCompact && "font-medium",
                 selectedOption || value ? "text-foreground" : "text-muted-foreground",
                 isRawIdFallback && "font-mono"
@@ -294,10 +294,10 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
       >
         <div className="flex items-center justify-between px-1 pb-2.5">
           <div className="flex min-w-0 items-center gap-1.5">
-            <span className="text-[12px] font-semibold tracking-tight text-foreground">
+            <span className="text-xs font-semibold text-foreground">
               选择{kindLabel}
             </span>
-            <span className="rounded-full bg-surface-3/60 px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
+            <span className="rounded-full bg-surface-3/60 px-1.5 py-0.5 font-mono text-2xs text-muted-foreground">
               {visible.length}
             </span>
             {isTrialMode && (
@@ -305,14 +305,14 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
               // 可聚焦的 div（违反 WCAG 2.1.1）。
               <span
                 title={`当前处于体验模式，仅可使用免费${kindLabel}`}
-                className="shrink-0 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0 text-[10px] text-emerald-600 dark:text-emerald-400"
+                className="shrink-0 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0 text-2xs text-emerald-600 dark:text-emerald-400"
               >
                 体验模式
               </span>
             )}
           </div>
           {selectedOption && (
-            <span className="max-w-[170px] truncate font-mono text-[11px] text-muted-foreground">
+            <span className="max-w-[170px] truncate font-mono text-2xs text-muted-foreground">
               当前: {selectedOption.name}
             </span>
           )}
@@ -340,7 +340,7 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
               );
             }}
             onKeyDown={handleListKeyDown}
-            className="h-[34px] rounded-xl border-0 bg-surface-3/60 pl-9 pr-8 text-[13px] placeholder:text-muted-foreground/60 focus-visible:ring-1 focus-visible:ring-primary/40"
+            className="h-[34px] rounded-xl border-0 bg-surface-3/60 pl-9 pr-8 text-footnote placeholder:text-muted-foreground/60 focus-visible:ring-1 focus-visible:ring-primary/40"
           />
           {search && (
             <button
@@ -366,7 +366,7 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
                   aria-pressed={isOn}
                   onClick={() => setFilterKey(group.key)}
                   className={cn(
-                    "h-7 shrink-0 rounded-full px-2.5 text-[11px] font-medium transition-colors active:scale-95",
+                    "h-7 shrink-0 rounded-full px-2.5 text-2xs font-medium transition-colors active:scale-95",
                     Icon && "flex items-center gap-1",
                     isOn ? TONE_CLASS[group.tone].active : TONE_CLASS[group.tone].idle
                   )}
@@ -439,32 +439,32 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
                         {o.name}
                       </span>
                       {o.isFeatured && (
-                        <span className="flex items-center gap-0.5 rounded-md border border-amber-500/25 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-medium text-amber-600 dark:text-amber-400">
+                        <span className="flex items-center gap-0.5 rounded-md border border-amber-500/25 bg-amber-500/10 px-1.5 py-0.5 text-2xs font-medium text-amber-600 dark:text-amber-400">
                           <Sparkles className="h-2.5 w-2.5" />
                           精选
                         </span>
                       )}
                       {o.isFree && (
-                        <span className="rounded-md border border-emerald-500/25 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-medium text-emerald-600 dark:text-emerald-400">
+                        <span className="rounded-md border border-emerald-500/25 bg-emerald-500/10 px-1.5 py-0.5 text-2xs font-medium text-emerald-600 dark:text-emerald-400">
                           免费
                         </span>
                       )}
                       {o.isMultimodal && (
-                        <span className="rounded-md border border-violet-500/25 bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-medium text-violet-600 dark:text-violet-400">
+                        <span className="rounded-md border border-violet-500/25 bg-violet-500/10 px-1.5 py-0.5 text-2xs font-medium text-violet-600 dark:text-violet-400">
                           多模态
                         </span>
                       )}
                       {o.provider && (
-                        <span className="rounded bg-surface-3/80 px-1 py-0.5 font-mono text-[9px] uppercase text-muted-foreground">
+                        <span className="rounded bg-surface-3/80 px-1 py-0.5 font-mono text-2xs uppercase text-muted-foreground">
                           {o.provider}
                         </span>
                       )}
                     </div>
-                    <p className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground">
+                    <p className="mt-0.5 truncate font-mono text-2xs text-muted-foreground">
                       {o.id}
                     </p>
                     {o.description && (
-                      <p className="mt-0.5 line-clamp-1 text-[10px] leading-relaxed text-muted-foreground">
+                      <p className="mt-0.5 line-clamp-1 text-2xs leading-relaxed text-muted-foreground">
                         {o.description}
                       </p>
                     )}

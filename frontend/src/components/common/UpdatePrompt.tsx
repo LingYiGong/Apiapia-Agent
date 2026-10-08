@@ -142,7 +142,7 @@ export const UpdatePrompt: React.FC = () => {
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <DialogTitle className="text-base font-bold text-white tracking-tight">
+                    <DialogTitle className="text-base font-bold text-white">
                       发现新版本
                     </DialogTitle>
                     {updateInfo && (
@@ -170,7 +170,7 @@ export const UpdatePrompt: React.FC = () => {
 
               {updateInfo?.changelog && updateInfo.changelog.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                  <p className="text-2xs font-bold text-muted-foreground uppercase tracking-wider">
                     更新内容与特性：
                   </p>
                   <div className="space-y-1.5 bg-muted rounded-xl p-3 border">
@@ -184,7 +184,7 @@ export const UpdatePrompt: React.FC = () => {
                 </div>
               )}
 
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-2xs text-muted-foreground">
                 更新将自动清理浏览器旧版缓存并重载最新界面组件。建议在非对话中途进行更新。
               </p>
             </div>

@@ -34,7 +34,7 @@ export function SyncModelsButton({
         onClick={onSync}
         disabled={syncing}
         className={cn(
-          "ml-auto h-7 shrink-0 cursor-pointer gap-1.5 rounded-lg border-border/50 bg-surface-3/30 px-2.5 text-[11px] font-medium text-foreground transition-colors hover:bg-surface-3 active:scale-95",
+          "ml-auto h-7 shrink-0 cursor-pointer gap-1.5 rounded-lg border-border/50 bg-surface-3/30 px-2.5 text-2xs font-medium text-foreground transition-colors hover:bg-surface-3 active:scale-95",
           className
         )}
       >
@@ -85,19 +85,19 @@ export function ModelInfoPanel({
     <div className="mt-3 space-y-2.5 border-t border-border/40 pt-3 animate-in fade-in duration-200">
       <div className="flex flex-wrap items-center gap-1.5">
         {model.provider && (
-          <span className="inline-flex items-center gap-1 rounded-md border border-border/50 bg-surface-3 px-2 py-0.5 font-mono text-[11px] font-medium uppercase text-foreground">
+          <span className="inline-flex items-center gap-1 rounded-md border border-border/50 bg-surface-3 px-2 py-0.5 font-mono text-2xs font-medium uppercase text-foreground">
             <Server className="h-3 w-3 text-muted-foreground" />
             <span>{model.provider}</span>
           </span>
         )}
 
         {free ? (
-          <span className="inline-flex items-center gap-1 rounded-md border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+          <span className="inline-flex items-center gap-1 rounded-md border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-2xs font-medium text-emerald-600 dark:text-emerald-400">
             <Zap className="h-3 w-3" />
             <span>免费模型</span>
           </span>
         ) : (
-          <span className="inline-flex items-center gap-1 rounded-md border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-600 dark:text-amber-400">
+          <span className="inline-flex items-center gap-1 rounded-md border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-2xs font-medium text-amber-600 dark:text-amber-400">
             <span>API 计费</span>
           </span>
         )}
@@ -105,7 +105,7 @@ export function ModelInfoPanel({
         {capabilityLabel ? (
           <span
             className={cn(
-              "inline-flex items-center gap-1 rounded-md border border-violet-500/25 bg-violet-500/10 px-2 py-0.5 text-[11px] font-medium text-violet-600 dark:text-violet-400",
+              "inline-flex items-center gap-1 rounded-md border border-violet-500/25 bg-violet-500/10 px-2 py-0.5 text-2xs font-medium text-violet-600 dark:text-violet-400",
               capabilityClassName
             )}
           >
@@ -113,18 +113,18 @@ export function ModelInfoPanel({
             <span>{capabilityLabel}</span>
           </span>
         ) : isMultimodal === false ? (
-          <span className="inline-flex items-center gap-1 rounded-md border border-border/40 bg-surface-3/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+          <span className="inline-flex items-center gap-1 rounded-md border border-border/40 bg-surface-3/60 px-2 py-0.5 text-2xs font-medium text-muted-foreground">
             <span>文本模型</span>
           </span>
         ) : null}
 
-        <span className="truncate font-mono text-[11px] text-muted-foreground/70 sm:ml-auto select-all">
+        <span className="truncate font-mono text-2xs text-muted-foreground/70 sm:ml-auto select-all">
           ID: {model.id}
         </span>
       </div>
 
       {(description ?? model.description) && (
-        <div className="rounded-xl border border-border/40 bg-surface-3/30 p-2.5 text-[12px] leading-relaxed text-muted-foreground">
+        <div className="rounded-xl border border-border/40 bg-surface-3/30 p-2.5 text-xs leading-relaxed text-muted-foreground">
           {description ?? model.description}
         </div>
       )}
@@ -139,9 +139,9 @@ export function ModelInfoPanel({
 export function ModelMissingNotice({ id }: { id: string }) {
   if (!id) return null;
   return (
-    <div className="mt-2.5 flex items-center justify-between border-t border-border/40 pt-2.5 font-mono text-[11px] text-muted-foreground">
+    <div className="mt-2.5 flex items-center justify-between border-t border-border/40 pt-2.5 font-mono text-2xs text-muted-foreground">
       <span className="truncate">模型 ID: {id}</span>
-      <span className="shrink-0 font-sans text-[10px] text-amber-500">未在已同步列表中</span>
+      <span className="shrink-0 font-sans text-2xs text-amber-500">未在已同步列表中</span>
     </div>
   );
 }

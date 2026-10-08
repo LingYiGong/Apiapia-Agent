@@ -106,19 +106,37 @@ const config: Config = {
       dropShadow: {
         xs: "0 1px 1px 0 rgb(0 0 0 / 0.06)",
       },
+      /**
+       * 字号刻度 —— 逐档对齐 Apple HIG（iOS Dynamic Type, Large 档）。
+       *
+       * 每档的 lineHeight 直接取 Apple 对应 text style 的 leading；
+       * letterSpacing 取 Apple 官方 SF Pro tracking 表中该字号的值
+       * （单位 1/1000 em，换算成 px）。表的关键区段：
+       *   10pt +12‰ · 11pt +6‰ · 12pt 0 · 13pt -6‰ · 14pt -11‰
+       *   15pt -16‰ · 16pt -20‰ · 17pt -26‰ · 20pt -23‰
+       *   23pt -4‰ · 24pt +3‰ · 28pt +14‰ · 34pt +12‰ · 80pt 0
+       *
+       * 注意 17→28pt 之间 tracking 会**穿过 0 变正**：这是 SF Pro 从
+       * Text 光学尺寸过渡到 Display 光学尺寸的结果（WWDC20 "The details
+       * of UI typography"）。此前 `2xl`(24px) 写成 -0.5px，符号是反的。
+       *
+       * 全站不再使用 `text-[Npx]` 任意值 —— 任意值不带 tracking，会绕开
+       * 这张表退回浏览器默认字距（这正是此前 body 上挂一个常量
+       * letter-spacing 的根因）。下限为 11px = Apple iOS 最小字号。
+       */
       fontSize: {
-        // Standard Tailwind scales calibrated to Apple typography.
-        // Apple HIG 的 pt 值以任意值形式写在用点（text-[13px] 等），
-        // 这里只补两个 Tailwind 刻度里缺、且使用频率很高的档位。
-        "2xs": ["11px", { lineHeight: "13px", letterSpacing: "0.07px" }],
-        xs: ["12px", { lineHeight: "16px", letterSpacing: "0px" }],
-        sm: ["14px", { lineHeight: "19px", letterSpacing: "-0.15px" }],
-        base: ["16px", { lineHeight: "22px", letterSpacing: "-0.32px" }],
-        lg: ["18px", { lineHeight: "23px", letterSpacing: "-0.41px" }],
-        xl: ["20px", { lineHeight: "25px", letterSpacing: "-0.45px" }],
-        "2xl": ["24px", { lineHeight: "29px", letterSpacing: "-0.5px" }],
-        "3xl": ["28px", { lineHeight: "34px", letterSpacing: "0.36px" }],
-        "4xl": ["34px", { lineHeight: "41px", letterSpacing: "0.37px" }],
+        "2xs": ["11px", { lineHeight: "13px", letterSpacing: "0.06px" }], // Caption 2
+        xs: ["12px", { lineHeight: "16px", letterSpacing: "0px" }], //      Caption 1
+        footnote: ["13px", { lineHeight: "18px", letterSpacing: "-0.08px" }], // Footnote
+        sm: ["14px", { lineHeight: "20px", letterSpacing: "-0.15px" }],
+        subhead: ["15px", { lineHeight: "20px", letterSpacing: "-0.23px" }], // Subhead
+        base: ["16px", { lineHeight: "21px", letterSpacing: "-0.31px" }], //  Callout
+        body: ["17px", { lineHeight: "22px", letterSpacing: "-0.43px" }], //    Body（iOS 正文标准）
+        lg: ["18px", { lineHeight: "24px", letterSpacing: "-0.44px" }],
+        xl: ["20px", { lineHeight: "25px", letterSpacing: "-0.45px" }], //      Title 3
+        "2xl": ["22px", { lineHeight: "28px", letterSpacing: "-0.26px" }], //   Title 2
+        "3xl": ["28px", { lineHeight: "34px", letterSpacing: "0.38px" }], //    Title 1
+        "4xl": ["34px", { lineHeight: "41px", letterSpacing: "0.4px" }], //     Large Title
       },
       keyframes: {
         "accordion-down": {

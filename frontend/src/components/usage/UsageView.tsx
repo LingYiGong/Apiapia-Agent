@@ -321,16 +321,16 @@ export const UsageView: React.FC<UsageViewProps> = ({
       <div className="hidden flex-row items-center justify-between gap-4 border-b border-border/40 pb-5 md:flex">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <span className="flex items-center gap-1.5 text-[12px] font-medium tracking-tight text-primary">
+            <span className="flex items-center gap-1.5 text-xs font-medium text-primary">
               <BarChart3 className="h-4 w-4 shrink-0" />
               <span>{isSuperuser ? "平台用量监控" : "个人用量统计"}</span>
             </span>
             {isSuperuser && <AdminBadge size="sm" />}
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+          <h1 className="text-2xl font-semibold text-foreground sm:text-3xl">
             {isSuperuser ? "平台用量与成本核算" : "我的用量总览"}
           </h1>
-          <p className="max-w-2xl text-[13px] leading-relaxed text-muted-foreground">
+          <p className="max-w-2xl text-footnote leading-relaxed text-muted-foreground">
             {isSuperuser
               ? "统计所有注册用户的 Token 消耗、调用轮次与模型定价折算费用，支持时间区间筛选与账号权限管控。"
               : "查看你在本平台产生的全部对话轮次、输入/输出 Token 消耗及模型调用明细。"}
@@ -367,7 +367,7 @@ export const UsageView: React.FC<UsageViewProps> = ({
           />
         </div>
 
-        <span className="shrink-0 self-start rounded-md border border-border/20 bg-surface-3/30 px-2 py-0.5 font-mono text-[11px] text-muted-foreground/80 sm:self-auto">
+        <span className="shrink-0 self-start rounded-md border border-border/20 bg-surface-3/30 px-2 py-0.5 font-mono text-2xs text-muted-foreground/80 sm:self-auto">
           {PERIOD_HINT[period]}
         </span>
       </div>
@@ -383,7 +383,7 @@ export const UsageView: React.FC<UsageViewProps> = ({
               <Users className="h-3.5 w-3.5 text-indigo-500" />
               <span>全部用户</span>
               {adminStats && (
-                <span className="rounded-full bg-primary/10 px-1.5 py-px font-mono text-[10px] font-semibold text-primary">
+                <span className="rounded-full bg-primary/10 px-1.5 py-px font-mono text-2xs font-semibold text-primary">
                   {adminStats.total_users}
                 </span>
               )}
@@ -501,7 +501,7 @@ function RefreshButton({
         disabled={loading}
         className={cn(
           "shrink-0 cursor-pointer gap-1.5 rounded-full border-border/50 bg-card/80 font-medium text-muted-foreground shadow-2xs transition-colors hover:bg-surface-3 active:scale-95",
-          compact ? "h-7 px-3 text-[11px]" : "h-8 px-3.5 text-xs"
+          compact ? "h-7 px-3 text-2xs" : "h-8 px-3.5 text-xs"
         )}
       >
         <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin text-primary")} />

@@ -71,11 +71,11 @@ export function MemorySidebar({
         </div>
 
         <div className="flex min-w-0 flex-1 items-baseline gap-1.5">
-          <h3 className="truncate text-sm font-semibold tracking-tight text-foreground">
+          <h3 className="truncate text-sm font-semibold text-foreground">
             本次关联记忆
           </h3>
           {normalized.length > 0 && (
-            <span className="shrink-0 font-mono text-[11px] text-muted-foreground/70">
+            <span className="shrink-0 font-mono text-2xs text-muted-foreground/70">
               {normalized.length}
             </span>
           )}
@@ -103,7 +103,7 @@ export function MemorySidebar({
           />
         ) : (
           <div className="space-y-2.5">
-            <div className="flex items-start gap-2 px-1 py-0.5 text-[12px] leading-relaxed text-muted-foreground">
+            <div className="flex items-start gap-2 px-1 py-0.5 text-xs leading-relaxed text-muted-foreground">
               <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
               <span>以下为系统在本次交流中自动参考的长期个人事实。</span>
             </div>
@@ -133,7 +133,7 @@ export function MemorySidebar({
         ].join(" ")}
       >
         <div className="flex items-center justify-between gap-2 rounded-lg px-1.5 py-1">
-          <span className="min-w-0 truncate text-[12px] font-medium text-muted-foreground">
+          <span className="min-w-0 truncate text-xs font-medium text-muted-foreground">
             长期记忆检索
           </span>
           <Switch
@@ -153,7 +153,7 @@ export function MemorySidebar({
             }
           }}
           asChild={!onSelectMobileTab}
-          className="h-8 w-full cursor-pointer text-[12px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+          className="h-8 w-full cursor-pointer text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
         >
           {onSelectMobileTab ? (
             <span className="flex items-center justify-center gap-1.5">

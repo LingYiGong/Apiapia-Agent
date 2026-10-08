@@ -173,7 +173,7 @@ export const MobileHistoryView = ({
             onChange={(e) => setSearch(e.target.value)}
             // pl-9/pr-9 与图标（left-3，14px）和清除键（right-2.5）对齐；
             // 此前 pl-8/pr-8 配 14px 图标，输入的文字会压到图标上。
-            className="h-9 rounded-xl border-border/40 bg-surface-3/50 pl-9 pr-9 text-[13px] focus-visible:bg-background"
+            className="h-9 rounded-xl border-border/40 bg-surface-3/50 pl-9 pr-9 text-footnote focus-visible:bg-background"
           />
           {search && (
             <button
@@ -213,10 +213,10 @@ export const MobileHistoryView = ({
             {groupedSections.map((sec) => (
               <div key={sec.key} className="space-y-1.5">
                 <div className="flex items-center justify-between px-1">
-                  <span className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wider text-muted-foreground select-none">
+                  <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground select-none">
                     {sec.key === "pinned" && <Pin className="h-3 w-3 text-primary" />}
                     <span>{sec.title}</span>
-                    <span className="font-mono text-[10px] opacity-60">({sec.items.length})</span>
+                    <span className="font-mono text-2xs opacity-60">({sec.items.length})</span>
                   </span>
                 </div>
 

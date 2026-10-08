@@ -221,7 +221,7 @@ export const SwipeableConversationCard = ({
         )}
       >
         {c.is_pinned ? <PinOff className="mb-0.5 h-5 w-5" /> : <Pin className="mb-0.5 h-5 w-5" />}
-        <span className="text-[11px] font-semibold tracking-tight">
+        <span className="text-2xs font-semibold">
           {c.is_pinned ? "取消置顶" : "置顶"}
         </span>
       </div>
@@ -242,7 +242,7 @@ export const SwipeableConversationCard = ({
         )}
       >
         <Trash2 className="mb-0.5 h-5 w-5" />
-        <span className="text-[11px] font-semibold tracking-tight">删除</span>
+        <span className="text-2xs font-semibold">删除</span>
       </div>
 
       {/* 前景卡片 */}
@@ -298,14 +298,14 @@ export const SwipeableConversationCard = ({
             >
               <span
                 className={cn(
-                  "truncate text-[15px] font-medium leading-snug",
+                  "truncate text-subhead font-medium leading-snug",
                   isSelected ? "font-semibold text-primary" : "text-foreground"
                 )}
               >
                 {c.title || "新建对话"}
               </span>
             </button>
-            <div className="mt-1 flex items-center gap-2 font-mono text-[11px] text-muted-foreground">
+            <div className="mt-1 flex items-center gap-2 font-mono text-2xs text-muted-foreground">
               {timeStr && (
                 <span className="flex shrink-0 items-center gap-1">
                   <Clock className="h-3 w-3" />
@@ -313,7 +313,7 @@ export const SwipeableConversationCard = ({
                 </span>
               )}
               {c.model && (
-                <span className="max-w-[120px] truncate rounded bg-surface-3/60 px-1 text-[10px]">
+                <span className="max-w-[120px] truncate rounded bg-surface-3/60 px-1 text-2xs">
                   {c.model}
                 </span>
               )}

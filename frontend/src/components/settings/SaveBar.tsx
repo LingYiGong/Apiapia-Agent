@@ -39,13 +39,13 @@ export function SaveStatus({
   return (
     <div className="flex shrink-0 items-center gap-2.5">
       {justSaved ? (
-        <span className="flex items-center gap-1.5 text-[13px] font-medium text-emerald-600 animate-in fade-in dark:text-emerald-400">
+        <span className="flex items-center gap-1.5 text-footnote font-medium text-emerald-600 animate-in fade-in dark:text-emerald-400">
           <Check className="h-4 w-4" />
           <span>已保存</span>
         </span>
       ) : dirty ? (
         <div className="flex items-center gap-2">
-          <span className="flex items-center gap-1.5 text-[12px] font-medium text-amber-600 dark:text-amber-400">
+          <span className="flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
             <span>未保存更改</span>
           </span>
@@ -61,7 +61,7 @@ export function SaveStatus({
           </Button>
         </div>
       ) : (
-        <span className="flex items-center gap-1.5 text-[12px] font-normal text-muted-foreground">
+        <span className="flex items-center gap-1.5 text-xs font-normal text-muted-foreground">
           <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
           <span>已是最新</span>
         </span>
@@ -110,7 +110,7 @@ export function SaveButton({
           <Save className="h-3.5 w-3.5" />
         )}
         <span>{saving ? (isXs ? "保存中" : "正在保存...") : "保存设置"}</span>
-        <kbd className="ml-0.5 hidden font-sans text-[10px] opacity-70 sm:inline-block">⌘S</kbd>
+        <kbd className="ml-0.5 hidden font-sans text-2xs opacity-70 sm:inline-block">⌘S</kbd>
       </Button>
     </ActionTooltip>
   );
@@ -142,7 +142,7 @@ export function SaveActionBar({
       <div className="flex items-center justify-between gap-3 rounded-full border border-border/60 bg-card/90 p-2 shadow-xl backdrop-blur-2xl sm:px-4 sm:py-2.5">
         <div className="flex items-center gap-2 pl-2">
           <span className="h-2 w-2 animate-pulse rounded-full bg-amber-500" />
-          <span className="text-[12px] font-medium text-foreground sm:text-[13px]">
+          <span className="text-xs font-medium text-foreground sm:text-footnote">
             偏好设置有未保存更改
           </span>
         </div>

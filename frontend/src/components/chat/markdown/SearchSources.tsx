@@ -59,7 +59,7 @@ export function SearchSources({
             这里只保留一个视觉箭头，并对其 aria-hidden。 */}
         <span
           aria-hidden="true"
-          className="ml-2 shrink-0 text-[10px] text-muted-foreground transition-transform group-open:rotate-180"
+          className="ml-2 shrink-0 text-2xs text-muted-foreground transition-transform group-open:rotate-180"
         >
           ▼
         </span>
@@ -75,10 +75,10 @@ export function SearchSources({
             title={item.title}
             className="group/card flex flex-col rounded-lg border bg-card p-2 text-left transition-colors hover:border-primary hover:shadow-xs"
           >
-            <div className="flex items-center gap-1 text-[11px] font-medium group-hover/card:text-primary">
+            <div className="flex items-center gap-1 text-2xs font-medium group-hover/card:text-primary">
               <span
                 aria-hidden="true"
-                className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[9px] font-bold text-primary"
+                className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-2xs font-bold text-primary"
               >
                 {idx + 1}
               </span>
@@ -86,11 +86,11 @@ export function SearchSources({
               <ExternalLink className="ml-auto h-3 w-3 shrink-0 text-primary opacity-0 transition-opacity group-hover/card:opacity-100" />
             </div>
             {item.snippet && (
-              <p className="mt-1 line-clamp-2 break-words text-[10px] leading-snug text-muted-foreground">
+              <p className="mt-1 line-clamp-2 break-words text-2xs leading-snug text-muted-foreground">
                 {item.snippet}
               </p>
             )}
-            <span className="mt-1 truncate font-mono text-[9px] text-muted-foreground">
+            <span className="mt-1 truncate font-mono text-2xs text-muted-foreground">
               {hostnameOf(item.url)}
             </span>
           </a>

@@ -56,10 +56,19 @@
 
     /* ── 字体栈（唯一事实来源）───────────────────────────────
        tailwind.config.ts 的 fontFamily 全部 var() 引用这里，
-       不再各自抄一份字面量。 */
+       不再各自抄一份字面量。
+
+       顺序原则：**拉丁字体在前，CJK 字体在后**。
+       CSS 字体回退是逐字符进行的 —— 拉丁字形命中前面的 SF Pro /
+       Segoe UI，汉字因缺字自动落到后面的 PingFang SC / 微软雅黑 /
+       Noto Sans SC。此前把 system-ui 放在所有 CJK 字体之后，导致
+       Firefox / Safari on Windows 上 `-apple-system` 与
+       `BlinkMacSystemFont` 双双失效后，整段拉丁文字直接落到
+       Microsoft YaHei（其拉丁字形明显劣于 Segoe UI）。 */
     --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
-      "SF Pro", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC",
-      system-ui, sans-serif;
+      "SF Pro", system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+      "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC",
+      sans-serif;
     --font-mono: -apple-system-monospaced, "SF Mono", SFMono-Regular, ui-monospace,
       Menlo, Monaco, Consolas, "Liberation Mono", monospace;
 
@@ -135,17 +144,26 @@
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-sans);
-    letter-spacing: -0.014em;
-    line-height: 1.47059; /* Apple HIG iOS Standard Body Line-height */
+    /* 字距**不在这里设**。Apple 的 SF Pro tracking 表随字号变化
+       （10/11pt 为正值 +12/+6‰，12pt 为 0，16pt 为 -20‰，24pt 越过零点
+       转为 +3‰，34pt 为 +12‰，80pt 回到 0），单一常量必然在两端都错。
+       此前的 `letter-spacing: -0.014em` 会作用到所有**没有** Tailwind
+       字号工具类的元素 —— 也就是全站约 170 处 text-[Npx] 任意值：
+       9/10/11px 上它把 Apple 要求的正字距变成了负字距（符号反了），
+       13px 上紧了 2.3 倍。现在字距唯一来源是 tailwind.config.ts 的
+       fontSize 刻度，每档都直接标注了对应的 Apple tracking 值。 */
+    line-height: 1.5; /* 中文正文节奏；Apple iOS Body 为 22/17 = 1.294，
+                        中文方块字需要比拉丁更松的行距，1.5 是网页通用值。 */
     transition: background-color 0.2s ease, color 0.2s ease;
   }
 }
 
 /* Apple HIG iOS Layout Utilities
    ------------------------------------------------------------------
-   排版类（.apple-*）此前在这里和 tailwind.config.ts 的 fontSize 里
-   各写了一份，而**全站 0 处引用**（实际用的是 text-[11px] 这类任意值）。
-   现在只保留真正在用的两条：触控目标尺寸与打字机光标。 */
+   排版类此前在这里和 tailwind.config.ts 的 fontSize 里各写了一份，而全站
+   0 处引用；真正在用的 `text-[11px]` 之类任意值现已全部收敛为刻度类
+   （见 tailwind.config.ts fontSize 的 Apple 校准表）。
+   这里只剩触控目标尺寸这一条。 */
 @layer utilities {
   /* Apple HIG Standard Touch Target: minimum 44pt x 44pt */
   .apple-touch-target {
@@ -187,8 +205,16 @@ select {
    iOS zooms whenever a text field computes to < 16px, so every *typable* input
    must be forced up — this has to cover email/password too, and inputs with no
    explicit `type` attribute. Controls that are not text entry (checkbox, radio,
-   button, file, range, color, image) are excluded so their sizing is untouched. */
-@media screen and (max-width: 640px) {
+   button, file, range, color, image) are excluded so their sizing is untouched.
+
+   查询条件用 `(any-pointer: coarse)` 而非 `(max-width: 640px)`：
+   1. 后者在 iPhone 15 Pro Max 等机型**横屏时失效** —— 逻辑宽度 932px
+      已超过 640px 断点，但 iOS 依然会对 < 16px 的输入框自动放大。
+   2. `any-pointer` 而非 `pointer`：iPad 接入妙控键盘/触控板后主指针会变成
+      `fine`，但触屏仍在，auto-zoom 行为依旧存在；`any-pointer` 只要存在
+      任何粗指针就命中，与外接设备无关。
+   粗指针才是 iOS 真正触发该行为的判据，与屏幕方向和尺寸无关。 */
+@media (any-pointer: coarse) {
   input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="file"]):not([type="range"]):not([type="color"]):not([type="image"]),
   textarea {
     font-size: 16px !important;

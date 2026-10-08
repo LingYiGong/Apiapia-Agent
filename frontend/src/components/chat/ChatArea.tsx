@@ -230,6 +230,20 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const composerContainerRef = useRef<HTMLDivElement>(null);
+  const [composerWidth, setComposerWidth] = useState<number | undefined>(undefined);
+
+  useEffect(() => {
+    if (!composerContainerRef.current) return;
+    const el = composerContainerRef.current;
+    const updateWidth = () => {
+      setComposerWidth(el.getBoundingClientRect().width);
+    };
+    updateWidth();
+    const observer = new ResizeObserver(updateWidth);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   // ── Composer draft persistence ──────────────────────────────────
   // An unsent prompt should survive a reload or an accidental navigation.
@@ -709,6 +723,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               handleFiles(e.dataTransfer.files);
             }
           }}
+          ref={composerContainerRef}
           className="max-w-3xl mx-auto rounded-2xl sm:rounded-3xl border border-border/70 dark:border-border/50 bg-background/90 dark:bg-surface-2/90 backdrop-blur-xl p-1 sm:p-1.5 shadow-[0_2px_12px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.35)] focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/20 transition-all flex flex-col"
         >
           {/* Slash Commands Autocomplete Popup */}
@@ -903,37 +918,38 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               <DropdownMenuContent
                 align="start"
                 side="top"
-                sideOffset={10}
+                sideOffset={12}
                 collisionPadding={12}
-                className="z-50 w-[300px] sm:w-[320px] select-none rounded-[22px] border border-border/50 bg-background/95 p-2 backdrop-blur-2xl shadow-[0_20px_50px_rgba(0,0,0,0.22)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.6)] animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95"
+                style={composerWidth ? { width: `${composerWidth}px`, maxWidth: "calc(100vw - 24px)" } : undefined}
+                className="z-50 select-none rounded-[26px] border border-border/60 bg-background/95 p-2.5 sm:p-3 backdrop-blur-2xl shadow-[0_24px_60px_rgba(0,0,0,0.25)] dark:shadow-[0_28px_70px_rgba(0,0,0,0.65)] animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95"
               >
-                <div className="px-2.5 pt-1.5 pb-2 border-b border-border/40 mb-1.5 flex items-center justify-between">
-                  <span className="text-2xs font-semibold uppercase tracking-wider text-muted-foreground font-mono">
-                    创作与功能
+                <div className="px-3 pt-1 pb-2.5 border-b border-border/40 mb-2 flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground font-mono">
+                    创作与能力扩展
                   </span>
                   {creationMode !== "chat" && (
                     <button
                       type="button"
                       onClick={() => onChangeCreationMode?.("chat")}
-                      className="text-2xs text-primary hover:underline font-medium cursor-pointer"
+                      className="text-xs text-primary hover:underline font-semibold cursor-pointer"
                     >
                       恢复默认对话
                     </button>
                   )}
                 </div>
 
-                {/* 顶部横排 3 按钮：相册、相机、文件 */}
-                <div className="grid grid-cols-3 gap-1.5 px-0.5 mb-1.5">
+                {/* 顶部横排 3 按钮：相册、相机、文件 (加大尺寸与呼吸感) */}
+                <div className="grid grid-cols-3 gap-2 px-0.5 mb-2.5">
                   <DropdownMenuItem asChild>
                     <button
                       type="button"
                       onClick={() => galleryInputRef.current?.click()}
-                      className="flex flex-col items-center justify-center gap-1.5 py-2.5 px-1 rounded-2xl border border-border/40 bg-surface-3/40 hover:bg-surface-3 focus:bg-surface-3 focus:outline-none transition-all active:scale-95 group text-center cursor-pointer select-none"
+                      className="flex flex-col items-center justify-center gap-2 py-3 px-2 rounded-2xl border border-border/50 bg-surface-3/50 hover:bg-surface-3 focus:bg-surface-3 focus:outline-none transition-all active:scale-95 group text-center cursor-pointer select-none"
                     >
-                      <div className="h-8 w-8 rounded-xl bg-blue-500/15 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                        <ImageIcon className="h-4 w-4" />
+                      <div className="h-10 w-10 rounded-2xl bg-blue-500/15 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform shadow-xs">
+                        <ImageIcon className="h-5 w-5" />
                       </div>
-                      <span className="text-xs font-medium text-foreground">相册</span>
+                      <span className="text-sm font-semibold text-foreground tracking-tight">相册</span>
                     </button>
                   </DropdownMenuItem>
 
@@ -941,12 +957,12 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                     <button
                       type="button"
                       onClick={() => cameraInputRef.current?.click()}
-                      className="flex flex-col items-center justify-center gap-1.5 py-2.5 px-1 rounded-2xl border border-border/40 bg-surface-3/40 hover:bg-surface-3 focus:bg-surface-3 focus:outline-none transition-all active:scale-95 group text-center cursor-pointer select-none"
+                      className="flex flex-col items-center justify-center gap-2 py-3 px-2 rounded-2xl border border-border/50 bg-surface-3/50 hover:bg-surface-3 focus:bg-surface-3 focus:outline-none transition-all active:scale-95 group text-center cursor-pointer select-none"
                     >
-                      <div className="h-8 w-8 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                        <Camera className="h-4 w-4" />
+                      <div className="h-10 w-10 rounded-2xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform shadow-xs">
+                        <Camera className="h-5 w-5" />
                       </div>
-                      <span className="text-xs font-medium text-foreground">相机</span>
+                      <span className="text-sm font-semibold text-foreground tracking-tight">相机</span>
                     </button>
                   </DropdownMenuItem>
 
@@ -954,18 +970,17 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="flex flex-col items-center justify-center gap-1.5 py-2.5 px-1 rounded-2xl border border-border/40 bg-surface-3/40 hover:bg-surface-3 focus:bg-surface-3 focus:outline-none transition-all active:scale-95 group text-center cursor-pointer select-none"
+                      className="flex flex-col items-center justify-center gap-2 py-3 px-2 rounded-2xl border border-border/50 bg-surface-3/50 hover:bg-surface-3 focus:bg-surface-3 focus:outline-none transition-all active:scale-95 group text-center cursor-pointer select-none"
                     >
-                      <div className="h-8 w-8 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                        <FileText className="h-4 w-4" />
+                      <div className="h-10 w-10 rounded-2xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform shadow-xs">
+                        <FileText className="h-5 w-5" />
                       </div>
-                      <span className="text-xs font-medium text-foreground">文件</span>
+                      <span className="text-sm font-semibold text-foreground tracking-tight">文件</span>
                     </button>
                   </DropdownMenuItem>
                 </div>
 
-                <div className="space-y-1">
-
+                <div className="space-y-1.5">
                   {/* 2. 联网检索 */}
                   {onToggleWebSearchMode && (
                     <DropdownMenuItem
@@ -973,24 +988,24 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                         e.preventDefault();
                         onToggleWebSearchMode();
                       }}
-                      className="flex items-start gap-3 rounded-2xl p-2.5 cursor-pointer transition-colors hover:bg-surface-3 focus:bg-surface-3 active:scale-[0.99]"
+                      className="flex items-center gap-3.5 rounded-2xl p-3 cursor-pointer transition-colors hover:bg-surface-3 focus:bg-surface-3 active:scale-[0.99]"
                     >
                       <div className={cn(
-                        "h-8 w-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 transition-colors",
+                        "h-10 w-10 rounded-2xl flex items-center justify-center shrink-0 transition-colors shadow-xs",
                         webSearchMode === "on"
                           ? "bg-sky-500/15 text-sky-600 dark:text-sky-400"
                           : webSearchMode === "auto"
                           ? "bg-primary/10 text-primary"
                           : "bg-surface-3 text-muted-foreground"
                       )}>
-                        <Globe className="h-4 w-4" />
+                        <Globe className="h-5 w-5" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-semibold text-foreground">联网检索</span>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-semibold text-foreground tracking-tight">联网检索</span>
                           <span
                             className={cn(
-                              "font-mono text-2xs px-1.5 py-0.5 rounded-md",
+                              "font-mono text-xs px-2 py-0.5 rounded-lg",
                               webSearchMode === "on"
                                 ? "bg-sky-500/15 text-sky-600 dark:text-sky-400 font-semibold"
                                 : webSearchMode === "auto"
@@ -1001,12 +1016,12 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                             {webSearchMode === "auto" ? "自动判断" : webSearchMode === "on" ? "强制开启" : "已关闭"}
                           </span>
                         </div>
-                        <p className="mt-0.5 text-2xs leading-relaxed text-muted-foreground">
+                        <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
                           {webSearchMode === "auto"
-                            ? "智能研判时效意图，结合实时互联网信息解答"
+                            ? "智能研判时效意图，结合实时互联网信息与权威来源解答"
                             : webSearchMode === "on"
-                            ? "每次提问都强制检索最新网页与网络热点"
-                            : "仅依赖模型自身知识库回答，不访问外网"}
+                            ? "每次提问都强制检索最新网页与网络热点动态"
+                            : "仅依赖模型内部知识库回答，不访问外网"}
                         </p>
                       </div>
                     </DropdownMenuItem>
@@ -1016,26 +1031,26 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                   <DropdownMenuItem
                     onClick={() => onChangeCreationMode?.(creationMode === "image" ? "chat" : "image")}
                     className={cn(
-                      "flex items-start gap-3 rounded-2xl p-2.5 cursor-pointer transition-colors active:scale-[0.99]",
+                      "flex items-center gap-3.5 rounded-2xl p-3 cursor-pointer transition-colors active:scale-[0.99]",
                       creationMode === "image"
                         ? "bg-amber-500/10 border border-amber-500/30"
                         : "hover:bg-surface-3 focus:bg-surface-3"
                     )}
                   >
-                    <div className="h-8 w-8 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
-                      <Palette className="h-4 w-4" />
+                    <div className="h-10 w-10 rounded-2xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 shadow-xs">
+                      <Palette className="h-5 w-5" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-foreground">生成图片</span>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-semibold text-foreground tracking-tight">生成图片</span>
                         {creationMode === "image" && (
-                          <span className="flex items-center gap-1 font-mono text-2xs font-semibold text-amber-600 dark:text-amber-400">
-                            <Check className="h-3 w-3 stroke-[3]" /> 当前模式
+                          <span className="flex items-center gap-1 font-mono text-xs font-semibold text-amber-600 dark:text-amber-400">
+                            <Check className="h-3.5 w-3.5 stroke-[3]" /> 当前模式
                           </span>
                         )}
                       </div>
-                      <p className="mt-0.5 text-2xs leading-relaxed text-muted-foreground">
-                        调用文生图模型，将自然语言创意绘制为高清图像
+                      <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                        调用文生图模型，将你的创意与灵感直接绘制为高清艺术图像
                       </p>
                     </div>
                   </DropdownMenuItem>
@@ -1046,20 +1061,20 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                       onClick={() => {
                         toast.info("当前账号处于体验模式，暂不支持使用 AI 视频生成功能。如需开通，请联系管理员获取完整权限。");
                       }}
-                      className="flex items-start gap-3 rounded-2xl p-2.5 opacity-55 cursor-not-allowed hover:bg-transparent focus:bg-transparent"
+                      className="flex items-center gap-3.5 rounded-2xl p-3 opacity-55 cursor-not-allowed hover:bg-transparent focus:bg-transparent"
                     >
-                      <div className="h-8 w-8 rounded-xl bg-surface-3 text-muted-foreground flex items-center justify-center shrink-0 mt-0.5">
-                        <Video className="h-4 w-4" />
+                      <div className="h-10 w-10 rounded-2xl bg-surface-3 text-muted-foreground flex items-center justify-center shrink-0 shadow-xs">
+                        <Video className="h-5 w-5" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-semibold text-foreground">生成视频</span>
-                          <span className="font-mono text-2xs text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded-md">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-semibold text-foreground tracking-tight">生成视频</span>
+                          <span className="font-mono text-xs text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-lg">
                             体验账号受限
                           </span>
                         </div>
-                        <p className="mt-0.5 text-2xs leading-relaxed text-muted-foreground">
-                          调用前沿 AI 视频生成大模型制作动画与短视频
+                        <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                          调用前沿 AI 视频生成大模型，创作高清流畅的短视频与动效
                         </p>
                       </div>
                     </DropdownMenuItem>
@@ -1067,25 +1082,25 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                     <DropdownMenuItem
                       onClick={() => onChangeCreationMode?.(creationMode === "video" ? "chat" : "video")}
                       className={cn(
-                        "flex items-start gap-3 rounded-2xl p-2.5 cursor-pointer transition-colors active:scale-[0.99]",
+                        "flex items-center gap-3.5 rounded-2xl p-3 cursor-pointer transition-colors active:scale-[0.99]",
                         creationMode === "video"
                           ? "bg-purple-500/10 border border-purple-500/30"
                           : "hover:bg-surface-3 focus:bg-surface-3"
                       )}
                     >
-                      <div className="h-8 w-8 rounded-xl bg-purple-500/15 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0 mt-0.5">
-                        <Video className="h-4 w-4" />
+                      <div className="h-10 w-10 rounded-2xl bg-purple-500/15 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0 shadow-xs">
+                        <Video className="h-5 w-5" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-semibold text-foreground">生成视频</span>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-semibold text-foreground tracking-tight">生成视频</span>
                           {creationMode === "video" && (
-                            <span className="flex items-center gap-1 font-mono text-2xs font-semibold text-purple-600 dark:text-purple-400">
-                              <Check className="h-3 w-3 stroke-[3]" /> 当前模式
+                            <span className="flex items-center gap-1 font-mono text-xs font-semibold text-purple-600 dark:text-purple-400">
+                              <Check className="h-3.5 w-3.5 stroke-[3]" /> 当前模式
                             </span>
                           )}
                         </div>
-                        <p className="mt-0.5 text-2xs leading-relaxed text-muted-foreground">
+                        <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
                           输入剧本文案，由 AI 视频大模型生成高清动效与视频
                         </p>
                       </div>

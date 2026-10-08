@@ -24,6 +24,7 @@ import {
   Copy,
   Palette,
   PenLine,
+  Play,
   RotateCw,
   Square,
   Zap,
@@ -49,7 +50,9 @@ interface ChatMessageItemProps {
   regenerating?: boolean;
   onRegenerate?: (assistantMessageId: string) => void;
   onEditMessage?: (messageId: string, newText: string) => void;
+  onContinue?: () => void;
 }
+
 
 /** 「复制」按钮。助手与用户两处原本各写了一遍，结构完全相同。 */
 function CopyButton({
@@ -122,6 +125,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
   regenerating,
   onRegenerate,
   onEditMessage,
+  onContinue,
 }: ChatMessageItemProps) {
   const isUser = msg.role === "user";
   // 错误判定用后端下发的 finish_reason，不再靠内容里是否含 "HTTP 500" 之类的
@@ -374,6 +378,31 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                     <span>已停止</span>
                   </span>
                 </ActionTooltip>
+              )}
+
+              {msg.finish_reason === "length" && (
+                <>
+                  <ActionTooltip label="因达到模型单次最大 Token 限制，回答已截断" side="bottom">
+                    <span className="inline-flex h-7 cursor-default items-center gap-1 rounded-lg border border-amber-500/25 bg-amber-500/10 px-2 text-2xs font-medium text-amber-600 dark:text-amber-400">
+                      <AlertTriangle className="h-2.5 w-2.5" />
+                      <span>长度截断</span>
+                    </span>
+                  </ActionTooltip>
+                  {onContinue && (
+                    <ActionTooltip label="从被截断处继续输出后续内容" side="bottom">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={onContinue}
+                        className="flex h-7 items-center gap-1 rounded-lg border border-primary/30 bg-primary/10 px-2 text-2xs font-medium text-primary hover:bg-primary/20"
+                      >
+                        <Play className="h-2.5 w-2.5 fill-current" />
+                        <span>继续生成</span>
+                      </Button>
+                    </ActionTooltip>
+                  )}
+                </>
               )}
 
               {canRegenerate && onRegenerate && (

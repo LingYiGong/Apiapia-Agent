@@ -172,7 +172,7 @@ export async function streamChatResponse(
     onToolResult?: (data: { toolCallId: string; result: any }) => void;
     onImageResult?: (data: { toolCallId: string; imageId?: string | null; url: string; prompt: string; provider: string; model: string }) => void;
     onToken?: (token: string) => void;
-    onError?: (error: string, info?: { finishReason?: "stop" | "abort" | "error" }) => void;
+    onError?: (error: string, info?: { finishReason?: "stop" | "abort" | "error" | "length" | "content_filter" | (string & {}) }) => void;
     onDone?: (doneMeta: {
       conversation_id: string;
       /** Server-assigned id of the persisted assistant row; powers regenerate/delete. */
@@ -186,10 +186,11 @@ export async function streamChatResponse(
       created_at?: string;
       search_results?: SearchResultItem[];
       search_query?: string | null;
-      finish_reason?: "stop" | "abort" | "error";
+      finish_reason?: "stop" | "abort" | "error" | "length" | "content_filter" | (string & {});
       tool_invocations?: ToolInvocation[];
       generated_images?: GeneratedImage[];
     }) => void;
+
   },
   opts?: {
     signal?: AbortSignal;
@@ -255,6 +256,7 @@ export async function streamChatResponse(
   // Parse the WHATWG/HTML SSE wire format instead of assuming one JSON event
   // per network chunk. Events may be split across chunks and data may span
   // multiple lines. See MDN's SSE event stream format.
+  let streamInThinking = false;
   const dispatchEvent = () => {
     if (eventData.length === 0) {
       eventName = "";
@@ -278,14 +280,32 @@ export async function streamChatResponse(
         callbacks.onToolResult?.(parsed);
       } else if (parsed.type === "image_result") {
         callbacks.onImageResult?.(parsed);
-      } else if (parsed.type === "content") {
-        if (typeof parsed.delta === "string") callbacks.onToken?.(parsed.delta);
       } else if (parsed.type === "reasoning") {
-        if (typeof parsed.delta === "string") callbacks.onToken?.(`<think>${parsed.delta}</think>`);
+        if (typeof parsed.delta === "string") {
+          if (!streamInThinking) {
+            streamInThinking = true;
+            callbacks.onToken?.("<think>\n");
+          }
+          callbacks.onToken?.(parsed.delta);
+        }
+      } else if (parsed.type === "content") {
+        if (streamInThinking) {
+          streamInThinking = false;
+          callbacks.onToken?.("\n</think>\n\n");
+        }
+        if (typeof parsed.delta === "string") callbacks.onToken?.(parsed.delta);
       } else if (parsed.type === "done") {
+        if (streamInThinking) {
+          streamInThinking = false;
+          callbacks.onToken?.("\n</think>\n\n");
+        }
         sawDone = true;
         callbacks.onDone?.(parsed);
       } else if (parsed.type === "error") {
+        if (streamInThinking) {
+          streamInThinking = false;
+          callbacks.onToken?.("\n</think>\n\n");
+        }
         sawError = true;
         callbacks.onError?.(parsed.error || "Model stream failed.", {
           finishReason: parsed.finish_reason,
@@ -295,6 +315,7 @@ export async function streamChatResponse(
       console.error(`Failed to parse SSE ${type} JSON:`, dataStr, e);
     }
   };
+
 
   const consumeText = (text: string, flush = false) => {
     buffer += text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");

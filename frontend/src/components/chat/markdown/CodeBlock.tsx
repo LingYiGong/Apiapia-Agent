@@ -189,24 +189,49 @@ export function CodeBlock({ children, className }: any) {
     return <SvgRenderer svgCode={codeText} />;
   }
 
+  const isMermaid = lang === "mermaid";
+
   return (
     <div className="my-3.5 overflow-hidden rounded-2xl border border-border/70 bg-[#0d0d0d] shadow-xs">
       <div className="flex items-center justify-between border-b border-white/5 bg-[#1f1f23] px-4 py-2 text-xs text-muted-foreground select-none">
-        <span className="font-mono text-2xs font-medium uppercase tracking-wide text-slate-300">
-          {lang || "code"}
-        </span>
-        <button
-          type="button"
-          onClick={() => copy(codeText)}
-          className="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-2xs font-medium text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
-        >
-          {copied ? (
-            <Check className="h-3.5 w-3.5 text-emerald-400" />
-          ) : (
-            <Copy className="h-3.5 w-3.5" />
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-2xs font-medium uppercase tracking-wide text-slate-300">
+            {lang || "code"}
+          </span>
+          {isMermaid && (
+            <span className="rounded-md bg-primary/20 px-1.5 py-0.5 text-2xs font-medium text-primary">
+              架构图
+            </span>
           )}
-          <span>{copied ? "已复制" : "复制代码"}</span>
-        </button>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => copy(codeText)}
+            className="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-2xs font-medium text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
+          >
+            {copied ? (
+              <Check className="h-3.5 w-3.5 text-emerald-400" />
+            ) : (
+              <Copy className="h-3.5 w-3.5" />
+            )}
+            <span>{copied ? "已复制" : "复制"}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              downloadTextFile(
+                `code-${Date.now()}.${isMermaid ? "mmd" : lang || "txt"}`,
+                codeText,
+                "text/plain;charset=utf-8"
+              )
+            }
+            className="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-2xs font-medium text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
+          >
+            <Download className="h-3.5 w-3.5" />
+            <span>下载</span>
+          </button>
+        </div>
       </div>
       <div className="overflow-x-auto p-4 font-mono text-footnote leading-[1.65] text-[#ececec]">
         <code>{children}</code>
@@ -214,3 +239,4 @@ export function CodeBlock({ children, className }: any) {
     </div>
   );
 }
+

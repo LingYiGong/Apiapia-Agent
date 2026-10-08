@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v2.13.0-indigo?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/version-v2.14.0-indigo?style=flat-square" alt="Version">
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
   <img src="https://img.shields.io/badge/Mem0%20OSS-2.2.1-orange?style=flat-square" alt="Mem0">
@@ -22,7 +22,44 @@
 
 ---
 
+## v2.14.0 发布说明
+
+本版本是一次**全链路模型交互能力重构与多模态/富文本渲染升级**。起因是针对大模型主流协议（OpenAI、Anthropic、Gemini、Ollama）在流式交互、深度推理链捕获、原生工具调用、上下文衰减以及富文本排版中存在的断层进行系统性审查与补齐。
+
+### 深度推理链与思考过程
+
+- **Claude 3.7 Extended Thinking 完整支持**：重构 Anthropic 适配器的流式监听机制，从原先仅过滤正文文本的 `text_stream` 改为直接监听底层事件流，精确捕获 `thinking_delta` 块并动态封装为 `<think>` 输出。
+- **Gemini 2.0 / 2.5 Flash Thinking 识别**：修复此前 Gemini 思考内容直接当普通正文输出的缺陷。现通过识别候选块中的 `thought: true` 标记，自动归入折叠思考盒，消除与正文的混杂排版。
+- **Ollama 本地推理模型思考流支持**：兼容 Ollama 0.5+ 的 `message.thinking` 字段，支持 DeepSeek-R1、QwQ、Qwen 等本地部署推理模型的折叠展示。
+- **多轮历史防污染（大幅省 Token）**：组装后续轮次的会话上下文时，自动清洗并剔除历史助手消息中的 `<think>...</think>`。单次会话可节约数千 Token，并防止非推理模型产生模仿幻觉。
+- **前端 SSE 思考分发流状态机**：重构前端流解析器对 `reasoning` 类型的处理，维护 `streamInThinking` 状态机平滑吐字，彻底杜绝每个分块都嵌套标签的碎块化 Bug。
+
+### 交互调度与工具调用
+
+- **解除 AI 生图与大模型调度的互斥旁路**：此前只要触发绘图意图便会直接跳过大模型；现重构为先执行生图工具并将结果作为系统上下文回传，语言模型继续生成后续分析、故事或文案，完美支持「生图 + 讲故事」复合需求。
+- **模型原生 Tool Calls 捕获**：当具备 Function Calling 能力的模型主动发起工具调用时，适配器能够捕获并以规范卡片呈现，杜绝内容为空造成的空白气泡。
+
+### 截断检测与“继续生成”机制
+
+- **供应商真实 finish_reason 全链路透传**：捕获各大提供商下发的 `length`（超长截断）、`content_filter`（安全策略拦截）、`stop`。
+- **一键“继续生成”（Continue）**：当回答因单次最大 Token 限制被截断时，前端气泡醒目标注「⚠️ 长度截断」，并在操作栏提供「继续生成」按钮，点击自动衔接上一段内容续写。
+- **安全过滤与空回复容错**：当内容触发上游审核拦截时，提供友好解释卡片，不再呈现空消息气泡。
+
+### 富文本、数学公式与图表
+
+- **LaTeX / KaTeX 数学公式渲染**：前端集成 `remark-math` 与 `rehype-katex`，并在全局引入 KaTeX 样式表，完整支持行内公式 `$E=mc^2$` 与块级多行公式 `$$\int_0^\infty ...$$` 的标准美观排版。
+- **Mermaid 架构流程图识别与代码下载**：代码块支持 `mermaid` 语言标识并标注「架构图」标签；所有代码块新增「一键下载代码文件」功能。
+
+### 多模态与系统稳定性
+
+- **Ollama 多模态图文格式兼容**：新增 `_prepare_messages`，将 OpenAI 格式的图文混排数组正确映射为 Ollama 原生的 `images: [base64_str]` 数组，彻底解决本地多模态模型识图报错。
+- **Excel (.xlsx) 表格解析器**：新增专门的 Excel 解析模块，优先调用 `openpyxl`，同时内建标准库 `zipfile` + XML 容灾降级方案，彻底避免将压缩包二进制读成乱码。
+- **SSE Keep-Alive 保活心跳**：在模型深度推理（首字等待）期间，以 15 秒为间隔自动向客户端发送 `: keep-alive\n\n` 注释心跳，防止 Nginx / Cloudflare 等反向代理触发 504 Gateway Timeout 超时断连。
+
+---
+
 ## v2.13.0 发布说明
+
 
 本版本是一次**后端**版本。起因是一轮覆盖全部后端代码的通读审计，暴露出若干此前无人发现的问题——其中一类是**正在漏钱的鉴权绕过**，另一类是**不报错、不崩溃、只是安静地不工作**的静默故障。
 

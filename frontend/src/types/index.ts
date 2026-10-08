@@ -69,8 +69,8 @@ export interface Message {
   generated_images?: string | null;
   tool_invocations?: ToolInvocation[] | string | null;
   search_query?: string | null;
-  /** 'stop' = complete, 'abort' = user stopped it, 'error' = provider failed */
-  finish_reason?: "stop" | "abort" | "error" | null;
+  /** 'stop' = complete, 'abort' = user stopped, 'error' = failed, 'length' = token truncated, 'content_filter' = blocked */
+  finish_reason?: "stop" | "abort" | "error" | "length" | "content_filter" | (string & {}) | null;
   toolInvocations?: ToolInvocation[];
   generatedImages?: GeneratedImage[];
   model?: string;

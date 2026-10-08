@@ -35,6 +35,7 @@ anthropic>=0.34.0
 
 # Utilities
 pypdf>=4.0.0
+openpyxl>=3.1.0
 # NOTE: duckduckgo-search was removed. The search service scrapes DuckDuckGo's
 # html/lite/instant-answer endpoints directly over httpx, so the package only ever
 # added a fourth fallback tier (and one more serial timeout on total failure) for

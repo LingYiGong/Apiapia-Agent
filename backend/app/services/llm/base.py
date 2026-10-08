@@ -1,9 +1,12 @@
 from abc import ABC, abstractmethod
-from typing import AsyncGenerator, List, Dict
+from typing import AsyncGenerator, List, Dict, Optional
 
 
 class LLMProvider(ABC):
     """Abstract base class for all LLM providers."""
+
+    last_usage: Optional[Dict[str, int]] = None
+    last_finish_reason: Optional[str] = None
 
     @abstractmethod
     async def chat(
@@ -27,3 +30,4 @@ class LLMProvider(ABC):
     ) -> str:
         """Non-streaming one-off completion."""
         pass
+

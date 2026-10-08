@@ -148,7 +148,57 @@ def parse_bytes(name: str, mime_type: str, raw_bytes: bytes, data_url: str = "")
             logger.warning("Failed to parse docx %s: %s", name, e)
             extracted_text = f"[Word 文档解析失败: {e}]"
 
-    # 3. Plain Text / Code / Markdown / CSV / JSON
+    # 3. Excel Spreadsheet (.xlsx) Parsing
+    elif lower_name.endswith(".xlsx"):
+        try:
+            import openpyxl
+            wb = openpyxl.load_workbook(io.BytesIO(raw_bytes), data_only=True)
+            sheet_texts = []
+            for sheetname in wb.sheetnames[:5]:
+                ws = wb[sheetname]
+                rows = []
+                for row in ws.iter_rows(values_only=True):
+                    row_vals = [str(v).strip() if v is not None else "" for v in row]
+                    if any(row_vals):
+                        rows.append(" | ".join(row_vals))
+                if rows:
+                    sheet_texts.append(f"### 工作表: {sheetname}\n" + "\n".join(rows[:200]))
+            extracted_text = "\n\n".join(sheet_texts)
+        except ImportError:
+            # Fallback to standard library zipfile parsing of sheet XML
+            try:
+                with zipfile.ZipFile(io.BytesIO(raw_bytes)) as z:
+                    shared_strings = []
+                    if "xl/sharedStrings.xml" in z.namelist():
+                        ss_xml = z.read("xl/sharedStrings.xml").decode("utf-8")
+                        shared_strings = re.findall(r"<t[^>]*>(.*?)</t>", ss_xml)
+                    sheets = [n for n in z.namelist() if n.startswith("xl/worksheets/sheet") and n.endswith(".xml")]
+                    sheet_texts = []
+                    for sheet_file in sheets[:3]:
+                        s_xml = z.read(sheet_file).decode("utf-8")
+                        rows_xml = re.findall(r"<row[^>]*>(.*?)</row>", s_xml)
+                        rows = []
+                        for r_xml in rows_xml[:100]:
+                            cells = re.findall(r'<c[^>]*?(?: t="([^"]*)")?[^>]*>(?:<v>(.*?)</v>)?</c>', r_xml)
+                            row_vals = []
+                            for cell_type, val in cells:
+                                if cell_type == "s" and val.isdigit() and int(val) < len(shared_strings):
+                                    row_vals.append(shared_strings[int(val)])
+                                else:
+                                    row_vals.append(val or "")
+                            if any(row_vals):
+                                rows.append(" | ".join(row_vals))
+                        if rows:
+                            sheet_texts.append(f"### 表格: {sheet_file}\n" + "\n".join(rows))
+                    extracted_text = "\n\n".join(sheet_texts) if sheet_texts else "[Excel 文件未包含可提取的数据内容]"
+            except Exception as ze:
+                logger.warning("Failed to parse xlsx %s: %s", name, ze)
+                extracted_text = f"[Excel 表格解析失败: {ze}]"
+        except Exception as e:
+            logger.warning("Failed to parse xlsx %s: %s", name, e)
+            extracted_text = f"[Excel 表格解析失败: {e}]"
+
+    # 4. Plain Text / Code / Markdown / CSV / JSON
     else:
         for enc in ["utf-8", "gbk", "gb2312", "latin1"]:
             try:
@@ -156,6 +206,7 @@ def parse_bytes(name: str, mime_type: str, raw_bytes: bytes, data_url: str = "")
                 break
             except UnicodeDecodeError:
                 continue
+
 
     if not extracted_text:
         extracted_text = f"[文件 {name} 内容为空或无法识别为纯文本]"

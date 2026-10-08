@@ -102,23 +102,57 @@ class AnthropicProvider(LLMProvider):
         **kwargs
     ) -> AsyncGenerator[str, None]:
         create_kwargs = self._build_request(messages, model, temperature, kwargs)
+        self.last_finish_reason = None
 
         if stream:
             async with self.client.messages.stream(**create_kwargs) as stream_resp:
-                async for text in stream_resp.text_stream:
-                    yield text
+                in_thinking = False
+                async for event in stream_resp:
+                    ev_type = getattr(event, "type", None)
+                    if ev_type == "content_block_start":
+                        cb = getattr(event, "content_block", None)
+                        if cb and getattr(cb, "type", None) == "thinking":
+                            if not in_thinking:
+                                in_thinking = True
+                                yield "<think>\n"
+                    elif ev_type == "content_block_delta":
+                        delta = getattr(event, "delta", None)
+                        if delta:
+                            d_type = getattr(delta, "type", None)
+                            if d_type == "thinking_delta":
+                                th = getattr(delta, "thinking", "")
+                                if th:
+                                    if not in_thinking:
+                                        in_thinking = True
+                                        yield "<think>\n"
+                                    yield th
+                            elif d_type == "text_delta":
+                                txt = getattr(delta, "text", "")
+                                if txt:
+                                    if in_thinking:
+                                        in_thinking = False
+                                        yield "\n</think>\n\n"
+                                    yield txt
+                    elif ev_type == "content_block_stop":
+                        if in_thinking:
+                            in_thinking = False
+                            yield "\n</think>\n\n"
+                    elif ev_type == "message_delta":
+                        delta_obj = getattr(event, "delta", None)
+                        sr = getattr(delta_obj, "stop_reason", None)
+                        if sr:
+                            self.last_finish_reason = "length" if sr == "max_tokens" else sr
 
-                # Anthropic streams message_start with the input count and only
-                # settles the output count at the end, so the totals are only
-                # complete once the stream finishes. get_final_message() is the
-                # documented way to collect them after consuming text_stream.
-                #
-                # Wrapped because this runs *after* every chunk was already yielded:
-                # an exception here would surface as a truncated reply, which is a
-                # far worse outcome than falling back to an estimate.
+                if in_thinking:
+                    yield "\n</think>\n\n"
+
+                # Anthropic settles the total output count on get_final_message()
                 try:
                     final_message = await stream_resp.get_final_message()
                     self._record_usage(getattr(final_message, "usage", None))
+                    sr = getattr(final_message, "stop_reason", None)
+                    if sr:
+                        self.last_finish_reason = "length" if sr == "max_tokens" else sr
                 except Exception as e:
                     logger.warning(
                         "Anthropic usage unavailable (falling back to estimate): %s", e
@@ -126,7 +160,16 @@ class AnthropicProvider(LLMProvider):
         else:
             response = await self.client.messages.create(**create_kwargs)
             self._record_usage(getattr(response, "usage", None))
-            yield "".join([block.text for block in response.content if hasattr(block, "text")])
+            sr = getattr(response, "stop_reason", None)
+            if sr:
+                self.last_finish_reason = "length" if sr == "max_tokens" else sr
+            parts = []
+            for block in response.content:
+                if getattr(block, "type", None) == "thinking" and hasattr(block, "thinking"):
+                    parts.append(f"<think>\n{block.thinking}\n</think>\n\n")
+                elif hasattr(block, "text"):
+                    parts.append(block.text)
+            yield "".join(parts)
 
     async def complete(
         self,
@@ -139,4 +182,14 @@ class AnthropicProvider(LLMProvider):
             **self._build_request(messages, model, temperature, kwargs)
         )
         self._record_usage(getattr(response, "usage", None))
-        return "".join([block.text for block in response.content if hasattr(block, "text")])
+        sr = getattr(response, "stop_reason", None)
+        if sr:
+            self.last_finish_reason = "length" if sr == "max_tokens" else sr
+        parts = []
+        for block in response.content:
+            if getattr(block, "type", None) == "thinking" and hasattr(block, "thinking"):
+                parts.append(f"<think>\n{block.thinking}\n</think>\n\n")
+            elif hasattr(block, "text"):
+                parts.append(block.text)
+        return "".join(parts)
+

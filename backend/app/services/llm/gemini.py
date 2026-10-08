@@ -92,6 +92,9 @@ class GeminiProvider(LLMProvider):
         if system_instruction:
             payload["systemInstruction"] = system_instruction
 
+        self.last_finish_reason = None
+        in_thinking = False
+
         async with httpx.AsyncClient(timeout=120.0) as client:
             async with client.stream("POST", url, headers=headers, json=payload) as response:
                 if response.status_code != 200:
@@ -110,10 +113,36 @@ class GeminiProvider(LLMProvider):
                         self._record_usage(data)
                         candidates = data.get("candidates", [])
                         if candidates:
-                            parts = candidates[0].get("content", {}).get("parts", [])
+                            cand = candidates[0]
+                            raw_reason = cand.get("finishReason")
+                            if raw_reason:
+                                if raw_reason in ["MAX_TOKENS", "MAX_OUTPUT_TOKENS"]:
+                                    self.last_finish_reason = "length"
+                                elif raw_reason in ["SAFETY", "RECITATION", "BLOCKLIST"]:
+                                    self.last_finish_reason = "content_filter"
+                                elif raw_reason == "STOP":
+                                    self.last_finish_reason = "stop"
+                                else:
+                                    self.last_finish_reason = raw_reason.lower()
+
+                            parts = cand.get("content", {}).get("parts", [])
                             for part in parts:
-                                if "text" in part:
-                                    yield part["text"]
+                                is_thought = bool(part.get("thought"))
+                                txt = part.get("text", "")
+                                if txt:
+                                    if is_thought:
+                                        if not in_thinking:
+                                            in_thinking = True
+                                            yield "<think>\n"
+                                        yield txt
+                                    else:
+                                        if in_thinking:
+                                            in_thinking = False
+                                            yield "\n</think>\n\n"
+                                        yield txt
+
+                if in_thinking:
+                    yield "\n</think>\n\n"
 
     async def complete(
         self,
@@ -126,3 +155,4 @@ class GeminiProvider(LLMProvider):
         async for chunk in self.chat(messages, model=model, stream=False, temperature=temperature, **kwargs):
             res.append(chunk)
         return "".join(res)
+

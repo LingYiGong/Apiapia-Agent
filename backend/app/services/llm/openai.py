@@ -49,6 +49,7 @@ class OpenAIProvider(LLMProvider):
             create_kwargs["stream_options"] = {"include_usage": True}
 
         self.last_usage = None
+        self.last_finish_reason = None
         try:
             response = await self.client.chat.completions.create(**create_kwargs)
         except Exception:
@@ -65,7 +66,11 @@ class OpenAIProvider(LLMProvider):
                         "total_tokens": getattr(chunk.usage, "total_tokens", 0) or 0,
                     }
                 if chunk.choices:
-                    delta = chunk.choices[0].delta
+                    choice = chunk.choices[0]
+                    if getattr(choice, "finish_reason", None):
+                        self.last_finish_reason = choice.finish_reason
+
+                    delta = choice.delta
                     # Capture reasoning tokens (DeepSeek R1, o1, o3, OpenRouter)
                     reasoning = getattr(delta, "reasoning_content", None) or getattr(delta, "reasoning", None)
                     if not reasoning and hasattr(delta, "model_extra") and isinstance(delta.model_extra, dict):
@@ -86,6 +91,22 @@ class OpenAIProvider(LLMProvider):
                             yield "\n</think>\n\n"
                         yield content_text or refusal_text
 
+                    # Capture any model tool_calls stream if emitted
+                    tool_calls = getattr(delta, "tool_calls", None)
+                    if tool_calls:
+                        if in_thinking:
+                            in_thinking = False
+                            yield "\n</think>\n\n"
+                        for tc in tool_calls:
+                            fn = getattr(tc, "function", None)
+                            if fn:
+                                fn_name = getattr(fn, "name", "")
+                                fn_args = getattr(fn, "arguments", "")
+                                if fn_name:
+                                    yield f"\n🛠️ `[工具调用: {fn_name}]`\n"
+                                if fn_args:
+                                    yield fn_args
+
             if in_thinking:
                 yield "\n</think>\n\n"
         else:
@@ -95,7 +116,11 @@ class OpenAIProvider(LLMProvider):
                     "completion_tokens": getattr(response.usage, "completion_tokens", 0) or 0,
                     "total_tokens": getattr(response.usage, "total_tokens", 0) or 0,
                 }
-            content = response.choices[0].message.content or ""
+            if response.choices:
+                self.last_finish_reason = response.choices[0].finish_reason
+                content = response.choices[0].message.content or ""
+            else:
+                content = ""
             yield content
 
     async def complete(
@@ -112,4 +137,8 @@ class OpenAIProvider(LLMProvider):
             temperature=temperature,
             **kwargs
         )
-        return response.choices[0].message.content or ""
+        if response.choices:
+            self.last_finish_reason = response.choices[0].finish_reason
+            return response.choices[0].message.content or ""
+        return ""
+

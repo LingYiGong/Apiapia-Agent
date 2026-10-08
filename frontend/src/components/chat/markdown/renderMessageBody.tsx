@@ -3,6 +3,8 @@
 import * as React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
 import { Brain } from "lucide-react";
 import { CodeBlock } from "@/components/chat/markdown/CodeBlock";
 
@@ -66,10 +68,12 @@ function renderWithBreaks(node: React.ReactNode): React.ReactNode {
 }
 
 /**
- * remark 插件表必须是模块级常量：写成 `remarkPlugins={[remarkGfm]}` 会在每次渲染
+ * remark 插件表必须是模块级常量：写成 `remarkPlugins={[remarkGfm, remarkMath]}` 会在每次渲染
  * 产生新数组引用，和 components 一样让 react-markdown 认为配置变了从而重解析。
  */
-const remarkPlugins = [remarkGfm];
+const remarkPlugins = [remarkGfm, remarkMath];
+const rehypePlugins = [rehypeKatex];
+
 
 /**
  * markdown 排版基准：Apple iOS Body = 17pt / 22pt leading（tracking -0.43px）。
@@ -305,7 +309,7 @@ export function renderMessageBody(
         )}
         {hasBody ? (
           <div className="max-w-none break-words leading-relaxed [overflow-wrap:anywhere]">
-            <ReactMarkdown remarkPlugins={remarkPlugins} components={components}>
+            <ReactMarkdown remarkPlugins={remarkPlugins} rehypePlugins={rehypePlugins} components={components}>
               {displayMainContent}
             </ReactMarkdown>
           </div>
@@ -323,9 +327,10 @@ export function renderMessageBody(
 
   return (
     <div className="max-w-none break-words leading-relaxed [overflow-wrap:anywhere]">
-      <ReactMarkdown remarkPlugins={remarkPlugins} components={components}>
+      <ReactMarkdown remarkPlugins={remarkPlugins} rehypePlugins={rehypePlugins} components={components}>
         {cleanFallbackContent}
       </ReactMarkdown>
     </div>
   );
+
 }

@@ -46,6 +46,30 @@ class OllamaProvider(LLMProvider):
             "total_tokens": prompt_tokens + completion_tokens,
         }
 
+    def _prepare_messages(self, messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Normalize messages, converting OpenAI-style multimodal parts to Ollama's format."""
+        clean_messages = []
+        for msg in messages:
+            role = msg.get("role")
+            raw_content = msg.get("content", "")
+            if isinstance(raw_content, list):
+                text_parts = []
+                images = []
+                for item in raw_content:
+                    if item.get("type") == "text":
+                        text_parts.append(item.get("text", ""))
+                    elif item.get("type") == "image_url":
+                        url = item.get("image_url", {}).get("url", "")
+                        if ";base64," in url:
+                            images.append(url.split(";base64,", 1)[1])
+                entry: Dict[str, Any] = {"role": role, "content": "".join(text_parts)}
+                if images:
+                    entry["images"] = images
+                clean_messages.append(entry)
+            else:
+                clean_messages.append({"role": role, "content": str(raw_content)})
+        return clean_messages
+
     async def chat(
         self,
         messages: List[Dict[str, str]],
@@ -55,14 +79,17 @@ class OllamaProvider(LLMProvider):
         **kwargs
     ) -> AsyncGenerator[str, None]:
         url = f"{self.base_url}/api/chat"
+        formatted_messages = self._prepare_messages(messages)
         payload = {
             "model": model,
-            "messages": messages,
+            "messages": formatted_messages,
             "stream": stream,
             "options": {
                 "temperature": temperature
             }
         }
+        self.last_finish_reason = None
+        in_thinking = False
 
         async with httpx.AsyncClient(timeout=180.0) as client:
             async with client.stream("POST", url, json=payload) as response:
@@ -78,9 +105,27 @@ class OllamaProvider(LLMProvider):
                     except json.JSONDecodeError:
                         continue
                     self._record_usage(data)
-                    content = data.get("message", {}).get("content", "")
+                    msg_obj = data.get("message", {})
+                    thinking_text = msg_obj.get("thinking", "")
+                    content = msg_obj.get("content", "")
+
+                    if thinking_text:
+                        if not in_thinking:
+                            in_thinking = True
+                            yield "<think>\n"
+                        yield thinking_text
+
                     if content:
+                        if in_thinking:
+                            in_thinking = False
+                            yield "\n</think>\n\n"
                         yield content
+
+                    if data.get("done"):
+                        self.last_finish_reason = data.get("done_reason") or "stop"
+
+                if in_thinking:
+                    yield "\n</think>\n\n"
 
     async def complete(
         self,
@@ -90,9 +135,10 @@ class OllamaProvider(LLMProvider):
         **kwargs
     ) -> str:
         url = f"{self.base_url}/api/chat"
+        formatted_messages = self._prepare_messages(messages)
         payload = {
             "model": model,
-            "messages": messages,
+            "messages": formatted_messages,
             "stream": False,
             "options": {
                 "temperature": temperature
@@ -103,4 +149,7 @@ class OllamaProvider(LLMProvider):
             response.raise_for_status()
             data = response.json()
             self._record_usage(data)
+            if data.get("done"):
+                self.last_finish_reason = data.get("done_reason") or "stop"
             return data.get("message", {}).get("content", "")
+

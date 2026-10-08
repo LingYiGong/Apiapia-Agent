@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     #: drifted to 2.9.0 while the frontend and VERSION were already on v2.12.0, so
     #: the v2.12.0 changelog entry claiming "version unified across five sources"
     #: was not true of the backend. One literal here, overridable with APP_VERSION.
-    APP_VERSION: str = "2.13.0"
+    APP_VERSION: str = "2.14.0"
 
     # PostgreSQL Database
     POSTGRES_USER: str = "postgres"

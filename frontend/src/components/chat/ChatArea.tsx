@@ -479,8 +479,14 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 regenerating={regenerating}
                 onRegenerate={onRegenerate}
                 onEditMessage={onEditMessage}
+                onContinue={
+                  !isStreaming && msg.role === "assistant" && idx === messages.length - 1
+                    ? () => onSendMessage("请从上述被截断的地方继续写下去，无需重复前面的内容。")
+                    : undefined
+                }
               />
             ))}
+
           </div>
         )}
 

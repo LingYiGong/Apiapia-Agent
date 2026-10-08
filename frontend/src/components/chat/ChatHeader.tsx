@@ -7,9 +7,28 @@ import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { ActionTooltip } from "@/components/common/ActionTooltip";
 import { UserAvatarMenu } from "@/components/layout/UserAvatarDropdown";
-import { Brain, Plus, RotateCw } from "lucide-react";
+import {
+  Brain,
+  Plus,
+  RotateCw,
+  Pin,
+  PinOff,
+  Pencil,
+  Trash2,
+} from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useConfirm } from "@/hooks/useConfirm";
 import type { MobileTab } from "@/config/navigation";
 import { cn } from "@/lib/utils";
+import type { Conversation } from "@/types";
 
 import { MobileHeader } from "@/components/layout/MobileHeader";
 
@@ -38,8 +57,13 @@ export interface MobileChatHeaderProps extends ChatHeaderBaseProps {
   onSelectMobileTab?: (tab: MobileTab) => void;
 }
 
-/** 桌面端没有额外字段：记忆侧栏常驻，无需开关 */
-export interface DesktopChatHeaderProps extends ChatHeaderBaseProps {}
+/** 桌面端会话操作：置顶、重命名、删除 */
+export interface DesktopChatHeaderProps extends ChatHeaderBaseProps {
+  activeConversation?: Conversation | null;
+  onTogglePin?: (id: string, nextPinned: boolean) => void;
+  onRename?: (id: string, newTitle: string) => void;
+  onDelete?: (id: string) => void;
+}
 
 /**
  * ── Mobile Chat Navigation Bar (48px + Safe Area Top) ──
@@ -137,9 +161,7 @@ export const MobileChatHeader: React.FC<MobileChatHeaderProps> = ({
  * ── Desktop Chat Toolbar (48px) ──
  * Dedicated toolbar for desktop / tablet view inside workspace.
  *
- * 桌面端**没有**「关联记忆」按钮：右侧记忆侧栏与左侧会话侧栏一样是常驻的，
- * 不存在打开/关闭的概念，留一个按钮只能控制一个不存在的东西。移动端的
- * Brain 按钮仍然存在，它开的是底部 Sheet（见 MobileChatHeader）。
+ * 右上角提供当前会话的操作：置顶、重命名、删除。
  */
 export const DesktopChatHeader: React.FC<DesktopChatHeaderProps> = ({
   currentModel,
@@ -147,74 +169,179 @@ export const DesktopChatHeader: React.FC<DesktopChatHeaderProps> = ({
   availableModels,
   onRefreshModels,
   isRefreshingModels = false,
-  onNewChat,
+  activeConversation,
+  onTogglePin,
+  onRename,
+  onDelete,
   className,
 }) => {
+  const [isRenaming, setIsRenaming] = React.useState(false);
+  const [newTitle, setNewTitle] = React.useState("");
+  const { ask, dialog } = useConfirm();
+
+  const handleStartRename = () => {
+    if (!activeConversation) return;
+    setNewTitle(activeConversation.title || "");
+    setIsRenaming(true);
+  };
+
+  const handleConfirmRename = () => {
+    if (activeConversation && onRename && newTitle.trim()) {
+      onRename(activeConversation.id, newTitle.trim());
+    }
+    setIsRenaming(false);
+  };
+
+  const isPinned = !!activeConversation?.is_pinned;
+
   return (
-    <header
-      className={cn(
-        "z-20 hidden h-[var(--toolbar-h)] shrink-0 select-none flex-nowrap items-center justify-between gap-2 border-b border-border/40 bg-background/80 px-4 backdrop-blur-xl md:flex md:min-w-0",
-        className
-      )}
-    >
-      <div className="flex min-w-0 flex-1 items-center gap-2">
-        {/* 此前这里有一个汉堡按钮调用 onToggleSidebar → handleSelectMobileTab("history")，
-            而目标容器是 `md:hidden` —— 这个按钮只存在于 `hidden md:flex` 的桌面头部里，
-            于是桌面上可见、可聚焦、点了毫无反应，还会顺手改写 URL。
-            桌面侧栏本身就是常驻的（Sidebar 的 `hidden md:flex`），没有可折叠的状态，
-            所以正确做法是把按钮和 onToggleSidebar 整条链路一起删掉。 */}
+    <>
+      <header
+        className={cn(
+          "z-20 hidden h-[var(--toolbar-h)] shrink-0 select-none flex-nowrap items-center justify-between gap-2 border-b border-border/40 bg-background/80 px-4 backdrop-blur-xl md:flex md:min-w-0",
+          className
+        )}
+      >
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <span className="hidden shrink-0 whitespace-nowrap text-xs font-medium text-muted-foreground lg:inline">
+            当前模型：
+          </span>
 
-        <span className="hidden shrink-0 whitespace-nowrap text-xs font-medium text-muted-foreground lg:inline">
-          当前模型：
-        </span>
+          <div className="flex min-w-0 items-center">
+            <ModelSelect
+              value={currentModel}
+              onChange={onModelChange}
+              models={availableModels}
+              variant="compact"
+            />
+          </div>
 
-        <div className="flex min-w-0 items-center">
-          <ModelSelect
-            value={currentModel}
-            onChange={onModelChange}
-            models={availableModels}
-            variant="compact"
-          />
+          {onRefreshModels && (
+            <ActionTooltip label="同步模型">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={onRefreshModels}
+                disabled={isRefreshingModels}
+                className="shrink-0 cursor-pointer border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 hover:text-primary"
+              >
+                <RotateCw className={cn("h-3.5 w-3.5", isRefreshingModels && "animate-spin")} />
+                <span className="hidden lg:inline">
+                  {isRefreshingModels ? "正在同步..." : "同步模型"}
+                </span>
+                <span className="sr-only">同步模型</span>
+              </Button>
+            </ActionTooltip>
+          )}
         </div>
 
-        {onRefreshModels && (
-          <ActionTooltip label="同步模型">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={onRefreshModels}
-              disabled={isRefreshingModels}
-              className="shrink-0 cursor-pointer border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 hover:text-primary"
-            >
-              <RotateCw className={cn("h-3.5 w-3.5", isRefreshingModels && "animate-spin")} />
-              <span className="hidden lg:inline">
-                {isRefreshingModels ? "正在同步..." : "同步模型"}
-              </span>
-              <span className="sr-only">同步模型</span>
-            </Button>
-          </ActionTooltip>
-        )}
-      </div>
+        {/* 右上角操作区：置顶、重命名、删除 */}
+        {activeConversation && (
+          <div className="flex shrink-0 items-center gap-1.5">
+            {onTogglePin && (
+              <ActionTooltip label={isPinned ? "取消置顶" : "置顶对话"}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => onTogglePin(activeConversation.id, !isPinned)}
+                  className={cn(
+                    "h-8 w-8 cursor-pointer transition-colors",
+                    isPinned
+                      ? "border-primary/40 text-primary hover:bg-primary/10"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {isPinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
+                  <span className="sr-only">{isPinned ? "取消置顶" : "置顶对话"}</span>
+                </Button>
+              </ActionTooltip>
+            )}
 
-      <div className="flex shrink-0 items-center gap-2">
-        <ThemeToggle />
+            {onRename && (
+              <ActionTooltip label="重命名对话">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={handleStartRename}
+                  className="h-8 w-8 cursor-pointer text-muted-foreground hover:text-foreground"
+                >
+                  <Pencil className="h-4 w-4" />
+                  <span className="sr-only">重命名对话</span>
+                </Button>
+              </ActionTooltip>
+            )}
 
-        {onNewChat && (
-          <ActionTooltip label="新建对话">
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              onClick={onNewChat}
-              className="cursor-pointer"
-            >
-              <Plus className="h-4 w-4" />
-              <span className="sr-only">新建对话</span>
-            </Button>
-          </ActionTooltip>
+            {onDelete && (
+              <ActionTooltip label="删除对话">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() =>
+                    ask({
+                      title: "删除该历史会话",
+                      description: `确定要删除对话「${activeConversation.title || "新建对话"}」吗？删除后将无法恢复，该操作不可撤销。`,
+                      confirmText: "删除",
+                      danger: true,
+                      onConfirm: () => onDelete(activeConversation.id),
+                    })
+                  }
+                  className="h-8 w-8 cursor-pointer text-muted-foreground hover:border-destructive/40 hover:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  <span className="sr-only">删除对话</span>
+                </Button>
+              </ActionTooltip>
+            )}
+          </div>
         )}
-      </div>
-    </header>
+      </header>
+
+      {/* 重命名弹窗 */}
+      {isRenaming && (
+        <Dialog open onOpenChange={(open) => !open && setIsRenaming(false)}>
+          <DialogContent className="max-w-sm rounded-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-base font-semibold">重命名对话</DialogTitle>
+            </DialogHeader>
+            <div className="py-2">
+              <Label htmlFor="desktop-rename-input" className="sr-only">
+                新标题
+              </Label>
+              <Input
+                id="desktop-rename-input"
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                placeholder="请输入新标题"
+                className="h-10 rounded-xl text-sm"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleConfirmRename();
+                }}
+              />
+            </div>
+            <DialogFooter className="flex-row justify-end gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsRenaming(false)}
+                className="rounded-xl"
+              >
+                取消
+              </Button>
+              <Button type="button" size="sm" onClick={handleConfirmRename} className="rounded-xl">
+                保存
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {dialog}
+    </>
   );
 };

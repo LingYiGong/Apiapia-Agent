@@ -1031,7 +1031,10 @@ export default function ChatPage({
               availableModels={availableModels}
               onRefreshModels={handleManualSyncModels}
               isRefreshingModels={isRefreshingModels}
-              onNewChat={handleNewChat}
+              activeConversation={conversations.find((c) => c.id === activeId) || null}
+              onTogglePin={handleTogglePin}
+              onRename={handleRenameConversation}
+              onDelete={handleDeleteConversation}
             />
 
           <ChatArea

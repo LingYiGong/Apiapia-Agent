@@ -584,7 +584,17 @@ export default function ChatPage({
    * ChatArea 的按钮 disabled）已经做了。
    */
   const handleSendMessage = useCallback(
-    async (text: string, attachments?: AttachmentItem[]) => {
+    async (
+      text: string,
+      attachments?: AttachmentItem[],
+      extraOptions?: {
+        quotedMessageId?: string;
+        quotedContent?: string;
+        systemPromptOverride?: string;
+        reasoningEffort?: string;
+        maxTokens?: number;
+      }
+    ) => {
       // Clear any previous running intervals
       clearStreamIntervals();
       // 上一轮若有流在途（停止后到 done 之间、或连点两次发送），先中止它，
@@ -666,6 +676,11 @@ export default function ChatPage({
             memory_enabled: memoryEnabled,
             web_search_mode: webSearch.modeRef.current,
             attachments: attachments && attachments.length > 0 ? attachments : undefined,
+            quoted_message_id: extraOptions?.quotedMessageId,
+            quoted_content: extraOptions?.quotedContent,
+            system_prompt_override: extraOptions?.systemPromptOverride,
+            reasoning_effort: extraOptions?.reasoningEffort,
+            max_tokens: extraOptions?.maxTokens,
           },
           {
             onMeta: (meta) => {

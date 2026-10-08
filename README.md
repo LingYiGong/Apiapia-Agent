@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v2.14.0-indigo?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/version-v2.15.0-indigo?style=flat-square" alt="Version">
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
   <img src="https://img.shields.io/badge/Mem0%20OSS-2.2.1-orange?style=flat-square" alt="Mem0">
@@ -19,6 +19,34 @@
   <img src="https://img.shields.io/badge/iOS%20PWA-Ready-007AFF?style=flat-square&logo=apple" alt="iOS PWA">
   <img src="https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker" alt="Docker">
 </p>
+
+---
+
+## v2.15.0 发布说明
+
+本版本是一次**提示词工程安全、长上下文调度与交互扩展升级**。针对多轮长对话历史裁剪、第三方外部文档注入攻击、Prompt Caching 命中优化、单条消息精准引用以及快捷提示词指令进行了全面重构与补齐。
+
+### 提示词工程与上下文管理 (Context Engineering)
+
+- **Token 预算动态历史滑动窗口**：彻底淘汰固定 10 条消息的历史抓取限制，重构为基于多语言 Token 预算（8,192 Tokens）的逆向动态回溯组装算法，超长复杂代码对话不爆上下文，简短日常问答充分保留更多轮次。
+- **抗提示词注入 XML 安全隔离边界**：对用户上传的文档/文本文件及自动抓取的外链网页内容，引入 `<untrusted_document>` XML 安全隔离包装并过滤敏感的系统指令劫持关键词（如 `ignore previous instructions`），彻底杜绝第三方网页或文档反向劫持模型。
+- **Prompt Caching 提示词缓存前缀适配**：为 Anthropic Claude 3.5 / 3.7 及 DeepSeek 系列模型自动注入 `cache_control: {"type": "ephemeral"}` 缓存标记，最大化复用服务端系统提示词与长文本缓存，显著降低首字延迟与 API 成本。
+
+### 交互与提示词扩展能力
+
+- **快捷提示词指令系统 (`/` Slash Commands)**：
+  - 输入框支持键入 `/` 唤出快捷指令菜单，内置常用的精选高质量 Prompt 模板（如 `/translate` 中文翻译、`/en` 英文翻译、`/code` 代码评审重构、`/summary` 提炼要点、`/explain` 通俗解释等）。
+  - 支持键盘上下方向键浏览与 `Tab` / `Enter` 键一键快速采纳套用。
+- **单条消息引用回复机制 (`Quote Reply`)**：
+  - 每条消息气泡的操作栏均新增「引用」按钮，点击自动将该条历史回答或提问锁定为引用锚点，并在输入框上方呈现引用预览卡片。
+  - 请求时将引用内容以结构化块形式高优注入上下文，帮助模型针对性聚焦用户的特定观点进行解答。
+
+### 模型协议与长期记忆召回优化
+
+- **记忆语义置信度阈值过滤 (`Memory Score Threshold`)**：后端记忆召回管道引入最低置信度阈值机制（默认 0.35），自动过滤弱相关的噪声记忆，避免模型产生发散性胡思乱想。
+- **原生推理模型协议兼容 (OpenAI o1 / o3 / R1)**：
+  - 针对 OpenAI o1/o3/o3-mini 等原生推理模型，自动屏蔽不支持的 `temperature` 参数，无缝透传 `reasoning_effort`。
+  - 针对 o1 系列将普通 `system` 角色平滑映射为官方推荐的 `developer` 角色，杜绝 400 接口报错。
 
 ---
 

@@ -25,6 +25,7 @@ import {
   Palette,
   PenLine,
   Play,
+  Quote,
   RotateCw,
   Square,
   Zap,
@@ -51,6 +52,7 @@ interface ChatMessageItemProps {
   onRegenerate?: (assistantMessageId: string) => void;
   onEditMessage?: (messageId: string, newText: string) => void;
   onContinue?: () => void;
+  onQuote?: (quoteText: string, messageId?: string) => void;
 }
 
 
@@ -126,6 +128,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
   onRegenerate,
   onEditMessage,
   onContinue,
+  onQuote,
 }: ChatMessageItemProps) {
   const isUser = msg.role === "user";
   // 错误判定用后端下发的 finish_reason，不再靠内容里是否含 "HTTP 500" 之类的
@@ -371,6 +374,21 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                 copyLabel="复制回答"
               />
 
+              {onQuote && (
+                <ActionTooltip label="引用此回答并继续提问" side="bottom">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onQuote(msg.content, msg.id)}
+                    className="flex h-7 items-center gap-1.5 rounded-lg px-2 text-muted-foreground transition-colors hover:bg-surface-3/80 hover:text-foreground"
+                  >
+                    <Quote className="h-3 w-3" />
+                    <span className="text-2xs">引用</span>
+                  </Button>
+                </ActionTooltip>
+              )}
+
               {msg.finish_reason === "abort" && (
                 <ActionTooltip label="你在生成过程中点击了停止，此处为已生成的部分内容" side="bottom">
                   <span className="inline-flex h-7 cursor-default items-center gap-1 rounded-lg border border-amber-500/25 bg-amber-500/10 px-2 text-2xs font-medium text-amber-600 dark:text-amber-400">
@@ -490,6 +508,20 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                 <span className="text-2xs">编辑</span>
               </Button>
             </ActionTooltip>
+            {onQuote && (
+              <ActionTooltip label="引用此提问" side="bottom">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onQuote(stripAttachmentMarkup(msg.content || ""), msg.id)}
+                  className="flex h-7 items-center gap-1.5 rounded-lg px-2 text-muted-foreground transition-colors hover:bg-surface-3/80 hover:text-foreground"
+                >
+                  <Quote className="h-3 w-3" />
+                  <span className="text-2xs">引用</span>
+                </Button>
+              </ActionTooltip>
+            )}
             <CopyButton
               isCopied={isCopied}
               onClick={() => onCopy(stripAttachmentMarkup(msg.content || ""), idx)}

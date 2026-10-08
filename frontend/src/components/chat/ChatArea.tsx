@@ -29,9 +29,13 @@ import {
   Cpu,
   ChevronDown,
   RotateCw,
+  Quote,
+  Sliders,
+  Terminal,
 } from "lucide-react";
 import { BrandLogo } from "@/components/common/BrandLogo";
 import { EmptyState } from "@/components/common/EmptyState";
+import { DEFAULT_PROMPT_COMMANDS, PromptCommand } from "@/config/promptCommands";
 
 // 移动端（触摸设备）检测：主指针为 coarse，即手机 / 平板这类触屏设备。
 // 不用视口宽度判断，避免桌面浏览器窗口变窄时误判成移动端而丢掉回车发送。
@@ -139,20 +143,21 @@ const readFileAsDataUrl = (file: File): Promise<string> => {
 interface ChatAreaProps {
   messages: Message[];
   currentModel?: string;
-  onSendMessage: (message: string, attachments?: AttachmentItem[]) => void;
+  onSendMessage: (
+    message: string,
+    attachments?: AttachmentItem[],
+    extraOptions?: {
+      quotedMessageId?: string;
+      quotedContent?: string;
+      systemPromptOverride?: string;
+      reasoningEffort?: string;
+      maxTokens?: number;
+    }
+  ) => void;
   onStopGenerating?: () => void;
   isStreaming: boolean;
   streamingContent: string;
   thinkingDuration?: number | null;
-  /**
-   * 本轮流式开始的时刻（epoch ms），空闲时为 null。
-   *
-   * 此前这里收的是 ChatPage 每 80ms 递增一次的 elapsedTime 数值。那意味着计时器
-   * 每秒触发 12.5 次**整页**重渲染 —— 侧栏、移动历史页、记忆侧栏、所有历史消息
-   * 全部跟着重渲染，而它们与计时器毫无关系。改为只下发起始时刻、由 ChatArea 自己
-   * 驱动显示计时后，页面级重渲染归零；叠加 ChatMessageItem 的 memo 修复后，
-   * 这 12.5Hz 只会重渲染下面那个计时器所在的流式状态块。
-   */
   streamStartedAt?: number | null;
   isWaitingForFirstToken?: boolean;
   onNewChat?: () => void;
@@ -168,7 +173,6 @@ interface ChatAreaProps {
   regenerating?: boolean;
   onRegenerate?: (assistantMessageId: string) => void;
   onEditMessage?: (messageId: string, newText: string) => void;
-  /** 当前会话 id，新建对话时为 null。用于在会话整体替换时复位滚动状态。 */
   conversationId?: string | null;
 }
 
@@ -240,6 +244,39 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   }, [draftKey]);
   const [previewImage, setPreviewImage] = useState<{ src: string; alt?: string } | null>(null);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
+
+  // ── Quoted Message State ──
+  const [activeQuote, setActiveQuote] = useState<{ id?: string; text: string } | null>(null);
+
+  // ── Slash Commands Menu State ──
+  const [showCommandsMenu, setShowCommandsMenu] = useState(false);
+  const [commandFilter, setCommandFilter] = useState("");
+  const [selectedCommandIdx, setSelectedCommandIdx] = useState(0);
+
+  const filteredCommands = React.useMemo(() => {
+    if (!commandFilter) return DEFAULT_PROMPT_COMMANDS;
+    return DEFAULT_PROMPT_COMMANDS.filter(
+      (c) =>
+        c.key.toLowerCase().includes(commandFilter.toLowerCase()) ||
+        c.title.toLowerCase().includes(commandFilter.toLowerCase()) ||
+        c.description.toLowerCase().includes(commandFilter.toLowerCase())
+    );
+  }, [commandFilter]);
+
+  const handleSelectCommand = (cmd: PromptCommand) => {
+    updateInput(cmd.template);
+    setShowCommandsMenu(false);
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  };
+
+  const handleQuoteMessage = useCallback((quoteText: string, messageId?: string) => {
+    setActiveQuote({ id: messageId, text: quoteText });
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  }, []);
 
   const handleCopyMessage = useCallback((text: string, idx: number) => {
     if (!text) return;
@@ -379,6 +416,30 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   // 移动端：软键盘的回车不发送消息，交给 textarea 默认行为插入换行，
   // 只有点击发送按钮才真正发出；桌面端保持回车发送、Shift+回车换行。
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Slash commands keyboard navigation
+    if (showCommandsMenu && filteredCommands.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setSelectedCommandIdx((prev) => (prev + 1) % filteredCommands.length);
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setSelectedCommandIdx((prev) => (prev - 1 + filteredCommands.length) % filteredCommands.length);
+        return;
+      }
+      if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        handleSelectCommand(filteredCommands[selectedCommandIdx]);
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setShowCommandsMenu(false);
+        return;
+      }
+    }
+
     if (e.key !== "Enter") return;
     // 输入法组字过程中的回车属于候选上屏，绝不能当作发送。
     if (e.nativeEvent.isComposing || e.keyCode === 229) return;
@@ -392,10 +453,19 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     if ((!input.trim() && attachments.length === 0) || isStreaming || isUploading) return;
     isAtBottomRef.current = true;
     setShowScrollBottomBtn(false);
-    onSendMessage(input.trim(), attachments);
+
+    const extraOpts: any = {};
+    if (activeQuote) {
+      extraOpts.quotedMessageId = activeQuote.id;
+      extraOpts.quotedContent = activeQuote.text;
+    }
+
+    onSendMessage(input.trim(), attachments, extraOpts);
     setInput("");
     clearDraft();
     setAttachments([]);
+    setActiveQuote(null);
+    setShowCommandsMenu(false);
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
     }
@@ -405,7 +475,18 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    updateInput(e.target.value);
+    const val = e.target.value;
+    updateInput(val);
+
+    // Trigger slash commands menu when starting with /
+    if (val.startsWith("/")) {
+      setShowCommandsMenu(true);
+      setCommandFilter(val.slice(1).trim());
+      setSelectedCommandIdx(0);
+    } else {
+      setShowCommandsMenu(false);
+    }
+
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
       textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 180)}px`;
@@ -479,6 +560,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 regenerating={regenerating}
                 onRegenerate={onRegenerate}
                 onEditMessage={onEditMessage}
+                onQuote={handleQuoteMessage}
                 onContinue={
                   !isStreaming && msg.role === "assistant" && idx === messages.length - 1
                     ? () => onSendMessage("请从上述被截断的地方继续写下去，无需重复前面的内容。")
@@ -598,6 +680,73 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           }}
           className="max-w-3xl mx-auto rounded-2xl sm:rounded-3xl border border-border/70 dark:border-border/50 bg-background/90 dark:bg-surface-2/90 backdrop-blur-xl p-1 sm:p-1.5 shadow-[0_2px_12px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.35)] focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/20 transition-all flex flex-col"
         >
+          {/* Slash Commands Autocomplete Popup */}
+          {showCommandsMenu && filteredCommands.length > 0 && (
+            <div className="mx-1 mb-2 rounded-xl border border-border/80 bg-background/95 backdrop-blur-xl shadow-xl overflow-hidden p-1 z-30 animate-in fade-in slide-in-from-bottom-2 duration-150">
+              <div className="flex items-center justify-between px-2.5 py-1 text-2xs font-medium text-muted-foreground border-b border-border/40 mb-1">
+                <span className="flex items-center gap-1.5">
+                  <Terminal className="h-3 w-3 text-primary" />
+                  <span>快捷提示词指令（方向键选择，Enter / Tab 采纳）</span>
+                </span>
+                <span className="font-mono text-3xs">{filteredCommands.length} 个指令</span>
+              </div>
+              <div className="max-h-48 overflow-y-auto space-y-0.5">
+                {filteredCommands.map((cmd, idx) => (
+                  <button
+                    key={cmd.key}
+                    type="button"
+                    onClick={() => handleSelectCommand(cmd)}
+                    className={cn(
+                      "w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between transition-colors",
+                      idx === selectedCommandIdx
+                        ? "bg-primary text-primary-foreground font-medium"
+                        : "hover:bg-muted/70 text-foreground"
+                    )}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="font-mono font-semibold text-2xs px-1 rounded bg-black/10 dark:bg-white/10 shrink-0">
+                        /{cmd.key}
+                      </span>
+                      <span className="truncate">{cmd.title}</span>
+                    </div>
+                    <span
+                      className={cn(
+                        "text-3xs truncate ml-2 max-w-[180px] sm:max-w-[240px]",
+                        idx === selectedCommandIdx ? "text-primary-foreground/80" : "text-muted-foreground"
+                      )}
+                    >
+                      {cmd.description}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Active Quoted Message Preview Tray */}
+          {activeQuote && (
+            <div className="mx-1 mb-1.5 p-2 rounded-xl bg-surface-3/80 border border-primary/20 flex items-start justify-between gap-2 text-xs">
+              <div className="flex items-start gap-2 min-w-0">
+                <Quote className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <span className="font-medium text-2xs text-primary block">正在引用回复：</span>
+                  <p className="text-2xs text-muted-foreground line-clamp-2 leading-relaxed">
+                    {activeQuote.text}
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setActiveQuote(null)}
+                className="h-5 w-5 rounded-full text-muted-foreground hover:text-destructive shrink-0"
+              >
+                <X className="h-3 w-3" />
+                <span className="sr-only">取消引用</span>
+              </Button>
+            </div>
+          )}
+
           {/* Attachment Preview Tray */}
           {attachments.length > 0 && (
             <div className="flex items-center gap-2 overflow-x-auto pb-2 mb-1.5 pt-0.5 px-1 border-b border-border/60">

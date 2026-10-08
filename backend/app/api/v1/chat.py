@@ -31,6 +31,12 @@ from app.services.media_storage import (
 )
 from app.services.prompt import build_system_prompt
 from app.services.deterministic import evaluate_deterministic_context
+from app.services.context_manager import (
+    sanitize_untrusted_content,
+    assemble_quoted_reply_prompt,
+    truncate_conversation_history_by_budget,
+    apply_prompt_cache_markers,
+)
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -195,14 +201,17 @@ async def chat_stream(
     """
     user_id = current_user.id
 
-    # 1. Fetch User Settings
+    # 1. Fetch User Settings & System Prompt Override
     settings_stmt = select(UserSetting).where(UserSetting.user_id == user_id)
     user_settings = (await db.execute(settings_stmt)).scalar_one_or_none()
 
-    system_prompt = user_settings.system_prompt if user_settings else "你是一个智能、真诚、有洞察力的个人智能助理。"
+    base_system_prompt = chat_req.system_prompt_override or (
+        user_settings.system_prompt if user_settings else "你是一个智能、真诚、有洞察力的个人智能助理。"
+    )
     model_to_use = chat_req.model or (user_settings.default_model if user_settings else "gpt-4o-mini")
     temperature = chat_req.temperature if chat_req.temperature is not None else (user_settings.temperature if user_settings else 0.7)
     use_memory = chat_req.memory_enabled if chat_req.memory_enabled is not None else (user_settings.memory_enabled if user_settings else True)
+    memory_score_thresh = chat_req.memory_score_threshold if chat_req.memory_score_threshold is not None else 0.35
     selected_image_model = user_settings.image_model if user_settings else None
 
     # Validate model permission (new users only have access to free models until granted by admin)
@@ -217,7 +226,6 @@ async def chat_stream(
     image_gen_free_only = not has_full_model_access(current_user)
 
     # 1.1 Resolve the caller's own provider credential for this model, if any.
-    # A None here is the normal case and means "use the server's .env config".
     provider_name = (chat_req.provider or "").strip() or detect_provider(model_to_use)
     caller_api_key, caller_base_url = await resolve_user_llm_credentials(
         db, user_id, provider_name, model_to_use
@@ -260,7 +268,7 @@ async def chat_stream(
 
     conv_id = conversation.id
 
-    # 3. Parse Attachments (Images & Documents/PDFs)
+    # 3. Parse Attachments (Images & Documents/PDFs) with Untrusted XML Shielding
     parsed_images = []
     parsed_docs = []
     if chat_req.attachments:
@@ -285,47 +293,58 @@ async def chat_stream(
             except Exception as e:
                 logger.warning("Failed to auto-fetch remote file from URL %s: %s", u, e)
 
-    # Assemble prompt text for LLM (including extracted document text)
+    # Assemble prompt text for LLM (including quoted reply & safe untrusted document text)
     user_text_parts = []
+    if chat_req.quoted_content:
+        user_text_parts.append(
+            assemble_quoted_reply_prompt(chat_req.quoted_content, chat_req.quoted_message_id)
+        )
+
     if chat_req.message and chat_req.message.strip():
         user_text_parts.append(chat_req.message.strip())
 
     if parsed_docs:
         for doc in parsed_docs:
-            user_text_parts.append(
-                f"\n\n--- 📎 用户附带/引用文件: {doc['name']} ---\n{doc['extracted_text']}\n--- 结束文件: {doc['name']} ---"
+            safe_doc_content = sanitize_untrusted_content(
+                doc.get('extracted_text', ''),
+                source_type="document",
+                source_name=doc.get('name', 'file')
             )
+            user_text_parts.append(f"\n\n{safe_doc_content}")
 
     full_user_text = "\n".join(user_text_parts) if user_text_parts else (chat_req.message or "")
 
-    # 4. Retrieve relevant long-term memories if enabled
+    # 4. Retrieve relevant long-term memories if enabled (with score threshold)
     retrieved_memories = []
     memory_context_str = ""
     if use_memory:
         clean_mem_msg = re.sub(r"https?://[^\s<>\"'()]+", "", chat_req.message or "").strip()
         mem_query = clean_mem_msg if clean_mem_msg else (parsed_docs[0]['name'] if parsed_docs else "")
         if mem_query and should_retrieve_memories(mem_query):
-            # Must go to a thread. retrieve_relevant_memories is synchronous: it
-            # talks to pgvector over psycopg2 and, on the profile pass, pulls the
-            # user's memories and sorts them in Python. Calling it inline would park
-            # the event loop for the whole round trip, so every other in-flight
-            # request on this worker stalls behind one user's memory query.
             retrieved_memories, memory_context_str = await asyncio.to_thread(
                 retrieve_relevant_memories,
                 user_id=user_id,
                 query=mem_query,
                 limit=5,
             )
+            # Filter low relevance memories by threshold if requested
+            if retrieved_memories and memory_score_thresh > 0:
+                filtered_mems = [m for m in retrieved_memories if m.get("score", 1.0) >= memory_score_thresh]
+                if len(filtered_mems) < len(retrieved_memories):
+                    retrieved_memories = filtered_mems
+                    if not retrieved_memories:
+                        memory_context_str = ""
 
-    # 5. Fetch recent conversation messages
+    # 5. Fetch recent conversation messages using Token-Budget Sliding Window
+    # Read up to 50 raw messages, then dynamically truncate to a token budget (e.g. 8192 tokens)
     msg_stmt = (
         select(Message)
         .where(Message.conversation_id == conv_id)
         .order_by(Message.created_at.desc())
-        .limit(10)
+        .limit(50)
     )
-    recent_msgs = (await db.execute(msg_stmt)).scalars().all()
-    recent_msgs.reverse()  # chronological order
+    raw_recent_msgs = (await db.execute(msg_stmt)).scalars().all()
+    recent_msgs = truncate_conversation_history_by_budget(raw_recent_msgs, max_tokens=8192)
 
     # 5.1 本地确定性事实核验（数字比大小、字符清点、算术与日期天数差）
     deterministic_context_str = evaluate_deterministic_context(full_user_text)
@@ -333,7 +352,7 @@ async def chat_stream(
     # 6. Assemble messages payload for LLM Adapter (时基、确定性核验事实、防翻车规则、记忆、检索与排版规则)
     messages_payload = []
     combined_system_content = build_system_prompt(
-        base_prompt=system_prompt,
+        base_prompt=base_system_prompt,
         memory_context=memory_context_str,
         deterministic_context=deterministic_context_str
     )
@@ -361,6 +380,9 @@ async def chat_stream(
         messages_payload.append({"role": "user", "content": user_content})
     else:
         messages_payload.append({"role": "user", "content": full_user_text})
+
+    # Apply prompt caching optimizations (Anthropic cache_control, DeepSeek prefixes)
+    messages_payload = apply_prompt_cache_markers(messages_payload, provider=provider_name)
 
     # 7. Save current user message to DB
     user_created_at = datetime.now(timezone.utc)
@@ -585,11 +607,18 @@ async def chat_stream(
             suppressed = False
             in_thinking = False
 
+            extra_llm_kwargs = {}
+            if chat_req.max_tokens:
+                extra_llm_kwargs["max_tokens"] = chat_req.max_tokens
+            if chat_req.reasoning_effort:
+                extra_llm_kwargs["reasoning_effort"] = chat_req.reasoning_effort
+
             token_iter = provider.chat(
                 messages=messages_payload,
                 model=model_to_use,
                 stream=True,
-                temperature=temperature
+                temperature=temperature,
+                **extra_llm_kwargs
             )
 
             while True:

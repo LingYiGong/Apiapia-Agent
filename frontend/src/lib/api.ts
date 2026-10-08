@@ -154,7 +154,13 @@ export async function streamChatResponse(
     model?: string;
     provider?: string;
     temperature?: number;
+    max_tokens?: number;
+    reasoning_effort?: string;
+    system_prompt_override?: string;
+    quoted_message_id?: string;
+    quoted_content?: string;
     memory_enabled?: boolean;
+    memory_score_threshold?: number;
     web_search_mode?: "auto" | "on" | "off";
     attachments?: AttachmentItem[];
   },

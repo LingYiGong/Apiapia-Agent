@@ -40,7 +40,13 @@ class ChatRequest(BaseModel):
     # flag was accepted and ignored. Clients that want a one-off answer use the
     # model adapter's complete() path, not this one.
     temperature: Optional[float] = Field(default=None, ge=0.0, le=2.0)
+    max_tokens: Optional[int] = Field(default=None, ge=1, le=128000)
+    reasoning_effort: Optional[str] = Field(default=None, max_length=20)  # "low", "medium", "high"
+    system_prompt_override: Optional[str] = Field(default=None, max_length=10000)
+    quoted_message_id: Optional[str] = Field(default=None, max_length=36)
+    quoted_content: Optional[str] = Field(default=None, max_length=20000)
     memory_enabled: Optional[bool] = True
+    memory_score_threshold: Optional[float] = Field(default=None, ge=0.0, le=1.0)
     web_search_mode: Optional[str] = Field(default=None, max_length=10)  # "auto", "on", "off"
     attachments: Optional[List[AttachmentPayload]] = Field(
         default=None, max_length=MAX_ATTACHMENTS

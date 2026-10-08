@@ -1,20 +1,14 @@
 {
-  "version": "2.14.0",
-  "buildTime": "2026-10-08T15:50:00Z",
-  "title": "v2.14.0 全链路大模型交互重构与富文本渲染增强",
+  "version": "2.15.0",
+  "buildTime": "2026-10-08T16:55:00Z",
+  "title": "v2.15.0 提示词工程安全、长上下文调度与交互扩展升级",
   "changelog": [
-    "推理：支持 Claude 3.7 Extended Thinking 思考流，重构 Anthropic 事件监听逻辑捕获 thinking_delta",
-    "推理：支持 Gemini 2.0 / 2.5 Flash Thinking 识别，自动分离 thought 内容并收拢入折叠思考盒，消除与正文混杂",
-    "推理：支持 Ollama 本地推理模型（DeepSeek-R1、QwQ、Qwen 等）的 message.thinking 思考捕获",
-    "上下文：多轮对话自动剔除历史消息中的 <think>...</think> 思考链，单次会话节省海量 Token，消除非推理模型模仿幻觉",
-    "交互：解除 AI 生图与大模型调度的互斥旁路，生图后将上下文回传大模型，完美支持「生图 + 讲故事/文案」复合需求",
-    "交互：适配器捕获大模型原生 tool_calls，当模型发起函数调用时以友好格式渲染，防止内容为空导致卡片空白",
-    "截断：全链路捕获上游真实 finish_reason（length、content_filter、stop），当模型超长截断时提供一键「继续生成」",
-    "容错：针对安全审查拦截（content_filter）与起手截断补充友好解释卡片，杜绝空气泡",
-    "数学公式：引入 remark-math 与 rehype-katex，全局支持 LaTeX 数学公式（$..$ 行内公式与 $$..$$ 块级公式）标准渲染",
-    "图表与代码：代码块增加一键下载代码文件功能，支持 Mermaid 架构图类型识别与徽标标识",
-    "多模态：修复 Ollama 多模态图片传参格式，新增 _prepare_messages 将 OpenAI 格式转换为 Ollama 原生 images 数组",
-    "附件：新增 Excel (.xlsx) 表格解析器，优先 openpyxl 并内置标准库 zipfile+XML 解析降级，杜绝压缩包被读为乱码",
-    "网络保活：深度推理等待期间增加每 15 秒 SSE 注释心跳 (: keep-alive)，彻底解决网关 504 Gateway Timeout 超时断连"
+    "上下文：实现基于 8,192 Token 预算的动态历史滑动窗口，逆向回溯组装，彻底淘汰死板的条数限制",
+    "安全：新增抗提示词注入 XML 隔离边界 (<untrusted_document>)，严格过滤恶意系统覆盖指令，防止文档/外链劫持模型",
+    "性能：适配 Anthropic 与 DeepSeek 系列 Prompt Caching (cache_control: ephemeral)，大幅降低长对话延迟与调用成本",
+    "交互：新增输入框 '/' 快捷提示词指令系统 (Slash Commands)，内置翻译、代码重构、要点提炼等高质量预设模板",
+    "交互：新增单条消息精准引用回复机制 (Quote Reply)，支持在消息气泡一键引用并向模型聚焦展开解答",
+    "记忆：Mem0 长期记忆检索增加置信度阈值过滤 (默认 0.35)，自动过滤弱相关噪音，提升回答精准度",
+    "协议：适配 OpenAI o1 / o3 / R1 推理模型专属协议，自动规避 temperature 报错、透传 reasoning_effort 并转换为 developer 角色"
   ]
 }

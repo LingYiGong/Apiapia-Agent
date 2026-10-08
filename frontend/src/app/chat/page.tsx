@@ -1038,6 +1038,10 @@ export default function ChatPage({
             onNewChat={handleNewChat}
             hasMessages={messages.length > 0}
             onSelectMobileTab={handleSelectMobileTab}
+            activeConversation={conversations.find((c) => c.id === activeId) || null}
+            onTogglePin={handleTogglePin}
+            onRename={handleRenameConversation}
+            onDelete={handleDeleteConversation}
           />
 
             <DesktopChatHeader

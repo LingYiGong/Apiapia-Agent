@@ -86,6 +86,21 @@ def truncate_conversation_history_by_budget(
             msg_tokens = estimate_token_count(text_part) + 800  # image token weight
         else:
             msg_tokens = estimate_token_count(str(content))
+            # If msg has stored user_attachments with documents or images, count their tokens as well
+            raw_atts = getattr(msg, "user_attachments", None) if not isinstance(msg, dict) else msg.get("user_attachments")
+            if raw_atts:
+                try:
+                    import json
+                    parsed_atts = json.loads(raw_atts) if isinstance(raw_atts, str) else raw_atts
+                    if isinstance(parsed_atts, list):
+                        for att in parsed_atts:
+                            if isinstance(att, dict):
+                                if att.get("type") == "document" and att.get("text"):
+                                    msg_tokens += estimate_token_count(att["text"])
+                                elif att.get("type") != "document":
+                                    msg_tokens += 800
+                except Exception:
+                    pass
 
         # Minimum allowance for at least 1 turn
         if collected and (budget_used + msg_tokens > max_tokens):

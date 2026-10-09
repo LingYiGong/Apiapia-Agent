@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import json
 import logging
 import re
@@ -35,6 +36,7 @@ from app.services.media_storage import (
     store_generated_image,
     store_generated_video,
     store_uploaded_image,
+    media_storage,
 )
 from app.services.prompt import build_system_prompt
 from app.services.deterministic import evaluate_deterministic_context
@@ -99,6 +101,32 @@ async def _generate_conversation_title(
     title = title.lstrip(" \t\r\n\"'“”‘’《「『:：-—").rstrip(" \t\r\n\"'“”‘’》」』。，,;；:：")
     title = title.splitlines()[0].strip() if title else ""
     return title if 1 < len(title) <= 40 else ""
+
+
+def _resolve_image_to_data_url(
+    image_id: Optional[str] = None,
+    rel_path: Optional[str] = None,
+    ext: Optional[str] = None
+) -> Optional[str]:
+    """Given an image id or relative path from media storage, return data:image/...;base64,..."""
+    try:
+        target_path = None
+        if rel_path:
+            target_path = media_storage.resolve(rel_path)
+        elif image_id and media_storage.is_valid_image_id(image_id):
+            matches = list(media_storage.root.glob(f"images/*/*/{image_id}.*"))
+            if matches:
+                target_path = matches[0]
+
+        if target_path and target_path.is_file():
+            raw_bytes = target_path.read_bytes()
+            sniffed_ext = ext or media_storage.sniff_ext(raw_bytes, target_path.suffix.lstrip("."))
+            mime = "image/jpeg" if sniffed_ext in ("jpg", "jpeg") else f"image/{sniffed_ext}"
+            b64 = base64.b64encode(raw_bytes).decode("utf-8")
+            return f"data:{mime};base64,{b64}"
+    except Exception as e:
+        logger.warning("Failed to resolve image to data URL: %s", e)
+    return None
 
 
 def estimate_token_count(text: str) -> int:
@@ -383,15 +411,99 @@ async def chat_stream(
     )
     messages_payload.append({"role": "system", "content": combined_system_content})
 
+    # Rehydrate up to the latest 3 historical user images and any uploaded document texts so models retain multi-turn context
+    rehydrated_images_by_msg_key: Dict[Any, List[str]] = {}
+    rehydrated_docs_by_msg_key: Dict[Any, List[Dict[str, str]]] = {}
+    images_budget = 3
+
+    for msg in reversed(recent_msgs):
+        if msg.role != "user":
+            continue
+
+        msg_imgs: List[str] = []
+        msg_docs: List[Dict[str, str]] = []
+        if getattr(msg, "user_attachments", None):
+            try:
+                atts = json.loads(msg.user_attachments)
+                if isinstance(atts, list):
+                    for att in atts:
+                        if isinstance(att, dict):
+                            att_type = att.get("type", "image")
+                            if att_type == "document" and att.get("text"):
+                                msg_docs.append({
+                                    "name": att.get("name") or "file",
+                                    "text": att.get("text", "")
+                                })
+                            elif att_type != "document" and images_budget > 0:
+                                d_url = _resolve_image_to_data_url(
+                                    image_id=att.get("id"),
+                                    rel_path=att.get("path"),
+                                    ext=att.get("ext")
+                                )
+                                if d_url:
+                                    msg_imgs.append(d_url)
+                                    images_budget -= 1
+            except Exception as parse_err:
+                logger.warning("Failed to parse user_attachments for msg %s: %s", getattr(msg, "id", None), parse_err)
+
+        if not msg_imgs and images_budget > 0 and msg.content and "/api/media/images/" in msg.content:
+            found_ids = re.findall(r"/api/media/images/([0-9a-f]{32})", msg.content)
+            for fid in found_ids:
+                if images_budget <= 0:
+                    break
+                d_url = _resolve_image_to_data_url(image_id=fid)
+                if d_url and d_url not in msg_imgs:
+                    msg_imgs.append(d_url)
+                    images_budget -= 1
+
+        key = getattr(msg, "id", None) or id(msg)
+        if msg_imgs:
+            rehydrated_images_by_msg_key[key] = msg_imgs
+        if msg_docs:
+            rehydrated_docs_by_msg_key[key] = msg_docs
+
     for msg in recent_msgs:
-        cleaned_content = msg.content
-        if "data:image/" in cleaned_content:
-            cleaned_content = re.sub(r"!\[([^\]]*)\]\(data:image\/[^;]+;base64,[^)]+\)", r"[附图: \1]", cleaned_content)
+        cleaned_content = msg.content or ""
         # Strip historical <think>...</think> blocks to avoid polluting context and blowing token budgets
         if "<think>" in cleaned_content:
             cleaned_content = re.sub(r"<think>[\s\S]*?</think>", "", cleaned_content).strip()
-        if cleaned_content:
-            messages_payload.append({"role": msg.role, "content": cleaned_content})
+
+        # Clean markdown image tags from text representation to avoid confusing the model with unreachable URLs
+        cleaned_content = re.sub(r"!\[([^\]]*)\]\(data:image\/[^;]+;base64,[^)]+\)", r"[附图: \1]", cleaned_content)
+        cleaned_content = re.sub(r"!\[([^\]]*)\]\(/api/media/images/[0-9a-f]{32}\)", r"[附图: \1]", cleaned_content).strip()
+
+        key = getattr(msg, "id", None) or id(msg)
+        hist_images = rehydrated_images_by_msg_key.get(key, [])
+        hist_docs = rehydrated_docs_by_msg_key.get(key, [])
+
+        # Rehydrate document contents safely into the message text if present in history
+        if hist_docs and msg.role == "user":
+            doc_append_texts = []
+            for doc in hist_docs:
+                # Avoid re-injecting if already present in content for any reason
+                if doc["name"] not in cleaned_content or "untrusted_document" not in cleaned_content:
+                    safe_doc = sanitize_untrusted_content(
+                        doc["text"],
+                        source_type="document",
+                        source_name=doc["name"]
+                    )
+                    doc_append_texts.append(f"\n\n{safe_doc}")
+            if doc_append_texts:
+                cleaned_content = (cleaned_content + "".join(doc_append_texts)).strip()
+
+        if hist_images and msg.role == "user":
+            user_parts: List[Dict[str, Any]] = [
+                {"type": "text", "text": cleaned_content or "[用户历史附图]"}
+            ]
+            for img_data_url in hist_images:
+                user_parts.append({
+                    "type": "image_url",
+                    "image_url": {"url": img_data_url}
+                })
+            messages_payload.append({"role": msg.role, "content": user_parts})
+        else:
+            if cleaned_content:
+                messages_payload.append({"role": msg.role, "content": cleaned_content})
 
     if parsed_images:
         user_content: List[Dict[str, Any]] = [
@@ -420,11 +532,19 @@ async def chat_stream(
         saved_content_parts.append(f"📄 **[附件文件: {doc['name']}]**")
 
     # Uploaded images are written to MEDIA_DIR and recorded by id; `content` keeps
-    # only an /api/media/images/{id} reference. The inline base64 stays in
-    # messages_payload above — the model needs it — but must not reach the row,
-    # because every read of this conversation (message list, stats joins, sidebar)
-    # would otherwise stream megabytes it never displays.
+    # only an /api/media/images/{id} reference.
     stored_attachments = []
+    for doc in parsed_docs:
+        extracted = doc.get("extracted_text", "")
+        if extracted:
+            # Store up to 20,000 characters per document in attachment record for multi-turn rehydration
+            stored_attachments.append({
+                "type": "document",
+                "name": doc.get("name") or "file",
+                "mime_type": doc.get("mime_type") or "text/plain",
+                "text": extracted[:20000]
+            })
+
     for img in parsed_images:
         stored = store_uploaded_image(img["data_url"], img.get("name") or "图片")
         if stored:
@@ -850,6 +970,38 @@ async def chat_stream(
                     "delta": stream_window
                 }
                 yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
+
+            # Ensure <think> tag is cleanly closed if model aborted mid-thought
+            if in_thinking:
+                close_think = "\n</think>\n\n"
+                full_assistant_reply.append(close_think)
+                yield f"data: {json.dumps({'type': 'content', 'conversation_id': conv_id, 'delta': close_think}, ensure_ascii=False)}\n\n"
+                in_thinking = False
+
+            # Check if assistant reply yielded any visible main body outside of <think>...</think>
+            current_raw_reply = "".join(full_assistant_reply)
+            has_body_text = bool(re.sub(r"<think>[\s\S]*?</think>", "", current_raw_reply).strip())
+            if not has_body_text and finish_reason in ("stop", "length", None) and not error_text:
+                logger.warning("Model finished without body text for conversation %s, triggering auto-completion fallback", conv_id)
+                try:
+                    recovery_messages = [
+                        {"role": "system", "content": "你是一个智能助理。请直接根据用户的最新提问给出清晰、全面、详细的中文解答。严禁输出任何思考标签或内部标签，直接给出正文："},
+                        {"role": "user", "content": full_user_text or chat_req.message or ""}
+                    ]
+                    recovered = await provider.complete(
+                        messages=recovery_messages,
+                        model=model_to_use,
+                        temperature=0.3,
+                        max_tokens=1500
+                    )
+                    if recovered and recovered.strip():
+                        recovered_text = sanitize_llm_output(recovered).strip()
+                        recovered_text = re.sub(r"<think>[\s\S]*?</think>", "", recovered_text).strip()
+                        if recovered_text:
+                            yield f"data: {json.dumps({'type': 'content', 'conversation_id': conv_id, 'delta': recovered_text}, ensure_ascii=False)}\n\n"
+                            full_assistant_reply.append(recovered_text)
+                except Exception as rec_err:
+                    logger.warning("Auto-completion fallback failed for conversation %s: %s", conv_id, rec_err)
 
             # Capture upstream finish_reason from provider (e.g. length, content_filter, stop)
             if provider and getattr(provider, "last_finish_reason", None) and finish_reason == "stop":

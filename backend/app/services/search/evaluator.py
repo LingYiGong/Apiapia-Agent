@@ -8,10 +8,18 @@ from app.services.prompt.temporal import get_current_temporal_context
 
 logger = logging.getLogger("web_search_evaluator")
 
-# High-precision intent triggers
+# High-precision intent triggers (commands with inline query or prefix)
 EXPLICIT_SEARCH_PREFIXES = [
-    r"^(?:请|请你|帮我|麻烦|能否|可以)?(?:在网上|上网|全网|用谷歌|用百度|通过搜索引擎)?(?:搜一下|搜索一下|查一下|搜搜|查查|搜索|查找|检索|查询|打听一下)\s*[:：]?\s*",
-    r"^(?:search|google|look up|find out)\s*(?:for\s*)?",
+    r"^(?:请|请你|你|帮我|麻烦|麻烦你|能否|可以)?\s*(?:去|在|到)?\s*(?:网上|全网|网络上|网络|谷歌|百度|搜索引擎|外网)?\s*(?:去)?\s*(?:搜一下|搜索一下|查一下|搜搜|查查|搜索|查找|检索|查询|打听一下|找找|搜搜看|查查看|搜下|查下|搜一搜|查一查)\s*[:：]?\s*",
+    r"^(?:联网|通过网络|通过搜索|用搜索|用搜索引擎)\s*(?:搜一下|搜索一下|查一下|搜索|查找|检索|查询|搜|查|找找)\s*[:：]?\s*",
+    r"^(?:search(?:\s+the\s+web|\s+online)?|google|look\s+up|find\s+out)\s*(?:for\s*)?",
+]
+
+# Standalone explicit search commands (user tells model to search without specifying topic in current turn, referring to context)
+STANDALONE_SEARCH_PATTERNS = [
+    r"^(?:请|请你|你|帮我|麻烦|麻烦你|能否|可以)?\s*(?:去|在|到)?\s*(?:网上|全网|网络上|网络|谷歌|百度|搜索引擎|外网)?\s*(?:去)?\s*(?:搜一下|搜索一下|查一下|搜搜|查查|搜索|查找|检索|查询|打听一下|找找|搜搜看|查查看|搜下|查下|搜一搜|查一查|看看|翻翻)[!！。?？\s]*$",
+    r"^(?:联网|通过网络|通过搜索|用搜索|用搜索引擎)\s*(?:搜一下|搜索一下|查一下|搜索|查找|检索|查询|搜|查|找找|看下|看看)[!！。?？\s]*$",
+    r"^(?:search(?:\s+it|\s+the\s+web|\s+online)?|google(?:\s+it)?|look\s+it\s+up|find\s+out)[!！。?？\s]*$",
 ]
 
 # Patterns that indicate financial market data inquiry (requires web search even if containing math/numbers)
@@ -54,7 +62,7 @@ SEARCH_DECISION_PROMPT = """你是一个智能联网搜索决策与关键词重�
 【何时需要联网搜索 (need_search: true)】
 1. 时效性极强的事实或最新事件（如最新新闻、近期发布的产品、当前赛事、版本更新、当季政策等）。
 2. 实时行情与动态数据（如股票走势、汇率走势、天气、加密货币行情等）。
-3. 用户明确要求“搜索”、“查一下”、“最新官网”、“找找资料”或询问具体公共事实/权威信息。
+3. 用户明确要求“搜索”、“查一下”、“去网上搜”、“找找资料”或询问具体公共事实/权威信息（若用户仅说“你去搜一下/去网上查查”，必须从对话历史中提取核心议题进行搜索）。
 4. 模型预训练知识库可能无法覆盖或可能随时间变化的特定事实（特别是 2024 年至今的新人物、新项目、新动态）。
 
 【何时严禁联网搜索 (need_search: false)】
@@ -83,7 +91,60 @@ SEARCH_DECISION_PROMPT = """你是一个智能联网搜索决策与关键词重�
 """
 
 
-def _fast_heuristic_check(user_message: str) -> Tuple[Optional[bool], str, str, Optional[str]]:
+def _extract_topic_from_recent_messages(recent_messages: Optional[List[Any]]) -> str:
+    """
+    当用户当前输入仅为“搜一下 / 你去网上搜一下”等无独立关键词指令时，
+    从对话历史中倒序提取上一轮的核心议题或用户提问作为检索关键词。
+    """
+    if not recent_messages:
+        return ""
+
+    # 1. 优先寻找倒数最近的一条 user 消息
+    for m in reversed(recent_messages):
+        role = getattr(m, "role", None) or (m.get("role") if isinstance(m, dict) else "")
+        if role == "user":
+            content = getattr(m, "content", None) or (m.get("content") if isinstance(m, dict) else "")
+            if isinstance(content, list):
+                text_parts = [
+                    item.get("text", "")
+                    for item in content
+                    if isinstance(item, dict) and item.get("type") == "text"
+                ]
+                content = " ".join(text_parts)
+            if isinstance(content, str) and content.strip():
+                cleaned = re.sub(r"!\[.*?\]\(.*?\)", "", content)
+                cleaned = re.sub(r"📄\s*\*\*\[附件文件:[^\]]+\]\*\*", "", cleaned)
+                cleaned = re.sub(r"```quote[\s\S]*?```", "", cleaned)
+                cleaned = re.sub(r"【📌\s*用户引用回复的目标消息】[\s\S]*", "", cleaned)
+                cleaned = re.sub(r"<think>[\s\S]*?</think>", "", cleaned).strip()
+                # 剔除可能同样包含的前缀
+                for prefix in EXPLICIT_SEARCH_PREFIXES:
+                    cleaned = re.sub(prefix, "", cleaned, flags=re.IGNORECASE).strip()
+                cleaned = re.sub(r"[？?！!。，,\s]+$", "", cleaned).strip()
+                if cleaned and len(cleaned) > 1:
+                    return cleaned[:100]
+
+    # 2. 若未找到有效 user 消息，尝试从最近一条 assistant 消息提取首行文本
+    for m in reversed(recent_messages):
+        role = getattr(m, "role", None) or (m.get("role") if isinstance(m, dict) else "")
+        if role == "assistant":
+            content = getattr(m, "content", None) or (m.get("content") if isinstance(m, dict) else "")
+            if isinstance(content, str) and content.strip():
+                clean_a = re.sub(r"<think>[\s\S]*?</think>", "", content)
+                clean_a = re.sub(r"!\[.*?\]\(.*?\)", "", clean_a).strip()
+                lines = [line.strip() for line in clean_a.splitlines() if line.strip()]
+                if lines:
+                    first_line = re.sub(r"[#*`>]+", "", lines[0]).strip()
+                    if first_line and len(first_line) > 2:
+                        return first_line[:60]
+
+    return ""
+
+
+def _fast_heuristic_check(
+    user_message: str,
+    recent_messages: Optional[List[Any]] = None
+) -> Tuple[Optional[bool], str, str, Optional[str]]:
     """
     快速规则短路检测（0ms 响应）。
     返回: (matched_decision: Optional[bool], query: str, topic: str, time_range: Optional[str])
@@ -93,13 +154,23 @@ def _fast_heuristic_check(user_message: str) -> Tuple[Optional[bool], str, str, 
     if not msg:
         return False, "", "general", None
 
-    # 1. 显式命令前缀直接触发（如“帮我查一下xxx”、“搜索一下xxx”）
+    # 1. 显式命令直接触发
+    # 1.1 独立显式搜索指令（如“你去网上搜一下”、“搜一下”、“上网查查”，无具体关键词，继承上文主体）
+    for standalone_pat in STANDALONE_SEARCH_PATTERNS:
+        if re.search(standalone_pat, msg, re.IGNORECASE):
+            extracted_topic = _extract_topic_from_recent_messages(recent_messages)
+            return True, extracted_topic, "general", None
+
+    # 1.2 显式命令前缀+关键词（如“帮我查一下特斯拉股价”、“搜索一下xxx”）
     clean_query = msg
     for prefix in EXPLICIT_SEARCH_PREFIXES:
         if re.search(prefix, clean_query, re.IGNORECASE):
             clean_query = re.sub(prefix, "", clean_query, flags=re.IGNORECASE).strip()
             if clean_query:
                 return True, clean_query, "general", None
+            else:
+                extracted_topic = _extract_topic_from_recent_messages(recent_messages)
+                return True, extracted_topic, "general", None
 
     # 2. 检查绝对不搜索的非联网模式（问候、打招呼、翻译代码、纯算术）
     for non_pattern in NON_SEARCH_PATTERNS:
@@ -124,7 +195,11 @@ def _fast_heuristic_check(user_message: str) -> Tuple[Optional[bool], str, str, 
     return None, clean_query, "general", None
 
 
-def should_search_web(user_message: str, mode: str = "auto") -> Tuple[bool, str, str, Optional[str]]:
+def should_search_web(
+    user_message: str,
+    mode: str = "auto",
+    recent_messages: Optional[List[Any]] = None
+) -> Tuple[bool, str, str, Optional[str]]:
     """
     快速同步判断（向下兼容接口）。
     对于同步路径，使用启发式规则；完整智能决策请使用 evaluate_and_generate_search_query。
@@ -136,11 +211,14 @@ def should_search_web(user_message: str, mode: str = "auto") -> Tuple[bool, str,
     if mode == "off":
         return False, "", "general", None
 
-    fast_dec, clean_q, topic, time_range = _fast_heuristic_check(msg)
+    fast_dec, clean_q, topic, time_range = _fast_heuristic_check(msg, recent_messages=recent_messages)
     if mode == "on":
-        return True, clean_q or msg, topic, time_range
+        inherited_q = clean_q or _extract_topic_from_recent_messages(recent_messages) or msg
+        return True, inherited_q, topic, time_range
 
     if fast_dec is not None:
+        if fast_dec is True and not clean_q:
+            clean_q = _extract_topic_from_recent_messages(recent_messages) or msg
         return fast_dec, clean_q, topic, time_range
 
     # 针对 auto 模式补充时间敏感规则
@@ -179,14 +257,15 @@ async def evaluate_and_generate_search_query(
     if mode == "off":
         return False, "", "general", None
 
-    fast_dec, clean_q, fast_topic, fast_tr = _fast_heuristic_check(msg)
+    fast_dec, clean_q, fast_topic, fast_tr = _fast_heuristic_check(msg, recent_messages=recent_messages)
 
     # 如果显式匹配了确定性规则（例如完全是闲聊问候），直接返回
     if mode == "auto" and fast_dec is False:
         return False, "", "general", None
 
-    # 如果用户显式输入了搜索前缀（如“帮我查一下XXX”），我们已知 need_search=True，
-    # 但若有 LLM，可用其去除冗余助词提炼出精准关键词；若无 LLM 或耗时敏感则直接用 clean_q。
+    is_explicit_command = (fast_dec is True) or (mode == "on")
+    context_extracted_query = clean_q or _extract_topic_from_recent_messages(recent_messages) or msg
+
     # 准备历史对话摘要上下文（取最近 4 条）
     history_snippets = []
     if recent_messages:
@@ -202,6 +281,11 @@ async def evaluate_and_generate_search_query(
 
     temporal_info = get_current_temporal_context().get("prompt_instruction", "")
 
+    # 若用户是无主题的独立搜索指令，在 prompt 中明确提示模型从上下文提取主题
+    eval_user_msg = msg[:600]
+    if is_explicit_command and (not clean_q or clean_q == msg):
+        eval_user_msg = f"{msg} (用户明确要求联网搜索，请结合对话历史提取核心主题，need_search 必须为 true)"
+
     # 尝试使用模型进行意图研判与 Query 重写
     try:
         resolved_provider = provider or (detect_provider(model) if model else None)
@@ -215,15 +299,15 @@ async def evaluate_and_generate_search_query(
         prompt = SEARCH_DECISION_PROMPT.format(
             current_time_info=temporal_info,
             history_context=history_context_str,
-            user_message=msg[:600]
+            user_message=eval_user_msg
         )
 
-        # 针对重写研判限制极低 token 与微小温度以追求极致速度和稳定性
+        # 针对重写研判限制低 token 与微小温度以追求极致速度和稳定性
         raw_res = await llm_instance.complete(
             messages=[{"role": "user", "content": prompt}],
             model=model or "gpt-4o-mini",
             temperature=0.1,
-            max_tokens=150
+            max_tokens=300
         )
 
         if raw_res and raw_res.strip():
@@ -236,10 +320,10 @@ async def evaluate_and_generate_search_query(
 
             data = json.loads(cleaned_json)
             need_search = bool(data.get("need_search", False))
-            if mode == "on":
+            if is_explicit_command:
                 need_search = True
 
-            search_query = str(data.get("search_query") or clean_q or msg).strip()
+            search_query = str(data.get("search_query") or context_extracted_query).strip()
             # 清理常见符号
             search_query = search_query.strip("\"'“”‘’#")
             topic = str(data.get("topic") or fast_topic or "general").strip().lower()
@@ -250,7 +334,7 @@ async def evaluate_and_generate_search_query(
                 time_range = None
 
             if need_search and not search_query:
-                search_query = clean_q or msg
+                search_query = context_extracted_query
 
             logger.info(
                 "LLM search evaluator decision: need_search=%s, query='%s', topic=%s, time_range=%s",
@@ -260,8 +344,14 @@ async def evaluate_and_generate_search_query(
 
     except Exception as e:
         logger.warning("LLM search evaluator encountered error: %s, falling back to heuristic", str(e))
+        if is_explicit_command:
+            logger.info("Explicit search command recognized, using context query: '%s'", context_extracted_query)
+            return True, context_extracted_query, fast_topic or "general", fast_tr
 
     # 兜底 fallback 至本地启发式策略
-    fallback_need, fallback_q, fallback_topic, fallback_tr = should_search_web(msg, mode=mode)
-    return fallback_need, fallback_q or clean_q or msg, fallback_topic, fallback_tr
+    fallback_need, fallback_q, fallback_topic, fallback_tr = should_search_web(
+        msg, mode=mode, recent_messages=recent_messages
+    )
+    final_q = fallback_q or context_extracted_query or clean_q or msg
+    return fallback_need, final_q, fallback_topic, fallback_tr
 

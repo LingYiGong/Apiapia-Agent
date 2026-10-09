@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from "react";
 import { Message, AttachmentItem, SearchResultItem } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -228,7 +228,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const isAtBottomRef = useRef(true);
+  // 用户是否已主动上滚去回看上文。为 true 时，流式输出绝不再自动跟随底部。
+  // 之所以不直接复用 scroll 事件算出来的「是否在底部」，见下方注释的竞态分析。
+  const userScrolledAwayRef = useRef(false);
+  const touchStartYRef = useRef<number | null>(null);
   const [showScrollBottomBtn, setShowScrollBottomBtn] = useState(false);
   const [attachments, setAttachments] = useState<AttachmentItem[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -481,24 +484,93 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     }
   };
 
-  // Recompute "am I at the bottom" from the live DOM instead of trusting a
-  // previously stored value. Safe to call any time; it writes no DOM itself.
+  // ── 滚动跟随（跟随最新）────────────────────────────────────────────
+  //
+  // 这里的难点不是「要不要滚到底」，而是**什么时候算用户主动上滚了**。
+  //
+  // 之前只靠 onScroll 回填的 isAtBottomRef 判定，存在一个必然踩中的竞态：
+  //   1. 用户滚轮上滚 → 浏览器同步改了 scrollTop，但 scroll 事件要等下一帧才派发；
+  //   2. 打字机每 20ms 就触发一次 streamingContent 的 useEffect，它读到的仍是
+  //      上一次的 isAtBottomRef === true，于是把 scrollTop 重设回 scrollHeight；
+  //   3. 排队的 scroll 事件这才到达，读到的已经是被拽回后的底部状态。
+  // 「模型思考结束、刚开始输出正文」那一刻最容易触发：正文要整段重解析 markdown，
+  // 主线程最容易被占满，scroll 事件被拖过一帧的概率最高 —— 正好对应用户描述的现象。
+  //
+  // 修法：上滚「意图」由 wheel / touchmove / 方向键这些**同步派发**的手势直接上锁，
+  // 抢在浏览器改 scrollTop 之前生效，useEffect 再怎么触发都读不到过期状态。
+  // scroll 事件退化为只负责两件事：解锁（用户自己滚回了底部）、更新浮动按钮。
+
+  const BOTTOM_FOLLOW_EPS = 8; // 判定「确实贴住底部」的严格阈值
+  const BOTTOM_BTN_EPS = 120; // 判定是否显示「回到最新」的宽松阈值
+
+  const clearScrollLock = () => {
+    userScrolledAwayRef.current = false;
+  };
+
+  // 从实时 DOM 重新判定。随时可调，不写任何 DOM。
   const syncAtBottomState = () => {
     const container = scrollContainerRef.current;
     if (!container) return;
-    const threshold = 120; // distance from bottom in px considered "at bottom"
     const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
-    const atBottom = distanceFromBottom <= threshold;
-    isAtBottomRef.current = atBottom;
-    setShowScrollBottomBtn(!atBottom);
+    // 只有真正回到最底部才解锁。用宽松阈值解锁的话，用户轻轻上滑一小段
+    // 也会立刻被判为「还在底部」，下一个 token 就把人拽回去。
+    if (distanceFromBottom <= BOTTOM_FOLLOW_EPS) {
+      clearScrollLock();
+    }
+    setShowScrollBottomBtn(distanceFromBottom > BOTTOM_BTN_EPS);
   };
 
-  // Monitor user scrolling to detect if user has scrolled away from the bottom
   const handleScroll = () => syncAtBottomState();
 
+  // 同步上锁：必须赶在浏览器改 scrollTop 之前跑完，所以不能用 scroll 事件。
+  const lockScrollOnUserIntent = () => {
+    const container = scrollContainerRef.current;
+    // 内容压根没超出容器时（短对话、开场思考阶段）不存在滚动，
+    // 此时上锁等于凭空让自动跟随停摆，等于把 bug 换了个方向。
+    if (!container || container.scrollHeight <= container.clientHeight) return;
+    userScrolledAwayRef.current = true;
+  };
+
+  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    // 向下滚不必上锁 —— 滚回底部时 syncAtBottomState 会自动解锁。
+    if (e.deltaY < 0) lockScrollOnUserIntent();
+  };
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    // 只有点在滚动条上（clientWidth 之外的条带）才算拖滚动位置；
+    // 点消息正文里的链接、按钮、代码块时不能锁。
+    const rect = container.getBoundingClientRect();
+    if (e.clientX - rect.left >= container.clientWidth) {
+      lockScrollOnUserIntent();
+    }
+  };
+
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    touchStartYRef.current = e.touches[0]?.clientY ?? null;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    const startY = touchStartYRef.current;
+    const currentY = e.touches[0]?.clientY;
+    // 手指向下拖 = 内容向上走 = 用户在回看上文。
+    // 留 6px 死区，否则点选文字时手的自然抖动也会误锁。
+    if (startY != null && currentY != null && currentY - startY > 6) {
+      lockScrollOnUserIntent();
+    }
+  };
+
+  const handleContainerKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "ArrowUp" || e.key === "PageUp" || e.key === "Home") {
+      lockScrollOnUserIntent();
+    }
+  };
+
   const scrollToBottom = (force = false, smooth = true) => {
-    // If not forced and user has scrolled up to read history, DO NOT pull them down!
-    if (!force && !isAtBottomRef.current) return;
+    // 用户已上滚回看历史时，非强制路径一律不打扰他的阅读位置。
+    if (!force && userScrolledAwayRef.current) return;
+    clearScrollLock();
     const container = scrollContainerRef.current;
     if (container) {
       if (smooth) {
@@ -511,36 +583,56 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     }
   };
 
-  // When new tokens stream in, ONLY scroll if user is already at the bottom!
-  // If user scrolled up to read earlier history, keep their scroll position completely undisturbed!
-  useEffect(() => {
-    if (isAtBottomRef.current) {
+  // 新 token 到达：只有用户没上滚才跟随。
+  // 用 useLayoutEffect 让滚动与本次渲染落在同一帧，避免出现「先按旧位置画一帧、
+  // 再瞬移到底部」的闪跳 —— 闪跳本身就会被感知成「被拉回来」。
+  // 依赖里带上 isWaitingForFirstToken / streamingSearchResults：思考态切正文、
+  // 以及引用来源块插入到正文上方，这两处都会在正文之外改变高度，
+  // 只盯 streamingContent 会漏掉这一跳。
+  useLayoutEffect(() => {
+    if (!userScrolledAwayRef.current) {
       scrollToBottom(false, false);
     }
-  }, [streamingContent]);
+  }, [streamingContent, isWaitingForFirstToken, streamingSearchResults]);
 
-  // When a new message is added or conversation switched, scroll to bottom
-  useEffect(() => {
+  // 新消息进入列表 / 会话消息加载完成：跟随最新。
+  // 不再无条件 force：生成结束把流式气泡落成正式消息时，用户很可能正在回看上文，
+  // 此时上方内容没有变化，保持他的位置才是对的。需要强制跟随的场景
+  // （发送、切换会话、点「回到最新」）各自显式清锁即可。
+  useLayoutEffect(() => {
     // An empty list cannot be "scrolled away from": drop the floating button
     // immediately instead of waiting for a scroll event that never comes.
     if (messages.length === 0) {
-      isAtBottomRef.current = true;
+      clearScrollLock();
       setShowScrollBottomBtn(false);
       return;
     }
-    scrollToBottom(true, true);
+    scrollToBottom(false, true);
   }, [messages.length]);
 
   // 切换 / 新建对话时整块内容被替换，浏览器不会为此派发 scroll 事件，
   // 所以必须主动复位，否则"回到最新"按钮会残留在空白的对话上。
   useEffect(() => {
-    isAtBottomRef.current = true;
+    clearScrollLock();
     setShowScrollBottomBtn(false);
     const container = scrollContainerRef.current;
     if (container) container.scrollTop = 0;
     // Content is loaded async; the [messages.length] effect above handles the
     // final scroll-to-bottom once the new messages land.
   }, [conversationId]);
+
+  // 新一轮生成开始时一律贴回底部。
+  // handleSend 已经清过锁，但「重新生成」「编辑后重发」不是从 handleSend 发起的，
+  // 用户点这两个按钮时可能正停在历史的某条消息上；新一轮回答理应从底部开始看。
+  const wasStreamingRef = useRef(false);
+  useLayoutEffect(() => {
+    if (isStreaming && !wasStreamingRef.current) {
+      clearScrollLock();
+      const container = scrollContainerRef.current;
+      if (container) container.scrollTop = container.scrollHeight;
+    }
+    wasStreamingRef.current = isStreaming;
+  }, [isStreaming]);
 
   // 移动端：软键盘的回车不发送消息，交给 textarea 默认行为插入换行，
   // 只有点击发送按钮才真正发出；桌面端保持回车发送、Shift+回车换行。
@@ -580,7 +672,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
   const handleSend = () => {
     if ((!input.trim() && attachments.length === 0) || isStreaming || isUploading) return;
-    isAtBottomRef.current = true;
+    clearScrollLock();
     setShowScrollBottomBtn(false);
 
     const extraOpts: any = {};
@@ -653,6 +745,11 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       <div
         ref={scrollContainerRef}
         onScroll={handleScroll}
+        onWheel={handleWheel}
+        onPointerDown={handlePointerDown}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onKeyDown={handleContainerKeyDown}
         role="log"
         aria-label="对话消息"
         aria-live="polite"
@@ -791,7 +888,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               variant="secondary"
               size="sm"
               onClick={() => {
-                isAtBottomRef.current = true;
+                clearScrollLock();
                 setShowScrollBottomBtn(false);
                 scrollToBottom(true, true);
               }}

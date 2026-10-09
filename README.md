@@ -572,24 +572,31 @@
 cp .env.example .env
 ```
 
-根据你的实际情况在 `.env` 中填写配置项（也可以在启动后通过 Web 前端的设置页面进行配置）：
+根据你的实际情况在 `.env` 中填写配置项（也可以在启动后通过 Web 前端的设置页面进行配置）。
 
-- `POSTGRES_USER`: PostgreSQL 用户名（默认 `postgres`）
-- `POSTGRES_PASSWORD`: PostgreSQL 密码（请确保 `DATABASE_URL` 与 `MEM0_DATABASE_URL` 里的密码与之保持一致）
-- `POSTGRES_DB`: 数据库名称（默认 `apiapia`）
-- `APP_VERSION`: 服务版本号，默认 `2.13.0`。**须与仓库根目录 `VERSION`、`frontend/package.json` 保持一致**——三者作为同一份产物发布。此前后端在两处硬编码且已漂移至 `2.9.0`，现改为单一来源。
-- `SECRET_KEY`: JWT 签名密钥（生产环境请更换为复杂随机字符串）
-- `API_KEY_ENCRYPTION_KEY`: 数据库 API Key 对称加密密钥
-- `OPENROUTER_API_KEY`: OpenRouter 统一大模型 API 密钥
+**配置项的完整清单和逐项说明见 `.env.example`**，那里同时标注了每一项的默认值与改动影响。原则是：**只有 `POSTGRES_PASSWORD` 是必填的**，其余留空即采用 `backend/app/core/config.py` 中的默认值，删掉一行等同于填默认值。因此你只需要改动真正想改的那几行。
+
+几个值得单独说明的：
+
+- `POSTGRES_PASSWORD`: **唯一必填项**。数据库连接串由 `POSTGRES_*` 自动拼装，无需（也不应）再手写 `DATABASE_URL`；密码中的 `@` `/` `:` 会被自动转义。只有当应用需要连接本 compose 之外的数据库时，才显式设置 `DATABASE_URL` / `MEM0_DATABASE_URL`。
+- `SECRET_KEY`: JWT 签名密钥，**轮换它会让所有人被登出**
+- `API_KEY_ENCRYPTION_KEY`: 数据库 API Key 对称加密密钥，**轮换它会让已存的所有 Key 无法解密，用户必须重新填写**
+- `ADMIN_EMAIL` / `ADMIN_USERNAME`: 公开部署强烈建议设置，否则**第一个注册的用户会成为管理员**
+- `POSTGRES_HOST_PORT` / `BACKEND_HOST_PORT` / `FRONTEND_HOST_PORT`: 宿主机端口映射，默认 `5432` / `8000` / `3000`。端口被占用时改这里，不用动 `docker-compose.yml`
+- `APP_VERSION`: 服务版本号，默认读 `VERSION` 文件。**须与仓库根目录 `VERSION`、`frontend/package.json` 保持一致**——三者作为同一份产物发布
+- `OPENROUTER_API_KEY`: OpenRouter 统一大模型 API 密钥，**同时供聊天、记忆、语音使用**
 - `TAVILY_API_KEY`: Tavily 联网搜索 Key（https://tavily.com 免费申请，每月 1000 次；留空则只用免费 DuckDuckGo）
 - `TAVILY_SEARCH_DEPTH`: 搜索深度 `advanced`（准）/ `basic`（快），默认 `advanced`
+- `NEXT_PUBLIC_API_URL`: 留空即使用同源代理 `/api/backend`，无需配置服务器 IP，也无跨域问题。**只有纯静态导出（Cloudflare Pages）才需要填**，那时后端 CORS 还需放行前端域名
 - `STT_MODEL` / `TTS_MODEL`: **代码级兜底常量，不是部署配置**（`backend/app/core/config.py`）。仅在账号从未打开过语音设置、或首次同步目录之前有值可发。日常使用在设置页挑选，无需也不应当改这里
 - `TTS_VOICE`: 可选，全局钉死某个音色（默认留空＝用目录里该模型的第一个音色）。**不需要配置**——不公布音色列表的模型（Fish Audio / Seed Audio 系）会自动省略 `voice` 字段、由 provider 用自己的默认音色。与模型强绑定，若设了此项而当前模型不接受会被忽略而非报错
 - `FREE_AUDIO_MODELS`: 逗号分隔的免费语音模型，供体验模式账号使用（与 `FREE_IMAGE_MODELS` 同性质）。多数模型可由零定价自动识别，此项用于定价接口没暴露的免费档
 - `SPEECH_MAX_AUDIO_BYTES`: 单次语音转文字的音频体积上限，默认 25MB（与 OpenRouter 的 multipart 上限一致）
 - `SPEECH_MAX_TEXT_CHARS`: 单次语音合成的文本上限，默认 4000 字
 
-> **语音模型不在 `docker-compose.yml` 里配置。** 用户在设置页挑选 → 存进 `user_settings.stt_model` / `tts_model` → `/speech/*` 按账号自行解析。前端永远不传模型名，所以 compose 里写死模型值只会是一个和用户选择相矛盾的全局覆盖。
+> **配置只写一处。** `docker-compose.yml` 现在只负责镜像、端口、卷、健康检查和服务顺序，业务配置一律来自 `.env`；`.env` 里没写的项回落到 `backend/app/core/config.py` 的默认值。此前同一份默认值在 compose、`config.py`、`.env` 三处各写一遍，数据库密码在三处重复，正是这种重复导致改密码时漏改、连不上库。
+
+> **本地开发热重载**：`docker-compose.yml` 不带 `--reload`（服务器不需要）。需要时新建 `docker-compose.override.yml` 覆盖 `backend.command` 即可，Compose 会自动合并，主文件不用改。
 
 > 语音识别与语音合成是**两族互不相交的模型**（OpenRouter 的 `output_modalities=transcription` 与 `=speech` 返回的集合没有交集），所以设置页是两个独立下拉、数据库是两个字段 `stt_model` / `tts_model`。
 > **音频格式由服务端协商**：各模型支持的格式不一致（Gemini TTS 只接受 pcm，Mistral Voxtral 只接受 mp3），所以前端请求的 mp3 只是偏好。模型拒绝时会自动改用另一种格式并记住结果；返回给浏览器的永远是可播放的容器——裸 pcm 会被包成 WAV（采样率取自响应头 `audio/pcm;rate=…;channels=…`，不猜）。
@@ -613,6 +620,8 @@ Compose 将按序拉起并协同三个服务：
 - **后端 API 文档 (Swagger)**：`http://localhost:8000/docs`
 - **健康检查接口**：`http://localhost:8000/api/health`
   返回真实探测结果：数据库不可达时返回 **503**（`database` 字段给出异常类型，`status` 为 `degraded`），Docker healthcheck 会据此把容器标记为 unhealthy。`mem0_oss` 字段反映长期记忆是否已配置可用的 LLM 凭证。
+
+> 生产部署建议在前面加一层反向代理并启用 HTTPS，同时把 `.env` 中的 `SECRET_KEY` 与 `API_KEY_ENCRYPTION_KEY` 换成随机值——`.env.example` 里的两个是公开的示例值，任何人拿到都能伪造登录令牌或解密数据库里的 API Key。
 
 ---
 

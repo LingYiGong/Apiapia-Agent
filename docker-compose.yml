@@ -1,14 +1,39 @@
+# ==============================================================================
+# Apiapia — deployment orchestration.
+#
+# This file owns ONLY what Docker needs to know: images, ports, volumes, health
+# checks and service ordering. Every application setting lives in `.env` (copied
+# from `.env.example`) or, when it has a sensible default, in
+# backend/app/core/config.py. Nothing here restates a default that the code
+# already has — that duplication is what let the three copies of the Postgres
+# password drift apart before.
+#
+# Host ports are overridable so a deployment can move off 3000/8000/5432 when
+# something else already owns them.
+# ==============================================================================
+
+# Shared by all three services. Anchored so the rotation policy is stated once
+# instead of three times drifting apart.
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   postgres:
     image: pgvector/pgvector:pg17
     container_name: apiapia_postgres
     restart: unless-stopped
+    # The postgres image reads exactly these three variables, so they must be
+    # passed explicitly. The backend learns the same credentials from `.env`
+    # (via env_file below), which is why they are not repeated here.
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
       POSTGRES_DB: ${POSTGRES_DB:-apiapia}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
     volumes:
       - apiapia_postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -16,12 +41,10 @@ services:
       interval: 2s
       timeout: 2s
       retries: 10
-      start_period: 2s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+      # initdb on an empty volume is not instant; without this the probe counts
+      # those seconds as failures and marks a healthy database unhealthy.
+      start_period: 10s
+    logging: *default-logging
 
   backend:
     build:
@@ -29,93 +52,60 @@ services:
       dockerfile: Dockerfile
     container_name: apiapia_backend
     restart: unless-stopped
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    # No `command:` override. The Dockerfile CMD runs uvicorn without --reload,
+    # which is what a server should do; --reload plus the bind mount below is a
+    # development setup. For hot reload, put it in docker-compose.override.yml.
     depends_on:
       postgres:
         condition: service_healthy
+    # Every backend setting arrives from `.env` — the file lists the full set of
+    # supported variables, so adding a key there needs no edit here. `required:
+    # false` keeps a default-only deployment working; config.py supplies the same
+    # values when the file is absent.
+    env_file:
+      - path: .env
+        required: false
     ports:
-      - "8000:8000"
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/api/health || exit 1"]
-      interval: 3s
-      timeout: 2s
-      retries: 5
-      start_period: 2s
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-apiapia}
-      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
-      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
-      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-apiapia}}
-      MEM0_DATABASE_URL: ${MEM0_DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-apiapia}}
-      SECRET_KEY: ${SECRET_KEY:-change-this-to-a-super-secret-jwt-key-min-32-chars-long}
-      API_KEY_ENCRYPTION_KEY: ${API_KEY_ENCRYPTION_KEY:-dGhpc2lzYTMyeWVhcnNvbGRzZWNyZXRrZXkxMjM0NTY=}
-      MEM0_VERSION: ${MEM0_VERSION:-2.2.1}
-      MEM0_DATA_DIR: /app/data/mem0
-      MEDIA_DIR: ${MEDIA_DIR:-/app/data/media}
-      DEFAULT_MODEL: ${DEFAULT_MODEL:-gpt-4o-mini}
-      DEFAULT_PROVIDER: ${DEFAULT_PROVIDER:-openai}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
-      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
-      OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      ANTHROPIC_BASE_URL: ${ANTHROPIC_BASE_URL:-https://api.anthropic.com}
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-}
-      TAVILY_API_KEY: ${TAVILY_API_KEY:-}
-      TAVILY_SEARCH_DEPTH: ${TAVILY_SEARCH_DEPTH:-advanced}
-      TAVILY_INCLUDE_ANSWER: ${TAVILY_INCLUDE_ANSWER:-True}
-      IMAGE_GEN_PROVIDER: ${IMAGE_GEN_PROVIDER:-auto}
-      IMAGE_GEN_MODEL: ${IMAGE_GEN_MODEL:-dall-e-3}
-      FREE_IMAGE_MODELS: ${FREE_IMAGE_MODELS:-inclusionai/ming-image-0.1-design}
-      SILICONFLOW_API_KEY: ${SILICONFLOW_API_KEY:-}
-      SILICONFLOW_BASE_URL: ${SILICONFLOW_BASE_URL:-https://api.siliconflow.cn/v1}
-      VIDEO_GEN_PROVIDER: ${VIDEO_GEN_PROVIDER:-auto}
-      VIDEO_GEN_MODEL: ${VIDEO_GEN_MODEL:-}
-      FREE_VIDEO_MODELS: ${FREE_VIDEO_MODELS:-}
-      # 语音模型刻意不在这里配置：用户在设置页挑选，存进 user_settings.stt_model /
-      # tts_model，由 /speech/* 自行解析；前端永远不传模型名，所以 compose 里的
-      # 任何取值都只会误导。下面三个分别是免费档登记（与 FREE_IMAGE_MODELS 同性质）
-      # 和请求体量上限（部署侧调参），都不是用户选择。
-      FREE_AUDIO_MODELS: ${FREE_AUDIO_MODELS:-}
-      SPEECH_MAX_AUDIO_BYTES: ${SPEECH_MAX_AUDIO_BYTES:-26214400}
-      SPEECH_MAX_TEXT_CHARS: ${SPEECH_MAX_TEXT_CHARS:-4000}
+      - "${BACKEND_HOST_PORT:-8000}:8000"
     volumes:
+      # Bind mount: edit ./backend/app on the host, then restart the container.
       - ./backend/app:/app/app
       - apiapia_mem0_data:/app/data/mem0
       - apiapia_media:/app/data/media
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/api/health || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      # Startup runs init_db() then syncs every provider's model catalog over the
+      # network before the first request is served. The grace period has to cover
+      # that, because `frontend` below waits for this to be healthy.
+      start_period: 60s
+    logging: *default-logging
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
       args:
+        # Only meaningful for the static-export (Cloudflare) path; the Docker
+        # build keeps src/app/api, so the browser uses the same-origin /api/backend
+        # proxy and this stays empty.
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
     container_name: apiapia_frontend
     restart: unless-stopped
     depends_on:
       backend:
-        condition: service_started
+        condition: service_healthy
     ports:
-      - "3000:3000"
+      - "${FRONTEND_HOST_PORT:-3000}:3000"
     environment:
-      INTERNAL_API_URL: http://backend:8000/api
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
-      PORT: 3000
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+      # Server-side only: where this container reaches the backend. Never
+      # exposed to the browser.
+      INTERNAL_API_URL: ${INTERNAL_API_URL:-http://backend:8000/api}
+    logging: *default-logging
 
 volumes:
   apiapia_postgres_data:

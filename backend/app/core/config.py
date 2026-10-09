@@ -1,6 +1,9 @@
+from importlib.metadata import PackageNotFoundError, version as _pkg_version
 from pathlib import Path
+from urllib.parse import quote
+
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings
-from pydantic import Field
 from typing import Optional
 
 
@@ -23,6 +26,19 @@ def _get_default_version() -> str:
     return "0.0.0-dev"
 
 
+def _installed_mem0_version() -> str:
+    """Report the mem0ai version actually installed, which is the only true one.
+
+    requirements.txt pins mem0ai==2.2.1. Carrying the same number as an env var
+    invited exactly the drift the pin prevents: the env value could say 2.2.1
+    while the image carried something else, and /api/health would report the lie.
+    """
+    try:
+        return _pkg_version("mem0ai")
+    except PackageNotFoundError:
+        return "unknown"
+
+
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Apiapia 助理"
     API_V1_STR: str = "/api"
@@ -38,13 +54,18 @@ class Settings(BaseSettings):
     POSTGRES_HOST: str = "postgres"
     POSTGRES_PORT: int = 5432
 
+    #: Left empty on purpose: when unset they are assembled from the POSTGRES_*
+    #: parts above. That way the password lives in exactly one place in .env
+    #: instead of three, and changing it cannot leave the DSNs pointing at the old
+    #: one. Set either explicitly only when it must diverge from POSTGRES_* —
+    #: e.g. an externally managed database.
     DATABASE_URL: str = Field(
-        default="postgresql+asyncpg://postgres:postgres@postgres:5432/apiapia",
-        description="Async SQLAlchemy database URL"
+        default="",
+        description="Async SQLAlchemy database URL; derived from POSTGRES_* when empty"
     )
     MEM0_DATABASE_URL: str = Field(
-        default="postgresql://postgres:postgres@postgres:5432/apiapia",
-        description="Sync PostgreSQL URL for Mem0 pgvector"
+        default="",
+        description="Sync PostgreSQL URL for Mem0 pgvector; derived from POSTGRES_* when empty"
     )
 
     # JWT & Auth
@@ -72,7 +93,7 @@ class Settings(BaseSettings):
     # MEM0_EMBEDDER_PROVIDER used to exist here and were read nowhere — the
     # MEM0_EMBEDDER_PROVIDER one was worse than dead, it made is_configured() report
     # "available" for a huggingface setup that then failed to build an embedder.
-    MEM0_VERSION: str = "2.2.1"
+    MEM0_VERSION: str = Field(default_factory=_installed_mem0_version)
     MEM0_DATA_DIR: str = "/app/data/mem0"
 
     # Generated image storage. Images are written here as original bytes (never
@@ -171,6 +192,29 @@ class Settings(BaseSettings):
         case_sensitive = True
         env_file = ".env"
         extra = "ignore"
+
+    @model_validator(mode="after")
+    def _assemble_database_urls(self) -> "Settings":
+        """Fill an unset DATABASE_URL / MEM0_DATABASE_URL from the POSTGRES_* parts.
+
+        The credentials are percent-encoded here. A generated password routinely
+        contains ``@``, ``/`` or ``:``, and any of those would otherwise truncate
+        the DSN and surface as an opaque driver error at startup rather than as a
+        configuration mistake.
+        """
+        if not self.DATABASE_URL.strip():
+            self.DATABASE_URL = (
+                f"postgresql+asyncpg://{quote(self.POSTGRES_USER, safe='')}:"
+                f"{quote(self.POSTGRES_PASSWORD, safe='')}"
+                f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+            )
+        if not self.MEM0_DATABASE_URL.strip():
+            # Same server and database, minus the async driver: mem0's pgvector
+            # store goes through psycopg2 and cannot parse "postgresql+asyncpg://".
+            self.MEM0_DATABASE_URL = self.DATABASE_URL.replace(
+                "postgresql+asyncpg://", "postgresql://", 1
+            )
+        return self
 
 
 settings = Settings()

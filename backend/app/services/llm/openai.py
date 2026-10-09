@@ -69,6 +69,7 @@ class OpenAIProvider(LLMProvider):
 
         self.last_usage = None
         self.last_finish_reason = None
+        self.last_model = None
         try:
             response = await self.client.chat.completions.create(**create_kwargs)
         except Exception:
@@ -78,6 +79,8 @@ class OpenAIProvider(LLMProvider):
         if stream:
             in_thinking = False
             async for chunk in response:
+                if getattr(chunk, "model", None):
+                    self.last_model = chunk.model
                 if hasattr(chunk, "usage") and chunk.usage:
                     self.last_usage = {
                         "prompt_tokens": getattr(chunk.usage, "prompt_tokens", 0) or 0,
@@ -129,6 +132,8 @@ class OpenAIProvider(LLMProvider):
             if in_thinking:
                 yield "\n</think>\n\n"
         else:
+            if getattr(response, "model", None):
+                self.last_model = response.model
             if hasattr(response, "usage") and response.usage:
                 self.last_usage = {
                     "prompt_tokens": getattr(response.usage, "prompt_tokens", 0) or 0,
@@ -156,6 +161,8 @@ class OpenAIProvider(LLMProvider):
             temperature=temperature,
             **kwargs
         )
+        if getattr(response, "model", None):
+            self.last_model = response.model
         if response.choices:
             self.last_finish_reason = response.choices[0].finish_reason
             return response.choices[0].message.content or ""

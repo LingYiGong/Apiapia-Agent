@@ -7,6 +7,7 @@ class LLMProvider(ABC):
 
     last_usage: Optional[Dict[str, int]] = None
     last_finish_reason: Optional[str] = None
+    last_model: Optional[str] = None
 
     @abstractmethod
     async def chat(

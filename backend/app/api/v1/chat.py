@@ -1100,6 +1100,14 @@ async def chat_stream(
             elif finish_reason == "length":
                 assistant_content = "⚠️ 模型在开始生成时即已达到单次最大 Token 限制，未能完成输出。"
 
+        # Resolve actual model display name (e.g. "openrouter/free (llama-3.3-70b)")
+        actual_model_id = getattr(provider, "last_model", None)
+        recorded_model_name = model_to_use
+        if actual_model_id and actual_model_id.lower() != model_to_use.lower():
+            # If model_to_use is an aggregator/router like openrouter/free, format as: openrouter/free (actual-model-short-id)
+            clean_sub_model = actual_model_id.split("/")[-1].replace(":free", "")
+            recorded_model_name = f"{model_to_use} ({clean_sub_model})"
+
         # Persist the assistant reply BEFORE signalling completion. The client
         # needs the row id to enable per-message actions (regenerate / delete)
         # right away; otherwise those buttons stay hidden until the conversation
@@ -1119,7 +1127,7 @@ async def chat_stream(
                         conversation_id=conv_id,
                         role="assistant",
                         content=assistant_content,
-                        model=model_to_use,
+                        model=recorded_model_name,
                         token_usage=total_tokens,
                         prompt_tokens=prompt_tokens,
                         completion_tokens=completion_tokens,
@@ -1147,7 +1155,7 @@ async def chat_stream(
             "type": "done",
             "conversation_id": conv_id,
             "message_id": assistant_message_id,
-            "model": model_to_use,
+            "model": recorded_model_name,
             "duration_ms": duration_ms,
             "thinking_duration_ms": thinking_duration_ms,
             "prompt_tokens": prompt_tokens,

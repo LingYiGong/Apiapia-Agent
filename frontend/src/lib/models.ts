@@ -1,4 +1,9 @@
-import type { ImageModelItem, VideoModelItem, ModelCatalogItem } from "@/types";
+import type {
+  AudioModelItem,
+  ImageModelItem,
+  VideoModelItem,
+  ModelCatalogItem,
+} from "@/types";
 
 /**
  * 模型目录的纯逻辑层。
@@ -294,6 +299,33 @@ export function toImageModelOptions(models: ImageModelItem[]): ModelOption[] {
  * 同样采信后端下发的 is_free 标记，免费优先，其余按 id 字母序。
  */
 export function toVideoModelOptions(models: VideoModelItem[]): ModelOption[] {
+  return models
+    .map((m) => ({
+      id: m.id,
+      name: m.name,
+      provider: m.provider,
+      description: m.description,
+      isFree: m.is_free,
+      isMultimodal: false,
+      isFeatured: false,
+    }))
+    .sort((a, b) => {
+      if (a.isFree !== b.isFree) return a.isFree ? -1 : 1;
+      return a.id.localeCompare(b.id);
+    })
+    .map((o, rank) => ({ ...o, rank }));
+}
+
+/**
+ * 语音模型目录适配。
+ *
+ * 与绘图 / 视频一致：采信后端下发的 is_free，不用语言模型那套启发式。
+ * 尤其不能用 —— 启发式里的 `name.includes("free")` 会把
+ * `openai/gpt-4o-freeform` 这类模型误判成免费。
+ *
+ * 调用方（AudioModelSelect）会先按 capability 过滤，这里不关心方向。
+ */
+export function toAudioModelOptions(models: AudioModelItem[]): ModelOption[] {
   return models
     .map((m) => ({
       id: m.id,

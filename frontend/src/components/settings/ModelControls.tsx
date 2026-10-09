@@ -10,8 +10,8 @@ import { cn } from "@/lib/utils";
 /**
  * 「同步列表」按钮。
  *
- * 设置页的语言模型与绘图模型各有一个此前逐字相同的按钮，只差 handler 与文案。
- * 现在只有这一份。
+ * 设置页的语言、绘图、视频与语音模型各有一个此前逐字相同的按钮，只差 handler
+ * 与文案。现在只有这一份。
  */
 export function SyncModelsButton({
   onSync,
@@ -21,8 +21,8 @@ export function SyncModelsButton({
 }: {
   onSync: () => void;
   syncing: boolean;
-  /** 用于文案区分「语言模型」、「绘图模型」与「视频模型」 */
-  scope: "语言模型" | "绘图模型" | "视频模型";
+  /** 用于文案区分「语言模型」、「绘图模型」、「视频模型」与「语音模型」 */
+  scope: "语言模型" | "绘图模型" | "视频模型" | "语音模型";
   className?: string;
 }) {
   return (

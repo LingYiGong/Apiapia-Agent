@@ -18,16 +18,31 @@ import { toast } from "sonner";
 
 /**
  * 「同步模型列表」的结果反馈。
- * 设置页语言模型 / 设置页绘图模型 / 聊天页三处共用，保证形式与文案完全一致。
+ * 设置页语言模型 / 绘图模型 / 视频模型 / 语音模型共用，保证形式与文案完全一致。
  */
 export function notifyModelSyncResult(opts: {
-  /** 用于文案区分「语言模型」、「绘图模型」与「视频模型」 */
-  scope: "语言模型" | "绘图模型" | "视频模型";
+  /** 用于文案区分「语言模型」、「绘图模型」、「视频模型」与「语音模型」 */
+  scope: "语言模型" | "绘图模型" | "视频模型" | "语音模型";
   newCount: number;
   /** 无新增时后端返回的说明文案 */
   message?: string | null;
+  /**
+   * 同步后目录仍然为空。
+   *
+   * 单独拎出来是因为「成功但一个模型都没有」是最难排查的一种失败：toast 说成功，
+   * 下拉框空空如也，用户只会以为是自己哪里点错了。而它通常意味着查询参数写错了
+   * 或凭证没生效 —— 这两类都不该报成功。
+   */
+  emptyResult?: boolean;
 }) {
-  const { scope, newCount, message } = opts;
+  const { scope, newCount, message, emptyResult } = opts;
+  if (emptyResult) {
+    toast.error(`${scope}同步后列表为空`, {
+      description:
+        message || "未获取到任何模型，请检查后台 .env 中的服务凭证是否有效。",
+    });
+    return;
+  }
   if (newCount > 0) {
     toast.success(`发现 ${newCount} 个新${scope}`, {
       description: `${scope}列表已更新，可在选择器中查看`,

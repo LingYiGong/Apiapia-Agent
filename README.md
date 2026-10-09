@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v2.17.0-indigo?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/version-v2.18.0-indigo?style=flat-square" alt="Version">
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
   <img src="https://img.shields.io/badge/Mem0%20OSS-2.2.1-orange?style=flat-square" alt="Mem0">
@@ -19,6 +19,62 @@
   <img src="https://img.shields.io/badge/iOS%20PWA-Ready-007AFF?style=flat-square&logo=apple" alt="iOS PWA">
   <img src="https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker" alt="Docker">
 </p>
+
+---
+
+## v2.18.0 发布说明
+
+本版本是一次**语音能力全栈接入**升级。通过 OpenRouter 的 `/audio/transcriptions` 与 `/audio/speech` 两个端点，为 Apiapia 补齐了「说话进来」与「声音出去」两条完整链路，并按语言 / 绘图 / 视频的既有范式，把语音模型纳入目录同步与设置页管理体系。
+
+### 语音转文字：录音即输入 (Speech-to-Text)
+
+- **麦克风按钮（发送键旁，常驻可用）**：
+  - 任意模式下均可点击录音，无需切换模式；
+  - 录音中在输入框左侧显示**计时与实时音量条**——音量表不是装饰，麦克风权限被拒、设备静音、选错输入设备时它都不动，一眼可辨「没录上」而非等一个自信的空白转写；
+  - **60 秒自动截断并转写**：OpenRouter 上游约 60 秒的处理超时是硬约束，到点自动停止，录到的部分照常转写而非整段作废；
+  - 浏览器录音格式自动适配（Chrome/Edge/Firefox 为 webm/opus，Safari 与 iOS 为 m4a）。
+- **「音频转文字」上传入口**：
+  - 「+」创作菜单新增该项，支持 `wav / mp3 / m4a / webm / ogg / aac / flac` 多选上传。
+- **转写结果只填入输入框，不自动发送**：
+  - Whisper 会把名字与数字转成看似合理的内容，自动发出不可挽回；多按一次回车的代价远小于此。
+
+### 朗读：文字转语音 (Text-to-Speech)
+
+- **双侧朗读按钮**：
+  - 助手回答与**用户提问**的操作栏均新增「朗读」按钮；
+  - 用户提问在取文时先过滤附件标记（`stripAttachmentMarkup`），避免把内嵌图片的 base64 编码当文字念出来；
+  - 全局播放槽互斥：在任意一条朗读未结束时点击另一条，前者立即停止，不会两个声音叠加。
+- **长文本分段合成**：
+  - 超过单次字数上限的回复按句末标点切块、逐段串行合成播放，接缝不可闻；
+  - markdown 在合成前被剥除（代码块、表格、LaTeX、图片链接、标题符号），避免朗读出一串结构噪声。
+
+### 语音模型目录与设置页 (Speech Model Catalog)
+
+- **独立模型目录**：
+  - 目录持久化于 `synced_audio_models.json`，仅在设置页点击「同步列表」或服务启动时刷新，请求链路不做实时查询——与语言 / 绘图 / 视频目录的处理方式完全一致；
+  - **识别与合成是两族互不相交的模型**（OpenRouter 的 `output_modalities=transcription` 与 `=speech` 返回的集合无交集），因此目录项带 `capability` 标签，设置页据此拆成两个独立下拉。合成一个列表必然有一半选项用不了。
+- **设置页「语音模型」区块**：
+  - 「语音识别」与「语音合成」双下拉 + 一键「同步列表」，体验模式账号仅显示免费项；
+  - 选错族会被明确拦截提示（「这是语音识别模型，不能用于语音合成」），而非丢给上游报一个语焉不详的错误。
+- **模型只由账号设置决定**：
+  - 前端**永远不传模型名**，`/speech/*` 一律从 `user_settings.stt_model / tts_model` 解析，请求侧指定模型将构成未鉴权的越权计费途径；
+  - 因此语音模型**不在 `docker-compose.yml` 中配置**，部署侧写入只会是一个与用户选择相矛盾的全局覆盖。
+
+### 音频格式协商与容器封装 (Format Negotiation)
+
+- **按模型能力自动适配**：
+  - 各 TTS 模型支持的格式并不一致：Gemini TTS 只接受 `pcm`，Mistral Voxtral 只接受 `mp3`。前端请求的 `mp3` 仅为偏好；被拒绝时服务端自动改用另一种格式重试并记住结果——**每个模型每个进程只浪费一次请求**。
+- **PCM 实时封装为 WAV**：
+  - 浏览器无法播放无容器裸 PCM，但原生支持 WAV；
+  - **采样率与声道数从响应头 `audio/pcm;rate=…;channels=…` 解析，不做猜测**——猜错即变调播放。
+- **音色解析的自适应**：
+  - 部分模型（Fish Audio / Seed Audio 系）在目录中**不公布音色列表**，而这恰恰是唯一允许省略 `voice` 字段的一类；服务端据此省略该字段并采用供应商默认音色，**无需任何额外配置**。
+
+### 依赖与部署
+
+- 新增 `python-multipart` 依赖（FastAPI 解析 `multipart/form-data` 的必要条件），录音以 multipart 上传而非 base64，避免二进制被额外膨胀三分之一；
+- 语音功能复用既有的 `OPENROUTER_API_KEY`，无需申请新的密钥；
+- 健康检查新增 `speech` 字段，直接报告目录状态（`catalog not synced` / `26 stt / 32 tts catalogued` / `no OpenRouter key`），而非报一个谁都没在使用的模型名。
 
 ---
 
@@ -527,6 +583,18 @@ cp .env.example .env
 - `OPENROUTER_API_KEY`: OpenRouter 统一大模型 API 密钥
 - `TAVILY_API_KEY`: Tavily 联网搜索 Key（https://tavily.com 免费申请，每月 1000 次；留空则只用免费 DuckDuckGo）
 - `TAVILY_SEARCH_DEPTH`: 搜索深度 `advanced`（准）/ `basic`（快），默认 `advanced`
+- `STT_MODEL` / `TTS_MODEL`: **代码级兜底常量，不是部署配置**（`backend/app/core/config.py`）。仅在账号从未打开过语音设置、或首次同步目录之前有值可发。日常使用在设置页挑选，无需也不应当改这里
+- `TTS_VOICE`: 可选，全局钉死某个音色（默认留空＝用目录里该模型的第一个音色）。**不需要配置**——不公布音色列表的模型（Fish Audio / Seed Audio 系）会自动省略 `voice` 字段、由 provider 用自己的默认音色。与模型强绑定，若设了此项而当前模型不接受会被忽略而非报错
+- `FREE_AUDIO_MODELS`: 逗号分隔的免费语音模型，供体验模式账号使用（与 `FREE_IMAGE_MODELS` 同性质）。多数模型可由零定价自动识别，此项用于定价接口没暴露的免费档
+- `SPEECH_MAX_AUDIO_BYTES`: 单次语音转文字的音频体积上限，默认 25MB（与 OpenRouter 的 multipart 上限一致）
+- `SPEECH_MAX_TEXT_CHARS`: 单次语音合成的文本上限，默认 4000 字
+
+> **语音模型不在 `docker-compose.yml` 里配置。** 用户在设置页挑选 → 存进 `user_settings.stt_model` / `tts_model` → `/speech/*` 按账号自行解析。前端永远不传模型名，所以 compose 里写死模型值只会是一个和用户选择相矛盾的全局覆盖。
+
+> 语音识别与语音合成是**两族互不相交的模型**（OpenRouter 的 `output_modalities=transcription` 与 `=speech` 返回的集合没有交集），所以设置页是两个独立下拉、数据库是两个字段 `stt_model` / `tts_model`。
+> **音频格式由服务端协商**：各模型支持的格式不一致（Gemini TTS 只接受 pcm，Mistral Voxtral 只接受 mp3），所以前端请求的 mp3 只是偏好。模型拒绝时会自动改用另一种格式并记住结果；返回给浏览器的永远是可播放的容器——裸 pcm 会被包成 WAV（采样率取自响应头 `audio/pcm;rate=…;channels=…`，不猜）。
+> 模型目录持久化在 `backend/app/synced_audio_models.json`，只在设置页点「同步列表」或后端启动时刷新，与语言 / 绘图 / 视频目录的处理方式一致；请求链路上不做实时目录查询。
+> 语音功能复用已有的 `OPENROUTER_API_KEY`，无需额外申请密钥。未配置时健康检查的 `speech` 字段显示 `no OpenRouter key`。
 
 ### 2. 一键启动 Docker 容器集群
 

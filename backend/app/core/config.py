@@ -125,6 +125,48 @@ class Settings(BaseSettings):
     VIDEO_GEN_MODEL: str = ""
     FREE_VIDEO_MODELS: str = ""
 
+# Speech (OpenRouter STT + TTS). Both directions ride the same
+    # OPENROUTER_API_KEY as chat, so there is no new credential here.
+    #
+    # There is deliberately NO deployment-level knob for *which* models to use.
+    # Users pick them in the settings page; the choice lands in
+    # user_settings.stt_model / tts_model and /speech/* resolves it per account.
+    # The browser never sends a model name, so an env var here could only ever be
+    # a global override that silently disagrees with what each user selected.
+    # These two constants exist solely so an account that has never opened the
+    # speech section — and the window before the first catalog sync — still has
+    # something concrete to send.
+    STT_MODEL: str = "openai/whisper-large-v3"
+    TTS_MODEL: str = "google/gemini-3.8-flash-tts"
+
+    # Optional voice override, pinned at the source level rather than per user.
+    # Leave empty and the synthesizer uses the first voice the synced catalog
+    # reports for the selected model, which is correct for every model that
+    # publishes its voice list. Pin it only to force one voice across the whole
+    # deployment — a value the selected model does not accept is ignored rather
+    # than breaking synthesis, so this is safe to leave alone.
+    #
+    # Models that publish NO voice list (the Fish Audio / Seed Audio families)
+    # are handled by omitting `voice` from the request entirely, letting the
+    # provider apply its own documented default.
+    TTS_VOICE: str = ""
+
+    # Zero-cost audio models, comma-separated, tried in order. Most are already
+    # detectable from the provider's zero pricing, so this exists for the same
+    # reason FREE_IMAGE_MODELS does: to register a free tier the pricing feed does
+    # not surface, and to keep trial accounts usable if speech is ever gated.
+    FREE_AUDIO_MODELS: str = ""
+
+    # Ceiling on one audio upload. OpenRouter's multipart cap is 25 MB, so a
+    # larger file would be rejected upstream after we had already buffered it —
+    # this is the cheap local gate that turns that into an instant 413.
+    SPEECH_MAX_AUDIO_BYTES: int = 25 * 1024 * 1024
+
+    # Ceiling on one synthesis request. Providers disagree (ElevenLabs v4 takes
+    # 10k chars, Fish/Seed far less), so this is the conservative bound; the
+    # frontend splits longer replies before calling.
+    SPEECH_MAX_TEXT_CHARS: int = 4000
+
     class Config:
         case_sensitive = True
         env_file = ".env"

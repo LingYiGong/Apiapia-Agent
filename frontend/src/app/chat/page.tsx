@@ -285,7 +285,19 @@ export default function ChatPage({
 
   const [isRefreshingModels, setIsRefreshingModels] = useState(false);
 
-  const loadConfiguredModels = async () => {
+  /**
+   * Pull every model catalog down.
+   *
+   * Returns the resulting per-family counts (or null on failure) so the sync
+   * handler can tell "nothing new" apart from "the list came back empty" — a
+   * distinction the response state alone cannot make, because both leave the
+   * picker unchanged from the user's point of view.
+   */
+  const loadConfiguredModels = async (): Promise<{
+    chat: number;
+    image: number;
+    video: number;
+  } | null> => {
     setIsRefreshingModels(true);
     try {
       const [res, settings, imageModelsRes, videoModelsRes] = await Promise.all([
@@ -355,8 +367,14 @@ export default function ChatPage({
           setCurrentModel(fallback);
         }
       }
+      return {
+        chat: models.length,
+        image: imageModelsRes?.models?.length ?? 0,
+        video: videoModelsRes?.models?.length ?? 0,
+      };
     } catch (err) {
       console.error("Failed to load configured models:", err);
+      return null;
     } finally {
       setIsRefreshingModels(false);
     }
@@ -365,23 +383,36 @@ export default function ChatPage({
   const handleManualSyncModels = async () => {
     setIsRefreshingModels(true);
     try {
+      // 同步哪一类目录，取决于顶部当前展示的是哪一族模型。原先这里写死
+      // /models/sync，于是切到图片 / 视频模式后点刷新会去同步语言模型 ——
+      // 报「发现 0 个新语言模型」，而用户眼前那一族列表纹丝不动。
+      const target =
+        creationMode === "image"
+          ? { path: "/models/sync-images", scope: "绘图模型" as const, emptyKey: "image" as const }
+          : creationMode === "video"
+          ? { path: "/models/sync-videos", scope: "视频模型" as const, emptyKey: "video" as const }
+          : { path: "/models/sync", scope: "语言模型" as const, emptyKey: "chat" as const };
+
       const syncRes = await apiRequest<{
         success: boolean;
         new_count: number;
         new_models: ModelCatalogItem[];
         message: string;
-      }>("/models/sync", { method: "POST" });
+      }>(target.path, { method: "POST" });
 
-      await loadConfiguredModels();
+      const counts = await loadConfiguredModels();
 
       notifyModelSyncResult({
-        scope: "语言模型",
+        scope: target.scope,
         newCount: syncRes.new_count || 0,
         message: syncRes.message,
+        // 「同步成功但列表还是空的」必须报错而不是报成功 —— 这几乎总是
+        // 查询参数写错或凭证没生效，说成功只会把人引向错误方向。
+        emptyResult: counts !== null && counts[target.emptyKey] === 0,
       });
     } catch (err: any) {
       console.error("Failed to sync models:", err);
-      toast.error(err.message || "同步语言模型失败，请检查后台 .env 配置");
+      toast.error(err.message || "同步模型失败，请检查后台 .env 配置");
     } finally {
       setIsRefreshingModels(false);
     }
@@ -617,6 +648,7 @@ export default function ChatPage({
     setSearchStatus({ state: "idle" });
     setStreamingSearchResults(null);
     currentSearchResultsRef.current = null;
+
     currentToolInvocationsRef.current = [];
     currentGeneratedImagesRef.current = [];
     currentGeneratedVideosRef.current = [];

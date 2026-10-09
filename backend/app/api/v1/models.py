@@ -360,6 +360,59 @@ async def sync_video_models_from_providers(
     return await video_gen_service.sync_models()
 
 
+@router.get("/audio-models")
+async def list_audio_models(
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Speech catalog, read from the synced_audio_models.json file that
+    POST /models/sync-audio populates.
+
+    One catalog holds both directions, discriminated by each entry's
+    ``capability`` ("stt" | "tts"), because OpenRouter returns them from two
+    disjoint modality filters. The frontend splits on that field to feed the two
+    selectors; the server never assumes which one a caller means.
+
+    Accounts without full model access see only the zero-cost entries, which the
+    models feed reports directly through zero pricing.
+    """
+    from app.services.speech.service import speech_service
+
+    catalog = await speech_service.list_available_models()
+    can_all = has_full_model_access(current_user)
+    if not can_all:
+        catalog = [m for m in catalog if m.get("is_free")]
+
+    return {
+        "total": len(catalog),
+        "models": catalog,
+        "can_access_all_models": can_all,
+        "synced": bool(speech_service.load_stored_models()),
+    }
+
+
+@router.post("/sync-audio")
+async def sync_audio_models_from_providers(
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Query OpenRouter for speech-to-text and text-to-speech models live and persist
+    the result to synced_audio_models.json.
+
+    Both modality filters are fetched in one request, so a single click in the
+    settings page populates both selectors.
+    """
+    from app.services.speech.service import speech_service
+
+    if not speech_service.active_providers():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="后端 .env 中未配置任何语音服务凭证 (OPENROUTER_API_KEY)"
+        )
+
+    return await speech_service.sync_models()
+
+
 @router.post("/sync")
 async def sync_models_from_providers(
     current_user: User = Depends(get_current_user)

@@ -111,11 +111,13 @@ async def lifespan(app: FastAPI):
                 sync_models_from_providers,
                 sync_image_models_from_providers,
                 sync_video_models_from_providers,
+                sync_audio_models_from_providers,
             )
-            logger.info("Auto-syncing chat models, image models, and video models from configured providers on startup...")
+            logger.info("Auto-syncing chat models, image models, video models, and audio models from configured providers on startup...")
             await sync_models_from_providers()
             await sync_image_models_from_providers()
             await sync_video_models_from_providers()
+            await sync_audio_models_from_providers()
         except Exception as e:
             logger.warning("Startup model sync skipped or failed: %s", e)
 
@@ -199,8 +201,31 @@ async def health_check():
     # memory subsystem's import graph, and is_configured() is a settings lookup.
     from app.services.memory.service import memory_service
 
+    # Same reasoning, and this one matters more: pulling in the speech service at
+    # module scope would make the health check import httpx and the config
+    # singleton, so a broken speech import would take down /api/health — the one
+    # endpoint Docker uses to decide whether the container is alive.
+    from app.services.speech.service import speech_service
+
     db_ok, db_detail = await _probe_database()
     memory_ready = memory_service.is_configured()
+
+    # Speech is reported by catalog state, not by naming a model. Which model an
+    # account gets comes from its own user_settings row, so printing the
+    # fallback constants here would advertise a "configured" model that nobody
+    # is actually using. What an operator needs to know is whether the catalog
+    # has been synced — an unsynced catalog is the single most common cause of
+    # speech not working.
+    if not speech_service.is_configured():
+        speech_status = "no OpenRouter key"
+    else:
+        catalog = speech_service.load_stored_models()
+        if not catalog:
+            speech_status = "catalog not synced"
+        else:
+            stt_n = sum(1 for m in catalog if m.get("capability") == "stt")
+            tts_n = sum(1 for m in catalog if m.get("capability") == "tts")
+            speech_status = f"{stt_n} stt / {tts_n} tts catalogued"
 
     payload = {
         "status": "healthy" if db_ok else "degraded",
@@ -212,6 +237,7 @@ async def health_check():
             if (settings.TAVILY_API_KEY and settings.TAVILY_API_KEY.strip())
             else "duckduckgo"
         ),
+        "speech": speech_status,
         "version": app.version,
     }
 

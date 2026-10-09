@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "@/lib/auth";
 import { apiRequest } from "@/lib/api";
 import { ViewShell } from "@/components/common/ViewShell";
-import { ModelCatalogItem, ImageModelItem, ImageModelsResponse, VideoModelItem, VideoModelsResponse } from "@/types";
+import { ModelCatalogItem, ImageModelItem, ImageModelsResponse, VideoModelItem, VideoModelsResponse, AudioModelItem, AudioModelsResponse } from "@/types";
 import { ModelSelect } from "@/components/common/ModelSelect";
 import { isFreeModel, isMultimodalModel, toChatModelOptions } from "@/lib/models";
 import { CURRENT_VERSION, triggerManualUpdateCheck } from "@/lib/version";
@@ -16,6 +16,7 @@ import { ThemeSegments } from "@/components/common/ThemeSegments";
 import { BrandLogo } from "@/components/common/BrandLogo";
 import { ImageModelSelect } from "@/components/settings/ImageModelSelect";
 import { VideoModelSelect } from "@/components/settings/VideoModelSelect";
+import { AudioModelSelect } from "@/components/settings/AudioModelSelect";
 import {
   ModelInfoPanel,
   ModelMissingNotice,
@@ -42,7 +43,7 @@ import { Panel, SectionLabel } from "@/components/common/Panel";
 import { notifyModelSyncResult } from "@/lib/feedback";
 import { FullPageSkeleton, SettingsFormSkeleton } from "@/components/common/PageSkeleton";
 import type { MobileTab } from "@/config/navigation";
-import { RefreshCw, Zap, Brain, Palette, Video } from "lucide-react";
+import { RefreshCw, Zap, Brain, Palette, Video, AudioLines } from "lucide-react";
 import { toast } from "sonner";
 
 interface InitialSettings {
@@ -50,6 +51,8 @@ interface InitialSettings {
   memoryModel: string;
   imageModel: string | null;
   videoModel: string | null;
+  sttModel: string | null;
+  ttsModel: string | null;
   systemPrompt: string;
   temperature: number;
   memoryEnabled: boolean;
@@ -89,6 +92,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [memoryModel, setMemoryModel] = useState("openai/gpt-4o-mini");
   const [imageModel, setImageModel] = useState<string | null>(null);
   const [videoModel, setVideoModel] = useState<string | null>(null);
+  // 语音识别与语音合成各一个选择，各存一个字段。两者在上游是互不相交的模型族，
+  // 所以不共用一个 state。
+  const [sttModel, setSttModel] = useState<string | null>(null);
+  const [ttsModel, setTtsModel] = useState<string | null>(null);
   const [systemPrompt, setSystemPrompt] = useState("");
   const [personaId, setPersonaId] = useState<PersonaId>("default");
   const [temperature, setTemperature] = useState(0.7);
@@ -107,6 +114,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [videoModelsSynced, setVideoModelsSynced] = useState(false);
   const [loadingVideoModels, setLoadingVideoModels] = useState(true);
   const [syncingVideoModels, setSyncingVideoModels] = useState(false);
+  const [audioModels, setAudioModels] = useState<AudioModelItem[]>([]);
+  const [audioModelsSynced, setAudioModelsSynced] = useState(false);
+  const [loadingAudioModels, setLoadingAudioModels] = useState(true);
+  const [syncingAudioModels, setSyncingAudioModels] = useState(false);
   const [syncingModels, setSyncingModels] = useState(false);
 
   const [savingSettings, setSavingSettings] = useState(false);
@@ -124,11 +135,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       memoryModel !== initialSettings.memoryModel ||
       imageModel !== initialSettings.imageModel ||
       videoModel !== initialSettings.videoModel ||
+      sttModel !== initialSettings.sttModel ||
+      ttsModel !== initialSettings.ttsModel ||
       systemPrompt !== initialSettings.systemPrompt ||
       Math.abs(temperature - initialSettings.temperature) > 0.001 ||
       memoryEnabled !== initialSettings.memoryEnabled
     );
-  }, [initialSettings, defaultModel, memoryModel, imageModel, videoModel, systemPrompt, temperature, memoryEnabled]);
+  }, [initialSettings, defaultModel, memoryModel, imageModel, videoModel, sttModel, ttsModel, systemPrompt, temperature, memoryEnabled]);
 
   const saveState: SaveState = { dirty: isDirty, saving: savingSettings, justSaved: saveSuccess };
 
@@ -234,6 +247,36 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
   };
 
+  const handleSyncAudioModels = async () => {
+    setSyncingAudioModels(true);
+    try {
+      const res = await apiRequest<{
+        success: boolean;
+        new_count: number;
+        total: number;
+        synced_providers: string[];
+        message: string;
+      }>("/models/sync-audio", { method: "POST" });
+
+      const audioRes = await apiRequest<AudioModelsResponse>("/models/audio-models");
+      if (audioRes?.models) setAudioModels(audioRes.models);
+      setAudioModelsSynced(audioRes?.synced ?? true);
+
+      notifyModelSyncResult({
+        scope: "语音模型",
+        newCount: res.new_count || 0,
+        message: res.message,
+        // 语音目录空着就一定是哪里不对了：要么查询写错、要么凭证没生效。
+        // 不加这一条的话 toast 报成功、下拉框空着，用户完全无从判断。
+        emptyResult: (audioRes?.models?.length ?? 0) === 0,
+      });
+    } catch (err: any) {
+      toast.error(err.message || "同步语音模型失败，请检查后台 .env 是否配置了有效 OpenRouter 密钥");
+    } finally {
+      setSyncingAudioModels(false);
+    }
+  };
+
   // 视图内部守卫（此前与 UsageView / MemoryView 逐字相同的三份之一）
   useRequireAuth();
 
@@ -241,12 +284,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setLoadingSettings(true);
     setLoadingImageModels(true);
     setLoadingVideoModels(true);
+    setLoadingAudioModels(true);
     try {
-      const [settingsRes, modelsRes, imageModelsRes, videoModelsRes] = await Promise.all([
+      const [settingsRes, modelsRes, imageModelsRes, videoModelsRes, audioModelsRes] = await Promise.all([
         apiRequest<any>("/settings"),
         apiRequest<{ models: ModelCatalogItem[] }>("/models/configured"),
         apiRequest<ImageModelsResponse>("/models/image-models").catch(() => null),
         apiRequest<VideoModelsResponse>("/models/video-models").catch(() => null),
+        apiRequest<AudioModelsResponse>("/models/audio-models").catch(() => null),
       ]);
 
       if (settingsRes) {
@@ -278,6 +323,24 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           vModel = freeVideo?.id || vModel;
         }
 
+        // 语音模型按 capability 分流后再回退：目录里两类模型混在一起，
+        // 不分流的「取第一个」很可能把一个合成模型塞进识别下拉。
+        const pickFallback = (capability: "stt" | "tts") => {
+          const family = audioModelsRes?.models?.filter((m) => m.capability === capability) ?? [];
+          return family.find((m) => m.is_free) || family[0];
+        };
+        const sttFamily = audioModelsRes?.models?.filter((m) => m.capability === "stt") ?? [];
+        let sModel: string | null = settingsRes.stt_model || null;
+        if (!sModel || !sttFamily.some((m) => m.id === sModel)) {
+          sModel = pickFallback("stt")?.id || sModel;
+        }
+
+        const ttsFamily = audioModelsRes?.models?.filter((m) => m.capability === "tts") ?? [];
+        let tModel: string | null = settingsRes.tts_model || null;
+        if (!tModel || !ttsFamily.some((m) => m.id === tModel)) {
+          tModel = pickFallback("tts")?.id || tModel;
+        }
+
         const sPrompt = settingsRes.system_prompt || "";
         const temp = settingsRes.temperature ?? 0.7;
         const memEnabled = settingsRes.memory_enabled ?? true;
@@ -286,6 +349,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         setMemoryModel(mModel);
         setImageModel(iModel);
         setVideoModel(vModel);
+        setSttModel(sModel);
+        setTtsModel(tModel);
         setSystemPrompt(sPrompt);
         setPersonaId(matchPersonaId(sPrompt));
         setTemperature(temp);
@@ -296,6 +361,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           memoryModel: mModel,
           imageModel: iModel,
           videoModel: vModel,
+          sttModel: sModel,
+          ttsModel: tModel,
           systemPrompt: sPrompt,
           temperature: temp,
           memoryEnabled: memEnabled,
@@ -306,12 +373,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       if (imageModelsRes) setImageModelsSynced(!!imageModelsRes.synced);
       if (videoModelsRes?.models) setVideoModels(videoModelsRes.models);
       if (videoModelsRes) setVideoModelsSynced(!!videoModelsRes.synced);
+      if (audioModelsRes?.models) setAudioModels(audioModelsRes.models);
+      if (audioModelsRes) setAudioModelsSynced(!!audioModelsRes.synced);
     } catch (err) {
       console.error("Failed to load settings:", err);
     } finally {
       setLoadingSettings(false);
       setLoadingImageModels(false);
       setLoadingVideoModels(false);
+      setLoadingAudioModels(false);
     }
   };
 
@@ -337,6 +407,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setMemoryModel(initialSettings.memoryModel);
     setImageModel(initialSettings.imageModel);
     setVideoModel(initialSettings.videoModel);
+    setSttModel(initialSettings.sttModel);
+    setTtsModel(initialSettings.ttsModel);
     setSystemPrompt(initialSettings.systemPrompt);
     setPersonaId(matchPersonaId(initialSettings.systemPrompt));
     setTemperature(initialSettings.temperature);
@@ -358,6 +430,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             ...(user?.is_superuser ? { memory_model: memoryModel } : {}),
             image_model: imageModel,
             video_model: videoModel,
+            stt_model: sttModel,
+            tts_model: ttsModel,
             system_prompt: systemPrompt,
             temperature,
             memory_enabled: memoryEnabled,
@@ -372,6 +446,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           memoryModel,
           imageModel,
           videoModel,
+          sttModel,
+          ttsModel,
           systemPrompt,
           temperature,
           memoryEnabled,
@@ -386,7 +462,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         setSavingSettings(false);
       }
     },
-    [defaultModel, memoryModel, imageModel, videoModel, systemPrompt, temperature, memoryEnabled, user, savingSettings]
+    [defaultModel, memoryModel, imageModel, videoModel, sttModel, ttsModel, systemPrompt, temperature, memoryEnabled, user, savingSettings]
   );
 
   // Apple Mac Shortcut: Command + S / Ctrl + S to save
@@ -406,6 +482,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const currentModelItem = availableModels.find((m) => m.id === defaultModel);
   const currentImageItem = imageModels.find((m) => m.id === imageModel);
   const currentVideoItem = videoModels.find((m) => m.id === videoModel);
+  const currentSttItem = audioModels.find((m) => m.id === sttModel);
+  const currentTtsItem = audioModels.find((m) => m.id === ttsModel);
+  const sttCount = audioModels.filter((m) => m.capability === "stt").length;
+  const ttsCount = audioModels.filter((m) => m.capability === "tts").length;
 
   return (
     <ViewShell
@@ -444,7 +524,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </Panel>
           </div>
 
-          {/* ── GROUP 2: 默认模型设置（语言 + 绘图 + 视频）── */}
+          {/* ── GROUP 2: 默认模型设置（语言 + 绘图 + 视频 + 语音）── */}
           <div>
             <div className="flex items-center justify-between gap-2 px-1 pb-1.5">
               <SectionLabel className="pb-0">默认模型设置</SectionLabel>
@@ -456,7 +536,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   </span>
                 )}
                 <span className="font-mono text-2xs font-normal normal-case tracking-normal text-muted-foreground">
-                  {availableModels.length} 语言 · {imageModels.length} 绘图 · {videoModels.length} 视频
+                  {availableModels.length} 语言 · {imageModels.length} 绘图 · {videoModels.length} 视频 · {sttCount + ttsCount} 语音
                 </span>
               </div>
             </div>
@@ -573,6 +653,94 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 ) : (
                   <ModelMissingNotice id={videoModel ?? ""} />
                 )}
+              </div>
+
+              {/* 语音模型：一个同步按钮 + 两个下拉。
+                  两个下拉而非一个是必须的 —— OpenRouter 的语音识别
+                  (output_modalities=transcription) 与语音合成 (=speech) 是两族
+                  互不相交的模型，放进同一个列表就必然有一半选项用不了。 */}
+              <div className="mt-1 pt-4 border-t border-border/30">
+                <div className="flex items-center gap-2 px-0.5">
+                  <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-teal-500/25 bg-teal-500/10 text-teal-600 dark:text-teal-400">
+                    <AudioLines className="h-3.5 w-3.5" />
+                  </span>
+                  <span className="text-xs font-semibold text-foreground">
+                    语音模型
+                  </span>
+                  <SyncModelsButton
+                    onSync={handleSyncAudioModels}
+                    syncing={syncingAudioModels}
+                    scope="语音模型"
+                  />
+                </div>
+
+                <div className="mt-2 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                  <div className="min-w-0">
+                    <div className="mb-1.5 px-0.5 text-2xs font-medium text-muted-foreground">
+                      语音识别
+                    </div>
+                    <AudioModelSelect
+                      value={sttModel}
+                      onChange={setSttModel}
+                      models={audioModels}
+                      capability="stt"
+                      kindLabel="语音识别模型"
+                      placeholder="选择语音识别模型"
+                      loading={loadingAudioModels}
+                      synced={audioModelsSynced}
+                      isTrialMode={isTrialMode}
+                    />
+                    {currentSttItem ? (
+                      <ModelInfoPanel
+                        model={currentSttItem}
+                        isFree={currentSttItem.is_free}
+                        capabilityLabel="语音转文字"
+                      />
+                    ) : (
+                      <ModelMissingNotice id={sttModel ?? ""} />
+                    )}
+                  </div>
+
+                  <div className="min-w-0">
+                    <div className="mb-1.5 px-0.5 text-2xs font-medium text-muted-foreground">
+                      语音合成
+                    </div>
+                    <AudioModelSelect
+                      value={ttsModel}
+                      onChange={setTtsModel}
+                      models={audioModels}
+                      capability="tts"
+                      kindLabel="语音合成模型"
+                      placeholder="选择语音合成模型"
+                      loading={loadingAudioModels}
+                      synced={audioModelsSynced}
+                      isTrialMode={isTrialMode}
+                    />
+                    {currentTtsItem ? (
+                      <ModelInfoPanel
+                        model={currentTtsItem}
+                        isFree={currentTtsItem.is_free}
+                        capabilityLabel="文字转语音"
+                      />
+                    ) : (
+                      <ModelMissingNotice id={ttsModel ?? ""} />
+                    )}
+                  </div>
+                </div>
+
+                {currentTtsItem?.supported_voices?.length ? (
+                  <p className="mt-2 px-0.5 font-mono text-2xs leading-relaxed text-muted-foreground">
+                    当前合成模型支持 {currentTtsItem.supported_voices.length} 个音色，默认使用第一个（
+                    {currentTtsItem.supported_voices[0]}）。
+                  </p>
+                ) : currentTtsItem ? (
+                  /* 不公布音色列表的模型（Fish Audio / Seed Audio 系）：后端会省略
+                     voice 字段，由 provider 用自己的默认音色。这里说清楚，免得
+                     用户以为功能坏了。 */
+                  <p className="mt-2 px-0.5 font-mono text-2xs leading-relaxed text-muted-foreground">
+                    该模型未公布音色列表，将使用供应商默认音色。
+                  </p>
+                ) : null}
               </div>
             </Panel>
           </div>

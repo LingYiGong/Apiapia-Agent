@@ -22,6 +22,7 @@ from app.api.v1.deps import get_current_user
 from app.services.catalog import has_full_model_access, check_user_can_use_model
 from app.services.image_gen import image_gen_service
 from app.services.video_gen import video_gen_service
+from app.services.speech.service import CAPABILITY_STT, CAPABILITY_TTS, speech_service
 
 # resolve_user_llm_credentials used to live here and is imported by the chat
 # endpoint on every turn, which made api.v1.chat import a sibling router. It is
@@ -122,6 +123,49 @@ async def _validate_video_model(current_user: User, model_id: Optional[str]) -> 
         )
 
 
+async def _validate_audio_model(
+    current_user: User, model_id: Optional[str], capability: str
+) -> None:
+    """
+    Reject an audio model that is unavailable, of the wrong capability, or outside
+    the account entitlement.
+
+    One validator for both directions, parameterised by capability, because the
+    only thing that differs between STT and TTS is which catalog entries are
+    legal. Writing it twice would guarantee the two copies drift.
+    """
+    model_id = (model_id or "").strip()
+    if not model_id:
+        return
+
+    label = "语音识别" if capability == CAPABILITY_STT else "语音合成"
+    catalog = await speech_service.list_available_models()
+    entry = next(
+        (m for m in catalog if m["id"] == model_id and m.get("capability") == capability),
+        None,
+    )
+    if entry is None:
+        # Distinguish "wrong kind of model" from "not available at all": the STT
+        # selector being handed a TTS model is a far likelier mistake than a
+        # stale id, and it deserves its own message.
+        wrong_kind = next((m for m in catalog if m["id"] == model_id), None)
+        if wrong_kind is not None:
+            other = "语音合成" if wrong_kind.get("capability") == CAPABILITY_TTS else "语音识别"
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"「{model_id}」是{other}模型，不能用于{label}。请在上方选择对应的{label}模型。"
+            )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"所选{label}模型当前不可用（对应服务未配置或模型已下架）：{model_id}"
+        )
+    if not has_full_model_access(current_user) and not entry.get("is_free"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"当前账号处于体验模式，仅可使用免费{label}模型；「{entry.get('name') or model_id}」为计费模型。"
+        )
+
+
 @router.get("", response_model=UserSettingResponse)
 async def get_user_settings(
     current_user: User = Depends(get_current_user),
@@ -171,6 +215,19 @@ async def get_user_settings(
             await db.commit()
             await db.refresh(setting)
 
+        # Same rule for both audio directions: a paid speech model stored before
+        # an account was downgraded must not survive it, or /speech/* would have
+        # to reject it at request time.
+        if setting.stt_model and not speech_service.is_free_audio_model(setting.stt_model):
+            setting.stt_model = None
+            await db.commit()
+            await db.refresh(setting)
+
+        if setting.tts_model and not speech_service.is_free_audio_model(setting.tts_model):
+            setting.tts_model = None
+            await db.commit()
+            await db.refresh(setting)
+
     # Same contract as default_model: an unset image model always resolves to the
     # zero-cost default, so it is never null and never silently becomes a paid
     # model. Applies to every account, not just trial ones.
@@ -185,6 +242,23 @@ async def get_user_settings(
         fallback_video = video_gen_service.default_video_model()
         if fallback_video:
             setting.video_model = fallback_video
+            await db.commit()
+            await db.refresh(setting)
+
+    # Unset speech models resolve to the configured default rather than staying
+    # null, so the frontend never has to decide what an empty selection means and
+    # /speech/* always has a concrete model to send.
+    if not setting.stt_model:
+        fallback_stt = speech_service.default_model_for(CAPABILITY_STT)
+        if fallback_stt:
+            setting.stt_model = fallback_stt
+            await db.commit()
+            await db.refresh(setting)
+
+    if not setting.tts_model:
+        fallback_tts = speech_service.default_model_for(CAPABILITY_TTS)
+        if fallback_tts:
+            setting.tts_model = fallback_tts
             await db.commit()
             await db.refresh(setting)
 
@@ -227,6 +301,14 @@ async def update_user_settings(
         await _validate_video_model(current_user, update_data.video_model)
         chosen_video = (update_data.video_model or "").strip()
         setting.video_model = chosen_video or video_gen_service.default_video_model()
+    if "stt_model" in update_data.model_fields_set:
+        await _validate_audio_model(current_user, update_data.stt_model, CAPABILITY_STT)
+        chosen_stt = (update_data.stt_model or "").strip()
+        setting.stt_model = chosen_stt or speech_service.default_model_for(CAPABILITY_STT)
+    if "tts_model" in update_data.model_fields_set:
+        await _validate_audio_model(current_user, update_data.tts_model, CAPABILITY_TTS)
+        chosen_tts = (update_data.tts_model or "").strip()
+        setting.tts_model = chosen_tts or speech_service.default_model_for(CAPABILITY_TTS)
     if update_data.system_prompt is not None:
         setting.system_prompt = update_data.system_prompt
     if update_data.temperature is not None:

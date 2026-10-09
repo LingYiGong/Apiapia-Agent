@@ -14,6 +14,9 @@ import { ActionTooltip } from "@/components/common/ActionTooltip";
 import { MessageListSkeleton } from "@/components/common/PageSkeleton";
 import { formatFileSize } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { ApiError } from "@/lib/api";
+import { transcribeAudio } from "@/lib/speech";
+import { useAudioRecorder, MAX_RECORDING_SECONDS } from "@/hooks/useAudioRecorder";
 import { useIsTrialMode } from "@/hooks/useIsTrialMode";
 import { ChatMessageItem } from "./ChatMessageItem";
 import { renderMessageBody, SearchSources } from "./markdown";
@@ -39,6 +42,8 @@ import {
   Check,
   Image as ImageIcon,
   Camera,
+  Mic,
+  AudioLines,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -230,8 +235,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const audioInputRef = useRef<HTMLInputElement>(null);
   const composerContainerRef = useRef<HTMLDivElement>(null);
   const [composerWidth, setComposerWidth] = useState<number | undefined>(undefined);
+  const [isTranscribing, setIsTranscribing] = useState(false);
 
   useEffect(() => {
     if (!composerContainerRef.current) return;
@@ -387,6 +394,90 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     if (pastedFiles.length > 0) {
       e.preventDefault();
       handleFiles(pastedFiles);
+    }
+  };
+
+  // ── Voice input (STT) ────────────────────────────────────────────────
+  // The transcript lands in the textarea rather than being sent. Auto-sending
+  // would make a mis-recognition unrecoverable — Whisper routinely turns a name
+  // or a number into something plausible, and a hallucinated question goes
+  // straight to the model. Putting it in the box costs one extra tap and lets
+  // the user read what was actually heard.
+
+  const growTextarea = () => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 180)}px`;
+  };
+
+  const insertTranscript = (text: string) => {
+    const clean = (text || "").trim();
+    if (!clean) {
+      toast.error("没有识别到语音内容，请重试或改用文字输入");
+      return;
+    }
+    // Append rather than replace: someone may have typed part of a question
+    // first, then hit record to add the rest.
+    updateInput(input.trim() ? `${input.trim()} ${clean}` : clean);
+    // Focus after the state commit, or the height reset below is applied to a
+    // textarea that still holds the previous value.
+    requestAnimationFrame(() => {
+      growTextarea();
+      textareaRef.current?.focus();
+    });
+  };
+
+  const runTranscription = async (blob: Blob, filename?: string) => {
+    setIsTranscribing(true);
+    try {
+      const result = await transcribeAudio(blob, { filename });
+      insertTranscript(result.text);
+    } catch (err) {
+      // ApiError already carries the backend's message, which names the actual
+      // cause ("模型不支持该音色", "音频超过上限"). Anything else is a network
+      // failure with nothing useful to say.
+      toast.error(
+        err instanceof ApiError ? err.message : "语音识别失败，请检查网络后重试"
+      );
+    } finally {
+      setIsTranscribing(false);
+    }
+  };
+
+  const recorder = useAudioRecorder({
+    onAutoStop: (audio) => {
+      // The hook owns the time cap but not the upload, so the recording has to
+      // be handed back here — otherwise a full minute of audio is discarded.
+      toast.info(`已达 ${MAX_RECORDING_SECONDS} 秒上限，正在转写`);
+      void runTranscription(audio.blob);
+    },
+  });
+
+  // Surface microphone failures (permission denied, no device) as a toast.
+  // Done in an effect rather than at the throw site because they originate
+  // inside an async callback that has no UI to return to.
+  useEffect(() => {
+    if (!recorder.error) return;
+    toast.error(recorder.error);
+    recorder.clearError();
+  }, [recorder.error, recorder.clearError]);
+
+  const toggleRecording = async () => {
+    if (recorder.isRecording) {
+      const audio = await recorder.stop();
+      if (audio) {
+        await runTranscription(audio.blob);
+      }
+    } else {
+      await recorder.start();
+    }
+  };
+
+  const handleAudioFiles = async (files: FileList | File[]) => {
+    if (!files || files.length === 0) return;
+    for (const file of Array.from(files)) {
+      await runTranscription(file, file.name);
     }
   };
 
@@ -892,6 +983,25 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 }
               }}
             />
+            {/* Hidden Input: 音频文件（转写用）。
+                Not routed through handleFiles: that path base64-encodes the
+                file into a chat attachment and sends it to the LLM as
+                multimodal content, whereas audio here is transcribed server-side
+                first and only the resulting text ever reaches the model. */}
+            <input
+              ref={audioInputRef}
+              type="file"
+              accept="audio/*,.wav,.mp3,.m4a,.mp4,.webm,.ogg,.oga,.opus,.aac,.flac"
+              className="hidden"
+              tabIndex={-1}
+              aria-hidden="true"
+              onChange={(e) => {
+                if (e.target.files) {
+                  handleAudioFiles(e.target.files);
+                  e.target.value = "";
+                }
+              }}
+            />
             {/* Creation Plus Dropdown Button */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -1027,7 +1137,30 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                     </DropdownMenuItem>
                   )}
 
-                  {/* 3. 生成图片 */}
+                  {/* 3. 音频转文字 */}
+                  <DropdownMenuItem
+                    onClick={() => audioInputRef.current?.click()}
+                    className="flex items-center gap-3.5 rounded-2xl p-3 cursor-pointer transition-colors hover:bg-surface-3 focus:bg-surface-3 active:scale-[0.99]"
+                  >
+                    <div className="h-10 w-10 rounded-2xl bg-teal-500/15 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0 shadow-xs">
+                      <AudioLines className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-semibold text-foreground tracking-tight">音频转文字</span>
+                        {isTranscribing && (
+                          <span className="flex items-center gap-1 font-mono text-xs font-semibold text-teal-600 dark:text-teal-400">
+                            <RotateCw className="h-3 w-3 animate-spin" /> 转写中
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                        上传录音文件，由语音模型转写后填入输入框
+                      </p>
+                    </div>
+                  </DropdownMenuItem>
+
+                  {/* 4. 生成图片 */}
                   <DropdownMenuItem
                     onClick={() => onChangeCreationMode?.(creationMode === "image" ? "chat" : "image")}
                     className={cn(
@@ -1055,7 +1188,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                     </div>
                   </DropdownMenuItem>
 
-                  {/* 4. 生成视频 */}
+                  {/* 5. 生成视频 */}
                   {isTrialMode ? (
                     <DropdownMenuItem
                       onClick={() => {
@@ -1109,6 +1242,68 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 </div>
               </DropdownMenuContent>
             </DropdownMenu>
+            {/* 录音状态条：录音时出现，显示时长与实时音量。
+
+                The meter is not decoration. A mic that is silently not picking
+                anything up produces a confident, empty transcript and a user
+                who blames the app; seeing the level bar move while speaking is
+                the difference between "my microphone is broken" and "I am just
+                too quiet". */}
+            {recorder.isRecording && (
+              <span className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-destructive/10 px-2.5 text-2xs font-medium text-destructive">
+                <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-destructive" />
+                <span className="font-mono tabular-nums">
+                  {String(Math.floor(recorder.elapsed / 60)).padStart(2, "0")}:
+                  {String(recorder.elapsed % 60).padStart(2, "0")}
+                </span>
+                <span
+                  className="h-1 w-8 overflow-hidden rounded-full bg-destructive/20"
+                  role="meter"
+                  aria-label="麦克风音量"
+                  aria-valuenow={Math.round(recorder.level * 100)}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                >
+                  {/* Floor of 8% so the bar reads as "meter present" rather
+                      than "broken" during a natural pause. */}
+                  <span
+                    className="block h-full rounded-full bg-destructive transition-[width] duration-100"
+                    style={{ width: `${Math.max(8, Math.round(recorder.level * 100))}%` }}
+                  />
+                </span>
+              </span>
+            )}
+            {/* 语音输入：录音 -> 转写 -> 文本进入输入框 */}
+            <ActionTooltip
+              label={
+                recorder.unsupported
+                  ? "当前浏览器不支持录音"
+                  : isTranscribing
+                  ? "识别中…"
+                  : recorder.isRecording
+                  ? "停止录音并转写"
+                  : "语音输入"
+              }
+              side="top"
+            >
+              <Button
+                type="button"
+                variant={recorder.isRecording ? "destructive" : "ghost"}
+                size="icon"
+                disabled={recorder.unsupported || isTranscribing}
+                onClick={toggleRecording}
+                aria-label={recorder.isRecording ? "停止录音" : "语音输入"}
+                className="h-9 w-9 shrink-0 rounded-full transition-colors"
+              >
+                {isTranscribing ? (
+                  <RotateCw className="h-4 w-4 animate-spin" />
+                ) : recorder.isRecording ? (
+                  <Square className="h-3.5 w-3.5 fill-current" />
+                ) : (
+                  <Mic className="h-4 w-4" />
+                )}
+              </Button>
+            </ActionTooltip>
             <Textarea
               ref={textareaRef}
               rows={1}

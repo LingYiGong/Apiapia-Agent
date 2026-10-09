@@ -61,6 +61,8 @@ async def init_db():
                 IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'user_settings') THEN
                     ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS image_model varchar(120);
                     ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS video_model varchar(120);
+                    ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS stt_model varchar(120);
+                    ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS tts_model varchar(120);
                     ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS web_search_mode varchar(10) DEFAULT 'auto';
                 END IF;
 

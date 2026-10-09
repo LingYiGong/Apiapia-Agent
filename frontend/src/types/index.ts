@@ -111,6 +111,9 @@ export interface UserSetting {
   memory_model?: string;
   image_model?: string | null;
   video_model?: string | null;
+  /** 语音识别与语音合成分开两个字段：上游是两族互不相交的模型 */
+  stt_model?: string | null;
+  tts_model?: string | null;
   system_prompt: string;
   temperature: number;
   memory_enabled: boolean;
@@ -143,6 +146,31 @@ export interface VideoModelItem {
 export interface VideoModelsResponse {
   total: number;
   models: VideoModelItem[];
+  can_access_all_models: boolean;
+  synced: boolean;
+}
+
+/**
+ * 一条语音模型目录项。
+ *
+ * `capability` 是关键字段：OpenRouter 的语音识别与语音合成是两族互不相交的
+ * 模型（`output_modalities=transcription` 与 `=speech` 返回的集合没有交集），
+ * 所以一份目录里两类模型混在一起，由这个字段区分，设置页据此拆成两个下拉。
+ */
+export interface AudioModelItem {
+  id: string;
+  name: string;
+  provider: string;
+  description?: string;
+  is_free: boolean;
+  capability: "stt" | "tts";
+  /** 该合成模型支持的音色；识别模型为 null */
+  supported_voices?: string[] | null;
+}
+
+export interface AudioModelsResponse {
+  total: number;
+  models: AudioModelItem[];
   can_access_all_models: boolean;
   synced: boolean;
 }

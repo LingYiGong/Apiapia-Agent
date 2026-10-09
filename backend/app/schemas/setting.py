@@ -20,6 +20,11 @@ class UserSettingUpdate(BaseModel):
     memory_model: Optional[str] = Field(default=None, max_length=100)
     image_model: Optional[str] = Field(default=None, max_length=120)
     video_model: Optional[str] = Field(default=None, max_length=120)
+    # Two audio columns, not one: speech-to-text and text-to-speech are disjoint
+    # model families upstream, so each direction is chosen (and validated)
+    # separately. See the comment on models/setting.py.
+    stt_model: Optional[str] = Field(default=None, max_length=120)
+    tts_model: Optional[str] = Field(default=None, max_length=120)
     system_prompt: Optional[str] = None
     # 0-2 is the range every provider in SUPPORTED_PROVIDERS accepts. Unbounded,
     # this value is forwarded verbatim, so a stray 1000 came back as an opaque
@@ -36,6 +41,8 @@ class UserSettingResponse(BaseModel):
     memory_model: Optional[str] = "openai/gpt-4o-mini"
     image_model: Optional[str] = None
     video_model: Optional[str] = None
+    stt_model: Optional[str] = None
+    tts_model: Optional[str] = None
     system_prompt: str
     temperature: float
     memory_enabled: bool

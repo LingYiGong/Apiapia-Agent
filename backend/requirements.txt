@@ -1,4 +1,4 @@
-# FastAPI & ASGI Server
+# Web & ASGI Server
 fastapi>=0.115.0
 uvicorn[standard]>=0.30.0
 # pydantic[email] already pulls email-validator; no need to pin it separately
@@ -6,6 +6,10 @@ pydantic[email]>=2.8.0
 pydantic-settings>=2.4.0
 # Required by pydantic-settings to read the `env_file = ".env"` in core/config.py
 python-dotenv>=1.0.1
+# Parses multipart/form-data, which FastAPI needs for UploadFile/Form. Used by
+# api/v1/speech.py to receive browser recordings as multipart instead of base64
+# (base64 costs 4/3 the bytes on the wire for a file that is already binary).
+python-multipart>=0.0.9
 
 # Database & ORM
 SQLAlchemy[asyncio]>=2.0.32

@@ -75,6 +75,13 @@ services:
       VIDEO_GEN_PROVIDER: ${VIDEO_GEN_PROVIDER:-auto}
       VIDEO_GEN_MODEL: ${VIDEO_GEN_MODEL:-}
       FREE_VIDEO_MODELS: ${FREE_VIDEO_MODELS:-}
+      # 语音模型刻意不在这里配置：用户在设置页挑选，存进 user_settings.stt_model /
+      # tts_model，由 /speech/* 自行解析；前端永远不传模型名，所以 compose 里的
+      # 任何取值都只会误导。下面三个分别是免费档登记（与 FREE_IMAGE_MODELS 同性质）
+      # 和请求体量上限（部署侧调参），都不是用户选择。
+      FREE_AUDIO_MODELS: ${FREE_AUDIO_MODELS:-}
+      SPEECH_MAX_AUDIO_BYTES: ${SPEECH_MAX_AUDIO_BYTES:-26214400}
+      SPEECH_MAX_TEXT_CHARS: ${SPEECH_MAX_TEXT_CHARS:-4000}
     volumes:
       - ./backend/app:/app/app
       - apiapia_mem0_data:/app/data/mem0

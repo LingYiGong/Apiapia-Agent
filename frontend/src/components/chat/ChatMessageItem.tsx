@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { memo } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +16,7 @@ import {
 } from "@/components/chat/markdown";
 import { messageEditingRef } from "@/lib/messageEditGuard";
 import { formatClock, formatDateTime, formatDuration } from "@/lib/format";
+import { useSpeechPlayer } from "@/hooks/useSpeechPlayer";
 import { cn } from "@/lib/utils";
 import {
   AlertTriangle,
@@ -23,6 +24,7 @@ import {
   Check,
   Clock,
   Copy,
+  Loader2,
   Palette,
   PenLine,
   Play,
@@ -30,6 +32,8 @@ import {
   RotateCw,
   Square,
   Video,
+  Volume2,
+  VolumeX,
   Zap,
   type LucideIcon,
 } from "lucide-react";
@@ -88,6 +92,61 @@ function CopyButton({
           <>
             <Copy className="h-3.5 w-3.5" />
             <span className="text-2xs">复制</span>
+          </>
+        )}
+      </Button>
+    </ActionTooltip>
+  );
+}
+
+/**
+ * 「朗读」按钮：把这条消息读出来。
+ *
+ * All of the playback machinery lives in useSpeechPlayer, shared with voice
+ * mode's automatic read-aloud. This component is only the button plus its label —
+ * it stays here rather than being lifted to the page so a bubble that starts
+ * talking does not re-render every other bubble.
+ *
+ * `tooltip` differs per side of the conversation: the same "朗读" affordance on
+ * a question should not claim to be reading the answer back.
+ */
+function SpeakButton({
+  text,
+  side = "bottom",
+  tooltip = "朗读此回答",
+}: {
+  text: string;
+  side?: "top" | "bottom";
+  tooltip?: string;
+}) {
+  const { state, isBusy, speak, stop } = useSpeechPlayer();
+
+  return (
+    <ActionTooltip
+      label={isBusy ? "停止朗读" : state === "error" ? "朗读失败，点击重试" : tooltip}
+      side={side}
+    >
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={isBusy ? stop : () => void speak(text)}
+        className="flex h-7 items-center gap-1.5 rounded-lg px-2 text-muted-foreground transition-colors hover:bg-surface-3/80 hover:text-foreground"
+      >
+        {state === "loading" ? (
+          <>
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            <span className="text-2xs">合成中</span>
+          </>
+        ) : isBusy ? (
+          <>
+            <VolumeX className="h-3.5 w-3.5" />
+            <span className="text-2xs">停止</span>
+          </>
+        ) : (
+          <>
+            <Volume2 className="h-3.5 w-3.5" />
+            <span className="text-2xs">朗读</span>
           </>
         )}
       </Button>
@@ -409,6 +468,8 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                 copyLabel="复制回答"
               />
 
+              <SpeakButton text={msg.content} />
+
               {onQuote && (
                 <ActionTooltip label="引用此回答并继续提问" side="bottom">
                   <Button
@@ -561,6 +622,13 @@ export const ChatMessageItem = memo(function ChatMessageItem({
               isCopied={isCopied}
               onClick={() => onCopy(stripAttachmentMarkup(msg.content || "").trim(), idx)}
               copyLabel="复制提问"
+            />
+            {/* stripAttachmentMarkup 是必须的，不是顺手：用户消息里可能嵌着附件的
+                base64 data URL 和附件标记，不过滤的话 TTS 会把一整串编码念出来。
+                和上面的复制、引用保持同一套取文逻辑。 */}
+            <SpeakButton
+              text={stripAttachmentMarkup(msg.content || "")}
+              tooltip="朗读此提问"
             />
           </div>
         )}

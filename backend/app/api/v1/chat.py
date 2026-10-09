@@ -597,6 +597,7 @@ async def chat_stream(
         )
         need_search = False
         search_query = ""
+        search_queries: List[str] = []
         search_topic = "general"
         search_time_range = None
         need_image_gen, img_prompt, img_size = should_generate_image(chat_req.message)
@@ -633,7 +634,7 @@ async def chat_stream(
         try:
             # 0. Intelligent web search decision & context-aware query generation (ChatGPT style)
             if search_mode != "off":
-                need_search, search_query, search_topic, search_time_range = await evaluate_and_generate_search_query(
+                need_search, search_query, search_queries, search_topic, search_time_range = await evaluate_and_generate_search_query(
                     user_message=chat_req.message or "",
                     recent_messages=recent_msgs,
                     mode=search_mode,
@@ -774,28 +775,63 @@ async def chat_stream(
                             messages_payload[0]["content"] += vid_err_hint
 
             # 2. Check and execute automatic search before streaming LLM tokens
-            if need_search and search_query:
+            if need_search and (search_query or search_queries):
                 tool_call_id = f"call_{int(time.time() * 1000)}"
+                effective_queries = [q for q in (search_queries or [search_query]) if q and q.strip()]
+                if not effective_queries:
+                    effective_queries = [search_query] if search_query else []
+                # 合并展示词（如多个词用 、 连接展示），兼顾前端与可读性
+                display_query = " 、 ".join(effective_queries) if len(effective_queries) > 1 else (effective_queries[0] if effective_queries else search_query)
+                search_query = display_query  # 同步更新主 query，供下文引用及入库
+
                 logger.info(
-                    "Executing web search for query: '%s' (mode=%s, topic=%s, time_range=%s)",
-                    search_query, search_mode, search_topic, search_time_range
+                    "Executing web search for queries: %s (mode=%s, topic=%s, time_range=%s)",
+                    effective_queries, search_mode, search_topic, search_time_range
                 )
-                yield f"data: {json.dumps({'type': 'search_start', 'query': search_query}, ensure_ascii=False)}\n\n"
-                yield f"data: {json.dumps({'type': 'tool_call', 'toolCallId': tool_call_id, 'toolName': 'web_search', 'args': {'query': search_query}}, ensure_ascii=False)}\n\n"
+                yield f"data: {json.dumps({'type': 'search_start', 'query': display_query}, ensure_ascii=False)}\n\n"
+                yield f"data: {json.dumps({'type': 'tool_call', 'toolCallId': tool_call_id, 'toolName': 'web_search', 'args': {'query': display_query, 'queries': effective_queries}}, ensure_ascii=False)}\n\n"
                 tool_invocations.append({
                     "toolCallId": tool_call_id,
                     "toolName": "web_search",
-                    "args": {"query": search_query},
+                    "args": {"query": display_query, "queries": effective_queries},
                     "state": "call",
                 })
                 try:
-                    search_outcome = await web_search_service.search(
-                        search_query, max_results=5, topic=search_topic, time_range=search_time_range
-                    )
-                    search_results = search_outcome.results
-                    search_answer = search_outcome.answer
+                    # 并发拉取各个维度的检索词（每个检索词拉取最多 10 条）
+                    search_tasks = [
+                        web_search_service.search(
+                            q, max_results=10, topic=search_topic, time_range=search_time_range
+                        )
+                        for q in effective_queries[:3]
+                    ]
+                    outcomes = await asyncio.gather(*search_tasks, return_exceptions=True)
+
+                    # 结果按 URL 规范化去重聚合，最多取 20 条最相关网页
+                    seen_urls = set()
+                    aggregated_results = []
+                    search_answer = None
+
+                    for outcome in outcomes:
+                        if isinstance(outcome, Exception) or not outcome:
+                            continue
+                        if not search_answer and getattr(outcome, "answer", None):
+                            search_answer = outcome.answer
+                        for item in getattr(outcome, "results", []) or []:
+                            raw_u = (item.get("url") or "").strip()
+                            norm_u = raw_u.rstrip("/").lower()
+                            if norm_u and norm_u not in seen_urls:
+                                seen_urls.add(norm_u)
+                                item_copy = dict(item)
+                                snippet = item_copy.get("snippet", "")
+                                if len(snippet) > 400:
+                                    item_copy["snippet"] = snippet[:400].rstrip() + "..."
+                                aggregated_results.append(item_copy)
+                            if len(aggregated_results) >= 20:
+                                break
+
+                    search_results = aggregated_results
                 except Exception as se:
-                    logger.warning("Web search service failed for '%s': %s", search_query, str(se))
+                    logger.warning("Web search service failed for '%s': %s", display_query, str(se))
                     search_results = []
                     search_answer = None
 
@@ -803,12 +839,12 @@ async def chat_stream(
                     tool_invocations[-1]["state"] = "result"
                     tool_invocations[-1]["result"] = search_results
 
-                yield f"data: {json.dumps({'type': 'search_results', 'query': search_query, 'results': search_results, 'answer': search_answer}, ensure_ascii=False)}\n\n"
+                yield f"data: {json.dumps({'type': 'search_results', 'query': display_query, 'results': search_results, 'answer': search_answer}, ensure_ascii=False)}\n\n"
                 yield f"data: {json.dumps({'type': 'tool_result', 'toolCallId': tool_call_id, 'result': search_results}, ensure_ascii=False)}\n\n"
 
                 if search_results or search_answer:
                     search_lines = [
-                        f"\n\n【🌐 实时网络检索最新参考资料 (搜索词: {search_query})】"
+                        f"\n\n【🌐 实时网络检索最新参考资料 (搜索词: {display_query})】"
                     ]
                     if search_answer:
                         search_lines.append(
@@ -817,7 +853,16 @@ async def chat_stream(
                         )
                     if search_results:
                         search_lines.append(
-                            "系统已自动联网检索到以下最新网页内容，请参考这些实时资料全面、准确、客观地回答用户，并在涉及具体事实时引用参考来源（例如 [1]、[2]）："
+                            "【联网资料引用与回答规范（必须严格执行）】\n"
+                            "1. 系统已自动联网检索到以下最新网页内容，请以客观、详实、严谨的态度参考这些资料回答用户提问。\n"
+                            "2. 【引用紧跟在每句话后面，严禁在全文末尾放注释】：\n"
+                            "   - 严禁在全文最底部集中放“### 参考来源”或尾注列表！\n"
+                            "   - 每当你的回答中提到来自某个网页的具体事实、数据、政策或结论时，必须直接紧跟在【该句话的句尾】以 Markdown 链接标注引用来源。\n"
+                            "   - 引用格式为：[来源: 网站或机构名](对应网页完整URL)\n"
+                            "   - 示例写法：\n"
+                            "     “日本经产省官方调查预测，到 2030 年 IT 人才缺口最高可达 79 万人 [来源: 经济产业省](https://www.meti.go.jp/...)。而在实际招聘端，云架构师与 AI 工程师的求人倍率持续高居第一 [来源: doda](https://doda.jp/...)。”\n"
+                            "   - 链接中的网站/机构名请保持简短精炼，网址必须严格直接使用下方资料中提供的真实网址，严禁虚构任何链接。\n\n"
+                            "【已检索到的实时参考资料列表】:"
                         )
                         for idx, r in enumerate(search_results, 1):
                             search_lines.append(f"[{idx}] 《{r['title']}》\n    网址: {r['url']}\n    内容摘要: {r['snippet']}")

@@ -840,7 +840,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               ) : (
                 /* Stage 2: Streaming Output with Typing Cursor */
                 <div>
-                  {/* 流式过程中的实时引用来源。与思考过程一致，回答时保持折叠 */}
+                  {/* 参考网页：列在思考过程与正文内容上方 */}
                   {streamingSearchResults && streamingSearchResults.length > 0 && (
                     <SearchSources
                       results={streamingSearchResults}

@@ -72,12 +72,32 @@ SEARCH_DECISION_PROMPT = """你是一个智能联网搜索决策与关键词重�
 4. 编程任务：纯代码编写、代码解释、算法实现、一般 Bug 分析。
 5. 单纯关于当前日期或星期几的询问（已有时间基准，无需搜索）。
 
-【关键词生成要求 (search_query)】
-- 如果 need_search 为 true，请生成精炼、准确、去除口语助词（如“帮我查一下”、“请问”）的搜索引擎检索词。
+【关键词生成要求 (search_query & search_queries)】
+- 如果 need_search 为 true，请生成精炼、准确、去除口语助词的搜索引擎检索词。
+- 必须提供 search_query（主检索词），以及 search_queries（包含 1~3 个多维度互补检索词的列表，如核心主体词、背景词、对比/动态词，便于多角度并发检索）。
 - 若用户提问指代不清（例如“它的售价是多少？”、“那个库怎么安装？”），必须结合【对话上下文】消除指代，补全核心主体。
+- 【跨语言/本土化一手信源策略】：
+  * 当用户询问明确涉及特定国家/地区的一手客观事实（如日本/美国/欧洲等地的本土政策、行业数据、招聘现状、官方白皮书、法律条例）或国际前沿技术/开源软件时，search_queries 列表中应包含 1 个该国本土官方语言（如日文、德文等）或国际通用英文的核心检索词，以获取最权威的第一手一手信息（例如查询日本IT行业缺口，可拓展包含日文词如 "日本 IT 人材 不足 職種 経済産業省"）。
+  * 纯国内/中文本土事务（如国内公积金、国内政策、城市天气）严禁滥用外文，保持纯中文精准检索。
 - query 长度通常在 2~6 个关键词或短语，切忌整句长问句。
 - topic 可选值：\"general\"（常规）、\"news\"（新闻时效）、\"finance\"（金融行情）。
 - time_range 可选值：\"day\"、\"week\"、\"month\"、\"year\" 或 null。
+
+【Few-Shot 示范案例】
+案例 1（明确涉及海外特定国家事实，search_queries 必须包含当地母语一手词）：
+用户输入: "日本IT行业缺少哪种类型的人才？"
+正确输出:
+{{"need_search": true, "search_query": "日本 IT 行业 紧缺人才 类型", "search_queries": ["日本 IT 行业 紧缺人才", "日本 IT 人材 不足 職種 経済産業省", "Japan IT talent shortage skills"], "topic": "general", "time_range": null}}
+
+案例 2（涉及海外国家官方政策/数据）：
+用户输入: "俄罗斯目前的央行基准利率是多少？"
+正确输出:
+{{"need_search": true, "search_query": "俄罗斯 央行 基准利率", "search_queries": ["俄罗斯 央行 基准利率", "Банк России ключевая ставка", "Bank of Russia key interest rate"], "topic": "finance", "time_range": "year"}}
+
+案例 3（纯国内/中文本土事务，严禁使用外文）：
+用户输入: "上海公积金怎么提取？"
+正确输出:
+{{"need_search": true, "search_query": "上海 公积金 提取 条件 流程", "search_queries": ["上海 公积金 提取 条件 流程", "上海市住房公积金提取官网指南"], "topic": "general", "time_range": null}}
 
 【对话历史上下文】
 {history_context}
@@ -87,7 +107,7 @@ SEARCH_DECISION_PROMPT = """你是一个智能联网搜索决策与关键词重�
 
 【输出格式】
 必须严格输出且仅输出一个合法的 JSON 对象，不要添加任何 Markdown 代码块标记（如 ```json），不要添加任何额外解释说明：
-{{"need_search": true, "search_query": "关键词", "topic": "general", "time_range": null}}
+{{"need_search": true, "search_query": "核心关键词", "search_queries": ["核心关键词", "拓展词1", "拓展词2"], "topic": "general", "time_range": null}}
 """
 
 
@@ -240,7 +260,7 @@ async def evaluate_and_generate_search_query(
     provider: Optional[str] = None,
     api_key: Optional[str] = None,
     base_url: Optional[str] = None,
-) -> Tuple[bool, str, str, Optional[str]]:
+) -> Tuple[bool, str, List[str], str, Optional[str]]:
     """
     基于 ChatGPT 级智能语义决策与关键词重写机制：
     1. mode == 'off': 直接返回不搜索
@@ -252,16 +272,16 @@ async def evaluate_and_generate_search_query(
     """
     msg = (user_message or "").strip()
     if not msg:
-        return False, "", "general", None
+        return False, "", [], "general", None
 
     if mode == "off":
-        return False, "", "general", None
+        return False, "", [], "general", None
 
     fast_dec, clean_q, fast_topic, fast_tr = _fast_heuristic_check(msg, recent_messages=recent_messages)
 
     # 如果显式匹配了确定性规则（例如完全是闲聊问候），直接返回
     if mode == "auto" and fast_dec is False:
-        return False, "", "general", None
+        return False, "", [], "general", None
 
     is_explicit_command = (fast_dec is True) or (mode == "on")
     context_extracted_query = clean_q or _extract_topic_from_recent_messages(recent_messages) or msg
@@ -312,11 +332,10 @@ async def evaluate_and_generate_search_query(
 
         if raw_res and raw_res.strip():
             cleaned_json = raw_res.strip()
-            # 兼容模型偶尔添加的代码块反引号
-            if "```" in cleaned_json:
-                json_match = re.search(r"\{[\s\S]*?\}", cleaned_json)
-                if json_match:
-                    cleaned_json = json_match.group(0)
+            # 无论模型是否包裹 ```json 或附加解释性前后缀，均可靠抓取最外层合法的 JSON 字典
+            json_match = re.search(r"\{[\s\S]*\}", cleaned_json)
+            if json_match:
+                cleaned_json = json_match.group(0)
 
             data = json.loads(cleaned_json)
             need_search = bool(data.get("need_search", False))
@@ -326,6 +345,25 @@ async def evaluate_and_generate_search_query(
             search_query = str(data.get("search_query") or context_extracted_query).strip()
             # 清理常见符号
             search_query = search_query.strip("\"'“”‘’#")
+
+            # 解析多维度拓展词列表 search_queries
+            raw_queries = data.get("search_queries")
+            queries_list: List[str] = []
+            if isinstance(raw_queries, list):
+                for q in raw_queries:
+                    clean_item = str(q).strip().strip("\"'“”‘’#")
+                    if clean_item and clean_item not in queries_list:
+                        queries_list.append(clean_item)
+            elif isinstance(raw_queries, str) and raw_queries.strip():
+                queries_list.append(raw_queries.strip().strip("\"'“”‘’#"))
+
+            if search_query and search_query not in queries_list:
+                queries_list.insert(0, search_query)
+            if not queries_list and search_query:
+                queries_list = [search_query]
+            elif not search_query and queries_list:
+                search_query = queries_list[0]
+
             topic = str(data.get("topic") or fast_topic or "general").strip().lower()
             if topic not in ("general", "news", "finance"):
                 topic = "general"
@@ -335,23 +373,25 @@ async def evaluate_and_generate_search_query(
 
             if need_search and not search_query:
                 search_query = context_extracted_query
+                queries_list = [context_extracted_query] if context_extracted_query else []
 
             logger.info(
-                "LLM search evaluator decision: need_search=%s, query='%s', topic=%s, time_range=%s",
-                need_search, search_query, topic, time_range
+                "LLM search evaluator decision: need_search=%s, query='%s', queries=%s, topic=%s, time_range=%s",
+                need_search, search_query, queries_list, topic, time_range
             )
-            return need_search, search_query, topic, time_range
+            return need_search, search_query, queries_list, topic, time_range
 
     except Exception as e:
         logger.warning("LLM search evaluator encountered error: %s, falling back to heuristic", str(e))
         if is_explicit_command:
             logger.info("Explicit search command recognized, using context query: '%s'", context_extracted_query)
-            return True, context_extracted_query, fast_topic or "general", fast_tr
+            return True, context_extracted_query, [context_extracted_query] if context_extracted_query else [], fast_topic or "general", fast_tr
 
     # 兜底 fallback 至本地启发式策略
     fallback_need, fallback_q, fallback_topic, fallback_tr = should_search_web(
         msg, mode=mode, recent_messages=recent_messages
     )
     final_q = fallback_q or context_extracted_query or clean_q or msg
-    return fallback_need, final_q, fallback_topic, fallback_tr
+    final_list = [final_q] if final_q else []
+    return fallback_need, final_q, final_list, fallback_topic, fallback_tr
 

@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v2.18.0-indigo?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/version-v2.19.0-indigo?style=flat-square" alt="Version">
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
   <img src="https://img.shields.io/badge/Mem0%20OSS-2.2.1-orange?style=flat-square" alt="Mem0">
@@ -19,6 +19,31 @@
   <img src="https://img.shields.io/badge/iOS%20PWA-Ready-007AFF?style=flat-square&logo=apple" alt="iOS PWA">
   <img src="https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker" alt="Docker">
 </p>
+
+---
+
+## v2.19.0 发布说明
+
+本版本是一次**智能多维联网检索与引用交互**全面升级。将联网搜索从原本单次仅参考 5 个网页的单一模式，升级为多维度并发扩展、跨语言一手信源探测、行内实时链接引用与多层级排版体系。
+
+### 1. 深度检索扩容与多关键词并发 (Multi-Query Expansion)
+
+- **参考源容量大幅扩充**：单次联网搜索的参考网页上限由原先固定的 5 条扩充至 **15 ~ 20 条**；Tavily 接口深度上限放宽至 20 条，DuckDuckGo 抓取层默认容量翻倍。
+- **多角度并发检索**：大模型根据提问复杂度自动拆解 1~3 个互补维度的关键词（如核心主体词、背景研报词、对比评测词），使用 `asyncio.gather` 并发向搜索引擎拉取，总响应时间保持在毫秒级无感知增加。
+- **URL 规范化去重与聚合**：跨多个检索词抓取到的网页自动剔除重复域名与相同页面，聚合出前 20 条最相关的优质页面。
+- **上下文 Token 保护**：对每个网页 Snippet 施加 400 字符智能截断，总 Prompt 增量严格控制在 2,000 tokens 以内，避免上下文膨胀或注意力迷失。
+
+### 2. 跨语言与本土一手信源策略 (Cross-lingual Retrieval)
+
+- **目标国母语自动探测**：当用户提问明确依赖海外特定国家/地区的一手客观事实（如日本政策、俄罗斯利率、德国职业教育、海外招聘现状）时，大模型自动派生目标国官方母语（日文、俄文、德文等）与国际通用英文的精准检索词。
+- **直击一手权威白皮书**：绕过中文互联网常见的中介软文与二手翻译滞后内容，直接抓取目标国官方部门（如日本经产省 METI、俄罗斯央行）与权威招聘平台一手数据，再由大模型阅读后以地道中文综合汇报。
+- **防滥用边界约束**：针对纯国内或中文本土事务（如公积金政策、城市天气）严格限制纯中文检索，严禁画蛇添足外文。
+- **解析鲁棒性加固**：增加全局贪婪正则 JSON 提取，彻底防御模型输出前置解释客套话导致的格式解析失败与意外降级。
+
+### 3. 行内实时句尾引用与界面层级重构
+
+- **句尾行内实时引用**：废除文末集中堆放的繁琐脚注列表。大模型在陈述具体事实、数据或政策的每句话末尾，直接以 Markdown 链接标注 `[来源: 网站名](URL)`，读者在阅读过程中即看即点，跳转体验极其平滑。
+- **排版层级重新梳理**：前端折叠的「参考了 N 个网页来源」交互面板在流式生成与历史记录中均调整至最上方，形成 **「参考网页面板 ➔ 深度思考过程 ➔ 回答正文（句尾内嵌来源）」** 的自然逻辑流。
 
 ---
 

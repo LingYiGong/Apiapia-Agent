@@ -59,7 +59,7 @@ class WebSearchService:
     async def search(
         self,
         query: str,
-        max_results: int = 5,
+        max_results: int = 10,
         topic: str = "general",
         time_range: Optional[str] = None
     ) -> WebSearchOutcome:
@@ -149,7 +149,7 @@ class WebSearchService:
             "query": query,
             "search_depth": settings.TAVILY_SEARCH_DEPTH or "advanced",
             "topic": topic,
-            "max_results": max(1, min(max_results, 10)),
+            "max_results": max(1, min(max_results, 20)),
             "include_answer": bool(settings.TAVILY_INCLUDE_ANSWER),
             "include_images": False,
         }
@@ -194,7 +194,7 @@ class WebSearchService:
                     break
         return WebSearchOutcome(results, answer, "tavily")
 
-    async def _search_duckduckgo_html(self, query: str, max_results: int = 5) -> List[Dict[str, str]]:
+    async def _search_duckduckgo_html(self, query: str, max_results: int = 10) -> List[Dict[str, str]]:
         url = "https://html.duckduckgo.com/html/"
         data = {"q": query, "b": ""}
         async with httpx.AsyncClient(timeout=8.0, follow_redirects=True, headers=self.headers) as client:
@@ -249,7 +249,7 @@ class WebSearchService:
 
             return results
 
-    async def _search_duckduckgo_lite(self, query: str, max_results: int = 5) -> List[Dict[str, str]]:
+    async def _search_duckduckgo_lite(self, query: str, max_results: int = 10) -> List[Dict[str, str]]:
         url = "https://lite.duckduckgo.com/lite/"
         data = {"q": query}
         async with httpx.AsyncClient(timeout=8.0, follow_redirects=True, headers=self.headers) as client:
@@ -283,7 +283,7 @@ class WebSearchService:
 
             return results
 
-    async def _search_duckduckgo_api(self, query: str, max_results: int = 5) -> List[Dict[str, str]]:
+    async def _search_duckduckgo_api(self, query: str, max_results: int = 10) -> List[Dict[str, str]]:
         """Instant Answer API — the last-resort tier.
 
         Returns at most a handful of encyclopaedic entries, never a ranked web

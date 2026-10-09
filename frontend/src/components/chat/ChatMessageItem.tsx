@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { memo } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -365,6 +365,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
             </div>
           ) : (
             <>
+              {/* 参考网页：列在思考过程与正文内容上方 */}
               {searchResults.length > 0 && (
                 <SearchSources results={searchResults} className="mb-2.5" />
               )}

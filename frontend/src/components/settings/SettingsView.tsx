@@ -23,10 +23,7 @@ import {
   SyncModelsButton,
 } from "@/components/settings/ModelControls";
 import {
-  PersonaPicker,
   TemperatureControl,
-  matchPersonaId,
-  type PersonaId,
 } from "@/components/settings/PreferenceControls";
 import { SaveActionBar, SaveStatus, type SaveState } from "@/components/settings/SaveBar";
 import { useRefreshOnResume } from "@/hooks/useRefreshOnResume";
@@ -97,7 +94,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [sttModel, setSttModel] = useState<string | null>(null);
   const [ttsModel, setTtsModel] = useState<string | null>(null);
   const [systemPrompt, setSystemPrompt] = useState("");
-  const [personaId, setPersonaId] = useState<PersonaId>("default");
   const [temperature, setTemperature] = useState(0.7);
   const [memoryEnabled, setMemoryEnabled] = useState(true);
 
@@ -352,7 +348,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         setSttModel(sModel);
         setTtsModel(tModel);
         setSystemPrompt(sPrompt);
-        setPersonaId(matchPersonaId(sPrompt));
         setTemperature(temp);
         setMemoryEnabled(memEnabled);
 
@@ -410,7 +405,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setSttModel(initialSettings.sttModel);
     setTtsModel(initialSettings.ttsModel);
     setSystemPrompt(initialSettings.systemPrompt);
-    setPersonaId(matchPersonaId(initialSettings.systemPrompt));
     setTemperature(initialSettings.temperature);
     setMemoryEnabled(initialSettings.memoryEnabled);
     toast.info("已还原至上次保存的配置");
@@ -745,17 +739,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </Panel>
           </div>
 
-          {/* ── GROUP 3: 系统人设 ── */}
-          <PersonaPicker
-            personaId={personaId}
-            systemPrompt={systemPrompt}
-            onPromptChange={(text) => {
-              setSystemPrompt(text);
-              setPersonaId(matchPersonaId(text));
-            }}
-          />
-
-          {/* ── GROUP 4: 采样温度 ── */}
+          {/* ── GROUP 3: 采样温度 ── */}
           <TemperatureControl value={temperature} onChange={setTemperature} />
 
           {/* ── GROUP 5: 长期记忆 ── */}

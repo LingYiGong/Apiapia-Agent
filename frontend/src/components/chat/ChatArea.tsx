@@ -20,6 +20,8 @@ import { useAudioRecorder, MAX_RECORDING_SECONDS } from "@/hooks/useAudioRecorde
 import { useIsTrialMode } from "@/hooks/useIsTrialMode";
 import { ChatMessageItem } from "./ChatMessageItem";
 import { renderMessageBody, SearchSources } from "./markdown";
+import { PersonaPickerButton } from "./PersonaPickerButton";
+import { CHAT_PERSONAS } from "@/config/personas";
 import {
   Send,
   Square,
@@ -242,6 +244,19 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   const composerContainerRef = useRef<HTMLDivElement>(null);
   const [composerWidth, setComposerWidth] = useState<number | undefined>(undefined);
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [activePersonaId, setActivePersonaId] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("apiapia_active_persona") || "default";
+    }
+    return "default";
+  });
+
+  const handleSelectPersona = useCallback((id: string) => {
+    setActivePersonaId(id);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("apiapia_active_persona", id);
+    }
+  }, []);
 
   useEffect(() => {
     if (!composerContainerRef.current) return;
@@ -686,6 +701,11 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       extraOpts.videoGenMode = true;
     }
 
+    const currentPersona = CHAT_PERSONAS.find((p) => p.id === activePersonaId);
+    if (currentPersona && currentPersona.systemPrompt) {
+      extraOpts.systemPromptOverride = currentPersona.systemPrompt;
+    }
+
     onSendMessage(input.trim(), attachments, extraOpts);
     setInput("");
     clearDraft();
@@ -954,6 +974,29 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                   </button>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Active Persona Banner */}
+          {activePersonaId !== "default" && (
+            <div className="mx-1 mb-1.5 px-2.5 py-1.5 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-between gap-2 text-2xs animate-in fade-in-0 duration-150">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="font-semibold text-primary">
+                  当前模式：{CHAT_PERSONAS.find((p) => p.id === activePersonaId)?.label || "自定义"}
+                </span>
+                <span className="text-muted-foreground truncate hidden sm:inline">
+                  — {CHAT_PERSONAS.find((p) => p.id === activePersonaId)?.desc}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleSelectPersona("default")}
+                className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md hover:bg-surface-3 transition-colors text-2xs cursor-pointer shrink-0"
+                title="重置为默认助手"
+              >
+                <span>恢复默认</span>
+                <X className="h-3 w-3" />
+              </button>
             </div>
           )}
 
@@ -1339,6 +1382,14 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 </div>
               </DropdownMenuContent>
             </DropdownMenu>
+
+            {/* Persona Picker Dropdown Button (输入框加号旁模式选择按钮) */}
+            <PersonaPickerButton
+              activePersonaId={activePersonaId}
+              onSelectPersona={handleSelectPersona}
+              disabled={isStreaming}
+            />
+
             {/* 录音状态条：录音时出现，显示时长与实时音量。
 
                 The meter is not decoration. A mic that is silently not picking

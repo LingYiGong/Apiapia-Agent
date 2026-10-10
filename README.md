@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v2.19.0-indigo?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/version-v2.20.0-indigo?style=flat-square" alt="Version">
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
   <img src="https://img.shields.io/badge/Mem0%20OSS-2.2.1-orange?style=flat-square" alt="Mem0">
@@ -19,6 +19,28 @@
   <img src="https://img.shields.io/badge/iOS%20PWA-Ready-007AFF?style=flat-square&logo=apple" alt="iOS PWA">
   <img src="https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker" alt="Docker">
 </p>
+
+---
+
+## v2.20.0 发布说明
+
+本版本是一次**语言学习交互与输入模式扩展**升级。新增了全语种交互式「单词卡片 (WordCard)」与点读发音系统，同时在聊天输入框新增快捷模式选择器，支持一键切换「词汇导师」等专属学习与工作模式。
+
+### 1. 全语种单词学习卡片 (WordCard)
+
+- **多语言交互卡片**：支持英语、日语、法语、德语、西班牙语、韩语等全语种学习排版，呈现单词标题、音标/假名、词性释义、经典双语例句、核心短语及语法注意点提示盒。
+- **单词与例句独立点读发音**：调用项目内置的语音合成模型（TTS），点击单词专属小喇叭单独发音，点击例句独立发音，支持浏览器原生语音 API 优雅降级与本地播放缓存。
+- **视图切换与一键复制**：卡片支持在「卡片视图」与「代码视图」间平滑切换，支持一键复制单词与原格式。
+
+### 2. 输入框快捷模式选择器
+
+- **常驻快捷按钮**：在输入框左侧加号按钮旁新增模式切换按钮，保持圆钮视觉风格，无需进入设置页即可一键切换角色模式。
+- **丰富模式支持**：内置「词汇导师（全语言点读卡片）」、「简洁直接」、「严谨学术」、「创意灵感」、「编程专家」等多重工作模式。
+- **状态感知与一键重置**：选中模式后输入框上方出现状态提醒横幅，并支持一键恢复为默认助手。
+
+### 3. 设置页面清爽优化
+
+- 移除了原设置页繁琐的人设配置，使设置主视图聚焦于核心模型、采样温度与记忆系统。
 
 ---
 

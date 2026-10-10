@@ -4,6 +4,7 @@ import * as React from "react";
 import { Check, Copy, Download, Palette } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { WordCard, parseWordData } from "./WordCard";
 
 /**
  * 代码块 / SVG 矢量画作 的渲染。
@@ -174,6 +175,32 @@ export function SvgRenderer({ svgCode }: { svgCode: string }) {
   );
 }
 
+class WordCardSafe extends React.Component<
+  { rawContent: string },
+  { hasError: boolean }
+> {
+  constructor(props: { rawContent: string }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(err: any) {
+    console.error("WordCard render exception caught:", err);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <pre className="my-3 overflow-x-auto rounded-xl border border-border/70 bg-[#0d0d0d] p-3 font-mono text-xs text-muted-foreground">
+          {this.props.rawContent}
+        </pre>
+      );
+    }
+    return <WordCard rawContent={this.props.rawContent} />;
+  }
+}
+
 export function CodeBlock({ children, className }: any) {
   const { copied, copy } = useCopyFeedback();
   const match = /language-(\w+)/.exec(className || "");
@@ -187,6 +214,12 @@ export function CodeBlock({ children, className }: any) {
     lang === "svg" || (codeText.trim().startsWith("<svg") && codeText.trim().includes("</svg>"));
   if (isSvg) {
     return <SvgRenderer svgCode={codeText} />;
+  }
+
+  const normalizedLang = (lang || "").toLowerCase();
+  const isWordCardLang = ["word", "wordcard", "vocab", "vocabulary"].includes(normalizedLang);
+  if (isWordCardLang) {
+    return <WordCardSafe rawContent={codeText} />;
   }
 
   const isMermaid = lang === "mermaid";

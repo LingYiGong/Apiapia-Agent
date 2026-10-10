@@ -1,6 +1,7 @@
 export { SearchSources, hostnameOf } from "./SearchSources";
 export { AiImageCard } from "./AiImageCard";
 export { AiVideoCard } from "./AiVideoCard";
+export { WordCard, parseWordData, type WordCardData } from "./WordCard";
 export { CodeBlock, SvgRenderer, useCopyFeedback, downloadTextFile } from "./CodeBlock";
 export {
   renderMessageBody,
@@ -14,3 +15,4 @@ export {
   parseSearchResults,
   type ParsedUserMessage,
 } from "./userContent";
+

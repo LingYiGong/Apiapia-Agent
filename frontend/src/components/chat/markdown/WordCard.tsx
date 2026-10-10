@@ -36,6 +36,8 @@ export interface WordPhrase {
 
 export interface WordCardData {
   word: string;
+  query?: string;
+  source_lang?: string;
   language?: string;
   phonetic?: string;
   phonetic_uk?: string;
@@ -125,6 +127,15 @@ export function parseWordData(raw: string): WordCardData | null {
         ""
       ).trim();
 
+      const query = safeString(
+        obj.query ||
+        obj.source_word ||
+        obj.source ||
+        obj.input ||
+        obj.original_word ||
+        ""
+      ).trim();
+
       if (word) {
         const rawDefs = obj.definitions || obj.definition || obj.meanings || [];
         const definitions: WordDefinition[] = [];
@@ -190,6 +201,8 @@ export function parseWordData(raw: string): WordCardData | null {
 
         return {
           word,
+          query: query || undefined,
+          source_lang: obj.source_lang ? safeString(obj.source_lang).toLowerCase() : undefined,
           language: safeString(obj.language || obj.lang || "en").toLowerCase(),
           phonetic: phonetic ? safeString(phonetic) : undefined,
           phonetic_uk: obj.phonetic_uk || obj.uk_phonetic || obj.pronunciation?.uk ? safeString(obj.phonetic_uk || obj.uk_phonetic || obj.pronunciation?.uk) : undefined,
@@ -219,9 +232,10 @@ export function parseWordData(raw: string): WordCardData | null {
     const phoneticMatch = trimmed.match(/(?:phonetic|音标|注音)\s*[:：]\s*([^\n\r]+)/i);
     const grammarMatch = trimmed.match(/(?:grammar(?:_tips)?|语法(?:提示|要点)?)\s*[:：]\s*([^\n\r]+(?:\n(?![a-zA-Z\u4e00-\u9fa5]+[:：])[^\n\r]+)*)/i);
 
+    const langMatch = trimmed.match(/(?:language|lang|语种|语言)\s*[:：]\s*([a-zA-Z]+)/i);
     return {
       word,
-      language: "en",
+      language: langMatch ? langMatch[1].toLowerCase() : "en",
       phonetic: phoneticMatch ? phoneticMatch[1].replace(/[*_`]/g, "").trim() : undefined,
       grammar_tips: grammarMatch ? grammarMatch[1].trim() : undefined,
     };
@@ -394,7 +408,11 @@ export function WordCard({
         <div className="flex items-center gap-2">
           <div className="flex h-6 items-center gap-1.5 rounded-md bg-primary/10 px-2 font-medium text-primary">
             <Languages className="h-3.5 w-3.5" />
-            <span className="text-2xs">{langName}卡片</span>
+            <span className="text-2xs font-semibold">
+              {data.query && data.source_lang
+                ? `${LANGUAGE_NAMES[data.source_lang] || data.source_lang} ➔ ${langName}`
+                : `${langName}卡片`}
+            </span>
           </div>
           <span className="text-2xs text-muted-foreground">点读发音已就绪</span>
         </div>
@@ -451,6 +469,42 @@ export function WordCard({
           {/* 单词主区域：单词标题 + 发音按钮 + 音标 */}
           <div className="flex flex-wrap items-baseline justify-between gap-3 border-b border-border/40 pb-3.5">
             <div className="space-y-1.5">
+              {data.query && (
+                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground font-medium mb-1.5">
+                  <span className="text-2xs text-muted-foreground/80 font-mono">原文:</span>
+                  <span className="rounded-md bg-surface-3/80 px-2 py-0.5 text-foreground font-semibold">
+                    {safeString(data.query)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handlePlay(
+                        "query",
+                        data.query!,
+                        data.source_lang || (data.language === "zh" ? "ja" : "zh")
+                      )
+                    }
+                    title="朗读原文"
+                    className={cn(
+                      "inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-3xs font-medium transition-all cursor-pointer border",
+                      playingKey === "query"
+                        ? "bg-primary text-primary-foreground border-primary animate-pulse"
+                        : loadingKey === "query"
+                        ? "bg-primary/20 text-primary border-primary/30"
+                        : "bg-surface-3/60 text-muted-foreground border-border/40 hover:text-foreground hover:bg-surface-3"
+                    )}
+                  >
+                    {loadingKey === "query" ? (
+                      <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                    ) : (
+                      <Volume2 className="h-2.5 w-2.5" />
+                    )}
+                    <span>{playingKey === "query" ? "播放中" : "朗读原文"}</span>
+                  </button>
+                  <span className="text-muted-foreground/60 text-2xs">➔</span>
+                  <span className="text-primary font-semibold text-2xs">译文:</span>
+                </div>
+              )}
               <div className="flex items-baseline gap-3">
                 <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
                   {safeString(data.word)}

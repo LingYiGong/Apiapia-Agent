@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v2.20.0-indigo?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/version-v2.21.0-indigo?style=flat-square" alt="Version">
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
   <img src="https://img.shields.io/badge/Mem0%20OSS-2.2.1-orange?style=flat-square" alt="Mem0">
@@ -19,6 +19,33 @@
   <img src="https://img.shields.io/badge/iOS%20PWA-Ready-007AFF?style=flat-square&logo=apple" alt="iOS PWA">
   <img src="https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker" alt="Docker">
 </p>
+
+---
+
+## v2.21.0 发布说明
+
+本版本是一次**语言学习双向互译与翻译专项体验**重大升级。将「词汇导师」全面升级为支持全语种的**中外双向智能互译**体系，新增输入框快捷语种切换栏与原文点读支持，并强制隔离联网搜索以提供毫秒级纯模型响应。
+
+### 1. 中外双向智能互译 (Bidirectional Translation)
+
+- **严格对侧语言互译**：彻底解决外语重复输出问题。选定目标语言（如日语、法语、西语等）后：
+  - 输入中文时，自动翻译为目标外语点读卡片（假名/音标、例句、语法解析）；
+  - 输入外语时，自动精准翻译为中文卡片，并将中文作为核心译文，附带外语原词读音与文化辨析。
+- **动态流向徽章**：卡片顶部徽章智能展示当前翻译流向（如【中文 ➔ 日语】、【日语 ➔ 中文】）。
+
+### 2. 原文与译文双节点独立点读
+
+- **原文对照展示栏**：卡片标题上方新增「原文 ➔ 译文」对照区。
+- **双独立发音按钮**：既可点击朗读翻译后的目标词汇，亦可点击「朗读原文」收听输入原词的地道发音。
+
+### 3. 输入框常驻互译语种切换栏
+
+- **快捷语种药丸标签**：处于词汇导师模式时，输入框上方横幅常驻展示多语种快速切换器（英语、日语、韩语、法语、德语、西语、俄语、意语、自动识别），一键切换并自动持久化。
+- **模式按钮状态联动**：输入框旁的模式圆钮自适应显示当前激活语言（如 `词汇 · 日语`）。
+
+### 4. 零联网检索与毫秒级低延迟保障
+
+- **强制隔离联网检索**：词汇与双向互译场景下强制禁用 Web Search，彻底消除无关网络检索开销与网页噪音干扰，保障卡片输出毫秒级即时响应。
 
 ---
 

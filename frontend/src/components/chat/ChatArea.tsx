@@ -21,7 +21,11 @@ import { useIsTrialMode } from "@/hooks/useIsTrialMode";
 import { ChatMessageItem } from "./ChatMessageItem";
 import { renderMessageBody, SearchSources } from "./markdown";
 import { PersonaPickerButton } from "./PersonaPickerButton";
-import { CHAT_PERSONAS } from "@/config/personas";
+import {
+  CHAT_PERSONAS,
+  VOCAB_TARGET_LANGUAGES,
+  buildVocabTutorPrompt,
+} from "@/config/personas";
 import {
   Send,
   Square,
@@ -175,6 +179,7 @@ interface ChatAreaProps {
       maxTokens?: number;
       imageGenMode?: boolean;
       videoGenMode?: boolean;
+      webSearchMode?: "auto" | "on" | "off";
     }
   ) => void;
   onStopGenerating?: () => void;
@@ -255,6 +260,20 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     setActivePersonaId(id);
     if (typeof window !== "undefined") {
       localStorage.setItem("apiapia_active_persona", id);
+    }
+  }, []);
+
+  const [vocabTargetLang, setVocabTargetLang] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("apiapia_vocab_target_lang") || "auto";
+    }
+    return "auto";
+  });
+
+  const handleSelectVocabLang = useCallback((lang: string) => {
+    setVocabTargetLang(lang);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("apiapia_vocab_target_lang", lang);
     }
   }, []);
 
@@ -702,8 +721,14 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     }
 
     const currentPersona = CHAT_PERSONAS.find((p) => p.id === activePersonaId);
-    if (currentPersona && currentPersona.systemPrompt) {
-      extraOpts.systemPromptOverride = currentPersona.systemPrompt;
+    if (currentPersona) {
+      if (currentPersona.id === "vocab_tutor") {
+        extraOpts.systemPromptOverride = buildVocabTutorPrompt(vocabTargetLang);
+        // 词汇与翻译卡片模式下强制关闭联网搜索，避免无关网络检索、缩短响应耗时
+        extraOpts.webSearchMode = "off";
+      } else if (currentPersona.systemPrompt) {
+        extraOpts.systemPromptOverride = currentPersona.systemPrompt;
+      }
     }
 
     onSendMessage(input.trim(), attachments, extraOpts);
@@ -979,10 +1004,15 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
           {/* Active Persona Banner */}
           {activePersonaId !== "default" && (
-            <div className="mx-1 mb-1.5 px-2.5 py-1.5 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-between gap-2 text-2xs animate-in fade-in-0 duration-150">
+            <div className="mx-1 mb-1.5 px-2.5 py-1.5 rounded-xl bg-primary/10 border border-primary/20 flex flex-wrap items-center justify-between gap-2 text-2xs animate-in fade-in-0 duration-150">
               <div className="flex items-center gap-1.5 min-w-0">
                 <span className="font-semibold text-primary">
                   当前模式：{CHAT_PERSONAS.find((p) => p.id === activePersonaId)?.label || "自定义"}
+                  {activePersonaId === "vocab_tutor" && vocabTargetLang !== "auto" && (
+                    <span className="ml-1 text-primary/80 font-normal">
+                      （中 ⇋ {VOCAB_TARGET_LANGUAGES.find((l) => l.id === vocabTargetLang)?.name} 双向互译）
+                    </span>
+                  )}
                 </span>
                 <span className="text-muted-foreground truncate hidden sm:inline">
                   — {CHAT_PERSONAS.find((p) => p.id === activePersonaId)?.desc}
@@ -997,6 +1027,34 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 <span>恢复默认</span>
                 <X className="h-3 w-3" />
               </button>
+
+              {/* 词汇导师专属：快速语种选择栏 */}
+              {activePersonaId === "vocab_tutor" && (
+                <div className="w-full pt-1 border-t border-primary/15 flex items-center gap-1 overflow-x-auto no-scrollbar">
+                  <span className="text-muted-foreground text-3xs shrink-0 mr-0.5 font-medium">
+                    互译语种:
+                  </span>
+                  {VOCAB_TARGET_LANGUAGES.map((item) => {
+                    const isSelected = vocabTargetLang === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => handleSelectVocabLang(item.id)}
+                        className={cn(
+                          "px-2 py-0.5 rounded-md text-3xs font-medium transition-all shrink-0 cursor-pointer border",
+                          isSelected
+                            ? "bg-primary text-primary-foreground border-primary shadow-2xs font-semibold"
+                            : "bg-background/80 text-foreground/75 border-border/60 hover:bg-surface-3 hover:text-foreground"
+                        )}
+                        title={`开启中 ⇋ ${item.name} 双向互译与词汇卡片`}
+                      >
+                        {item.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
@@ -1387,6 +1445,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             <PersonaPickerButton
               activePersonaId={activePersonaId}
               onSelectPersona={handleSelectPersona}
+              vocabTargetLang={vocabTargetLang}
+              onSelectVocabLang={handleSelectVocabLang}
               disabled={isStreaming}
             />
 

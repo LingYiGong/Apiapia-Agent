@@ -683,6 +683,7 @@ export default function ChatPage({
         maxTokens?: number;
         imageGenMode?: boolean;
         videoGenMode?: boolean;
+        webSearchMode?: "auto" | "on" | "off";
       }
     ) => {
       // Clear any previous running intervals
@@ -767,7 +768,7 @@ export default function ChatPage({
             message: text,
             model: currentModel,
             memory_enabled: memoryEnabled,
-            web_search_mode: webSearch.modeRef.current,
+            web_search_mode: extraOptions?.webSearchMode || webSearch.modeRef.current,
             image_gen_mode: extraOptions?.imageGenMode,
             video_gen_mode: extraOptions?.videoGenMode,
             attachments: attachments && attachments.length > 0 ? attachments : undefined,

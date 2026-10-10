@@ -19,7 +19,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ActionTooltip } from "@/components/common/ActionTooltip";
-import { CHAT_PERSONAS, type ChatPersona } from "@/config/personas";
+import {
+  CHAT_PERSONAS,
+  VOCAB_TARGET_LANGUAGES,
+  type ChatPersona,
+} from "@/config/personas";
 import { cn } from "@/lib/utils";
 
 function getPersonaIcon(iconName: ChatPersona["iconName"]) {
@@ -43,16 +47,26 @@ function getPersonaIcon(iconName: ChatPersona["iconName"]) {
 export function PersonaPickerButton({
   activePersonaId,
   onSelectPersona,
+  vocabTargetLang = "auto",
+  onSelectVocabLang,
   disabled = false,
 }: {
   activePersonaId: string;
   onSelectPersona: (id: string) => void;
+  vocabTargetLang?: string;
+  onSelectVocabLang?: (lang: string) => void;
   disabled?: boolean;
 }) {
   const activePersona =
     CHAT_PERSONAS.find((p) => p.id === activePersonaId) || CHAT_PERSONAS[0];
   const isCustomPersona = activePersona.id !== "default";
   const ActiveIcon = isCustomPersona ? getPersonaIcon(activePersona.iconName) : Bot;
+
+  const currentLangObj = VOCAB_TARGET_LANGUAGES.find((l) => l.id === vocabTargetLang);
+  const displayShortLabel =
+    activePersona.id === "vocab_tutor" && currentLangObj && currentLangObj.id !== "auto"
+      ? `词汇·${currentLangObj.name}`
+      : activePersona.shortLabel;
 
   return (
     <DropdownMenu>
@@ -82,7 +96,7 @@ export function PersonaPickerButton({
             {isCustomPersona && (
               <>
                 <span className="text-xs font-medium max-sm:hidden">
-                  {activePersona.shortLabel}
+                  {displayShortLabel}
                 </span>
                 <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse shrink-0" />
               </>
@@ -161,6 +175,39 @@ export function PersonaPickerButton({
                   <p className="text-[11px] leading-tight text-muted-foreground line-clamp-2 mt-0.5">
                     {p.desc}
                   </p>
+
+                  {/* 词汇导师被选中时的快速语种微调 */}
+                  {p.id === "vocab_tutor" && isSelected && onSelectVocabLang && (
+                    <div
+                      className="mt-2 pt-2 border-t border-border/40 flex flex-wrap gap-1"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="w-full text-[10px] text-muted-foreground font-medium mb-0.5 flex items-center justify-between">
+                        <span>双向互译语种</span>
+                        <span className="text-primary font-semibold">
+                          {currentLangObj?.name || "自动识别"}
+                        </span>
+                      </div>
+                      {VOCAB_TARGET_LANGUAGES.map((l) => (
+                        <button
+                          key={l.id}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSelectVocabLang(l.id);
+                          }}
+                          className={cn(
+                            "px-1.5 py-0.5 rounded text-[10px] font-medium transition-all cursor-pointer border",
+                            vocabTargetLang === l.id
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-surface-3/80 text-muted-foreground border-border/50 hover:text-foreground"
+                          )}
+                        >
+                          {l.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </DropdownMenuItem>
             );

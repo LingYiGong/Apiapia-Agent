@@ -20,17 +20,12 @@ import { useAudioRecorder, MAX_RECORDING_SECONDS } from "@/hooks/useAudioRecorde
 import { useIsTrialMode } from "@/hooks/useIsTrialMode";
 import { ChatMessageItem } from "./ChatMessageItem";
 import { renderMessageBody, SearchSources } from "./markdown";
-import { PersonaPickerButton } from "./PersonaPickerButton";
-import {
-  CHAT_PERSONAS,
-  VOCAB_TARGET_LANGUAGES,
-  buildVocabTutorPrompt,
-} from "@/config/personas";
 import {
   Send,
   Square,
   Sparkles,
   Clock,
+  Zap,
   Paperclip,
   X,
   FileText,
@@ -50,6 +45,7 @@ import {
   Camera,
   Mic,
   AudioLines,
+  Languages,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -61,6 +57,7 @@ import {
 import { BrandLogo } from "@/components/common/BrandLogo";
 import { EmptyState } from "@/components/common/EmptyState";
 import { DEFAULT_PROMPT_COMMANDS, PromptCommand } from "@/config/promptCommands";
+import { VOCAB_TARGET_LANGUAGES, buildVocabTutorPrompt } from "@/config/personas";
 
 // 移动端（触摸设备）检测：主指针为 coarse，即手机 / 平板这类触屏设备。
 // 不用视口宽度判断，避免桌面浏览器窗口变窄时误判成移动端而丢掉回车发送。
@@ -180,6 +177,8 @@ interface ChatAreaProps {
       imageGenMode?: boolean;
       videoGenMode?: boolean;
       webSearchMode?: "auto" | "on" | "off";
+      singleTurnMode?: boolean;
+      memoryEnabled?: boolean;
     }
   ) => void;
   onStopGenerating?: () => void;
@@ -204,6 +203,8 @@ interface ChatAreaProps {
   conversationId?: string | null;
   creationMode?: "chat" | "image" | "video";
   onChangeCreationMode?: (mode: "chat" | "image" | "video") => void;
+  isTranslateMode?: boolean;
+  onToggleTranslateMode?: (enabled: boolean) => void;
 }
 
 export const ChatArea: React.FC<ChatAreaProps> = ({
@@ -228,6 +229,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   conversationId = null,
   creationMode = "chat",
   onChangeCreationMode,
+  isTranslateMode: propIsTranslateMode,
+  onToggleTranslateMode,
 }) => {
   const isTouchPrimary = useIsTouchPrimary();
   const isTrialMode = useIsTrialMode();
@@ -249,25 +252,31 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   const composerContainerRef = useRef<HTMLDivElement>(null);
   const [composerWidth, setComposerWidth] = useState<number | undefined>(undefined);
   const [isTranscribing, setIsTranscribing] = useState(false);
-  const [activePersonaId, setActivePersonaId] = useState<string>(() => {
+
+  // 智能翻译模式状态（优先使用外部传入，也可以内部管理）
+  const [internalTranslateMode, setInternalTranslateMode] = useState<boolean>(() => {
     if (typeof window !== "undefined") {
-      return localStorage.getItem("apiapia_active_persona") || "default";
+      return localStorage.getItem("apiapia_translate_mode") === "1";
     }
-    return "default";
+    return false;
   });
+  const isTranslateMode = propIsTranslateMode !== undefined ? propIsTranslateMode : internalTranslateMode;
 
-  const handleSelectPersona = useCallback((id: string) => {
-    setActivePersonaId(id);
+  const handleSetTranslateMode = useCallback((enabled: boolean) => {
+    setInternalTranslateMode(enabled);
+    onToggleTranslateMode?.(enabled);
     if (typeof window !== "undefined") {
-      localStorage.setItem("apiapia_active_persona", id);
+      localStorage.setItem("apiapia_translate_mode", enabled ? "1" : "0");
     }
-  }, []);
+  }, [onToggleTranslateMode]);
 
+  // 互译目标语种（默认日语 ja）
   const [vocabTargetLang, setVocabTargetLang] = useState<string>(() => {
     if (typeof window !== "undefined") {
-      return localStorage.getItem("apiapia_vocab_target_lang") || "auto";
+      const saved = localStorage.getItem("apiapia_vocab_target_lang");
+      if (saved && saved !== "auto") return saved;
     }
-    return "auto";
+    return "ja";
   });
 
   const handleSelectVocabLang = useCallback((lang: string) => {
@@ -297,7 +306,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   // 看到的是上一个会话的半句话。
   const draftKey = conversationId ? `apiapia_chat_draft:${conversationId}` : "apiapia_chat_draft:new";
 
-  // 切换 / 新建对话时按新会话恢复草稿，并把输入框高度一并复位。
+  // 切换 / 新建对话时按新会话恢复草稿，并把输入框高度与临时附件/引用状态一并复位。
   React.useEffect(() => {
     let saved = "";
     try {
@@ -305,6 +314,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     } catch (_) {}
     setInput(saved);
     if (textareaRef.current) textareaRef.current.style.height = "auto";
+    // 切换会话或点击新建时，重置上一会话的未发送附件、引用状态与斜杠菜单
+    setAttachments([]);
+    setActiveQuote(null);
+    setShowCommandsMenu(false);
   }, [draftKey]);
 
   const updateInput = React.useCallback(
@@ -718,17 +731,13 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       extraOpts.imageGenMode = true;
     } else if (creationMode === "video") {
       extraOpts.videoGenMode = true;
-    }
-
-    const currentPersona = CHAT_PERSONAS.find((p) => p.id === activePersonaId);
-    if (currentPersona) {
-      if (currentPersona.id === "vocab_tutor") {
-        extraOpts.systemPromptOverride = buildVocabTutorPrompt(vocabTargetLang);
-        // 词汇与翻译卡片模式下强制关闭联网搜索，避免无关网络检索、缩短响应耗时
-        extraOpts.webSearchMode = "off";
-      } else if (currentPersona.systemPrompt) {
-        extraOpts.systemPromptOverride = currentPersona.systemPrompt;
-      }
+    } else if (isTranslateMode) {
+      // 开启智能翻译模式时：自动注入专业双向互译与语法教学 Prompt
+      extraOpts.systemPromptOverride = buildVocabTutorPrompt(vocabTargetLang);
+      // 翻译模式下强制关闭联网搜索与长期记忆，并开启单轮模式（不带历史上下文），确保极速响应并节省 Token
+      extraOpts.webSearchMode = "off";
+      extraOpts.singleTurnMode = true;
+      extraOpts.memoryEnabled = false;
     }
 
     onSendMessage(input.trim(), attachments, extraOpts);
@@ -1002,59 +1011,56 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             </div>
           )}
 
-          {/* Active Persona Banner */}
-          {activePersonaId !== "default" && (
-            <div className="mx-1 mb-1.5 px-2.5 py-1.5 rounded-xl bg-primary/10 border border-primary/20 flex flex-wrap items-center justify-between gap-2 text-2xs animate-in fade-in-0 duration-150">
+          {/* Active Translation Mode Banner */}
+          {isTranslateMode && (
+            <div className="mx-1 mb-1.5 px-2.5 py-1.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex flex-wrap items-center justify-between gap-2 text-2xs animate-in fade-in-0 duration-150">
               <div className="flex items-center gap-1.5 min-w-0">
-                <span className="font-semibold text-primary">
-                  当前模式：{CHAT_PERSONAS.find((p) => p.id === activePersonaId)?.label || "自定义"}
-                  {activePersonaId === "vocab_tutor" && vocabTargetLang !== "auto" && (
-                    <span className="ml-1 text-primary/80 font-normal">
-                      （中 ⇋ {VOCAB_TARGET_LANGUAGES.find((l) => l.id === vocabTargetLang)?.name} 双向互译）
-                    </span>
-                  )}
+                <span className="font-semibold text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
+                  <Languages className="h-3.5 w-3.5" />
+                  当前模式：智能翻译
+                  <span className="ml-1 text-indigo-500/80 font-normal">
+                    （中 ⇋ {VOCAB_TARGET_LANGUAGES.find((l) => l.id === vocabTargetLang)?.name || "日语"} 双向互译）
+                  </span>
                 </span>
                 <span className="text-muted-foreground truncate hidden sm:inline">
-                  — {CHAT_PERSONAS.find((p) => p.id === activePersonaId)?.desc}
+                  — 智能互译、语法解析、动词变形与例句拓展
                 </span>
               </div>
               <button
                 type="button"
-                onClick={() => handleSelectPersona("default")}
+                onClick={() => handleSetTranslateMode(false)}
                 className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md hover:bg-surface-3 transition-colors text-2xs cursor-pointer shrink-0"
-                title="重置为默认助手"
+                title="退出翻译模式，恢复默认对话"
               >
-                <span>恢复默认</span>
+                <span>退出翻译</span>
                 <X className="h-3 w-3" />
               </button>
 
-              {/* 词汇导师专属：快速语种选择栏 */}
-              {activePersonaId === "vocab_tutor" && (
-                <div className="w-full pt-1 border-t border-primary/15 flex items-center gap-1 overflow-x-auto no-scrollbar">
-                  <span className="text-muted-foreground text-3xs shrink-0 mr-0.5 font-medium">
-                    互译语种:
-                  </span>
-                  {VOCAB_TARGET_LANGUAGES.map((item) => {
-                    const isSelected = vocabTargetLang === item.id;
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => handleSelectVocabLang(item.id)}
-                        className={cn(
-                          "px-2 py-0.5 rounded-md text-3xs font-medium transition-all shrink-0 cursor-pointer border",
-                          isSelected
-                            ? "bg-primary text-primary-foreground border-primary shadow-2xs font-semibold"
-                            : "bg-background/80 text-foreground/75 border-border/60 hover:bg-surface-3 hover:text-foreground"
-                        )}
-                        title={`开启中 ⇋ ${item.name} 双向互译与词汇卡片`}
-                      >
-                        {item.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
+              {/* 快速语种选择栏：首选英文、日语、中文，其次按全球使用广泛度排序 */}
+              <div className="w-full pt-1 border-t border-indigo-500/15 flex items-center gap-1 overflow-x-auto no-scrollbar">
+                <span className="text-muted-foreground text-3xs shrink-0 mr-0.5 font-medium">
+                  互译目标:
+                </span>
+                {VOCAB_TARGET_LANGUAGES.map((item) => {
+                  const isSelected = vocabTargetLang === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => handleSelectVocabLang(item.id)}
+                      className={cn(
+                        "px-2 py-0.5 rounded-md text-3xs font-medium transition-all shrink-0 cursor-pointer border",
+                        isSelected
+                          ? "bg-indigo-600 text-white border-indigo-600 shadow-2xs font-semibold dark:bg-indigo-500"
+                          : "bg-background/80 text-foreground/75 border-border/60 hover:bg-surface-3 hover:text-foreground"
+                      )}
+                      title={`开启中 ⇋ ${item.name} 双向互译`}
+                    >
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
 
@@ -1204,13 +1210,14 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
-                  variant={creationMode !== "chat" ? "outline" : "ghost"}
+                  variant={creationMode !== "chat" || isTranslateMode ? "outline" : "ghost"}
                   size="icon"
                   disabled={isStreaming || isUploading}
                   className={cn(
                     "h-9 w-9 rounded-full shrink-0 mb-0.5 transition-colors",
                     creationMode === "image" && "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20",
-                    creationMode === "video" && "border-purple-500/40 bg-purple-500/10 text-purple-600 dark:text-purple-400 hover:bg-purple-500/20"
+                    creationMode === "video" && "border-purple-500/40 bg-purple-500/10 text-purple-600 dark:text-purple-400 hover:bg-purple-500/20",
+                    isTranslateMode && creationMode === "chat" && "border-indigo-500/40 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/20"
                   )}
                   aria-label="功能与创作菜单"
                 >
@@ -1218,6 +1225,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                     <Palette className="h-4 w-4" />
                   ) : creationMode === "video" ? (
                     <Video className="h-4 w-4" />
+                  ) : isTranslateMode ? (
+                    <Languages className="h-4 w-4" />
                   ) : (
                     <Plus className="h-4 w-4" />
                   )}
@@ -1235,10 +1244,13 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                   <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground font-mono">
                     创作与能力扩展
                   </span>
-                  {creationMode !== "chat" && (
+                  {(creationMode !== "chat" || isTranslateMode) && (
                     <button
                       type="button"
-                      onClick={() => onChangeCreationMode?.("chat")}
+                      onClick={() => {
+                        onChangeCreationMode?.("chat");
+                        handleSetTranslateMode(false);
+                      }}
                       className="text-xs text-primary hover:underline font-semibold cursor-pointer"
                     >
                       恢复默认对话
@@ -1437,18 +1449,42 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                       </div>
                     </DropdownMenuItem>
                   )}
+
+                  {/* 6. 智能翻译 */}
+                  <DropdownMenuItem
+                    onClick={() => {
+                      if (creationMode !== "chat") {
+                        onChangeCreationMode?.("chat");
+                      }
+                      handleSetTranslateMode(!isTranslateMode);
+                    }}
+                    className={cn(
+                      "flex items-center gap-3.5 rounded-2xl p-3 cursor-pointer transition-colors active:scale-[0.99]",
+                      isTranslateMode && creationMode === "chat"
+                        ? "bg-indigo-500/10 border border-indigo-500/30"
+                        : "hover:bg-surface-3 focus:bg-surface-3"
+                    )}
+                  >
+                    <div className="h-10 w-10 rounded-2xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 shadow-xs">
+                      <Languages className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-semibold text-foreground tracking-tight">智能翻译</span>
+                        {isTranslateMode && creationMode === "chat" && (
+                          <span className="flex items-center gap-1 font-mono text-xs font-semibold text-indigo-600 dark:text-indigo-400">
+                            <Check className="h-3.5 w-3.5 stroke-[3]" /> 当前模式
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                        全语种双向互译与语法教学，含动词变型剖析、日语平假名振假名及类似例句
+                      </p>
+                    </div>
+                  </DropdownMenuItem>
                 </div>
               </DropdownMenuContent>
             </DropdownMenu>
-
-            {/* Persona Picker Dropdown Button (输入框加号旁模式选择按钮) */}
-            <PersonaPickerButton
-              activePersonaId={activePersonaId}
-              onSelectPersona={handleSelectPersona}
-              vocabTargetLang={vocabTargetLang}
-              onSelectVocabLang={handleSelectVocabLang}
-              disabled={isStreaming}
-            />
 
             {/* 录音状态条：录音时出现，显示时长与实时音量。
 
@@ -1524,6 +1560,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                   ? "描述你的视频"
                   : creationMode === "image"
                   ? "描述你的图片"
+                  : isTranslateMode
+                  ? "输入需要翻译的单词、短语或句子…"
                   : "询问 Apiapia"
               }
               // 此前输入框既无 <label> 也无 aria-label，屏幕阅读器只会念出

@@ -100,6 +100,63 @@ function safeString(val: any): string {
 }
 
 /**
+ * 假名振假名 (Furigana) 渲染辅助函数：
+ * 支持 漢字(かんじ) / 漢字[かんじ] / <ruby>漢字<rt>かんじ</rt></ruby> 格式转换为标准 HTML <ruby> 标签
+ */
+function renderFuriganaText(text: string): React.ReactNode {
+  if (!text) return "";
+
+  // 1. 如果已有 <ruby> HTML 标签
+  if (text.includes("<ruby") && text.includes("</ruby>")) {
+    const parts = text.split(/(<ruby[\s\S]*?<\/ruby>)/gi);
+    return parts.map((part, i) => {
+      const match = part.match(/<ruby>(.*?)<rt>(.*?)<\/rt><\/ruby>/i);
+      if (match) {
+        return (
+          <ruby key={i} className="ruby-furigana font-normal">
+            {match[1]}
+            <rt className="text-[0.6em] text-primary/80 font-normal select-none">{match[2]}</rt>
+          </ruby>
+        );
+      }
+      return <span key={i}>{part}</span>;
+    });
+  }
+
+  // 2. 支持 漢字(かんじ) 或 漢字[かんじ] 语法（汉字后紧跟平假名/片假名）
+  // 匹配汉字后跟着括号内的假名：如 桜(さくら) / 桜[さくら] / 勉強(べんきょう)
+  const furiganaRegex = /([\u4e00-\u9faf\u3400-\u4dbf]+)[（\(\[]([ぁ-んァ-ヶー]+)[）\)\]]/g;
+  if (furiganaRegex.test(text)) {
+    const nodes: React.ReactNode[] = [];
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+    const re = new RegExp(furiganaRegex.source, "g");
+
+    while ((match = re.exec(text)) !== null) {
+      if (match.index > lastIndex) {
+        nodes.push(text.slice(lastIndex, match.index));
+      }
+      const kanji = match[1];
+      const kana = match[2];
+      nodes.push(
+        <ruby key={match.index} className="ruby-furigana font-normal">
+          {kanji}
+          <rt className="text-[0.6em] text-primary/80 font-normal select-none">{kana}</rt>
+        </ruby>
+      );
+      lastIndex = re.lastIndex;
+    }
+
+    if (lastIndex < text.length) {
+      nodes.push(text.slice(lastIndex));
+    }
+    return nodes;
+  }
+
+  return text;
+}
+
+/**
  * 尝试把模型输出的字符串解析为结构化单词卡数据。
  * 支持标准 JSON、Markdown 键值对以及模糊字段容错。
  */
@@ -507,7 +564,7 @@ export function WordCard({
               )}
               <div className="flex items-baseline gap-3">
                 <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
-                  {safeString(data.word)}
+                  {renderFuriganaText(safeString(data.word))}
                 </h2>
 
                 {/* 主发音按钮 */}
@@ -613,7 +670,7 @@ export function WordCard({
                         <div className="space-y-1 flex-1">
                           {/* 外语原句 */}
                           <div className="text-sm font-medium text-foreground leading-snug">
-                            {safeString(ex.original)}
+                            {renderFuriganaText(safeString(ex.original))}
                           </div>
                           {/* 中文翻译 */}
                           {ex.translation && (

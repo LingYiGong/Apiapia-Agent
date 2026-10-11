@@ -55,6 +55,7 @@ export interface ChatHeaderBaseProps {
   isRefreshingModels?: boolean;
   onNewChat?: () => void;
   className?: string;
+  isVocabMode?: boolean;
 }
 
 export interface MobileChatHeaderProps extends ChatHeaderBaseProps {
@@ -98,6 +99,7 @@ export const MobileChatHeader: React.FC<MobileChatHeaderProps> = ({
   onRename,
   onDelete,
   className,
+  isVocabMode = false,
 }) => {
   const hasActiveMemories = memoriesCount > 0;
   const isPinned = !!activeConversation?.is_pinned;
@@ -218,6 +220,7 @@ export const MobileChatHeader: React.FC<MobileChatHeaderProps> = ({
             onChange={onModelChange}
             models={availableModels}
             variant="compact"
+            isVocabMode={isVocabMode}
           />
         </div>
       </MobileHeader>
@@ -285,6 +288,7 @@ export const DesktopChatHeader: React.FC<DesktopChatHeaderProps> = ({
   onRename,
   onDelete,
   className,
+  isVocabMode = false,
 }) => {
   const [isRenaming, setIsRenaming] = React.useState(false);
   const [newTitle, setNewTitle] = React.useState("");
@@ -324,6 +328,7 @@ export const DesktopChatHeader: React.FC<DesktopChatHeaderProps> = ({
               onChange={onModelChange}
               models={availableModels}
               variant="compact"
+              isVocabMode={isVocabMode}
             />
           </div>
         </div>

@@ -20,6 +20,7 @@ interface ModelSelectProps {
   placeholder?: string;
   className?: string;
   variant?: "default" | "compact";
+  isVocabMode?: boolean;
 }
 
 /**
@@ -33,8 +34,9 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
   placeholder,
   className,
   variant = "default",
+  isVocabMode = false,
 }) => {
-  const options = useMemo(() => toChatModelOptions(models), [models]);
+  const options = useMemo(() => toChatModelOptions(models, isVocabMode), [models, isVocabMode]);
 
   const filterGroups = useMemo<ModelFilterGroup[]>(() => {
     const free = options.filter(freeFilterMatch);
@@ -86,6 +88,7 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
       variant={variant}
       width="wide"
       filterGroups={filterGroups}
+      defaultFilterKey={isVocabMode ? "all" : undefined}
       isTrialMode={isTrialMode}
     />
   );

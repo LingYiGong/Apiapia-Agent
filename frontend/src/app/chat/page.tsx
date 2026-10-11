@@ -83,6 +83,61 @@ export default function ChatPage({
   // Mobile SPA Tab State
   const [mobileTab, setMobileTab] = useState<MobileTab>("chat");
 
+  // Translate Mode State
+  const [isTranslateMode, setIsTranslateMode] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("apiapia_translate_mode") === "1";
+    }
+    return false;
+  });
+
+  const handleToggleTranslateMode = (enabled: boolean) => {
+    setIsTranslateMode(enabled);
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("apiapia_translate_mode", enabled ? "1" : "0");
+      } catch (_) {}
+    }
+
+    if (enabled && availableModels.length > 0) {
+      // 开启翻译模式时，自动优先切换至极速推荐翻译模型：
+      // 1. google/gemini-2.5-flash-lite
+      // 2. openai/gpt-4o-mini
+      const geminiExact = availableModels.find((m) => {
+        const id = m.id.toLowerCase();
+        return id === "google/gemini-2.5-flash-lite" || id.includes("gemini-2.5-flash-lite");
+      });
+      const openaiExact = availableModels.find((m) => {
+        const id = m.id.toLowerCase();
+        return id === "openai/gpt-4o-mini" || id.includes("gpt-4o-mini");
+      });
+      const geminiFallback = availableModels.find((m) => {
+        const id = m.id.toLowerCase();
+        return (id.includes("gemini") && (id.includes("flash") || id.includes("lite"))) ||
+               (id.startsWith("google/") && id.includes("gemini"));
+      });
+      const bestModel = geminiExact || openaiExact || geminiFallback;
+      if (bestModel && bestModel.id !== currentModel) {
+        void handleModelChange(bestModel.id);
+        toast.info(`已自动切换至极速翻译模型：${bestModel.name || bestModel.id}`);
+      }
+    } else if (!enabled && availableModels.length > 0) {
+      // 关闭翻译模式时，恢复用户配置的默认首选模型
+      const userDef = defaultModelRef.current;
+      const targetResetModel =
+        userDef && availableModels.some((m) => m.id === userDef)
+          ? userDef
+          : availableModels.some((m) => m.id === "openrouter/free")
+          ? "openrouter/free"
+          : availableModels[0]?.id;
+      if (targetResetModel && targetResetModel !== currentModel) {
+        void handleModelChange(targetResetModel);
+        const modelObj = availableModels.find((m) => m.id === targetResetModel);
+        toast.info(`已恢复默认模型：${modelObj?.name || targetResetModel}`);
+      }
+    }
+  };
+
   const webSearch = useWebSearchMode();
 
   const [searchStatus, setSearchStatus] = useState<{
@@ -116,6 +171,7 @@ export default function ChatPage({
   const displayedContentRef = useRef<string>("");
   const isStreamCompletedRef = useRef<boolean>(false);
   const doneMetaRef = useRef<any>(null);
+  const currentStreamModelRef = useRef<string>("");
   const abortControllerRef = useRef<AbortController | null>(null);
   const stopRequestedRef = useRef<boolean>(false);
   // 幂等锁：finalizeAssistantMessage 有两个调用方（打字机追平的定时器、
@@ -346,8 +402,8 @@ export default function ChatPage({
       // Choose active model
       if (models.length > 0) {
         if (!activeIdRef.current) {
-          // 新对话：优先用用户配置的默认模型，其次 openrouter/free
           if (userDef && models.some((m) => m.id === userDef)) {
+            // 新对话：优先用用户配置的默认模型，其次 openrouter/free
             setCurrentModel(userDef);
             try { localStorage.setItem("apiapia_preferred_model", userDef); } catch (_) {}
           } else if (models.some((m) => m.id === "openrouter/free")) {
@@ -473,6 +529,18 @@ export default function ChatPage({
     setLoadingMessages(false);
     setMobileTab("chat");
 
+    // 点击新建会话时，将输入框状态完全重置为默认状态：
+    // 1. 恢复翻译模式为关闭
+    setIsTranslateMode(false);
+    try { localStorage.setItem("apiapia_translate_mode", "0"); } catch (_) {}
+
+    // 2. 创作模式重置为常规对话
+    setCreationMode("chat");
+
+    // 3. 清理新建会话的残留草稿，确保输入框干干净净
+    try { localStorage.removeItem("apiapia_chat_draft:new"); } catch (_) {}
+
+    // 4. 重置当前模型为默认模型
     const userDef = defaultModelRef.current;
     if (userDef && availableModels.some((m) => m.id === userDef)) {
       setCurrentModel(userDef);
@@ -625,7 +693,7 @@ export default function ChatPage({
         role: "assistant",
         id: doneMeta?.message_id,
         content: finalContent,
-        model: doneMeta?.model || currentModel,
+        model: doneMeta?.model || currentStreamModelRef.current || currentModel,
         duration_ms: totalDurationMs,
         thinking_duration_ms: finalThinkingMs,
         prompt_tokens: doneMeta?.prompt_tokens,
@@ -684,6 +752,9 @@ export default function ChatPage({
         imageGenMode?: boolean;
         videoGenMode?: boolean;
         webSearchMode?: "auto" | "on" | "off";
+        modelOverride?: string;
+        singleTurnMode?: boolean;
+        memoryEnabled?: boolean;
       }
     ) => {
       // Clear any previous running intervals
@@ -693,12 +764,15 @@ export default function ChatPage({
       abortInFlightStream();
       if (finalizedRef.current) finalizedRef.current = false;
 
+      const effectiveModel = extraOptions?.modelOverride || currentModel;
+      currentStreamModelRef.current = effectiveModel;
+
       // Add user message to UI immediately
       const userMsg: Message = {
         role: "user",
         content: (text || "").trim(),
         attachments: attachments && attachments.length > 0 ? attachments : undefined,
-        model: currentModel,
+        model: effectiveModel,
         created_at: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, userMsg]);
@@ -766,8 +840,9 @@ export default function ChatPage({
           {
             conversation_id: activeId || undefined,
             message: text,
-            model: currentModel,
-            memory_enabled: memoryEnabled,
+            model: effectiveModel,
+            memory_enabled: extraOptions?.memoryEnabled !== undefined ? extraOptions.memoryEnabled : memoryEnabled,
+            single_turn_mode: extraOptions?.singleTurnMode,
             web_search_mode: extraOptions?.webSearchMode || webSearch.modeRef.current,
             image_gen_mode: extraOptions?.imageGenMode,
             video_gen_mode: extraOptions?.videoGenMode,
@@ -1174,6 +1249,7 @@ export default function ChatPage({
                 onTogglePin={handleTogglePin}
                 onRename={handleRenameConversation}
                 onDelete={handleDeleteConversation}
+                isVocabMode={isTranslateMode}
               />
 
               <DesktopChatHeader
@@ -1186,6 +1262,7 @@ export default function ChatPage({
                 onTogglePin={handleTogglePin}
                 onRename={handleRenameConversation}
                 onDelete={handleDeleteConversation}
+                isVocabMode={isTranslateMode}
               />
 
               <ChatArea
@@ -1210,6 +1287,8 @@ export default function ChatPage({
                 conversationId={activeId}
                 creationMode={creationMode}
                 onChangeCreationMode={setCreationMode}
+                isTranslateMode={isTranslateMode}
+                onToggleTranslateMode={handleToggleTranslateMode}
               />
             </div>
           );

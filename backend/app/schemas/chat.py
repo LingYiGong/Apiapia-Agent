@@ -50,6 +50,7 @@ class ChatRequest(BaseModel):
     web_search_mode: Optional[str] = Field(default=None, max_length=10)  # "auto", "on", "off"
     image_gen_mode: Optional[bool] = Field(default=False)  # Explicitly trigger image generation
     video_gen_mode: Optional[bool] = Field(default=False)  # Explicitly trigger video generation
+    single_turn_mode: Optional[bool] = Field(default=False)  # If true, skips multi-turn history context for pure single-turn tasks like translation
     attachments: Optional[List[AttachmentPayload]] = Field(
         default=None, max_length=MAX_ATTACHMENTS
     )

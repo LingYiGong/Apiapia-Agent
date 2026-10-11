@@ -177,6 +177,7 @@ export async function streamChatResponse(
     web_search_mode?: "auto" | "on" | "off";
     image_gen_mode?: boolean;
     video_gen_mode?: boolean;
+    single_turn_mode?: boolean;
     attachments?: AttachmentItem[];
   },
   callbacks: {

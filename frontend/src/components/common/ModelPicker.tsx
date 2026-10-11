@@ -64,6 +64,8 @@ export interface ModelPickerProps {
   width?: "narrow" | "wide";
   /** 是否展示 免费 / 精选 / 全部 分组筛选（仅语言模型有此筛选） */
   filterGroups?: ModelFilterGroup[];
+  /** 初始默认选中的分组 key */
+  defaultFilterKey?: string;
   /** 体验模式徽章；不传则不显示 */
   isTrialMode?: boolean;
   /** 完全为空时的自定义提示，覆盖默认文案 */
@@ -99,6 +101,7 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
   triggerIcon: TriggerIcon,
   width = "narrow",
   filterGroups,
+  defaultFilterKey,
   isTrialMode = false,
   emptyState,
 }) => {
@@ -118,18 +121,24 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
     [filterGroups]
   );
 
-  // 默认分组：语言模型优先落在「免费」（若有），否则「精选」，否则「全部」。
+  // 默认分组：若传入 defaultFilterKey 且存在则优先使用；
+  // 否则语言模型优先落在「免费」（若有），否则「精选」，否则「全部」。
   // 抽屉式分组只在首次拿到数据时自动选一次，之后尊重用户手动切换。
   const autoPickedRef = useRef(false);
   useEffect(() => {
     if (autoPickedRef.current || availableGroups.length === 0) return;
+    if (defaultFilterKey && availableGroups.some((g) => g.key === defaultFilterKey)) {
+      setFilterKey(defaultFilterKey);
+      autoPickedRef.current = true;
+      return;
+    }
     const preferred =
       availableGroups.find((g) => g.tone === "free") ??
       availableGroups.find((g) => g.tone === "featured") ??
       availableGroups.find((g) => g.tone === "all");
     if (preferred) setFilterKey(preferred.key);
     autoPickedRef.current = true;
-  }, [availableGroups]);
+  }, [availableGroups, defaultFilterKey]);
 
   const selectedOption = options.find((o) => o.id === value);
 

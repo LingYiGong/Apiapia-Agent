@@ -47,7 +47,7 @@ function getPersonaIcon(iconName: ChatPersona["iconName"]) {
 export function PersonaPickerButton({
   activePersonaId,
   onSelectPersona,
-  vocabTargetLang = "auto",
+  vocabTargetLang = "ja",
   onSelectVocabLang,
   disabled = false,
 }: {
@@ -62,10 +62,10 @@ export function PersonaPickerButton({
   const isCustomPersona = activePersona.id !== "default";
   const ActiveIcon = isCustomPersona ? getPersonaIcon(activePersona.iconName) : Bot;
 
-  const currentLangObj = VOCAB_TARGET_LANGUAGES.find((l) => l.id === vocabTargetLang);
+  const currentLangObj = VOCAB_TARGET_LANGUAGES.find((l) => l.id === vocabTargetLang) || VOCAB_TARGET_LANGUAGES[0];
   const displayShortLabel =
-    activePersona.id === "vocab_tutor" && currentLangObj && currentLangObj.id !== "auto"
-      ? `词汇·${currentLangObj.name}`
+    activePersona.id === "vocab_tutor" && currentLangObj
+      ? `翻译·${currentLangObj.name}`
       : activePersona.shortLabel;
 
   return (
@@ -176,7 +176,7 @@ export function PersonaPickerButton({
                     {p.desc}
                   </p>
 
-                  {/* 词汇导师被选中时的快速语种微调 */}
+                  {/* 智能翻译被选中时的快速语种微调 */}
                   {p.id === "vocab_tutor" && isSelected && onSelectVocabLang && (
                     <div
                       className="mt-2 pt-2 border-t border-border/40 flex flex-wrap gap-1"
@@ -185,7 +185,7 @@ export function PersonaPickerButton({
                       <div className="w-full text-[10px] text-muted-foreground font-medium mb-0.5 flex items-center justify-between">
                         <span>双向互译语种</span>
                         <span className="text-primary font-semibold">
-                          {currentLangObj?.name || "自动识别"}
+                          {currentLangObj?.name || "英语"}
                         </span>
                       </div>
                       {VOCAB_TARGET_LANGUAGES.map((l) => (

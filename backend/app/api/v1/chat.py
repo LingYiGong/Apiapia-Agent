@@ -389,15 +389,19 @@ async def chat_stream(
                         memory_context_str = ""
 
     # 5. Fetch recent conversation messages using Token-Budget Sliding Window
-    # Read up to 50 raw messages, then dynamically truncate to a token budget (e.g. 8192 tokens)
-    msg_stmt = (
-        select(Message)
-        .where(Message.conversation_id == conv_id)
-        .order_by(Message.created_at.desc())
-        .limit(50)
-    )
-    raw_recent_msgs = (await db.execute(msg_stmt)).scalars().all()
-    recent_msgs = truncate_conversation_history_by_budget(raw_recent_msgs, max_tokens=8192)
+    # When single_turn_mode is True (e.g., translation / vocab tutor), skip history context entirely
+    if getattr(chat_req, "single_turn_mode", False):
+        recent_msgs = []
+    else:
+        # Read up to 50 raw messages, then dynamically truncate to a token budget (e.g. 8192 tokens)
+        msg_stmt = (
+            select(Message)
+            .where(Message.conversation_id == conv_id)
+            .order_by(Message.created_at.desc())
+            .limit(50)
+        )
+        raw_recent_msgs = (await db.execute(msg_stmt)).scalars().all()
+        recent_msgs = truncate_conversation_history_by_budget(raw_recent_msgs, max_tokens=8192)
 
     # 5.1 本地确定性事实核验（数字比大小、字符清点、算术与日期天数差）
     deterministic_context_str = evaluate_deterministic_context(full_user_text)

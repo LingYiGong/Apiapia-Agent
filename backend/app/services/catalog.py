@@ -60,7 +60,8 @@ def is_free_model(m: dict) -> bool:
     """
     if m.get("is_free") is True:
         return True
-    if (m.get("id") or "").lower() in ALWAYS_FREE_MODEL_IDS:
+    mid = (m.get("id") or "").lower()
+    if mid in ALWAYS_FREE_MODEL_IDS or mid.endswith(":free"):
         return True
     return m.get("provider") == "ollama"
 
@@ -94,7 +95,7 @@ def check_user_can_use_model(user: User, model_id: str) -> bool:
     mid = (model_id or "").strip()
     if not mid:
         return False
-    if mid.lower() in ALWAYS_FREE_MODEL_IDS:
+    if mid.lower() in ALWAYS_FREE_MODEL_IDS or mid.lower().endswith(":free"):
         return True
 
     matched = next((m for m in load_stored_models() if m.get("id") == mid), None)

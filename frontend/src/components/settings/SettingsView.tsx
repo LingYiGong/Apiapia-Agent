@@ -10,6 +10,7 @@ import { isFreeModel, isMultimodalModel, toChatModelOptions } from "@/lib/models
 import { CURRENT_VERSION, triggerManualUpdateCheck } from "@/lib/version";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { ThemeSegments } from "@/components/common/ThemeSegments";
@@ -40,7 +41,7 @@ import { Panel, SectionLabel } from "@/components/common/Panel";
 import { notifyModelSyncResult } from "@/lib/feedback";
 import { FullPageSkeleton, SettingsFormSkeleton } from "@/components/common/PageSkeleton";
 import type { MobileTab } from "@/config/navigation";
-import { RefreshCw, Zap, Brain, Palette, Video, AudioLines } from "lucide-react";
+import { RefreshCw, Zap, Brain, Palette, Video, AudioLines, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 interface InitialSettings {
@@ -741,6 +742,46 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
           {/* ── GROUP 3: 采样温度 ── */}
           <TemperatureControl value={temperature} onChange={setTemperature} />
+
+          {/* ── GROUP 4: 默认提示词 ── */}
+          <div>
+            <SectionLabel>系统提示词 (System Prompt)</SectionLabel>
+            <Panel className="p-3 sm:p-4 space-y-2">
+              <div className="flex items-center justify-between gap-2 px-0.5">
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-primary/25 bg-primary/10 text-primary">
+                    <Sparkles className="h-3.5 w-3.5" />
+                  </span>
+                  <Label htmlFor="system-prompt-textarea" className="text-xs font-semibold text-foreground cursor-pointer">
+                    默认人设与全局指导原则
+                  </Label>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    setSystemPrompt("你是一个智能、真诚、有洞察力的个人智能助理。请根据用户提供的历史背景和长期记忆为用户提供高质量服务。")
+                  }
+                  className="h-6 px-2 text-2xs text-muted-foreground hover:text-foreground"
+                >
+                  恢复通用默认
+                </Button>
+              </div>
+
+              <Textarea
+                id="system-prompt-textarea"
+                value={systemPrompt}
+                onChange={(e) => setSystemPrompt(e.target.value)}
+                rows={4}
+                placeholder="例如：你是一个智能、真诚、有洞察力的个人智能助理。请根据用户提供的历史背景和长期记忆为用户提供高质量服务。"
+                className="resize-y rounded-xl border-border/60 bg-background text-xs leading-relaxed font-sans"
+              />
+              <p className="px-0.5 text-2xs leading-relaxed text-muted-foreground">
+                该提示词将作为与大模型交流的基础人设指令。若留空，系统将使用通用标准人设。
+              </p>
+            </Panel>
+          </div>
 
           {/* ── GROUP 5: 长期记忆 ── */}
           <div>

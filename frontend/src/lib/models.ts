@@ -197,8 +197,19 @@ export type UnrankedModelOption = Omit<ModelOption, "rank">;
  * isFeaturedModel 与 isFreeModel 两套多分支启发式，1000 条目录时
  * 单次渲染会产生数万次重复判定。
  */
-export function getModelPriorityScore(m: UnrankedModelOption): number {
+export function getModelPriorityScore(m: UnrankedModelOption, isVocabMode = false): number {
   const id = m.id.toLowerCase();
+
+  // 词汇/翻译模式优先排序：
+  // 1. 第一个精准置顶：google/gemini-2.5-flash-lite
+  // 2. 第二个精准紧随：openai/gpt-4o-mini
+  if (isVocabMode) {
+    if (id === "google/gemini-2.5-flash-lite" || id.includes("gemini-2.5-flash-lite")) return -30;
+    if (id === "openai/gpt-4o-mini" || id.includes("gpt-4o-mini")) return -20;
+    if (id.includes("gemini") && (id.includes("flash") || id.includes("lite"))) return -15;
+    if (id.includes("gemini") || id.startsWith("google/")) return -12;
+    if (id.includes("gpt-4o") || id.startsWith("openai/")) return -5;
+  }
 
   // 1. openrouter/free (新用户首选与免费体验)
   if (id === "openrouter/free" || id.includes("openrouter/free")) return 0;
@@ -249,7 +260,7 @@ export function getModelPriorityScore(m: UnrankedModelOption): number {
 }
 
 /** 语言模型目录适配：启发式判定免费 / 多模态 / 精选，优先级 + 名称排序。 */
-export function toChatModelOptions(models: ModelCatalogItem[]): ModelOption[] {
+export function toChatModelOptions(models: ModelCatalogItem[], isVocabMode = false): ModelOption[] {
   const decorated = models.map((m) => ({
     id: m.id,
     name: m.name,
@@ -261,7 +272,7 @@ export function toChatModelOptions(models: ModelCatalogItem[]): ModelOption[] {
   }));
 
   return decorated
-    .map((o) => ({ o, score: getModelPriorityScore(o) }))
+    .map((o) => ({ o, score: getModelPriorityScore(o, isVocabMode) }))
     .sort((a, b) => {
       if (a.score !== b.score) return a.score - b.score;
       return a.o.name.localeCompare(b.o.name);

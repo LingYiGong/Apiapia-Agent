@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v2.21.0-indigo?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/version-v2.22.0-indigo?style=flat-square" alt="Version">
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
   <img src="https://img.shields.io/badge/Mem0%20OSS-2.2.1-orange?style=flat-square" alt="Mem0">
@@ -19,6 +19,28 @@
   <img src="https://img.shields.io/badge/iOS%20PWA-Ready-007AFF?style=flat-square&logo=apple" alt="iOS PWA">
   <img src="https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker" alt="Docker">
 </p>
+
+---
+
+## v2.22.0 发布说明
+
+本版本是一次**功能架构精简与智能翻译教学**重磅更新。将交互界面进一步收敛，将智能翻译等拓展能力统一收纳至「+」号创作菜单，全面升级了语法变形拆解与日语振假名注音，并在设置中支持自定义全局通用系统提示词。
+
+### 1. 创作能力统一收纳至「+」加号菜单
+- **输入区域极简纯粹**：移除了输入栏外层独立的模式切换气泡，将「智能翻译」与「生成图片」、「生成视频」、「音频转文字」等创作拓展能力统一整合收纳至输入框左侧的 `+`（加号）菜单中。
+- **状态感知圆钮**：当激活智能翻译时，加号按钮自适应切换为多语言图标高亮状态，并支持一键随时退出或恢复默认。
+
+### 2. 智能翻译与语法教学全面升级
+- **日语假名振假名标注**：中日翻译模式下，所有汉字后方严格紧随平假名振假名（例如：`私(わたし)は日本語(にほんご)を勉強(べんきょう)しています`），彻底解决汉字发音难辨的问题。
+- **深度语法剖析与动词变型**：提取关键动词的原型、变型规律（如连用形/过去式/进行时等）及句式时态，详细拆解核心语法与固定搭配，并提供举一反三分析。
+- **结构化类似常用例句**：自动生成 2~3 组结构类似的同类型地道例句，附带语境说明与搭配解析。
+
+### 3. 单轮翻译无上下文机制与极速模型切换
+- **零干扰单轮互译**：翻译时自动开启单轮隔离模式，不带入漫长的历史多轮会话背景，并强制关闭长期记忆提取与网络检索，实现最纯净的毫秒级即时翻译。
+- **推荐模型自动切换**：开启智能翻译时，自动优先推荐并置顶极速模型（`google/gemini-2.5-flash-lite` 与 `openai/gpt-4o-mini`）；退出翻译或新建会话时，自动还原回用户在设置中设定的首选模型。
+
+### 4. 系统级通用提示词 (System Prompt) 自定义
+- **设置中心新增全局人设配置**：在「设置」中新增「系统提示词」模块，用户可根据需要随时自定义或编辑全局基础指令，并支持一键恢复通用标准助理提示词。
 
 ---
 

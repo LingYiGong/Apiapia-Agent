@@ -205,6 +205,8 @@ interface ChatAreaProps {
   onChangeCreationMode?: (mode: "chat" | "image" | "video") => void;
   isTranslateMode?: boolean;
   onToggleTranslateMode?: (enabled: boolean) => void;
+  vocabTargetLang?: string;
+  onSelectVocabLang?: (lang: string) => void;
 }
 
 export const ChatArea: React.FC<ChatAreaProps> = ({
@@ -231,6 +233,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   onChangeCreationMode,
   isTranslateMode: propIsTranslateMode,
   onToggleTranslateMode,
+  vocabTargetLang: propVocabTargetLang,
+  onSelectVocabLang,
 }) => {
   const isTouchPrimary = useIsTouchPrimary();
   const isTrialMode = useIsTrialMode();
@@ -270,21 +274,23 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     }
   }, [onToggleTranslateMode]);
 
-  // 互译目标语种（默认日语 ja）
-  const [vocabTargetLang, setVocabTargetLang] = useState<string>(() => {
+  // 互译目标语种（默认日语 ja，支持外部受控同步与自身回退）
+  const [internalVocabTargetLang, setInternalVocabTargetLang] = useState<string>(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("apiapia_vocab_target_lang");
       if (saved && saved !== "auto") return saved;
     }
     return "ja";
   });
+  const vocabTargetLang = propVocabTargetLang !== undefined ? propVocabTargetLang : internalVocabTargetLang;
 
   const handleSelectVocabLang = useCallback((lang: string) => {
-    setVocabTargetLang(lang);
+    setInternalVocabTargetLang(lang);
+    onSelectVocabLang?.(lang);
     if (typeof window !== "undefined") {
       localStorage.setItem("apiapia_vocab_target_lang", lang);
     }
-  }, []);
+  }, [onSelectVocabLang]);
 
   useEffect(() => {
     if (!composerContainerRef.current) return;

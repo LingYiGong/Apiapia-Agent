@@ -49,6 +49,78 @@ import { isBelowMd } from "@/lib/mediaQuery";
  * 2. **桌面端只渲染对话页**。桌面端有独立的 /memory /usage /settings 路由，
  *    /chat 里的这三份视图永远被 `md:hidden` 盖住，没有理由挂载。
  */
+
+interface ConversationInputState {
+  isTranslateMode: boolean;
+  vocabTargetLang: string;
+  creationMode: "chat" | "image" | "video";
+}
+
+const getConversationInputStateKey = (id: string | null) => {
+  return id ? `apiapia_chat_input_state:${id}` : "apiapia_chat_input_state:new";
+};
+
+const saveConversationInputState = (
+  id: string | null,
+  state: ConversationInputState
+) => {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(getConversationInputStateKey(id), JSON.stringify(state));
+  } catch (_) {}
+};
+
+const loadConversationInputState = (
+  id: string | null
+): ConversationInputState | null => {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(getConversationInputStateKey(id));
+    if (raw) return JSON.parse(raw) as ConversationInputState;
+  } catch (_) {}
+  return null;
+};
+
+const detectInputStateFromMessages = (msgs: Message[]): ConversationInputState => {
+  for (let i = msgs.length - 1; i >= 0; i--) {
+    const msg = msgs[i];
+    if (!msg) continue;
+    const content = msg.content || "";
+    if (
+      content.includes("```word") ||
+      content.includes("```wordcard") ||
+      content.includes("```vocab")
+    ) {
+      const match = content.match(/"language":\s*"([^"]+)"/);
+      const targetLang = match ? match[1].toLowerCase() : "ja";
+      return {
+        isTranslateMode: true,
+        vocabTargetLang: targetLang,
+        creationMode: "chat",
+      };
+    }
+    if (msg.generated_images || (msg.generatedImages && msg.generatedImages.length > 0)) {
+      return {
+        isTranslateMode: false,
+        vocabTargetLang: "ja",
+        creationMode: "image",
+      };
+    }
+    if (msg.generated_videos || (msg.generatedVideos && msg.generatedVideos.length > 0)) {
+      return {
+        isTranslateMode: false,
+        vocabTargetLang: "ja",
+        creationMode: "video",
+      };
+    }
+  }
+  return {
+    isTranslateMode: false,
+    vocabTargetLang: "ja",
+    creationMode: "chat",
+  };
+};
+
 export default function ChatPage({
   initialConversationId,
 }: {
@@ -83,21 +155,26 @@ export default function ChatPage({
   // Mobile SPA Tab State
   const [mobileTab, setMobileTab] = useState<MobileTab>("chat");
 
-  // Translate Mode State
-  const [isTranslateMode, setIsTranslateMode] = useState<boolean>(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("apiapia_translate_mode") === "1";
-    }
-    return false;
-  });
+  // Conversation Input States (会话输入框状态：翻译模式、目标语种、创作模式)
+  const [isTranslateMode, setIsTranslateMode] = useState<boolean>(false);
+  const [vocabTargetLang, setVocabTargetLang] = useState<string>("ja");
+
+  const isTranslateModeRef = useRef(isTranslateMode);
+  isTranslateModeRef.current = isTranslateMode;
+
+  const vocabTargetLangRef = useRef(vocabTargetLang);
+  vocabTargetLangRef.current = vocabTargetLang;
+
+  const creationModeRef = useRef(creationMode);
+  creationModeRef.current = creationMode;
 
   const handleToggleTranslateMode = (enabled: boolean) => {
     setIsTranslateMode(enabled);
-    if (typeof window !== "undefined") {
-      try {
-        localStorage.setItem("apiapia_translate_mode", enabled ? "1" : "0");
-      } catch (_) {}
-    }
+    saveConversationInputState(activeIdRef.current, {
+      isTranslateMode: enabled,
+      vocabTargetLang: vocabTargetLangRef.current,
+      creationMode: creationModeRef.current,
+    });
 
     if (enabled && availableModels.length > 0) {
       // 开启翻译模式时，自动优先切换至极速推荐翻译模型：
@@ -136,6 +213,24 @@ export default function ChatPage({
         toast.info(`已恢复默认模型：${modelObj?.name || targetResetModel}`);
       }
     }
+  };
+
+  const handleSelectVocabLang = (lang: string) => {
+    setVocabTargetLang(lang);
+    saveConversationInputState(activeIdRef.current, {
+      isTranslateMode: isTranslateModeRef.current,
+      vocabTargetLang: lang,
+      creationMode: creationModeRef.current,
+    });
+  };
+
+  const handleSetCreationMode = (mode: "chat" | "image" | "video") => {
+    setCreationMode(mode);
+    saveConversationInputState(activeIdRef.current, {
+      isTranslateMode: isTranslateModeRef.current,
+      vocabTargetLang: vocabTargetLangRef.current,
+      creationMode: mode,
+    });
   };
 
   const webSearch = useWebSearchMode();
@@ -485,6 +580,15 @@ export default function ChatPage({
   }, [user]);
 
   const selectConversation = async (id: string) => {
+    // 离开上一会话前，确保存储上一会话当前的输入状态
+    if (activeIdRef.current !== id) {
+      saveConversationInputState(activeIdRef.current, {
+        isTranslateMode: isTranslateModeRef.current,
+        vocabTargetLang: vocabTargetLangRef.current,
+        creationMode: creationModeRef.current,
+      });
+    }
+
     setActiveId(id);
     activeIdRef.current = id;
     setStreamingContent("");
@@ -493,6 +597,14 @@ export default function ChatPage({
     setMessages([]);
     setLoadingMessages(true);
     setMobileTab("chat");
+
+    // 尝试立刻恢复该会话保存的输入框状态
+    const savedState = loadConversationInputState(id);
+    if (savedState) {
+      setIsTranslateMode(!!savedState.isTranslateMode);
+      setVocabTargetLang(savedState.vocabTargetLang || "ja");
+      setCreationMode(savedState.creationMode || "chat");
+    }
 
     // Restore this conversation's saved model if present
     const targetConv = conversations.find((c) => c.id === id);
@@ -510,6 +622,15 @@ export default function ChatPage({
         if (mems && mems.length > 0) {
           setRetrievedMemories(mems);
         }
+
+        // 若当前会话无本地缓存状态（如首次在当前浏览器打开），根据消息历史智能推断并写入缓存
+        if (!savedState) {
+          const detected = detectInputStateFromMessages(msgs);
+          setIsTranslateMode(detected.isTranslateMode);
+          setVocabTargetLang(detected.vocabTargetLang);
+          setCreationMode(detected.creationMode);
+          saveConversationInputState(id, detected);
+        }
       }
     } catch (err) {
       console.error("Failed to load conversation details:", err);
@@ -521,6 +642,15 @@ export default function ChatPage({
   };
 
   const handleNewChat = () => {
+    // 离开当前会话前，保存当前会话的输入状态
+    if (activeIdRef.current) {
+      saveConversationInputState(activeIdRef.current, {
+        isTranslateMode: isTranslateModeRef.current,
+        vocabTargetLang: vocabTargetLangRef.current,
+        creationMode: creationModeRef.current,
+      });
+    }
+
     setActiveId(null);
     activeIdRef.current = null;
     setMessages([]);
@@ -532,15 +662,20 @@ export default function ChatPage({
     // 点击新建会话时，将输入框状态完全重置为默认状态：
     // 1. 恢复翻译模式为关闭
     setIsTranslateMode(false);
-    try { localStorage.setItem("apiapia_translate_mode", "0"); } catch (_) {}
 
     // 2. 创作模式重置为常规对话
     setCreationMode("chat");
 
-    // 3. 清理新建会话的残留草稿，确保输入框干干净净
-    try { localStorage.removeItem("apiapia_chat_draft:new"); } catch (_) {}
+    // 3. 翻译目标语言重置为默认日语
+    setVocabTargetLang("ja");
 
-    // 4. 重置当前模型为默认模型
+    // 4. 清理新建会话的残留草稿与输入状态缓存，确保输入框干干净净
+    try {
+      localStorage.removeItem("apiapia_chat_draft:new");
+      localStorage.removeItem("apiapia_chat_input_state:new");
+    } catch (_) {}
+
+    // 5. 重置当前模型为默认模型
     const userDef = defaultModelRef.current;
     if (userDef && availableModels.some((m) => m.id === userDef)) {
       setCurrentModel(userDef);
@@ -554,6 +689,10 @@ export default function ChatPage({
     try {
       await apiRequest(`/conversations/${id}`, { method: "DELETE" });
       setConversations((prev) => prev.filter((c) => c.id !== id));
+      try {
+        localStorage.removeItem(`apiapia_chat_input_state:${id}`);
+        localStorage.removeItem(`apiapia_chat_draft:${id}`);
+      } catch (_) {}
       // 删掉的正是当前选中会话时，只清空当前选中状态，
       // 不再自动切到别的会话，也不切换标签页 —— 用户应停留在历史页面。
       if (activeIdRef.current === id) {
@@ -858,6 +997,12 @@ export default function ChatPage({
               if (meta.conversation_id) {
                 setActiveId(meta.conversation_id);
                 activeIdRef.current = meta.conversation_id;
+                // 绑定当前输入框状态到新建的会话 ID
+                saveConversationInputState(meta.conversation_id, {
+                  isTranslateMode: isTranslateModeRef.current,
+                  vocabTargetLang: vocabTargetLangRef.current,
+                  creationMode: creationModeRef.current,
+                });
                 loadConversations();
               }
               if (meta.retrieved_memories && meta.retrieved_memories.length > 0) {
@@ -867,9 +1012,10 @@ export default function ChatPage({
               if (meta.user_message_id) {
                 setMessages((prev) => {
                   for (let i = prev.length - 1; i >= 0; i--) {
-                    if (prev[i].role === "user" && !prev[i].id) {
+                    const item = prev[i];
+                    if (item && item.role === "user" && !item.id) {
                       const next = prev.slice();
-                      next[i] = { ...next[i], id: meta.user_message_id };
+                      next[i] = { ...item, id: meta.user_message_id };
                       return next;
                     }
                   }
@@ -1286,9 +1432,11 @@ export default function ChatPage({
                 onEditMessage={handleEditMessage}
                 conversationId={activeId}
                 creationMode={creationMode}
-                onChangeCreationMode={setCreationMode}
+                onChangeCreationMode={handleSetCreationMode}
                 isTranslateMode={isTranslateMode}
                 onToggleTranslateMode={handleToggleTranslateMode}
+                vocabTargetLang={vocabTargetLang}
+                onSelectVocabLang={handleSelectVocabLang}
               />
             </div>
           );

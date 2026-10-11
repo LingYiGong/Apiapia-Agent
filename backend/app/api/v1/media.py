@@ -1,9 +1,9 @@
-from typing import Optional
+from typing import Optional, List, Dict, Any
 import json
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import FileResponse
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -26,6 +26,87 @@ CONTENT_TYPES = {
 }
 
 
+async def _stream_media_file(
+    db: AsyncSession,
+    current_user: User,
+    media_id: str,
+    media_columns: List[Any],
+    type_name: str,
+    default_mime: str,
+    default_ext: str,
+    download: bool,
+    extra_headers: Optional[Dict[str, str]] = None,
+) -> FileResponse:
+    """Stream a stored media attachment back to its owner after verifying ownership."""
+    conditions = [col.contains(media_id) for col in media_columns]
+    stmt = (
+        select(Message.id, Message.conversation_id, *media_columns)
+        .where(or_(*conditions))
+    )
+    rows = (await db.execute(stmt)).all()
+
+    owner_id: Optional[str] = None
+    rel_path: Optional[str] = None
+    ext: Optional[str] = None
+
+    for row in rows:
+        conversation_id = row[1]
+        blobs = row[2:]
+        for blob in blobs:
+            if not blob:
+                continue
+            try:
+                entries = json.loads(blob) if isinstance(blob, str) else blob
+            except (TypeError, ValueError):
+                continue
+            if not isinstance(entries, list):
+                continue
+            for entry in entries:
+                if not isinstance(entry, dict) or entry.get("id") != media_id:
+                    continue
+                rel_path = entry.get("path")
+                ext = entry.get("ext")
+                owner_id = conversation_id
+                break
+            if rel_path:
+                break
+        if rel_path:
+            break
+
+    if not rel_path or not owner_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"{type_name}不存在或已删除")
+
+    conv_stmt = select(Conversation.user_id).where(Conversation.id == owner_id)
+    conversation_owner = (await db.execute(conv_stmt)).scalar_one_or_none()
+
+    is_owner = conversation_owner == current_user.id
+    if not (is_owner or getattr(current_user, "is_superuser", False)):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"无权访问该{type_name}")
+
+    try:
+        absolute = media_storage.resolve(rel_path)
+    except MediaStorageError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+    if not absolute.is_file():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"{type_name}文件已丢失")
+
+    media_type = CONTENT_TYPES.get((ext or absolute.suffix.lstrip(".")).lower(), default_mime)
+    headers = {
+        "Cache-Control": "private, max-age=31536000, immutable",
+        "Referrer-Policy": "no-referrer",
+        "X-Content-Type-Options": "nosniff",
+    }
+    if extra_headers:
+        headers.update(extra_headers)
+
+    if download:
+        filename = f"apiapia-{media_id}.{(ext or default_ext).lower()}"
+        headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+
+    return FileResponse(absolute, media_type=media_type, headers=headers)
+
+
 @router.get("/images/{image_id}")
 async def get_image(
     image_id: str,
@@ -39,75 +120,16 @@ async def get_image(
     if not media_storage.is_valid_image_id(image_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="图片不存在")
 
-    stmt = (
-        select(
-            Message.id,
-            Message.conversation_id,
-            Message.generated_images,
-            Message.user_attachments,
-        )
-        .where(
-            Message.generated_images.contains(image_id)
-            | Message.user_attachments.contains(image_id),
-        )
+    return await _stream_media_file(
+        db=db,
+        current_user=current_user,
+        media_id=image_id,
+        media_columns=[Message.generated_images, Message.user_attachments],
+        type_name="图片",
+        default_mime="application/octet-stream",
+        default_ext="png",
+        download=bool(download),
     )
-    rows = (await db.execute(stmt)).all()
-
-    owner_id: Optional[str] = None
-    rel_path: Optional[str] = None
-    ext: Optional[str] = None
-
-    for msg_id, conversation_id, generated, uploads in rows:
-        for blob in (generated, uploads):
-            if not blob:
-                continue
-            try:
-                entries = json.loads(blob) if isinstance(blob, str) else blob
-            except (TypeError, ValueError):
-                continue
-            if not isinstance(entries, list):
-                continue
-            for entry in entries:
-                if not isinstance(entry, dict) or entry.get("id") != image_id:
-                    continue
-                rel_path = entry.get("path")
-                ext = entry.get("ext")
-                owner_id = conversation_id
-                break
-            if rel_path:
-                break
-        if rel_path:
-            break
-
-    if not rel_path or not owner_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="图片不存在或已删除")
-
-    conv_stmt = select(Conversation.user_id).where(Conversation.id == owner_id)
-    conversation_owner = (await db.execute(conv_stmt)).scalar_one_or_none()
-
-    is_owner = conversation_owner == current_user.id
-    if not (is_owner or getattr(current_user, "is_superuser", False)):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="无权访问该图片")
-
-    try:
-        absolute = media_storage.resolve(rel_path)
-    except MediaStorageError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-
-    if not absolute.is_file():
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="图片文件已丢失")
-
-    media_type = CONTENT_TYPES.get((ext or absolute.suffix.lstrip(".")).lower(), "application/octet-stream")
-    headers = {
-        "Cache-Control": "private, max-age=31536000, immutable",
-        "Referrer-Policy": "no-referrer",
-        "X-Content-Type-Options": "nosniff",
-    }
-    if download:
-        filename = f"apiapia-{image_id}.{(ext or 'png').lower()}"
-        headers["Content-Disposition"] = f'attachment; filename="{filename}"'
-
-    return FileResponse(absolute, media_type=media_type, headers=headers)
 
 
 @router.get("/videos/{video_id}")
@@ -123,68 +145,14 @@ async def get_video(
     if not media_storage.is_valid_video_id(video_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="视频不存在")
 
-    stmt = (
-        select(
-            Message.id,
-            Message.conversation_id,
-            Message.generated_videos,
-        )
-        .where(
-            Message.generated_videos.contains(video_id)
-        )
+    return await _stream_media_file(
+        db=db,
+        current_user=current_user,
+        media_id=video_id,
+        media_columns=[Message.generated_videos],
+        type_name="视频",
+        default_mime="video/mp4",
+        default_ext="mp4",
+        download=bool(download),
+        extra_headers={"Accept-Ranges": "bytes"},
     )
-    rows = (await db.execute(stmt)).all()
-
-    owner_id: Optional[str] = None
-    rel_path: Optional[str] = None
-    ext: Optional[str] = None
-
-    for msg_id, conversation_id, generated in rows:
-        if not generated:
-            continue
-        try:
-            entries = json.loads(generated) if isinstance(generated, str) else generated
-        except (TypeError, ValueError):
-            continue
-        if not isinstance(entries, list):
-            continue
-        for entry in entries:
-            if not isinstance(entry, dict) or entry.get("id") != video_id:
-                continue
-            rel_path = entry.get("path")
-            ext = entry.get("ext")
-            owner_id = conversation_id
-            break
-        if rel_path:
-            break
-
-    if not rel_path or not owner_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="视频不存在或已删除")
-
-    conv_stmt = select(Conversation.user_id).where(Conversation.id == owner_id)
-    conversation_owner = (await db.execute(conv_stmt)).scalar_one_or_none()
-
-    is_owner = conversation_owner == current_user.id
-    if not (is_owner or getattr(current_user, "is_superuser", False)):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="无权访问该视频")
-
-    try:
-        absolute = media_storage.resolve(rel_path)
-    except MediaStorageError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-
-    if not absolute.is_file():
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="视频文件已丢失")
-
-    media_type = CONTENT_TYPES.get((ext or absolute.suffix.lstrip(".")).lower(), "video/mp4")
-    headers = {
-        "Cache-Control": "private, max-age=31536000, immutable",
-        "Referrer-Policy": "no-referrer",
-        "X-Content-Type-Options": "nosniff",
-        "Accept-Ranges": "bytes",
-    }
-    if download:
-        filename = f"apiapia-{video_id}.{(ext or 'mp4').lower()}"
-        headers["Content-Disposition"] = f'attachment; filename="{filename}"'
-
-    return FileResponse(absolute, media_type=media_type, headers=headers)

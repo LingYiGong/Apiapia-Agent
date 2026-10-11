@@ -84,6 +84,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   active = true,
 }) => {
   const { user, loading } = useAuth();
+  const isAdmin = Boolean(user?.is_superuser);
 
   // User Settings State
   const [defaultModel, setDefaultModel] = useState("openrouter/free");
@@ -545,11 +546,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <span className="text-xs font-semibold text-foreground">
                   语言模型
                 </span>
-                <SyncModelsButton
-                  onSync={handleSyncModels}
-                  syncing={syncingModels}
-                  scope="语言模型"
-                />
+                {isAdmin && (
+                  <SyncModelsButton
+                    onSync={handleSyncModels}
+                    syncing={syncingModels}
+                    scope="语言模型"
+                  />
+                )}
               </div>
 
               <div className="mt-2">
@@ -583,11 +586,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   <span className="text-xs font-semibold text-foreground">
                     绘图模型
                   </span>
-                  <SyncModelsButton
-                    onSync={handleSyncImageModels}
-                    syncing={syncingImageModels}
-                    scope="绘图模型"
-                  />
+                  {isAdmin && (
+                    <SyncModelsButton
+                      onSync={handleSyncImageModels}
+                      syncing={syncingImageModels}
+                      scope="绘图模型"
+                    />
+                  )}
                 </div>
 
                 <div className="mt-2">
@@ -621,11 +626,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   <span className="text-xs font-semibold text-foreground">
                     视频模型
                   </span>
-                  <SyncModelsButton
-                    onSync={handleSyncVideoModels}
-                    syncing={syncingVideoModels}
-                    scope="视频模型"
-                  />
+                  {isAdmin && (
+                    <SyncModelsButton
+                      onSync={handleSyncVideoModels}
+                      syncing={syncingVideoModels}
+                      scope="视频模型"
+                    />
+                  )}
                 </div>
 
                 <div className="mt-2">
@@ -662,11 +669,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   <span className="text-xs font-semibold text-foreground">
                     语音模型
                   </span>
-                  <SyncModelsButton
-                    onSync={handleSyncAudioModels}
-                    syncing={syncingAudioModels}
-                    scope="语音模型"
-                  />
+                  {isAdmin && (
+                    <SyncModelsButton
+                      onSync={handleSyncAudioModels}
+                      syncing={syncingAudioModels}
+                      scope="语音模型"
+                    />
+                  )}
                 </div>
 
                 <div className="mt-2 grid grid-cols-1 gap-2.5 sm:grid-cols-2">

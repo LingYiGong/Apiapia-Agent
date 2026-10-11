@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v2.22.0-indigo?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/version-v2.23.0-indigo?style=flat-square" alt="Version">
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
   <img src="https://img.shields.io/badge/Mem0%20OSS-2.2.1-orange?style=flat-square" alt="Mem0">
@@ -19,6 +19,31 @@
   <img src="https://img.shields.io/badge/iOS%20PWA-Ready-007AFF?style=flat-square&logo=apple" alt="iOS PWA">
   <img src="https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker" alt="Docker">
 </p>
+
+---
+
+## v2.23.0 发布说明
+
+本版本是一次**输入框状态记忆联动、工程化编译严谨性与后端架构重构解耦**重要版本更新。实现了聊天输入框与历史会话状态的精准还原回溯，彻底消除了生产环境 Docker build 阶段的严格模式类型隐患，重构去重了后端模型目录服务并收敛了模型同步权限。
+
+### 1. 聊天输入框状态记忆与历史会话智能回溯
+- **会话状态深度联动**：用户在某条会话中激活的智能翻译模式、所选目标语种等专属创作状态，在切换会话时会被精准识别与回溯，无需反复手动重新开启。
+- **新建对话一键还原**：点击「新建对话」时智能恢复默认助手输入状态，多任务交替对话流畅自然。
+
+### 2. 生产环境 Docker 容器构建严谨性保障
+- **严格索引访问守卫**：针对生产环境 Docker build 阶段在 TypeScript `noUncheckedIndexedAccess: true` 严格模式下暴露的对象解构访问隐患进行严谨守卫，确保自动化 CI/CD 与容器镜像极速稳定构建。
+
+### 3. 后端模型服务重构与启动任务彻底解耦
+- **统一模型目录读写**：重构并抽取 `catalog.py` 通用 JSON 目录持久化与缓存辅助函数，语言、绘图、视频、语音四大模型目录实现标准一致的文件 I/O 管理，消除样板冗余代码。
+- **启动任务彻底解耦**：将聊天模型全网同步逻辑下沉至服务层，解除 `main.py` 系统 Lifespan 启动生命周期对 API 路由 Handler 的反向依赖与脆弱参数绑定。
+- **核心逻辑模块合并**：合并 Media 模块中的图片与视频流式响应逻辑，抽象通用模型验证函数，精简项目维护成本。
+
+### 4. 模型同步接口权限收敛与界面适配
+- **管理员权限限制**：所有全网模型实时同步接口（`POST /models/sync*`）均提升为仅管理员可调用（`get_current_admin`），杜绝普通用户高频刷取远程厂商接口。
+- **前端设置页同步按钮适配**：仅管理员账号可查看并点击各模型列表的「同步列表」按钮，普通用户端界面保持极简与纯粹。
+
+### 5. 项目冗余代码清理
+- 彻底清理移除了前端未引用的废弃人设模板与无用配置，提升整个代码库的整洁度与健壮性。
 
 ---
 

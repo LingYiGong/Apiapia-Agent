@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import List, Optional, Any
 from app.core.database import get_db
 from app.core.config import settings as app_settings
 from app.core.net import UnsafeURLError, ensure_public_url
@@ -77,50 +77,42 @@ async def _validate_base_url(base_url: Optional[str], provider: str) -> Optional
         ) from e
 
 
+async def _validate_visual_model(
+    current_user: User, model_id: Optional[str], service: Any, label: str
+) -> None:
+    """Reject visual models (image/video) that are unavailable or outside account entitlement."""
+    model_id = (model_id or "").strip()
+    if not model_id:
+        return
+
+    catalog = await service.list_available_models()
+    entry = next((m for m in catalog if m["id"] == model_id), None)
+    if entry is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"所选{label}模型当前不可用（对应服务未配置或模型已下架）：{model_id}"
+        )
+    if not has_full_model_access(current_user) and not entry.get("is_free"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"当前账号处于体验模式，仅可使用免费{label}模型；「{entry.get('name') or model_id}」为计费模型。"
+        )
+
+
 async def _validate_image_model(current_user: User, model_id: Optional[str]) -> None:
     """
     Reject image models that are unavailable or outside the account entitlement.
     Mirrors the entitlement rule used for chat models. An empty value clears the
     selection and is always allowed.
     """
-    model_id = (model_id or "").strip()
-    if not model_id:
-        return
-
-    catalog = await image_gen_service.list_available_models()
-    entry = next((m for m in catalog if m["id"] == model_id), None)
-    if entry is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"所选绘图模型当前不可用（对应服务未配置或模型已下架）：{model_id}"
-        )
-    if not has_full_model_access(current_user) and not entry.get("is_free"):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"当前账号处于体验模式，仅可使用免费绘图模型；「{entry.get('name') or model_id}」为计费模型。"
-        )
+    await _validate_visual_model(current_user, model_id, image_gen_service, "绘图")
 
 
 async def _validate_video_model(current_user: User, model_id: Optional[str]) -> None:
     """
     Reject video models that are unavailable or outside the account entitlement.
     """
-    model_id = (model_id or "").strip()
-    if not model_id:
-        return
-
-    catalog = await video_gen_service.list_available_models()
-    entry = next((m for m in catalog if m["id"] == model_id), None)
-    if entry is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"所选视频模型当前不可用（对应服务未配置或模型已下架）：{model_id}"
-        )
-    if not has_full_model_access(current_user) and not entry.get("is_free"):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"当前账号处于体验模式，仅可使用免费视频模型；「{entry.get('name') or model_id}」为计费模型。"
-        )
+    await _validate_visual_model(current_user, model_id, video_gen_service, "视频")
 
 
 async def _validate_audio_model(

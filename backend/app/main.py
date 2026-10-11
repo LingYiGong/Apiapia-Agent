@@ -107,17 +107,19 @@ async def lifespan(app: FastAPI):
 
     async def _startup_sync_models():
         try:
-            from app.api.v1.models import (
-                sync_models_from_providers,
-                sync_image_models_from_providers,
-                sync_video_models_from_providers,
-                sync_audio_models_from_providers,
-            )
+            from app.services.catalog import sync_chat_models
+            from app.services.image_gen import image_gen_service
+            from app.services.video_gen import video_gen_service
+            from app.services.speech.service import speech_service
+
             logger.info("Auto-syncing chat models, image models, video models, and audio models from configured providers on startup...")
-            await sync_models_from_providers()
-            await sync_image_models_from_providers()
-            await sync_video_models_from_providers()
-            await sync_audio_models_from_providers()
+            await sync_chat_models()
+            if image_gen_service.active_providers():
+                await image_gen_service.sync_models()
+            if video_gen_service.active_providers():
+                await video_gen_service.sync_models()
+            if speech_service.active_providers():
+                await speech_service.sync_models()
         except Exception as e:
             logger.warning("Startup model sync skipped or failed: %s", e)
 

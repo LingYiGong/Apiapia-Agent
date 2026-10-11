@@ -1,9 +1,9 @@
-import json
 import logging
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 import httpx
 from app.core.config import settings
+from app.services.catalog import read_json_catalog, write_json_catalog
 
 logger = logging.getLogger("video_gen_service")
 
@@ -64,25 +64,11 @@ class VideoGenerationService:
         """
         Read the persisted video catalog from synced_video_models.json.
         """
-        if not SYNCED_VIDEO_MODELS_FILE.exists():
-            return []
-        try:
-            with open(SYNCED_VIDEO_MODELS_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                if isinstance(data, list):
-                    return data
-        except Exception as e:
-            logger.error(f"Error reading synced_video_models.json: {e}")
-        return []
+        return read_json_catalog(SYNCED_VIDEO_MODELS_FILE)
 
     def save_stored_models(self, models: List[Dict[str, Any]]) -> None:
         """Write the video catalog to JSON."""
-        try:
-            SYNCED_VIDEO_MODELS_FILE.parent.mkdir(parents=True, exist_ok=True)
-            with open(SYNCED_VIDEO_MODELS_FILE, "w", encoding="utf-8") as f:
-                json.dump(models, f, ensure_ascii=False, indent=2)
-        except Exception as e:
-            logger.error(f"Error writing synced_video_models.json: {e}")
+        write_json_catalog(SYNCED_VIDEO_MODELS_FILE, models)
 
     async def fetch_models_from_providers(self) -> List[Dict[str, Any]]:
         """

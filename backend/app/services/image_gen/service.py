@@ -10,13 +10,13 @@ only by an explicit sync request, mirroring how the chat model catalog is
 handled in app/api/v1/models.py. No models are hardcoded and no request path
 performs a live catalog lookup.
 """
-import json
 import logging
 from pathlib import Path
 import httpx
 from typing import Dict, Any, List, Optional
 from openai import AsyncOpenAI
 from app.core.config import settings
+from app.services.catalog import read_json_catalog, write_json_catalog
 
 logger = logging.getLogger("image_gen_service")
 
@@ -78,25 +78,11 @@ class ImageGenerationService:
         Mirrors load_stored_models() for chat models: nothing is hardcoded, and an
         absent or corrupt file simply yields an empty catalog.
         """
-        if not SYNCED_IMAGE_MODELS_FILE.exists():
-            return []
-        try:
-            with open(SYNCED_IMAGE_MODELS_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                if isinstance(data, list):
-                    return data
-        except Exception as e:
-            logger.error(f"Error reading synced_image_models.json: {e}")
-        return []
+        return read_json_catalog(SYNCED_IMAGE_MODELS_FILE)
 
     def save_stored_models(self, models: List[Dict[str, Any]]) -> None:
         """Write the image catalog to JSON."""
-        try:
-            SYNCED_IMAGE_MODELS_FILE.parent.mkdir(parents=True, exist_ok=True)
-            with open(SYNCED_IMAGE_MODELS_FILE, "w", encoding="utf-8") as f:
-                json.dump(models, f, ensure_ascii=False, indent=2)
-        except Exception as e:
-            logger.error(f"Error writing synced_image_models.json: {e}")
+        write_json_catalog(SYNCED_IMAGE_MODELS_FILE, models)
 
     async def fetch_models_from_providers(self) -> List[Dict[str, Any]]:
         """

@@ -184,17 +184,6 @@ export interface ModelCatalogItem {
   is_multimodal?: boolean;
 }
 
-export interface ModelConfig {
-  id: string;
-  user_id: string;
-  provider: string;
-  model: string;
-  has_api_key: boolean;
-  base_url?: string;
-  enabled: boolean;
-  created_at: string;
-}
-
 export interface ModelUsageItem {
   model: string;
   calls: number;

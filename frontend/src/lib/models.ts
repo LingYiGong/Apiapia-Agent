@@ -280,14 +280,22 @@ export function toChatModelOptions(models: ModelCatalogItem[], isVocabMode = fal
     .map((entry, rank) => ({ ...entry.o, rank }));
 }
 
+/** 泛型多模态（绘图 / 视频 / 语音）目录项共同形态 */
+export interface MediaCatalogItem {
+  id: string;
+  name: string;
+  provider: string;
+  description?: string;
+  is_free: boolean;
+}
+
 /**
- * 绘图模型目录适配。
+ * 多模态（绘图 / 视频 / 语音）模型目录通用适配。
  *
- * 这里刻意**不**套用语言模型的启发式：`is_free` 在绘图目录里是必填布尔值，
- * 属于后端权威判定，启发式反而可能把 `provider: "ollama"` 之类的绘图项
- * 误标成免费。排序同样交给本适配器（免费优先，其次按 id）。
+ * 与语言模型的启发式不同，多媒体模型一律采信后端权威下发的 is_free 必填布尔值，
+ * 排序规则统一为：免费模型优先，同组按 id 字母序升序排序。
  */
-export function toImageModelOptions(models: ImageModelItem[]): ModelOption[] {
+export function toMediaModelOptions<T extends MediaCatalogItem>(models: readonly T[]): ModelOption[] {
   return models
     .map((m) => ({
       id: m.id,
@@ -305,51 +313,12 @@ export function toImageModelOptions(models: ImageModelItem[]): ModelOption[] {
     .map((o, rank) => ({ ...o, rank }));
 }
 
-/**
- * 视频模型目录适配。
- * 同样采信后端下发的 is_free 标记，免费优先，其余按 id 字母序。
- */
-export function toVideoModelOptions(models: VideoModelItem[]): ModelOption[] {
-  return models
-    .map((m) => ({
-      id: m.id,
-      name: m.name,
-      provider: m.provider,
-      description: m.description,
-      isFree: m.is_free,
-      isMultimodal: false,
-      isFeatured: false,
-    }))
-    .sort((a, b) => {
-      if (a.isFree !== b.isFree) return a.isFree ? -1 : 1;
-      return a.id.localeCompare(b.id);
-    })
-    .map((o, rank) => ({ ...o, rank }));
-}
+/** 绘图模型目录适配 */
+export const toImageModelOptions = (models: ImageModelItem[]) => toMediaModelOptions(models);
 
-/**
- * 语音模型目录适配。
- *
- * 与绘图 / 视频一致：采信后端下发的 is_free，不用语言模型那套启发式。
- * 尤其不能用 —— 启发式里的 `name.includes("free")` 会把
- * `openai/gpt-4o-freeform` 这类模型误判成免费。
- *
- * 调用方（AudioModelSelect）会先按 capability 过滤，这里不关心方向。
- */
-export function toAudioModelOptions(models: AudioModelItem[]): ModelOption[] {
-  return models
-    .map((m) => ({
-      id: m.id,
-      name: m.name,
-      provider: m.provider,
-      description: m.description,
-      isFree: m.is_free,
-      isMultimodal: false,
-      isFeatured: false,
-    }))
-    .sort((a, b) => {
-      if (a.isFree !== b.isFree) return a.isFree ? -1 : 1;
-      return a.id.localeCompare(b.id);
-    })
-    .map((o, rank) => ({ ...o, rank }));
-}
+/** 视频模型目录适配 */
+export const toVideoModelOptions = (models: VideoModelItem[]) => toMediaModelOptions(models);
+
+/** 语音模型目录适配 */
+export const toAudioModelOptions = (models: AudioModelItem[]) => toMediaModelOptions(models);
+

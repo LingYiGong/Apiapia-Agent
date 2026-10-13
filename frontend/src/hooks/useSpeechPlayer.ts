@@ -3,6 +3,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "@/lib/api";
 import { speakText, splitForSpeech, textForSpeech } from "@/lib/speech";
+import { getTranslator, resolveStoredLocale } from "@/i18n/runtime";
+import type { MessageKey, TranslateValues } from "@/i18n";
+
+/**
+ * 按**调用时**解析翻译器。
+ *
+ * 这几条消息都在事件回调里产生，不在渲染期，所以不需要订阅语言变化；
+ * 而在 hook 体顶部抓一份 t 反而会让 useCallback 闭包捕获到旧语言。
+ */
+function tr(key: MessageKey, values?: TranslateValues): string {
+  return getTranslator(resolveStoredLocale())(key, values);
+}
 
 export type SpeechPlayerState = "idle" | "loading" | "playing" | "error";
 
@@ -129,7 +141,7 @@ export function useSpeechPlayer(): SpeechPlayer {
         };
         const onFailed = () => {
           cleanup();
-          reject(new Error("音频播放失败"));
+          reject(new Error(tr("chat.message.audioPlaybackFailed")));
         };
         el.addEventListener("ended", onEnded);
         el.addEventListener("error", onFailed);
@@ -162,7 +174,7 @@ export function useSpeechPlayer(): SpeechPlayer {
     async (rawText: string): Promise<boolean> => {
       const speakable = textForSpeech(rawText);
       if (!speakable) {
-        setError("没有可朗读的内容");
+        setError(tr("chat.message.speakingUnavailable"));
         return false;
       }
 
@@ -204,7 +216,7 @@ export function useSpeechPlayer(): SpeechPlayer {
         console.error("Speech playback failed:", err);
         setState("error");
         setError(
-          err instanceof ApiError ? err.message : "语音合成失败，请稍后重试"
+          err instanceof ApiError ? err.message : tr("chat.message.speakFailed")
         );
         return false;
       }

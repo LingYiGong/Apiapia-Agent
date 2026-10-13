@@ -52,7 +52,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { SegmentedControl } from "@/components/common/SegmentedControl";
+import { SegmentedControl, type SegmentedOption } from "@/components/common/SegmentedControl";
+import { useI18n } from "@/i18n";
+import type { MessageKey } from "@/i18n";
 import type {
   AdminOverviewStats,
   AdminUserUsageItem,
@@ -78,39 +80,52 @@ const TONE = {
 /* ─────────────────────────── 平台总览 KPI ─────────────────────────── */
 
 export function AdminOverviewCards({ stats }: { stats: AdminOverviewStats }) {
+  const { t, fmt } = useI18n();
   return (
     <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
       <StatCard
-        label="注册总用户"
+        label={t("usage.cards.totalUsers")}
         icon={Users}
         tone={TONE.indigo}
-        value={stats.total_users}
-        unit="位"
-        footer={<LiveDotStat>{`活跃账号: ${stats.active_users} 位`}</LiveDotStat>}
+        value={fmt.number(stats.total_users)}
+        unit={t("usage.cards.usersUnit")}
+        footer={
+          <LiveDotStat>
+            {t("usage.cards.activeUsers", { count: fmt.number(stats.active_users) })}
+          </LiveDotStat>
+        }
       />
       <StatCard
-        label="对话轮次"
+        label={t("usage.cards.messagesAdmin")}
         icon={MessageSquare}
         tone={TONE.blue}
-        value={stats.total_messages.toLocaleString()}
-        unit="次"
-        footer={`共涉及 ${stats.total_conversations} 个对话会话`}
+        value={fmt.number(stats.total_messages)}
+        unit={t("usage.cards.roundsUnit")}
+        footer={t("usage.cards.conversationsAdmin", { count: fmt.number(stats.total_conversations) })}
       />
       <StatCard
-        label="Token 消耗"
+        label={t("usage.cards.tokens")}
         icon={Coins}
         tone={TONE.amber}
-        value={stats.total_tokens.toLocaleString()}
+        value={fmt.number(stats.total_tokens)}
         truncateValue
-        footer={`入: ${stats.total_prompt_tokens.toLocaleString()} · 出: ${stats.total_completion_tokens.toLocaleString()}`}
+        footer={t("usage.cards.tokenSplit", {
+          prompt: fmt.number(stats.total_prompt_tokens),
+          completion: fmt.number(stats.total_completion_tokens),
+        })}
       />
       <StatCard
-        label="预估费用支出"
+        label={t("usage.cards.costEstimated")}
         icon={DollarSign}
         tone={TONE.emerald}
         value={`¥${stats.total_cost_cny.toFixed(2)}`}
         truncateValue
-        footer={`约 $${stats.total_cost_usd.toFixed(4)} USD (汇率 7.25)`}
+        footer={t("usage.cards.usdApprox", {
+          amount: fmt.number(stats.total_cost_usd, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 4,
+          }),
+        })}
       />
     </div>
   );
@@ -119,39 +134,43 @@ export function AdminOverviewCards({ stats }: { stats: AdminOverviewStats }) {
 /* ─────────────────────────── 个人用量 KPI ─────────────────────────── */
 
 export function MyUsageCards({ stats }: { stats: MyUsageStats }) {
+  const { t, fmt } = useI18n();
   return (
     <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
       <StatCard
-        label="对话轮次"
+        label={t("usage.cards.messagesUser")}
         icon={MessageSquare}
         tone={TONE.blue}
-        value={stats.total_messages.toLocaleString()}
-        unit="次"
-        footer={`涉及 ${stats.total_conversations} 个对话会话`}
+        value={fmt.number(stats.total_messages)}
+        unit={t("usage.cards.roundsUnit")}
+        footer={t("usage.cards.conversationsUser", { count: fmt.number(stats.total_conversations) })}
       />
       <StatCard
-        label="Token 消耗"
+        label={t("usage.cards.tokens")}
         icon={Coins}
         tone={TONE.amber}
-        value={stats.total_tokens.toLocaleString()}
+        value={fmt.number(stats.total_tokens)}
         truncateValue
-        footer={`入: ${stats.prompt_tokens.toLocaleString()} · 出: ${stats.completion_tokens.toLocaleString()}`}
+        footer={t("usage.cards.tokenSplit", {
+          prompt: fmt.number(stats.prompt_tokens),
+          completion: fmt.number(stats.completion_tokens),
+        })}
       />
       <StatCard
-        label="折算花费 (CNY)"
+        label={t("usage.cards.costCnyUser")}
         icon={DollarSign}
         tone={TONE.emerald}
         value={`¥${stats.estimated_cost_cny.toFixed(2)}`}
         truncateValue
-        footer="按官方厂商定价规则折算"
+        footer={t("usage.cards.cnyNote")}
       />
       <StatCard
-        label="折算花费 (USD)"
+        label={t("usage.cards.costUsdUser")}
         icon={TrendingUp}
         tone="bg-blue-500/10 text-blue-600 dark:text-blue-400"
-        value={`$${stats.estimated_cost_usd.toFixed(4)}`}
+        value={fmt.currency(stats.estimated_cost_usd)}
         truncateValue
-        footer="美元计价成本估算"
+        footer={t("usage.cards.usdNote")}
       />
     </div>
   );
@@ -170,6 +189,7 @@ export function ModelBreakdown({
   onSortKeyChange: (k: "cost" | "tokens") => void;
   periodName: string;
 }) {
+  const { t, fmt } = useI18n();
   const sorted = [...items].sort((a, b) =>
     sortKey === "cost"
       ? b.cost_cny - a.cost_cny || b.total_tokens - a.total_tokens
@@ -180,6 +200,11 @@ export function ModelBreakdown({
     1
   );
 
+  const sortOptions: SegmentedOption<"cost" | "tokens">[] = [
+    { value: "cost", label: t("usage.models.sortByCost") },
+    { value: "tokens", label: t("usage.models.sortByTokens") },
+  ];
+
   return (
     <Panel className="space-y-4 p-5">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -187,26 +212,23 @@ export function ModelBreakdown({
           icon={Cpu}
           tone={TONE.indigo}
           className="flex-1 border-0 p-0"
-          title={`各模型调用分布与花费 (${periodName})`}
-          description="不同模型的调用量占比与折算费用排行"
+          title={t("usage.models.breakdownTitle", { period: periodName })}
+          description={t("usage.models.breakdownDesc")}
         />
         {/* 排序是一个 radio group（选一个），此前误用了 Tabs：
             读屏会播报成「选项卡」，方向键会把焦点移到没有关联面板的选项上。 */}
         <SegmentedControl
           size="sm"
-          ariaLabel="模型分布排序方式"
+          ariaLabel={t("usage.models.sortAria")}
           value={sortKey}
           onValueChange={onSortKeyChange}
-          options={[
-            { value: "cost", label: "按花费" },
-            { value: "tokens", label: "按 Token" },
-          ]}
+          options={sortOptions}
           listClassName="self-start sm:self-auto"
         />
       </div>
 
       {sorted.length === 0 ? (
-        <EmptyState className="py-8" title="该时间区间内暂无模型调用数据。" />
+        <EmptyState className="py-8" title={t("usage.models.empty")} />
       ) : (
         <div className="space-y-2.5">
           {sorted.map((m, idx) => {
@@ -242,7 +264,10 @@ export function ModelBreakdown({
                       {m.is_free && <FreeBadge />}
                     </div>
                     <div className="mt-0.5 font-mono text-2xs text-muted-foreground">
-                      调用 {m.calls} 次 · Token {m.total_tokens.toLocaleString()}
+                      {t("usage.models.rowSubline", {
+                        calls: fmt.number(m.calls),
+                        tokens: fmt.number(m.total_tokens),
+                      })}
                     </div>
                   </div>
 
@@ -283,6 +308,7 @@ export function TrendGrid({
   description: string;
   unitLabel: string;
 }) {
+  const { t, fmt } = useI18n();
   if (items.length === 0) return null;
   return (
     <Panel className="space-y-4 p-5">
@@ -298,16 +324,22 @@ export function TrendGrid({
           <Panel
             key={d.date}
             tone="muted"
-            className="space-y-1 p-3 text-center transition-all hover:bg-surface-3/40"
+            className="space-y-1 p-3 text-center transition-all hover:bg-surface-4/40"
           >
+            {/* date 是后端已经按区间切好的桶标签（HH:00 / YYYY-MM / YYYY-MM-DD），
+                不是 ISO 时间戳 —— 交给 fmt.longDate 会解析失败变成空串，原样输出。 */}
             <div className="font-mono text-2xs font-medium text-muted-foreground">
               {d.date}
             </div>
             <div className="text-sm font-semibold tabular-nums text-foreground sm:text-base">
-              {d.tokens.toLocaleString()}
+              {fmt.number(d.tokens)}
             </div>
             <div className="font-mono text-2xs text-muted-foreground/80">
-              {d.calls} {unitLabel} · ¥{d.cost_cny.toFixed(2)}
+              {t("usage.trend.cellFooter", {
+                calls: fmt.number(d.calls),
+                unit: unitLabel,
+                cost: d.cost_cny.toFixed(2),
+              })}
             </div>
           </Panel>
         ))}
@@ -319,16 +351,25 @@ export function TrendGrid({
 /* ─────────────────────────── 个人模型明细表 ─────────────────────────── */
 
 export function MyModelsTable({ items }: { items: MyUsageStats["model_breakdown"] }) {
+  const { t, fmt } = useI18n();
+  const columns: MessageKey[] = [
+    "usage.models.colModel",
+    "usage.models.colCalls",
+    "usage.models.colPrompt",
+    "usage.models.colCompletion",
+    "usage.models.colTotal",
+    "usage.models.colCost",
+  ];
   return (
     <Panel className="overflow-hidden">
       <SectionHeader
         icon={Cpu}
-        title="我使用的模型与费用明细"
-        description="你所调用过的模型及输入/输出详细 Token 账单"
+        title={t("usage.models.myTableTitle")}
+        description={t("usage.models.myTableDesc")}
       />
 
       {items.length === 0 ? (
-        <EmptyState className="py-8" title="该时间区间内暂无模型调用数据。" />
+        <EmptyState className="py-8" title={t("usage.models.empty")} />
       ) : (
         <div className="overflow-x-auto">
           <Table className="text-xs">
@@ -336,23 +377,16 @@ export function MyModelsTable({ items }: { items: MyUsageStats["model_breakdown"
               <TableRow className="border-b border-border/40">
                 {/* 最后一列表头右对齐。此前写的是 `i === items.length` ——
                     拿**表头下标**去比**数据行数**，行数恰好等于 6 时才会碰巧生效。 */}
-                {[
-                  "调用模型",
-                  "调用次数",
-                  "输入 Token (Prompt)",
-                  "输出 Token (Completion)",
-                  "总 Token 消耗",
-                  "折算花费 (CNY / USD)",
-                ].map((h, i, all) => (
+                {columns.map((key, i, all) => (
                   <TableHead
-                    key={h}
+                    key={key}
                     scope="col"
                     className={cn(
                       "whitespace-nowrap px-4 py-3 text-2xs font-medium text-muted-foreground",
                       i === all.length - 1 && "text-right"
                     )}
                   >
-                    {h}
+                    {t(key)}
                   </TableHead>
                 ))}
               </TableRow>
@@ -370,16 +404,16 @@ export function MyModelsTable({ items }: { items: MyUsageStats["model_breakdown"
                     </span>
                   </TableCell>
                   <TableCell className="whitespace-nowrap px-4 py-3.5 font-mono tabular-nums text-muted-foreground">
-                    {m.calls} 次
+                    {t("usage.models.callsSuffix", { count: fmt.number(m.calls) })}
                   </TableCell>
                   <TableCell className="whitespace-nowrap px-4 py-3.5 font-mono tabular-nums text-muted-foreground">
-                    {m.prompt_tokens.toLocaleString()}
+                    {fmt.number(m.prompt_tokens)}
                   </TableCell>
                   <TableCell className="whitespace-nowrap px-4 py-3.5 font-mono tabular-nums text-muted-foreground">
-                    {m.completion_tokens.toLocaleString()}
+                    {fmt.number(m.completion_tokens)}
                   </TableCell>
                   <TableCell className="whitespace-nowrap px-4 py-3.5 font-mono font-semibold tabular-nums text-foreground">
-                    {m.total_tokens.toLocaleString()}
+                    {fmt.number(m.total_tokens)}
                   </TableCell>
                   <TableCell className="whitespace-nowrap px-4 py-3.5 text-right">
                     <CostValue cny={m.cost_cny} usd={m.cost_usd} isFree={m.is_free} />
@@ -406,10 +440,11 @@ export interface UserActions {
 }
 
 function ModelAccessCell({ user, actions }: { user: AdminUserUsageItem; actions: UserActions }) {
+  const { t } = useI18n();
   if (user.is_superuser) {
     return (
       <span className="whitespace-nowrap rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-2xs font-medium text-emerald-600 shadow-none dark:text-emerald-400">
-        完整体验 (管理员)
+        {t("usage.admin.fullAccessBadge")}
       </span>
     );
   }
@@ -436,7 +471,7 @@ function ModelAccessCell({ user, actions }: { user: AdminUserUsageItem; actions:
               : "text-amber-600 dark:text-amber-400"
           )}
         >
-          {on ? "完整体验" : "体验模式"}
+          {on ? t("usage.admin.fullAccess") : t("usage.admin.trialMode")}
         </span>
       </Label>
     </div>
@@ -444,8 +479,9 @@ function ModelAccessCell({ user, actions }: { user: AdminUserUsageItem; actions:
 }
 
 function UserRowMenu({ user, isMe, actions }: { user: AdminUserUsageItem; isMe: boolean; actions: UserActions }) {
+  const { t } = useI18n();
   if (isMe) {
-    return <span className="ml-1 whitespace-nowrap text-2xs italic text-muted-foreground">当前账号</span>;
+    return <span className="ml-1 whitespace-nowrap text-2xs italic text-muted-foreground">{t("usage.admin.currentAccount")}</span>;
   }
   return (
     <DropdownMenu>
@@ -458,7 +494,7 @@ function UserRowMenu({ user, isMe, actions }: { user: AdminUserUsageItem; isMe: 
           className="inline-flex h-7 w-7 cursor-pointer rounded-full align-middle text-muted-foreground hover:bg-surface-3 hover:text-foreground"
         >
           <MoreHorizontal className="h-4 w-4" />
-          <span className="sr-only">操作菜单</span>
+          <span className="sr-only">{t("usage.admin.actionMenu")}</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-44 rounded-xl border border-border/50 p-1 shadow-lg">
@@ -469,7 +505,7 @@ function UserRowMenu({ user, isMe, actions }: { user: AdminUserUsageItem; isMe: 
               className="cursor-pointer rounded-lg px-2.5 py-1.5 text-xs text-foreground focus:bg-surface-3"
             >
               <Sparkles className="mr-2 h-3.5 w-3.5 text-indigo-500" />
-              <span>{user.can_access_all_models ? "切换为体验模式" : "开通完整体验"}</span>
+              <span>{user.can_access_all_models ? t("usage.admin.switchToTrial") : t("usage.admin.grantFull")}</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator className="my-1" />
           </>
@@ -484,7 +520,7 @@ function UserRowMenu({ user, isMe, actions }: { user: AdminUserUsageItem; isMe: 
           )}
         >
           {user.is_active ? <UserX className="mr-2 h-3.5 w-3.5" /> : <UserCheck className="mr-2 h-3.5 w-3.5" />}
-          <span>{user.is_active ? "停用账号" : "恢复启用"}</span>
+          <span>{user.is_active ? t("usage.admin.disable") : t("usage.admin.enable")}</span>
         </DropdownMenuItem>
         <DropdownMenuSeparator className="my-1" />
         <DropdownMenuItem
@@ -492,7 +528,7 @@ function UserRowMenu({ user, isMe, actions }: { user: AdminUserUsageItem; isMe: 
           className="cursor-pointer rounded-lg px-2.5 py-1.5 text-xs"
         >
           <Shield className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
-          <span>{user.is_superuser ? "取消管理员" : "设为管理员"}</span>
+          <span>{user.is_superuser ? t("usage.admin.revokeAdmin") : t("usage.admin.grantAdmin")}</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -500,6 +536,7 @@ function UserRowMenu({ user, isMe, actions }: { user: AdminUserUsageItem; isMe: 
 }
 
 function IdentityCell({ user, isMe }: { user: AdminUserUsageItem; isMe: boolean }) {
+  const { t } = useI18n();
   return (
     <div className="flex items-center gap-2.5">
       <UserAvatar username={user.username} className="h-7 w-7 text-xs" />
@@ -508,7 +545,7 @@ function IdentityCell({ user, isMe }: { user: AdminUserUsageItem; isMe: boolean 
           <span className="font-semibold text-foreground">{user.username}</span>
           {isMe && (
             <span className="rounded-full bg-surface-3 px-1.5 py-0 text-2xs font-medium">
-              我
+              {t("usage.users.meBadge")}
             </span>
           )}
           {user.is_superuser && <AdminBadge size="sm" />}
@@ -525,38 +562,43 @@ function IdentityCell({ user, isMe }: { user: AdminUserUsageItem; isMe: boolean 
 }
 
 function UserCard({ user, isMe, actions }: { user: AdminUserUsageItem; isMe: boolean; actions: UserActions }) {
+  const { t, fmt } = useI18n();
   return (
     <Panel tone="muted" className="space-y-3 p-4">
       <IdentityCell user={user} isMe={isMe} />
 
       <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 font-mono text-2xs text-muted-foreground">
         <div className="flex justify-between">
-          <dt>对话轮次</dt>
-          <dd className="font-semibold tabular-nums text-foreground">{user.messages_count}</dd>
+          <dt>{t("usage.userCard.messages")}</dt>
+          <dd className="font-semibold tabular-nums text-foreground">
+            {fmt.number(user.messages_count)}
+          </dd>
         </div>
         <div className="flex justify-between">
-          <dt>会话数</dt>
-          <dd className="tabular-nums text-foreground">{user.conversations_count}</dd>
+          <dt>{t("usage.userCard.conversations")}</dt>
+          <dd className="tabular-nums text-foreground">{fmt.number(user.conversations_count)}</dd>
         </div>
         <div className="flex justify-between">
-          <dt>总 Token</dt>
-          <dd className="tabular-nums text-foreground">{user.total_tokens.toLocaleString()}</dd>
+          <dt>{t("usage.userCard.tokens")}</dt>
+          <dd className="tabular-nums text-foreground">{fmt.number(user.total_tokens)}</dd>
         </div>
         <div className="flex justify-between">
-          <dt>常用模型</dt>
-          <dd className="max-w-[100px] truncate text-foreground">{user.top_model || "未调用"}</dd>
+          <dt>{t("usage.userCard.topModel")}</dt>
+          <dd className="max-w-[100px] truncate text-foreground">
+            {user.top_model || t("usage.userCard.noTopModel")}
+          </dd>
         </div>
       </dl>
 
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/40 pt-3">
         <StatusPill tone={user.is_active ? "success" : "danger"}>
-          {user.is_active ? "正常" : "已停用"}
+          {user.is_active ? t("usage.users.statusActive") : t("usage.users.statusInactive")}
         </StatusPill>
         <ModelAccessCell user={user} actions={actions} />
       </div>
 
       <div className="flex items-center justify-between gap-2">
-        <ActionTooltip label="审查该用户全部对话记录（含已删除对话）" side="left">
+        <ActionTooltip label={t("usage.userCard.auditTip")} side="left">
           <Button
             type="button"
             variant="outline"
@@ -565,7 +607,7 @@ function UserCard({ user, isMe, actions }: { user: AdminUserUsageItem; isMe: boo
             className="h-7 cursor-pointer gap-1 rounded-full border-primary/20 bg-primary/5 px-2.5 text-2xs font-medium text-primary transition-colors hover:bg-primary/10 active:scale-95"
           >
             <Eye className="h-3 w-3" />
-            <span>审查</span>
+            <span>{t("usage.userCard.audit")}</span>
           </Button>
         </ActionTooltip>
         <UserRowMenu user={user} isMe={isMe} actions={actions} />
@@ -585,22 +627,33 @@ export function UsersTable({
   periodName: string;
   actions: UserActions;
 }) {
+  const { t, fmt } = useI18n();
+  const columns: MessageKey[] = [
+    "usage.users.colUser",
+    "usage.users.colMessages",
+    "usage.users.colTokens",
+    "usage.users.colSplit",
+    "usage.users.colCost",
+    "usage.users.colTopModel",
+    "usage.users.colStatus",
+    "usage.users.colModelAccess",
+  ];
   return (
     <Panel className="overflow-hidden">
       <SectionHeader
         icon={Activity}
         tone={TONE.indigo}
-        title={`各用户消耗明细 (${periodName})`}
-        description="按当前时间区间总 Token 排序，支持查看审计明细与账号权限管理。"
+        title={t("usage.users.tableTitle", { period: periodName })}
+        description={t("usage.users.tableDesc")}
         action={
           <span className="shrink-0 self-start rounded-full border border-border/40 bg-surface-3/60 px-2.5 py-0.5 font-mono text-xs text-muted-foreground sm:self-auto">
-            共 {users.length} 位用户
+            {t("usage.users.countBadge", { count: fmt.number(users.length) })}
           </span>
         }
       />
 
       {users.length === 0 ? (
-        <EmptyState className="py-10" title="该时间区间内暂无用户用量数据。" />
+        <EmptyState className="py-10" title={t("usage.users.empty")} />
       ) : (
         <>
           {/* 桌面端：完整表格 */}
@@ -608,23 +661,20 @@ export function UsersTable({
             <Table className="text-xs">
               <TableHeader className="bg-surface-3/30">
                 <TableRow className="border-b border-border/40">
-                  {[
-                    "用户", "对话轮次", "总 Token 消耗", "输入 / 输出明细",
-                    "折算花费 (CNY / USD)", "常用模型", "状态", "模型权限开关",
-                  ].map((h) => (
+                  {columns.map((key) => (
                     <TableHead
-                      key={h}
+                      key={key}
                       scope="col"
                       className="whitespace-nowrap px-4 py-3 text-2xs font-medium text-muted-foreground"
                     >
-                      {h}
+                      {t(key)}
                     </TableHead>
                   ))}
                   <TableHead
                     scope="col"
                     className="whitespace-nowrap px-4 py-3 text-right text-2xs font-medium text-muted-foreground"
                   >
-                    操作
+                    {t("usage.users.colActions")}
                   </TableHead>
                 </TableRow>
               </TableHeader>
@@ -640,17 +690,21 @@ export function UsersTable({
                         <IdentityCell user={u} isMe={isMe} />
                       </TableCell>
                       <TableCell className="whitespace-nowrap px-4 py-3.5 font-mono tabular-nums">
-                        <span className="font-semibold text-foreground">{u.messages_count}</span>
+                        <span className="font-semibold text-foreground">
+                          {fmt.number(u.messages_count)}
+                        </span>
                         <span className="text-2xs text-muted-foreground">
-                          {" "}轮 ({u.conversations_count} 会话)
+                          {t("usage.users.roundsSuffix", { count: fmt.number(u.conversations_count) })}
                         </span>
                       </TableCell>
                       <TableCell className="whitespace-nowrap px-4 py-3.5 font-mono font-semibold tabular-nums">
-                        {u.total_tokens.toLocaleString()}
+                        {fmt.number(u.total_tokens)}
                       </TableCell>
                       <TableCell className="whitespace-nowrap px-4 py-3.5 font-mono text-2xs tabular-nums text-muted-foreground">
-                        <div>↓ 入: {u.prompt_tokens.toLocaleString()}</div>
-                        <div>↑ 出: {u.completion_tokens.toLocaleString()}</div>
+                        <div>{t("usage.users.promptLine", { count: fmt.number(u.prompt_tokens) })}</div>
+                        <div>
+                          {t("usage.users.completionLine", { count: fmt.number(u.completion_tokens) })}
+                        </div>
                       </TableCell>
                       <TableCell className="whitespace-nowrap px-4 py-3.5 font-mono tabular-nums">
                         <CostValue
@@ -661,19 +715,19 @@ export function UsersTable({
                       </TableCell>
                       <TableCell className="max-w-[180px] truncate px-4 py-3.5 font-mono text-2xs text-muted-foreground">
                         <span title={u.top_model} className="rounded-md border border-border/30 bg-surface-3/50 px-2 py-0.5">
-                          {u.top_model || "未调用"}
+                          {u.top_model || t("usage.users.noTopModel")}
                         </span>
                       </TableCell>
                       <TableCell className="whitespace-nowrap px-4 py-3.5">
                         <StatusPill tone={u.is_active ? "success" : "danger"}>
-                          {u.is_active ? "正常" : "已停用"}
+                          {u.is_active ? t("usage.users.statusActive") : t("usage.users.statusInactive")}
                         </StatusPill>
                       </TableCell>
                       <TableCell className="whitespace-nowrap px-4 py-3.5">
                         <ModelAccessCell user={u} actions={actions} />
                       </TableCell>
                       <TableCell className="whitespace-nowrap px-4 py-3.5 text-right">
-                        <ActionTooltip label="审查该用户全部对话记录（含已删除对话）" side="left">
+                        <ActionTooltip label={t("usage.userCard.auditTip")} side="left">
                           <Button
                             type="button"
                             variant="outline"
@@ -682,7 +736,7 @@ export function UsersTable({
                             className="h-7 cursor-pointer gap-1 rounded-full border-primary/20 bg-primary/5 px-2.5 text-2xs font-medium text-primary transition-colors hover:bg-primary/10 active:scale-95"
                           >
                             <Eye className="h-3 w-3" />
-                            <span>审查</span>
+                            <span>{t("usage.userCard.audit")}</span>
                           </Button>
                         </ActionTooltip>
                         <UserRowMenu user={u} isMe={isMe} actions={actions} />
@@ -750,11 +804,28 @@ export function AuditDialog({
   onRestore: (conversationId: string, title: string) => void;
   restoringId: string | null;
 }) {
+  const { t, fmt } = useI18n();
   const visible = conversations.filter((c) => {
     if (filter === "active") return !c.is_deleted;
     if (filter === "deleted") return c.is_deleted;
     return true;
   });
+
+  const filterOptions: SegmentedOption<"all" | "active" | "deleted">[] = [
+    { value: "all", label: t("usage.audit.filterAll", { count: fmt.number(conversations.length) }) },
+    {
+      value: "active",
+      label: t("usage.audit.filterActive", {
+        count: fmt.number(conversations.filter((c) => !c.is_deleted).length),
+      }),
+    },
+    {
+      value: "deleted",
+      label: t("usage.audit.filterDeleted", {
+        count: fmt.number(conversations.filter((c) => c.is_deleted).length),
+      }),
+    },
+  ];
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -766,13 +837,13 @@ export function AuditDialog({
             </div>
             <div>
               <DialogTitle className="flex items-center gap-2 text-base font-semibold">
-                <span>用户对话审查与审计</span>
+                <span>{t("usage.audit.title")}</span>
                 <span className="rounded-full bg-surface-3 px-2 py-0.5 font-mono text-xs">
                   {username}
                 </span>
               </DialogTitle>
               <DialogDescription className="mt-0.5 text-xs text-muted-foreground">
-                用户删除的对话在底层已安全归档保留，平台可完整审计内容与追踪 Token / 成本消耗。
+                {t("usage.audit.desc")}
               </DialogDescription>
             </div>
           </div>
@@ -781,20 +852,10 @@ export function AuditDialog({
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/40 bg-card/50 px-6 py-2.5 text-xs">
           <SegmentedControl
             size="sm"
-            ariaLabel="审计状态筛选"
+            ariaLabel={t("usage.audit.filterAria")}
             value={filter}
             onValueChange={onFilterChange}
-            options={[
-              { value: "all", label: `全部 (${conversations.length})` },
-              {
-                value: "active",
-                label: `正常 (${conversations.filter((c) => !c.is_deleted).length})`,
-              },
-              {
-                value: "deleted",
-                label: `已删除 (${conversations.filter((c) => c.is_deleted).length})`,
-              },
-            ]}
+            options={filterOptions}
           />
           <Button
             type="button"
@@ -805,7 +866,7 @@ export function AuditDialog({
             className="h-7 cursor-pointer gap-1 rounded-full px-2.5 text-2xs text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground"
           >
             <RefreshCw className={cn("h-3 w-3", loading && "animate-spin text-primary")} />
-            <span>刷新</span>
+            <span>{t("usage.audit.refresh")}</span>
           </Button>
         </div>
 
@@ -813,11 +874,11 @@ export function AuditDialog({
           {loading ? (
             <div className="space-y-2 py-16 text-center">
               <RefreshCw className="mx-auto h-6 w-6 animate-spin text-primary" />
-              <p className="text-xs text-muted-foreground">正在载入对话记录与审计数据...</p>
+              <p className="text-xs text-muted-foreground">{t("usage.audit.loading")}</p>
             </div>
           ) : conversations.length === 0 ? (
             <div className="py-16 text-center text-xs text-muted-foreground">
-              该用户暂无任何对话记录。
+              {t("usage.audit.empty")}
             </div>
           ) : (
             visible.map((conv) => (
@@ -829,17 +890,19 @@ export function AuditDialog({
                 <div className="min-w-0 flex-1 space-y-1.5">
                   <div className="flex flex-wrap items-center gap-2">
                     <h4 className="truncate text-xs font-semibold text-foreground sm:text-sm">
-                      {conv.title || "未命名对话"}
+                      {conv.title || t("usage.audit.untitled")}
                     </h4>
                     {conv.is_deleted ? (
                       <span className="inline-flex items-center gap-1 rounded-full border border-destructive/20 bg-destructive/10 px-2 py-px text-2xs font-medium text-destructive">
                         <Trash2 className="mr-0.5 h-2.5 w-2.5" />
-                        已删除 ({conv.deleted_at || "回收站"})
+                        {t("usage.audit.deletedBadge", {
+                          date: conv.deleted_at || t("usage.audit.recycleBin"),
+                        })}
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-px text-2xs font-medium text-emerald-600 dark:text-emerald-400">
                         <CheckCircle2 className="mr-0.5 h-2.5 w-2.5" />
-                        正常活跃
+                        {t("usage.audit.activeBadge")}
                       </span>
                     )}
                     {conv.model && (
@@ -849,9 +912,13 @@ export function AuditDialog({
                     )}
                   </div>
                   <div className="flex flex-wrap gap-4 font-mono text-2xs text-muted-foreground">
-                    <span>消息: {conv.message_count} 条</span>
-                    <span>Token: {(conv.total_tokens ?? 0).toLocaleString()}</span>
-                    <span>更新: {conv.updated_at || conv.created_at}</span>
+                    <span>{t("usage.audit.messagesMeta", { count: fmt.number(conv.message_count ?? 0) })}</span>
+                    <span>{t("usage.audit.tokensMeta", { count: fmt.number(conv.total_tokens ?? 0) })}</span>
+                    <span>
+                      {t("usage.audit.updatedMeta", {
+                        date: conv.updated_at || conv.created_at || "",
+                      })}
+                    </span>
                   </div>
                 </div>
 
@@ -864,7 +931,7 @@ export function AuditDialog({
                     className="h-7 cursor-pointer gap-1.5 rounded-full border-border/50 bg-background/80 px-3 text-xs shadow-2xs transition-colors hover:bg-surface-3 active:scale-95"
                   >
                     <FileText className="h-3 w-3" />
-                    <span>查阅消息</span>
+                    <span>{t("usage.audit.inspect")}</span>
                   </Button>
                   {conv.is_deleted && (
                     <Button
@@ -876,7 +943,7 @@ export function AuditDialog({
                       className="h-7 cursor-pointer gap-1.5 rounded-full border-emerald-500/30 bg-emerald-500/10 px-3 text-xs text-emerald-600 transition-colors hover:bg-emerald-500/20 active:scale-95 dark:text-emerald-400"
                     >
                       <RotateCcw className={cn("h-3 w-3", restoringId === conv.id && "animate-spin")} />
-                      <span>恢复对话</span>
+                      <span>{t("usage.audit.restore")}</span>
                     </Button>
                   )}
                 </div>
@@ -899,6 +966,7 @@ export function InspectMessagesDialog({
   } | null;
   onClose: () => void;
 }) {
+  const { t, fmt } = useI18n();
   return (
     <Dialog open={!!data} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="flex max-h-[85vh] max-w-3xl flex-col gap-0 overflow-hidden rounded-[22px] border border-border/50 bg-card/95 p-0 shadow-2xl backdrop-blur-2xl">
@@ -911,14 +979,17 @@ export function InspectMessagesDialog({
                 </div>
                 <div>
                   <DialogTitle className="max-w-md truncate text-sm font-semibold">
-                    {data.conversation.title || "未命名对话"}
+                    {data.conversation.title || t("usage.audit.untitled")}
                   </DialogTitle>
                   <DialogDescription className="mt-0.5 text-2xs text-muted-foreground">
-                    <span>模型: {data.conversation.model}</span>
+                    <span>{t("usage.audit.inspectModel", { model: data.conversation.model ?? "" })}</span>
                     <span> · </span>
-                    <span>共 {data.messages.length} 条消息</span>
+                    <span>{t("usage.audit.inspectCount", { count: fmt.number(data.messages.length) })}</span>
                     {data.conversation.is_deleted && (
-                      <span className="font-semibold text-destructive"> (用户已删除)</span>
+                      <span className="font-semibold text-destructive">
+                        {" "}
+                        {t("usage.audit.inspectDeleted")}
+                      </span>
                     )}
                   </DialogDescription>
                 </div>
@@ -928,7 +999,7 @@ export function InspectMessagesDialog({
             <div className="max-h-[60vh] flex-1 space-y-4 overflow-y-auto bg-background/50 p-6 overscroll-contain">
               {data.messages.length === 0 ? (
                 <div className="py-16 text-center text-xs text-muted-foreground">
-                  对话中暂无任何消息。
+                  {t("usage.audit.inspectEmpty")}
                 </div>
               ) : (
                 data.messages.map((msg, idx) => (
@@ -943,7 +1014,9 @@ export function InspectMessagesDialog({
                       <span className="font-semibold uppercase tracking-wider">{msg.role}</span>
                       <span>{msg.created_at}</span>
                       {!!msg.token_usage && msg.token_usage > 0 && (
-                        <span>· {msg.token_usage} Tokens</span>
+                        <span>
+                          {t("usage.audit.inspectTokens", { count: fmt.number(msg.token_usage) })}
+                        </span>
                       )}
                     </div>
                     <div

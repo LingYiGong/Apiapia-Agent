@@ -21,6 +21,7 @@ from typing import Any, Dict, List, Optional, Set
 import httpx
 
 from app.core.config import settings
+from app.core.i18n import tr
 from app.models.user import User
 
 logger = logging.getLogger("model_catalog")
@@ -418,7 +419,11 @@ async def sync_chat_models() -> Dict[str, Any]:
 
     save_stored_models(merged_models)
 
-    msg = f"同步成功！从提供商新增发现了 {len(new_models)} 个模型" if new_models else "同步完成，当前已是最新模型，未发现新模型"
+    msg = (
+        tr("SYNC_DONE_NEW", count=len(new_models))
+        if new_models
+        else tr("SYNC_DONE_UPTODATE")
+    )
 
     return {
         "success": True,

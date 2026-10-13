@@ -12,10 +12,10 @@ import {
 import { toast } from "sonner";
 import { ActionTooltip } from "@/components/common/ActionTooltip";
 import { MessageListSkeleton } from "@/components/common/PageSkeleton";
-import { formatFileSize } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { ApiError } from "@/lib/api";
 import { transcribeAudio } from "@/lib/speech";
+import { useI18n, LOCALE_META } from "@/i18n";
 import { useAudioRecorder, MAX_RECORDING_SECONDS } from "@/hooks/useAudioRecorder";
 import { useIsTrialMode } from "@/hooks/useIsTrialMode";
 import { ChatMessageItem } from "./ChatMessageItem";
@@ -57,7 +57,12 @@ import {
 import { BrandLogo } from "@/components/common/BrandLogo";
 import { EmptyState } from "@/components/common/EmptyState";
 import { DEFAULT_PROMPT_COMMANDS, PromptCommand } from "@/config/promptCommands";
-import { VOCAB_TARGET_LANGUAGES, buildVocabTutorPrompt } from "@/config/personas";
+import {
+  VOCAB_TARGET_LANGUAGES,
+  buildVocabTutorPrompt,
+  vocabLanguageName,
+  vocabLanguageChipLabel,
+} from "@/config/personas";
 
 // 移动端（触摸设备）检测：主指针为 coarse，即手机 / 平板这类触屏设备。
 // 不用视口宽度判断，避免桌面浏览器窗口变窄时误判成移动端而丢掉回车发送。
@@ -162,6 +167,14 @@ const readFileAsDataUrl = (file: File): Promise<string> => {
   });
 };
 
+/**
+ * ISO 639-1 语种码 → 文案键。
+ *
+ * `config/personas.ts` 的 VOCAB_TARGET_LANGUAGES 还没迁到键上，`name` / `label`
+ * 仍是硬编码中文，直接渲染会让英文 / 日文界面里混进「英语 (EN)」这种串。这里
+ * 只保留「码 → 键」的映射，取值交给 i18n（`chat.translate.langs`，与 WordCard.tsx
+ * 的 `chat.wordCard.lang<Code>` 同一套做法）。未收录的语种退回原始字符串。
+ */
 interface ChatAreaProps {
   messages: Message[];
   currentModel?: string;
@@ -236,6 +249,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   vocabTargetLang: propVocabTargetLang,
   onSelectVocabLang,
 }) => {
+  const { t, fmt, locale } = useI18n();
   const isTouchPrimary = useIsTouchPrimary();
   const isTrialMode = useIsTrialMode();
   const [input, setInput] = useState("");
@@ -283,6 +297,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     return "ja";
   });
   const vocabTargetLang = propVocabTargetLang !== undefined ? propVocabTargetLang : internalVocabTargetLang;
+
+  // 语种条目查出来一次，横幅与芯片栏共用；查不到（localStorage 里存了脏值）时
+  // 由调用方决定回退文案。
+  const selectedVocabLang = VOCAB_TARGET_LANGUAGES.find((l) => l.id === vocabTargetLang);
 
   const handleSelectVocabLang = useCallback((lang: string) => {
     setInternalVocabTargetLang(lang);
@@ -355,13 +373,14 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
   const filteredCommands = React.useMemo(() => {
     if (!commandFilter) return DEFAULT_PROMPT_COMMANDS;
+    const q = commandFilter.toLowerCase();
     return DEFAULT_PROMPT_COMMANDS.filter(
       (c) =>
-        c.key.toLowerCase().includes(commandFilter.toLowerCase()) ||
-        c.title.toLowerCase().includes(commandFilter.toLowerCase()) ||
-        c.description.toLowerCase().includes(commandFilter.toLowerCase())
+        c.key.toLowerCase().includes(q) ||
+        t(c.titleKey).toLowerCase().includes(q) ||
+        t(c.descriptionKey).toLowerCase().includes(q)
     );
-  }, [commandFilter]);
+  }, [commandFilter, t]);
 
   const handleSelectCommand = (cmd: PromptCommand) => {
     updateInput(cmd.template);
@@ -411,7 +430,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           dataUrl = await compressImage(file);
         } else {
           if (file.size > 15 * 1024 * 1024) {
-            toast.error(`文件 ${file.name} 超过 15MB 上传限制`);
+            toast.error(t("chat.composer.fileTooLarge", { name: file.name }));
             continue;
           }
           dataUrl = await readFileAsDataUrl(file);
@@ -470,7 +489,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   const insertTranscript = (text: string) => {
     const clean = (text || "").trim();
     if (!clean) {
-      toast.error("没有识别到语音内容，请重试或改用文字输入");
+      toast.error(t("chat.speech.noSpeechRecognized"));
       return;
     }
     // Append rather than replace: someone may have typed part of a question
@@ -494,7 +513,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       // cause ("模型不支持该音色", "音频超过上限"). Anything else is a network
       // failure with nothing useful to say.
       toast.error(
-        err instanceof ApiError ? err.message : "语音识别失败，请检查网络后重试"
+        err instanceof ApiError ? err.message : t("chat.speech.transcribeFailed")
       );
     } finally {
       setIsTranscribing(false);
@@ -505,7 +524,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     onAutoStop: (audio) => {
       // The hook owns the time cap but not the upload, so the recording has to
       // be handed back here — otherwise a full minute of audio is discarded.
-      toast.info(`已达 ${MAX_RECORDING_SECONDS} 秒上限，正在转写`);
+      toast.info(t("chat.speech.limitReached", { seconds: MAX_RECORDING_SECONDS }));
       void runTranscription(audio.blob);
     },
   });
@@ -738,8 +757,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     } else if (creationMode === "video") {
       extraOpts.videoGenMode = true;
     } else if (isTranslateMode) {
-      // 开启智能翻译模式时：自动注入专业双向互译与语法教学 Prompt
-      extraOpts.systemPromptOverride = buildVocabTutorPrompt(vocabTargetLang);
+// 翻译目标跟随界面语言：传 locale，提示词里的「本端语言」据此生成，
+    // 而不是像以前那样写死中文。
+    extraOpts.systemPromptOverride = buildVocabTutorPrompt(vocabTargetLang, locale);
       // 翻译模式下强制关闭联网搜索与长期记忆，并开启单轮模式（不带历史上下文），确保极速响应并节省 Token
       extraOpts.webSearchMode = "off";
       extraOpts.singleTurnMode = true;
@@ -794,10 +814,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       <span className="sr-only" role="status" aria-live="polite">
         {isStreaming
           ? isWaitingForFirstToken
-            ? "正在思考…"
-            : "正在生成回答…"
+            ? t("chat.empty.a11yThinking")
+            : t("chat.empty.a11yGenerating")
           : messages.length > 0
-          ? "回答已完成"
+          ? t("chat.empty.a11yDone")
           : ""}
       </span>
 
@@ -811,7 +831,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         onTouchMove={handleTouchMove}
         onKeyDown={handleContainerKeyDown}
         role="log"
-        aria-label="对话消息"
+        aria-label={t("chat.empty.logLabel")}
         aria-live="polite"
         aria-relevant="additions"
         aria-busy={isStreaming}
@@ -835,8 +855,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 className="mb-3.5 drop-shadow-md transition-transform hover:scale-105"
               />
             }
-            title="Apiapia 已就绪，开始新的对话吧"
-            description="与长期记忆库联动，越聊越懂你的习惯与偏好。"
+            title={t("chat.empty.title")}
+            description={t("chat.empty.description")}
           />
         ) : (
           <div className="max-w-3xl w-full mx-auto space-y-6 sm:space-y-8">
@@ -857,7 +877,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 onQuote={handleQuoteMessage}
                 onContinue={
                   !isStreaming && msg.role === "assistant" && idx === messages.length - 1
-                    ? () => onSendMessage("请从上述被截断的地方继续写下去，无需重复前面的内容。")
+                    ? () => onSendMessage(t("chat.message.continuePrompt"))
                     : undefined
                 }
               />
@@ -876,7 +896,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                   {searchStatus?.state === "searching" ? (
                     <div className="inline-flex items-center gap-2 rounded-full border border-sky-200/50 bg-sky-50 px-3 py-1.5 text-xs text-sky-600 dark:border-sky-800/50 dark:bg-sky-950/40 dark:text-sky-400 sm:text-sm">
                       <Globe className="h-3.5 w-3.5 shrink-0 animate-spin" />
-                      <span>正在检索：&ldquo;{searchStatus.query}&rdquo;</span>
+                      <span>
+                        {t("chat.message.searching", { query: searchStatus.query ?? "" })}
+                      </span>
                       {streamStartedAt && (
                         <ElapsedSeconds
                           startedAt={streamStartedAt}
@@ -887,7 +909,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                   ) : (
                     <div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-surface-3/50 px-3 py-1.5 text-xs text-muted-foreground sm:text-sm">
                       <Sparkles className="h-3.5 w-3.5 shrink-0 animate-spin text-primary" />
-                      <span>思考中...</span>
+                      <span>{t("chat.message.thinkingLive")}</span>
                       {streamStartedAt && (
                         <ElapsedSeconds
                           startedAt={streamStartedAt}
@@ -921,7 +943,11 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                     </div>
                     <div className="flex items-center gap-1 font-mono text-muted-foreground">
                       {thinkingDuration != null && (
-                        <span>思考 {thinkingDuration.toFixed(1)}s · </span>
+                        <span>
+                          {t("chat.message.thinkingDuration", {
+                            duration: `${thinkingDuration.toFixed(1)}s`,
+                          })}{" · "}
+                        </span>
                       )}
                       <Clock className="h-3 w-3" />
                       {streamStartedAt ? (
@@ -943,7 +969,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       {/* Floating Scroll-to-Bottom Button */}
       {showScrollBottomBtn && (
         <div className="absolute bottom-16 sm:bottom-20 right-4 sm:right-8 z-30 pointer-events-auto">
-          <ActionTooltip label="回到最新内容" side="top">
+          <ActionTooltip label={t("chat.composer.scrollToLatestTip")} side="top">
             <Button
               variant="secondary"
               size="sm"
@@ -955,7 +981,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               className="rounded-full shadow-lg text-xs"
             >
               <ChevronDown className="h-3.5 w-3.5" />
-              <span>回到最新</span>
+              <span>{t("chat.composer.scrollToLatest")}</span>
             </Button>
           </ActionTooltip>
         </div>
@@ -980,9 +1006,11 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               <div className="flex items-center justify-between px-2.5 py-1 text-2xs font-medium text-muted-foreground border-b border-border/40 mb-1">
                 <span className="flex items-center gap-1.5">
                   <Terminal className="h-3 w-3 text-primary" />
-                  <span>快捷提示词指令（方向键选择，Enter / Tab 采纳）</span>
+                  <span>{t("chat.commands.hint")}</span>
                 </span>
-                <span className="font-mono text-3xs">{filteredCommands.length} 个指令</span>
+                <span className="font-mono text-3xs">
+                  {t("chat.commands.count", { count: filteredCommands.length })}
+                </span>
               </div>
               <div className="max-h-48 overflow-y-auto space-y-0.5">
                 {filteredCommands.map((cmd, idx) => (
@@ -1001,7 +1029,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                       <span className="font-mono font-semibold text-2xs px-1 rounded bg-black/10 dark:bg-white/10 shrink-0">
                         /{cmd.key}
                       </span>
-                      <span className="truncate">{cmd.title}</span>
+                      <span className="truncate">{t(cmd.titleKey)}</span>
                     </div>
                     <span
                       className={cn(
@@ -1009,7 +1037,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                         idx === selectedCommandIdx ? "text-primary-foreground/80" : "text-muted-foreground"
                       )}
                     >
-                      {cmd.description}
+                      {t(cmd.descriptionKey)}
                     </span>
                   </button>
                 ))}
@@ -1023,32 +1051,38 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               <div className="flex items-center gap-1.5 min-w-0">
                 <span className="font-semibold text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
                   <Languages className="h-3.5 w-3.5" />
-                  当前模式：智能翻译
+                  {t("chat.translate.bannerLabel")}
                   <span className="ml-1 text-indigo-500/80 font-normal">
-                    （中 ⇋ {VOCAB_TARGET_LANGUAGES.find((l) => l.id === vocabTargetLang)?.name || "日语"} 双向互译）
+                    {t("chat.translate.bannerPair", {
+                      src: LOCALE_META[locale].shortName,
+                      lang: selectedVocabLang
+                        ? vocabLanguageName(selectedVocabLang, t)
+                        : t("chat.translate.langs.ja"),
+                    })}
                   </span>
                 </span>
                 <span className="text-muted-foreground truncate hidden sm:inline">
-                  — 智能互译、语法解析、动词变形与例句拓展
+                  {t("chat.translate.bannerDesc")}
                 </span>
               </div>
               <button
                 type="button"
                 onClick={() => handleSetTranslateMode(false)}
                 className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md hover:bg-surface-3 transition-colors text-2xs cursor-pointer shrink-0"
-                title="退出翻译模式，恢复默认对话"
+                title={t("chat.translate.exitTip")}
               >
-                <span>退出翻译</span>
+                <span>{t("chat.translate.exitLabel")}</span>
                 <X className="h-3 w-3" />
               </button>
 
               {/* 快速语种选择栏：首选英文、日语、中文，其次按全球使用广泛度排序 */}
               <div className="w-full pt-1 border-t border-indigo-500/15 flex items-center gap-1 overflow-x-auto no-scrollbar">
                 <span className="text-muted-foreground text-3xs shrink-0 mr-0.5 font-medium">
-                  互译目标:
+                  {t("chat.translate.targetLabel")}
                 </span>
                 {VOCAB_TARGET_LANGUAGES.map((item) => {
                   const isSelected = vocabTargetLang === item.id;
+                  const langName = vocabLanguageName(item, t);
                   return (
                     <button
                       key={item.id}
@@ -1060,9 +1094,12 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                           ? "bg-indigo-600 text-white border-indigo-600 shadow-2xs font-semibold dark:bg-indigo-500"
                           : "bg-background/80 text-foreground/75 border-border/60 hover:bg-surface-3 hover:text-foreground"
                       )}
-                      title={`开启中 ⇋ ${item.name} 双向互译`}
+                      title={t("chat.translate.langChipTip", {
+                        src: LOCALE_META[locale].shortName,
+                        lang: langName,
+                      })}
                     >
-                      {item.label}
+                      {vocabLanguageChipLabel(item, t)}
                     </button>
                   );
                 })}
@@ -1076,7 +1113,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               <div className="flex items-start gap-2 min-w-0">
                 <Quote className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
                 <div className="min-w-0">
-                  <span className="font-medium text-2xs text-primary block">正在引用回复：</span>
+                  <span className="font-medium text-2xs text-primary block">
+                    {t("chat.composer.quoteLabel")}
+                  </span>
                   <p className="text-2xs text-muted-foreground line-clamp-2 leading-relaxed">
                     {activeQuote.text}
                   </p>
@@ -1089,7 +1128,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 className="h-5 w-5 rounded-full text-muted-foreground hover:text-destructive shrink-0"
               >
                 <X className="h-3 w-3" />
-                <span className="sr-only">取消引用</span>
+                <span className="sr-only">{t("chat.composer.cancelQuote")}</span>
               </Button>
             </div>
           )}
@@ -1118,10 +1157,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                       {att.name}
                     </p>
                     <p className="text-2xs text-muted-foreground font-mono">
-                      {formatFileSize(att.size)}
+                      {fmt.fileSize(att.size)}
                     </p>
                   </div>
-                  <ActionTooltip label="移除附件" side="top">
+                  <ActionTooltip label={t("chat.composer.removeAttachment")} side="top">
                     <Button
                       variant="ghost"
                       size="icon"
@@ -1129,7 +1168,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                       className="h-6 w-6 rounded-full text-muted-foreground hover:text-destructive"
                     >
                       <X className="h-3.5 w-3.5" />
-                      <span className="sr-only">移除附件</span>
+                      <span className="sr-only">{t("chat.composer.removeAttachment")}</span>
                     </Button>
                   </ActionTooltip>
                 </div>
@@ -1137,7 +1176,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               {isUploading && (
                 <div className="flex items-center gap-1.5 px-2 py-1 text-xs text-primary font-mono">
                   <RotateCw className="h-3 w-3 animate-spin" />
-                  <span>处理中...</span>
+                  <span>{t("chat.composer.processing")}</span>
                 </div>
               )}
             </div>
@@ -1225,7 +1264,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                     creationMode === "video" && "border-purple-500/40 bg-purple-500/10 text-purple-600 dark:text-purple-400 hover:bg-purple-500/20",
                     isTranslateMode && creationMode === "chat" && "border-indigo-500/40 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/20"
                   )}
-                  aria-label="功能与创作菜单"
+                  aria-label={t("chat.creation.menuLabel")}
                 >
                   {creationMode === "image" ? (
                     <Palette className="h-4 w-4" />
@@ -1248,7 +1287,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               >
                 <div className="px-3 pt-1 pb-2.5 border-b border-border/40 mb-2 flex items-center justify-between">
                   <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground font-mono">
-                    创作与能力扩展
+                    {t("chat.creation.sectionTitle")}
                   </span>
                   {(creationMode !== "chat" || isTranslateMode) && (
                     <button
@@ -1259,7 +1298,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                       }}
                       className="text-xs text-primary hover:underline font-semibold cursor-pointer"
                     >
-                      恢复默认对话
+                      {t("chat.creation.restoreChat")}
                     </button>
                   )}
                 </div>
@@ -1275,7 +1314,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                       <div className="h-10 w-10 rounded-2xl bg-blue-500/15 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform shadow-xs">
                         <ImageIcon className="h-5 w-5" />
                       </div>
-                      <span className="text-sm font-semibold text-foreground tracking-tight">相册</span>
+                      <span className="text-sm font-semibold text-foreground tracking-tight">
+                        {t("chat.creation.gallery")}
+                      </span>
                     </button>
                   </DropdownMenuItem>
 
@@ -1288,7 +1329,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                       <div className="h-10 w-10 rounded-2xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform shadow-xs">
                         <Camera className="h-5 w-5" />
                       </div>
-                      <span className="text-sm font-semibold text-foreground tracking-tight">相机</span>
+                      <span className="text-sm font-semibold text-foreground tracking-tight">
+                        {t("chat.creation.camera")}
+                      </span>
                     </button>
                   </DropdownMenuItem>
 
@@ -1301,7 +1344,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                       <div className="h-10 w-10 rounded-2xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform shadow-xs">
                         <FileText className="h-5 w-5" />
                       </div>
-                      <span className="text-sm font-semibold text-foreground tracking-tight">文件</span>
+                      <span className="text-sm font-semibold text-foreground tracking-tight">
+                        {t("chat.creation.file")}
+                      </span>
                     </button>
                   </DropdownMenuItem>
                 </div>
@@ -1328,7 +1373,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="text-sm font-semibold text-foreground tracking-tight">联网检索</span>
+                          <span className="text-sm font-semibold text-foreground tracking-tight">
+                            {t("chat.webSearch.title")}
+                          </span>
                           <span
                             className={cn(
                               "font-mono text-xs px-2 py-0.5 rounded-lg",
@@ -1339,15 +1386,19 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                                 : "text-muted-foreground bg-surface-3"
                             )}
                           >
-                            {webSearchMode === "auto" ? "自动判断" : webSearchMode === "on" ? "强制开启" : "已关闭"}
+                            {webSearchMode === "auto"
+                              ? t("chat.webSearch.modeAuto")
+                              : webSearchMode === "on"
+                              ? t("chat.webSearch.modeOn")
+                              : t("chat.webSearch.modeOff")}
                           </span>
                         </div>
                         <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
                           {webSearchMode === "auto"
-                            ? "智能研判时效意图，结合实时互联网信息与权威来源解答"
+                            ? t("chat.webSearch.descAuto")
                             : webSearchMode === "on"
-                            ? "每次提问都强制检索最新网页与网络热点动态"
-                            : "仅依赖模型内部知识库回答，不访问外网"}
+                            ? t("chat.webSearch.descOn")
+                            : t("chat.webSearch.descOff")}
                         </p>
                       </div>
                     </DropdownMenuItem>
@@ -1363,15 +1414,17 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-sm font-semibold text-foreground tracking-tight">音频转文字</span>
+                        <span className="text-sm font-semibold text-foreground tracking-tight">
+                          {t("chat.speech.audioToText")}
+                        </span>
                         {isTranscribing && (
                           <span className="flex items-center gap-1 font-mono text-xs font-semibold text-teal-600 dark:text-teal-400">
-                            <RotateCw className="h-3 w-3 animate-spin" /> 转写中
+                            <RotateCw className="h-3 w-3 animate-spin" /> {t("chat.speech.transcribing")}
                           </span>
                         )}
                       </div>
                       <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                        上传录音文件，由语音模型转写后填入输入框
+                        {t("chat.speech.audioToTextDesc")}
                       </p>
                     </div>
                   </DropdownMenuItem>
@@ -1391,15 +1444,17 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-sm font-semibold text-foreground tracking-tight">生成图片</span>
+                        <span className="text-sm font-semibold text-foreground tracking-tight">
+                          {t("chat.creation.imageGen")}
+                        </span>
                         {creationMode === "image" && (
                           <span className="flex items-center gap-1 font-mono text-xs font-semibold text-amber-600 dark:text-amber-400">
-                            <Check className="h-3.5 w-3.5 stroke-[3]" /> 当前模式
+                            <Check className="h-3.5 w-3.5 stroke-[3]" /> {t("chat.creation.activeMode")}
                           </span>
                         )}
                       </div>
                       <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                        调用文生图模型，将你的创意与灵感直接绘制为高清艺术图像
+                        {t("chat.creation.imageGenDesc")}
                       </p>
                     </div>
                   </DropdownMenuItem>
@@ -1408,7 +1463,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                   {isTrialMode ? (
                     <DropdownMenuItem
                       onClick={() => {
-                        toast.info("当前账号处于体验模式，暂不支持使用 AI 视频生成功能。如需开通，请联系管理员获取完整权限。");
+                        toast.info(t("chat.creation.videoBlockedTitle"));
                       }}
                       className="flex items-center gap-3.5 rounded-2xl p-3 opacity-55 cursor-not-allowed hover:bg-transparent focus:bg-transparent"
                     >
@@ -1417,13 +1472,15 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="text-sm font-semibold text-foreground tracking-tight">生成视频</span>
+                          <span className="text-sm font-semibold text-foreground tracking-tight">
+                            {t("chat.creation.videoGen")}
+                          </span>
                           <span className="font-mono text-xs text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-lg">
-                            体验账号受限
+                            {t("chat.creation.trialRestricted")}
                           </span>
                         </div>
                         <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                          调用前沿 AI 视频生成大模型，创作高清流畅的短视频与动效
+                          {t("chat.creation.videoGenDesc")}
                         </p>
                       </div>
                     </DropdownMenuItem>
@@ -1442,15 +1499,17 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="text-sm font-semibold text-foreground tracking-tight">生成视频</span>
+                          <span className="text-sm font-semibold text-foreground tracking-tight">
+                            {t("chat.creation.videoGen")}
+                          </span>
                           {creationMode === "video" && (
                             <span className="flex items-center gap-1 font-mono text-xs font-semibold text-purple-600 dark:text-purple-400">
-                              <Check className="h-3.5 w-3.5 stroke-[3]" /> 当前模式
+                              <Check className="h-3.5 w-3.5 stroke-[3]" /> {t("chat.creation.activeMode")}
                             </span>
                           )}
                         </div>
                         <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                          输入剧本文案，由 AI 视频大模型生成高清动效与视频
+                          {t("chat.creation.videoGenDesc")}
                         </p>
                       </div>
                     </DropdownMenuItem>
@@ -1476,15 +1535,17 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-sm font-semibold text-foreground tracking-tight">智能翻译</span>
+                        <span className="text-sm font-semibold text-foreground tracking-tight">
+                          {t("chat.translate.menuTitle")}
+                        </span>
                         {isTranslateMode && creationMode === "chat" && (
                           <span className="flex items-center gap-1 font-mono text-xs font-semibold text-indigo-600 dark:text-indigo-400">
-                            <Check className="h-3.5 w-3.5 stroke-[3]" /> 当前模式
+                            <Check className="h-3.5 w-3.5 stroke-[3]" /> {t("chat.creation.activeMode")}
                           </span>
                         )}
                       </div>
                       <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                        全语种双向互译与语法教学，含动词变型剖析、日语平假名振假名及类似例句
+                        {t("chat.translate.menuDesc")}
                       </p>
                     </div>
                   </DropdownMenuItem>
@@ -1509,7 +1570,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 <span
                   className="h-1 w-8 overflow-hidden rounded-full bg-destructive/20"
                   role="meter"
-                  aria-label="麦克风音量"
+                  aria-label={t("chat.speech.meterLabel")}
                   aria-valuenow={Math.round(recorder.level * 100)}
                   aria-valuemin={0}
                   aria-valuemax={100}
@@ -1527,12 +1588,12 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             <ActionTooltip
               label={
                 recorder.unsupported
-                  ? "当前浏览器不支持录音"
+                  ? t("chat.speech.unsupported")
                   : isTranscribing
-                  ? "识别中…"
+                  ? t("chat.speech.recognizing")
                   : recorder.isRecording
-                  ? "停止录音并转写"
-                  : "语音输入"
+                  ? t("chat.speech.stopAndTranscribe")
+                  : t("chat.speech.voiceInput")
               }
               side="top"
             >
@@ -1542,7 +1603,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 size="icon"
                 disabled={recorder.unsupported || isTranscribing}
                 onClick={toggleRecording}
-                aria-label={recorder.isRecording ? "停止录音" : "语音输入"}
+                aria-label={recorder.isRecording ? t("chat.speech.stopRecording") : t("chat.speech.voiceInput")}
                 className="h-9 w-9 shrink-0 rounded-full transition-colors"
               >
                 {isTranscribing ? (
@@ -1563,20 +1624,20 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               onPaste={handlePaste}
               placeholder={
                 creationMode === "video"
-                  ? "描述你的视频"
+                  ? t("chat.composer.placeholderVideo")
                   : creationMode === "image"
-                  ? "描述你的图片"
+                  ? t("chat.composer.placeholderImage")
                   : isTranslateMode
-                  ? "输入需要翻译的单词、短语或句子…"
-                  : "询问 Apiapia"
+                  ? t("chat.translate.placeholder")
+                  : t("chat.composer.placeholderChat")
               }
               // 此前输入框既无 <label> 也无 aria-label，屏幕阅读器只会念出
               // placeholder，且 placeholder 一输入就消失。
-              aria-label="向 Apiapia 发送消息"
+              aria-label={t("chat.composer.ariaLabel")}
               className="border-0 bg-transparent shadow-none focus-visible:ring-0 px-2.5 sm:px-3 py-2 text-base sm:text-body max-h-32 sm:max-h-44 leading-relaxed resize-none min-h-[36px]"
             />
             {isStreaming ? (
-              <ActionTooltip label="停止生成" side="top">
+              <ActionTooltip label={t("chat.composer.stop")} side="top">
                 <Button
                   variant="destructive"
                   size="icon"
@@ -1584,12 +1645,14 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                   className="h-8 w-8 sm:h-9 sm:w-9 rounded-full shrink-0 ml-1 mb-1 shadow-sm"
                 >
                   <Square className="h-4 w-4 fill-current" />
-                  <span className="sr-only">停止生成</span>
+                  <span className="sr-only">{t("chat.composer.stop")}</span>
                 </Button>
               </ActionTooltip>
             ) : (
               <ActionTooltip
-                label={isTouchPrimary ? "发送消息" : "发送消息（Enter）"}
+                label={
+                  isTouchPrimary ? t("chat.composer.send") : t("chat.composer.sendWithEnter")
+                }
                 side="top"
               >
                 <Button
@@ -1599,7 +1662,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                   className="h-8 w-8 sm:h-9 sm:w-9 rounded-full shrink-0 ml-1 mb-1 shadow-sm"
                 >
                   <Send className="h-4 w-4" />
-                  <span className="sr-only">发送消息</span>
+                  <span className="sr-only">{t("chat.composer.send")}</span>
                 </Button>
               </ActionTooltip>
             )}
@@ -1620,10 +1683,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               {/* Top action bar */}
               <div className="w-full flex items-center justify-between mb-2 text-white/90 px-1">
                 <DialogTitle className="text-xs sm:text-sm font-medium truncate max-w-[60%] text-white">
-                  {previewImage.alt || "图片预览"}
+                  {previewImage.alt || t("chat.composer.lightboxTitle")}
                 </DialogTitle>
                 <div className="flex items-center gap-2">
-                  <ActionTooltip label="下载原图" side="bottom">
+                  <ActionTooltip label={t("chat.composer.lightboxDownloadTip")} side="bottom">
                     <Button variant="secondary" size="sm" asChild>
                       <a
                         href={previewImage.src}
@@ -1633,7 +1696,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                         className="cursor-pointer"
                       >
                         <Download className="h-3.5 w-3.5" />
-                        <span>下载</span>
+                        <span>{t("chat.composer.lightboxDownload")}</span>
                       </a>
                     </Button>
                   </ActionTooltip>
@@ -1644,14 +1707,14 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               <div className="relative flex items-center justify-center max-w-full max-h-[80vh] overflow-hidden">
                 <img
                   src={previewImage.src}
-                  alt={previewImage.alt || "大图预览"}
+                  alt={previewImage.alt || t("chat.composer.lightboxAlt")}
                   className="max-h-[75vh] max-w-[90vw] sm:max-w-[80vw] object-contain rounded-xl shadow-2xl select-none"
                 />
               </div>
 
               {/* Bottom hint */}
               <p className="text-2xs text-white/50 mt-2 select-none">
-                按 Esc 或点击遮罩空白区域关闭
+                {t("chat.composer.lightboxHint")}
               </p>
             </>
           )}

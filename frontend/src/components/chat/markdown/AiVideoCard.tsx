@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import type { GeneratedVideo } from "@/types";
 import { getMediaVideoUrl } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/i18n";
 
 /**
  * AI 生成视频播放卡片。
@@ -21,6 +22,7 @@ export function AiVideoCard({
 }: {
   video: GeneratedVideo;
 }) {
+  const { t } = useI18n();
   const [loaded, setLoaded] = React.useState(false);
   const [errored, setErrored] = React.useState(false);
   const [visible, setVisible] = React.useState(false);
@@ -76,7 +78,7 @@ export function AiVideoCard({
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 bg-surface-3/60 px-3.5 py-2 text-xs select-none">
         <div className="flex items-center gap-1.5 font-medium text-foreground">
           <Film className="h-3.5 w-3.5 text-primary" />
-          <span>AI 生成视频</span>
+          <span>{t("chat.markdown.aiVideoTitle")}</span>
         </div>
         <div className="flex items-center gap-1.5">
           <Badge
@@ -93,7 +95,7 @@ export function AiVideoCard({
             className="h-7 gap-1 rounded-lg bg-primary/10 px-2 text-2xs font-medium text-primary transition-colors hover:bg-primary/20"
           >
             <Download className="h-3 w-3" />
-            <span>下载</span>
+            <span>{t("chat.markdown.download")}</span>
           </Button>
         </div>
       </div>
@@ -106,20 +108,20 @@ export function AiVideoCard({
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-muted-foreground/60">
             <div className="absolute inset-0 animate-shimmer bg-[length:200%_100%] bg-gradient-to-r from-muted/40 via-muted/80 to-muted/40" />
             <Video className="relative h-8 w-8 animate-pulse text-primary/40" />
-            <span className="relative text-xs">视频加载中…</span>
+            <span className="relative text-xs">{t("chat.markdown.videoLoading")}</span>
           </div>
         )}
 
         {errored ? (
           <div className="flex flex-col items-center gap-2 py-12 text-muted-foreground/60">
             <AlertCircle className="h-8 w-8 text-destructive/70" />
-            <span className="text-xs">视频播放或解析失败，请尝试直接下载查看</span>
+            <span className="text-xs">{t("chat.markdown.videoFailed")}</span>
             <button
               type="button"
               onClick={handleDownload}
               className="mt-1 text-xs text-primary hover:underline"
             >
-              点击下载视频文件
+              {t("chat.markdown.clickToDownloadVideo")}
             </button>
           </div>
         ) : (

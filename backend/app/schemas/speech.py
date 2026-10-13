@@ -2,6 +2,8 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.core.i18n import tr
+
 
 class SpeechTranscription(BaseModel):
     """What ``POST /speech/transcribe`` returns.
@@ -14,7 +16,7 @@ class SpeechTranscription(BaseModel):
     text: str
     model: str
     language: Optional[str] = None
-    duration: Optional[float] = Field(default=None, description="音频时长（秒）")
+    duration: Optional[float] = Field(default=None, description="Audio duration in seconds")
     usage: Dict[str, Any] = Field(default_factory=dict)
 
 
@@ -49,7 +51,10 @@ class SpeakRequest(BaseModel):
     def _known_format(cls, value: str) -> str:
         lowered = (value or "").lower()
         if lowered not in ("mp3", "pcm"):
-            raise ValueError("response_format 仅支持 mp3 或 pcm")
+            # pydantic 会把这条 ValueError 的文本原样塞进 422 响应的 msg 字段，
+            # 所以它和 HTTPException(detail=…) 一样属于面向用户的文案 ——
+            # 写死中文会让英文用户在表单校验失败时看到中文。
+            raise ValueError(tr("SPEECH_BAD_RESPONSE_FORMAT"))
         return lowered
 
 

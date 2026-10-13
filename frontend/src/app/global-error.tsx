@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { getTranslator, resolveStoredLocale } from "@/i18n";
 
 /**
  * 根布局级错误边界。
@@ -40,13 +41,17 @@ export default function GlobalError({
   reset: () => void;
 }) {
   const dark = resolveDark();
+  // 刻意用 getTranslator(resolveStoredLocale()) 而不是 useI18n()：
+  // 本文件替代的就是 root layout，而 I18nProvider 正挂在 root layout 内部 ——
+  // 走到这里时它压根没挂上，useI18n() 会直接抛错，把一次崩溃变成两次。
+  const t = getTranslator(resolveStoredLocale());
 
   useEffect(() => {
     console.error("Root layout error:", error);
   }, [error]);
 
   return (
-    <html lang="zh-CN">
+    <html lang={resolveStoredLocale()}>
       <body
         style={{
           margin: 0,
@@ -79,7 +84,7 @@ fontFamily:
               marginBottom: "0.5rem",
             }}
           >
-            应用无法启动
+            {t("meta.globalError.title")}
           </h1>
           <p
             style={{
@@ -90,7 +95,7 @@ fontFamily:
               marginBottom: "1.25rem",
             }}
           >
-            初始化时发生错误。可以尝试重新加载；若持续失败，请清除本站数据后重试。
+            {t("meta.globalError.description")}
           </p>
           <button
             type="button"
@@ -107,7 +112,7 @@ fontFamily:
               cursor: "pointer",
             }}
           >
-            重新加载
+            {t("meta.globalError.reload")}
           </button>
         </div>
       </body>

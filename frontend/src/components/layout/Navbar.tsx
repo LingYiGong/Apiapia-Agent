@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
+import { LanguageButton } from "@/components/common/LanguageSwitcher";
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/common/BrandLogo";
 import { UserAvatarMenu } from "@/components/layout/UserAvatarDropdown";
@@ -14,8 +15,10 @@ import {
   ACCOUNT_MENU_ITEMS,
   DESKTOP_NAV_ITEMS,
   MOBILE_TAB_ITEMS,
+  navLabels,
   type MobileTab,
 } from "@/config/navigation";
+import { useI18n } from "@/i18n";
 import { useActiveNav } from "@/hooks/useActiveNav";
 
 export interface DesktopNavbarProps {
@@ -29,6 +32,7 @@ export interface DesktopNavbarProps {
 export const DesktopNavbar: React.FC<DesktopNavbarProps> = ({ className }) => {
   const { user } = useAuth();
   const { isActive, ariaCurrent } = useActiveNav();
+  const { t } = useI18n();
 
   return (
     <header
@@ -40,8 +44,8 @@ export const DesktopNavbar: React.FC<DesktopNavbarProps> = ({ className }) => {
       <div className="flex min-w-0 shrink items-center gap-2 md:gap-3 lg:gap-6">
         <Link href="/chat" className="flex shrink-0 items-center gap-2 font-bold tracking-wide">
           <BrandLogo size={32} className="shadow-xs" />
-          <span className="max-w-[110px] truncate bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-base font-semibold text-transparent sm:max-w-none dark:from-indigo-200 dark:to-indigo-400">
-            Apiapia 助理
+          <span className="max-w-[110px] truncate bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-base font-semibold text-transparent sm:max-w-none dark:from-indigo-200 dark:to-violet-400">
+            Apiapia {t("auth.brandSuffix")}
           </span>
         </Link>
 
@@ -49,6 +53,7 @@ export const DesktopNavbar: React.FC<DesktopNavbarProps> = ({ className }) => {
           {DESKTOP_NAV_ITEMS.map((item) => {
             const Icon = item.Icon;
             const active = isActive(item.id);
+            const labels = navLabels(item, t);
             return (
               <Button
                 key={item.id}
@@ -62,9 +67,9 @@ export const DesktopNavbar: React.FC<DesktopNavbarProps> = ({ className }) => {
                   {/* 两个 span 始终同时存在于 DOM，屏幕阅读器会把
                       「对话对话」「记忆库记忆」连着念两遍；给短标签加
                       aria-hidden，只让完整标签参与无障碍名称。 */}
-                  <span className="hidden lg:inline">{item.label}</span>
+                  <span className="hidden lg:inline">{labels.label}</span>
                   <span className="lg:hidden" aria-hidden="true">
-                    {item.shortLabel}
+                    {labels.shortLabel}
                   </span>
                 </Link>
               </Button>
@@ -74,6 +79,10 @@ export const DesktopNavbar: React.FC<DesktopNavbarProps> = ({ className }) => {
       </div>
 
       <div className="flex shrink-0 items-center gap-1.5 sm:gap-2 lg:gap-3">
+        {/* 语言与主题并排：两者都是「这台设备上的显示偏好」，都不写服务端。
+            语言在左、主题在右 —— 语言决定界面能不能读，主题决定看不看得清，
+            顺序按「前者影响更大」排。图标形态与 ThemeToggle 对齐。 */}
+        <LanguageButton />
         <ThemeToggle />
         {/* 主题与退出登录都收在头像菜单里（UserAvatarMenu 的单一实现），
             顶栏不再额外放第二个退出按钮 —— 同一屏出现两个退出入口不是精简。 */}
@@ -105,6 +114,7 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
   className,
 }) => {
   const router = useRouter();
+  const { t } = useI18n();
 
   const handleMobileTabClick = (tab: MobileTab) => {
     if (tab === "chat" && activeMobileTab === "chat") {
@@ -129,7 +139,7 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
 
   return (
     <nav
-      aria-label="移动端底部标签栏"
+      aria-label={t("common.a11y.mobileTabBar")}
       className={cn(
         "z-30 w-full shrink-0 select-none border-t border-border/40 bg-background/90 pb-[var(--sab)] backdrop-blur-xl transition-colors md:hidden",
         className
@@ -145,6 +155,7 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
           // 对话页激活时换成「新建」图标 + 文案，点击即新建；
           // 视觉隐藏两份文案，避免读屏在切换瞬间读到两个不同标签。
           const Icon = item.id === "chat" && isChatActive ? Plus : item.Icon;
+          const labels = navLabels(item, t);
           return (
             <button
               key={item.id}
@@ -167,14 +178,14 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
               {item.id === "chat" ? (
                 <>
                   <span className="leading-tight" aria-hidden="true">
-                    {isChatActive ? "新建" : item.label}
+                    {isChatActive ? t("chat.history.newChatShort") : labels.label}
                   </span>
                   <span className="sr-only">
-                    {isChatActive ? "新建对话" : item.label}
+                    {isChatActive ? t("chat.history.newChat") : labels.label}
                   </span>
                 </>
               ) : (
-                <span className="leading-tight">{item.label}</span>
+                <span className="leading-tight">{labels.label}</span>
               )}
             </button>
           );

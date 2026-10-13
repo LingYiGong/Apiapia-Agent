@@ -135,6 +135,12 @@ echo [5/7] copying files...
 copy /y docker-compose.yml "%STAGE%\docker-compose.yml"
 if errorlevel 1 goto err_copy
 if exist README.md copy /y README.md "%STAGE%\README.md"
+rem The localized READMEs ship too. README.md is English (the default for
+rem open source) and README.zh-CN.md is the only one carrying the full
+rem historical changelog, so both are required for the zip to be usable.
+rem The remaining two are best-effort: a missing translation should not block
+rem a release, whereas a missing README.md would.
+for %%R in (README.zh-CN.md README.zh-TW.md README.ja.md) do if exist %%R copy /y %%R "%STAGE%\%%R"
 if exist VERSION copy /y VERSION "%STAGE%\VERSION"
 if exist apiapia_architecture_v2.md copy /y apiapia_architecture_v2.md "%STAGE%\apiapia_architecture_v2.md"
 if exist .env copy /y .env "%STAGE%\.env"

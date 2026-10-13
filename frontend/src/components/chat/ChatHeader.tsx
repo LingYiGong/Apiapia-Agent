@@ -36,6 +36,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useConfirm } from "@/hooks/useConfirm";
 import type { MobileTab } from "@/config/navigation";
+import { useI18n } from "@/i18n";
 import { cn } from "@/lib/utils";
 import type { Conversation } from "@/types";
 
@@ -101,6 +102,7 @@ export const MobileChatHeader: React.FC<MobileChatHeaderProps> = ({
   className,
   isVocabMode = false,
 }) => {
+  const { t } = useI18n();
   const hasActiveMemories = memoriesCount > 0;
   const isPinned = !!activeConversation?.is_pinned;
 
@@ -133,7 +135,7 @@ export const MobileChatHeader: React.FC<MobileChatHeaderProps> = ({
         right={
           <div className="flex shrink-0 items-center gap-1">
             {hasActiveMemories ? (
-              <ActionTooltip label={`查看当前对话使用的 ${memoriesCount} 条关联记忆`}>
+              <ActionTooltip label={t("chat.header.memoryCountTip", { count: memoriesCount })}>
                 <Button
                   type="button"
                   variant="ghost"
@@ -143,7 +145,7 @@ export const MobileChatHeader: React.FC<MobileChatHeaderProps> = ({
                 >
                   <Brain className="h-4 w-4 shrink-0 text-primary" />
                   <span className="font-mono text-2xs font-semibold">{memoriesCount}</span>
-                  <span className="sr-only">条关联记忆，点击查看</span>
+                  <span className="sr-only">{t("chat.header.memoryCountLabel")}</span>
                 </Button>
               </ActionTooltip>
             ) : null}
@@ -158,7 +160,7 @@ export const MobileChatHeader: React.FC<MobileChatHeaderProps> = ({
                     className="h-8 w-8 shrink-0 cursor-pointer rounded-full text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground active:scale-95"
                   >
                     <MoreHorizontal className="h-4 w-4" />
-                    <span className="sr-only">操作菜单</span>
+                    <span className="sr-only">{t("chat.history.actionMenu")}</span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-40 rounded-xl">
@@ -170,12 +172,12 @@ export const MobileChatHeader: React.FC<MobileChatHeaderProps> = ({
                       {isPinned ? (
                         <>
                           <PinOff className="mr-2 h-3.5 w-3.5" />
-                          <span>取消置顶</span>
+                          <span>{t("chat.history.unpin")}</span>
                         </>
                       ) : (
                         <>
                           <Pin className="mr-2 h-3.5 w-3.5" />
-                          <span>置顶对话</span>
+                          <span>{t("chat.history.pin")}</span>
                         </>
                       )}
                     </DropdownMenuItem>
@@ -183,7 +185,7 @@ export const MobileChatHeader: React.FC<MobileChatHeaderProps> = ({
                   {onRename && (
                     <DropdownMenuItem onClick={handleStartRename} className="cursor-pointer text-xs">
                       <Edit2 className="mr-2 h-3.5 w-3.5" />
-                      <span>重命名</span>
+                      <span>{t("chat.history.rename")}</span>
                     </DropdownMenuItem>
                   )}
                   {onDelete && (
@@ -192,9 +194,11 @@ export const MobileChatHeader: React.FC<MobileChatHeaderProps> = ({
                       <DropdownMenuItem
                         onClick={() =>
                           ask({
-                            title: "删除该历史会话",
-                            description: `确定要删除对话「${activeConversation.title || "新建对话"}」吗？删除后将无法恢复，该操作不可撤销。`,
-                            confirmText: "删除",
+                            title: t("chat.history.deleteTitle"),
+                            description: t("chat.history.deleteDesc", {
+                              title: activeConversation.title || t("chat.history.untitled"),
+                            }),
+                            confirmText: t("chat.history.delete"),
                             danger: true,
                             onConfirm: () => onDelete(activeConversation.id),
                           })
@@ -202,7 +206,7 @@ export const MobileChatHeader: React.FC<MobileChatHeaderProps> = ({
                         className="cursor-pointer text-xs text-destructive focus:bg-destructive/10 focus:text-destructive"
                       >
                         <Trash2 className="mr-2 h-3.5 w-3.5" />
-                        <span>删除对话</span>
+                        <span>{t("chat.history.deleteConversation")}</span>
                       </DropdownMenuItem>
                     </>
                   )}
@@ -230,17 +234,19 @@ export const MobileChatHeader: React.FC<MobileChatHeaderProps> = ({
         <Dialog open onOpenChange={(open) => !open && setIsRenaming(false)}>
           <DialogContent className="max-w-sm rounded-2xl">
             <DialogHeader>
-              <DialogTitle className="text-base font-semibold">重命名对话</DialogTitle>
+              <DialogTitle className="text-base font-semibold">
+                {t("chat.history.renameTitle")}
+              </DialogTitle>
             </DialogHeader>
             <div className="py-2">
               <Label htmlFor="mobile-rename-input" className="sr-only">
-                新标题
+                {t("chat.history.renameLabel")}
               </Label>
               <Input
                 id="mobile-rename-input"
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
-                placeholder="请输入新标题"
+                placeholder={t("chat.history.renamePh")}
                 className="h-10 rounded-xl text-sm"
                 autoFocus
                 onKeyDown={(e) => {
@@ -256,10 +262,10 @@ export const MobileChatHeader: React.FC<MobileChatHeaderProps> = ({
                 onClick={() => setIsRenaming(false)}
                 className="rounded-xl"
               >
-                取消
+                {t("common.action.cancel")}
               </Button>
               <Button type="button" size="sm" onClick={handleConfirmRename} className="rounded-xl">
-                保存
+                {t("common.action.save")}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -290,6 +296,7 @@ export const DesktopChatHeader: React.FC<DesktopChatHeaderProps> = ({
   className,
   isVocabMode = false,
 }) => {
+  const { t } = useI18n();
   const [isRenaming, setIsRenaming] = React.useState(false);
   const [newTitle, setNewTitle] = React.useState("");
   const { ask, dialog } = useConfirm();
@@ -319,7 +326,7 @@ export const DesktopChatHeader: React.FC<DesktopChatHeaderProps> = ({
       >
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <span className="hidden shrink-0 whitespace-nowrap text-xs font-medium text-muted-foreground lg:inline">
-            当前模型：
+            {t("chat.header.currentModel")}
           </span>
 
           <div className="flex min-w-0 items-center">
@@ -337,7 +344,7 @@ export const DesktopChatHeader: React.FC<DesktopChatHeaderProps> = ({
         {activeConversation && (
           <div className="flex shrink-0 items-center gap-1.5">
             {onTogglePin && (
-              <ActionTooltip label={isPinned ? "取消置顶" : "置顶对话"}>
+              <ActionTooltip label={isPinned ? t("chat.history.unpin") : t("chat.history.pin")}>
                 <Button
                   type="button"
                   variant="outline"
@@ -351,37 +358,41 @@ export const DesktopChatHeader: React.FC<DesktopChatHeaderProps> = ({
                   )}
                 >
                   {isPinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
-                  <span className="sr-only">{isPinned ? "取消置顶" : "置顶对话"}</span>
+                  <span className="sr-only">
+                    {isPinned ? t("chat.history.unpin") : t("chat.history.pin")}
+                  </span>
                 </Button>
               </ActionTooltip>
             )}
 
             {onRename && (
-              <ActionTooltip label="重命名对话">
+<ActionTooltip label={t("chat.history.renameTitle")}>
                 <Button
                   type="button"
                   variant="outline"
                   size="icon"
                   onClick={handleStartRename}
-                  className="h-8 w-8 cursor-pointer text-muted-foreground hover:text-foreground"
+                  className="h-8 w-8 cursor-pointer text-muted-foreground hover:bg-surface-3 hover:text-foreground"
                 >
                   <Pencil className="h-4 w-4" />
-                  <span className="sr-only">重命名对话</span>
+                  <span className="sr-only">{t("chat.history.renameTitle")}</span>
                 </Button>
               </ActionTooltip>
             )}
 
             {onDelete && (
-              <ActionTooltip label="删除对话">
+              <ActionTooltip label={t("chat.history.deleteConversation")}>
                 <Button
                   type="button"
                   variant="outline"
                   size="icon"
                   onClick={() =>
                     ask({
-                      title: "删除该历史会话",
-                      description: `确定要删除对话「${activeConversation.title || "新建对话"}」吗？删除后将无法恢复，该操作不可撤销。`,
-                      confirmText: "删除",
+                      title: t("chat.history.deleteTitle"),
+                      description: t("chat.history.deleteDesc", {
+                        title: activeConversation.title || t("chat.history.untitled"),
+                      }),
+                      confirmText: t("chat.history.delete"),
                       danger: true,
                       onConfirm: () => onDelete(activeConversation.id),
                     })
@@ -389,7 +400,7 @@ export const DesktopChatHeader: React.FC<DesktopChatHeaderProps> = ({
                   className="h-8 w-8 cursor-pointer text-muted-foreground hover:border-destructive/40 hover:text-destructive"
                 >
                   <Trash2 className="h-4 w-4" />
-                  <span className="sr-only">删除对话</span>
+                  <span className="sr-only">{t("chat.history.deleteConversation")}</span>
                 </Button>
               </ActionTooltip>
             )}
@@ -402,17 +413,19 @@ export const DesktopChatHeader: React.FC<DesktopChatHeaderProps> = ({
         <Dialog open onOpenChange={(open) => !open && setIsRenaming(false)}>
           <DialogContent className="max-w-sm rounded-2xl">
             <DialogHeader>
-              <DialogTitle className="text-base font-semibold">重命名对话</DialogTitle>
+              <DialogTitle className="text-base font-semibold">
+                {t("chat.history.renameTitle")}
+              </DialogTitle>
             </DialogHeader>
             <div className="py-2">
               <Label htmlFor="desktop-rename-input" className="sr-only">
-                新标题
+                {t("chat.history.renameLabel")}
               </Label>
               <Input
                 id="desktop-rename-input"
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
-                placeholder="请输入新标题"
+                placeholder={t("chat.history.renamePh")}
                 className="h-10 rounded-xl text-sm"
                 autoFocus
                 onKeyDown={(e) => {
@@ -428,10 +441,10 @@ export const DesktopChatHeader: React.FC<DesktopChatHeaderProps> = ({
                 onClick={() => setIsRenaming(false)}
                 className="rounded-xl"
               >
-                取消
+                {t("common.action.cancel")}
               </Button>
               <Button type="button" size="sm" onClick={handleConfirmRename} className="rounded-xl">
-                保存
+                {t("common.action.save")}
               </Button>
             </DialogFooter>
           </DialogContent>

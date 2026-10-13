@@ -19,6 +19,8 @@ from app.schemas.setting import (
     SUPPORTED_PROVIDERS,
 )
 from app.api.v1.deps import get_current_user
+from app.core.errors import ApiError
+from app.core.i18n import tr
 from app.services.catalog import has_full_model_access, check_user_can_use_model
 from app.services.image_gen import image_gen_service
 from app.services.video_gen import video_gen_service
@@ -78,9 +80,18 @@ async def _validate_base_url(base_url: Optional[str], provider: str) -> Optional
 
 
 async def _validate_visual_model(
-    current_user: User, model_id: Optional[str], service: Any, label: str
+    current_user: User,
+    model_id: Optional[str],
+    service: Any,
+    unavailable_code: str,
+    forbidden_code: str,
 ) -> None:
-    """Reject visual models (image/video) that are unavailable or outside account entitlement."""
+    """Reject visual models (image/video) that are unavailable or outside account entitlement.
+
+    此前这里收一个中文 ``label``（"绘图" / "视频"）再拼进 f-string，于是抛出的
+    ``detail`` 永远是中文。现在改收**错误码**：文案与语序都交给
+    ``core/messages.py``，四种语言各自成句。
+    """
     model_id = (model_id or "").strip()
     if not model_id:
         return
@@ -88,14 +99,12 @@ async def _validate_visual_model(
     catalog = await service.list_available_models()
     entry = next((m for m in catalog if m["id"] == model_id), None)
     if entry is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"所选{label}模型当前不可用（对应服务未配置或模型已下架）：{model_id}"
-        )
+        raise ApiError(status.HTTP_400_BAD_REQUEST, unavailable_code, model_id=model_id)
     if not has_full_model_access(current_user) and not entry.get("is_free"):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"当前账号处于体验模式，仅可使用免费{label}模型；「{entry.get('name') or model_id}」为计费模型。"
+        raise ApiError(
+            status.HTTP_403_FORBIDDEN,
+            forbidden_code,
+            name=entry.get("name") or model_id,
         )
 
 
@@ -105,14 +114,26 @@ async def _validate_image_model(current_user: User, model_id: Optional[str]) -> 
     Mirrors the entitlement rule used for chat models. An empty value clears the
     selection and is always allowed.
     """
-    await _validate_visual_model(current_user, model_id, image_gen_service, "绘图")
+    await _validate_visual_model(
+        current_user,
+        model_id,
+        image_gen_service,
+        "MODEL_IMAGE_UNAVAILABLE",
+        "TRIAL_IMAGE_MODEL_FORBIDDEN",
+    )
 
 
 async def _validate_video_model(current_user: User, model_id: Optional[str]) -> None:
     """
     Reject video models that are unavailable or outside the account entitlement.
     """
-    await _validate_visual_model(current_user, model_id, video_gen_service, "视频")
+    await _validate_visual_model(
+        current_user,
+        model_id,
+        video_gen_service,
+        "MODEL_VIDEO_UNAVAILABLE",
+        "TRIAL_VIDEO_MODEL_FORBIDDEN",
+    )
 
 
 async def _validate_audio_model(
@@ -130,7 +151,7 @@ async def _validate_audio_model(
     if not model_id:
         return
 
-    label = "语音识别" if capability == CAPABILITY_STT else "语音合成"
+    label = tr("MODEL_KIND_STT" if capability == CAPABILITY_STT else "MODEL_KIND_TTS")
     catalog = await speech_service.list_available_models()
     entry = next(
         (m for m in catalog if m["id"] == model_id and m.get("capability") == capability),
@@ -142,19 +163,30 @@ async def _validate_audio_model(
         # stale id, and it deserves its own message.
         wrong_kind = next((m for m in catalog if m["id"] == model_id), None)
         if wrong_kind is not None:
-            other = "语音合成" if wrong_kind.get("capability") == CAPABILITY_TTS else "语音识别"
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"「{model_id}」是{other}模型，不能用于{label}。请在上方选择对应的{label}模型。"
+            other = tr(
+                "MODEL_KIND_TTS"
+                if wrong_kind.get("capability") == CAPABILITY_TTS
+                else "MODEL_KIND_STT"
             )
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"所选{label}模型当前不可用（对应服务未配置或模型已下架）：{model_id}"
+            raise ApiError(
+                status.HTTP_400_BAD_REQUEST,
+                "MODEL_AUDIO_WRONG_KIND",
+                model_id=model_id,
+                other=other,
+                label=label,
+            )
+        raise ApiError(
+            status.HTTP_400_BAD_REQUEST,
+            "MODEL_AUDIO_UNAVAILABLE",
+            label=label,
+            model_id=model_id,
         )
     if not has_full_model_access(current_user) and not entry.get("is_free"):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"当前账号处于体验模式，仅可使用免费{label}模型；「{entry.get('name') or model_id}」为计费模型。"
+        raise ApiError(
+            status.HTTP_403_FORBIDDEN,
+            "TRIAL_AUDIO_MODEL_FORBIDDEN",
+            label=label,
+            name=entry.get("name") or model_id,
         )
 
 
@@ -272,10 +304,7 @@ async def update_user_settings(
 
     if update_data.default_model is not None:
         if not check_user_can_use_model(current_user, update_data.default_model):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="当前账号处于体验模式，仅支持使用免费模型，无法将默认模型设置为计费模型。"
-            )
+            raise ApiError(status.HTTP_403_FORBIDDEN, "TRIAL_DEFAULT_MODEL_FORBIDDEN")
         setting.default_model = update_data.default_model
     if update_data.memory_model is not None:
         # Memory LLM is admin-only: silently ignore when set by ordinary users
@@ -310,9 +339,10 @@ async def update_user_settings(
     if update_data.web_search_mode is not None:
         mode = update_data.web_search_mode.strip().lower()
         if mode not in ("auto", "on", "off"):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"无效的联网检索模式：{update_data.web_search_mode}（可选 auto / on / off）"
+            raise ApiError(
+                status.HTTP_400_BAD_REQUEST,
+                "INVALID_WEB_SEARCH_MODE",
+                value=update_data.web_search_mode,
             )
         setting.web_search_mode = mode
 
@@ -337,9 +367,11 @@ async def update_user_settings(
 def _normalize_provider(raw: str) -> str:
     name = (raw or "").strip().lower()
     if name not in SUPPORTED_PROVIDERS:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"不支持的 provider：{raw!r}（可选：{', '.join(SUPPORTED_PROVIDERS)}）"
+        raise ApiError(
+            status.HTTP_400_BAD_REQUEST,
+            "UNSUPPORTED_PROVIDER",
+            value=raw,
+            supported=", ".join(SUPPORTED_PROVIDERS),
         )
     return name
 
@@ -373,10 +405,7 @@ async def upsert_model_config(
     model = payload.model.strip()
     api_key = (payload.api_key or "").strip()
     if not api_key:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="api_key 不能为空。如需清除已保存的密钥，请改用 PATCH 并提交空字符串。"
-        )
+        raise ApiError(status.HTTP_400_BAD_REQUEST, "API_KEY_REQUIRED")
     base_url = await _validate_base_url(payload.base_url, provider)
 
     stmt = select(ModelConfig).where(
@@ -390,9 +419,10 @@ async def upsert_model_config(
         count_stmt = select(func.count(ModelConfig.id)).where(ModelConfig.user_id == current_user.id)
         existing = (await db.execute(count_stmt)).scalar() or 0
         if existing >= MAX_MODEL_CONFIGS_PER_USER:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"最多保存 {MAX_MODEL_CONFIGS_PER_USER} 组自定义凭证，请先删除不再使用的条目。"
+            raise ApiError(
+                status.HTTP_400_BAD_REQUEST,
+                "TOO_MANY_CREDENTIALS",
+                max=MAX_MODEL_CONFIGS_PER_USER,
             )
         cfg = ModelConfig(user_id=current_user.id, provider=provider, model=model)
         db.add(cfg)
@@ -425,7 +455,7 @@ async def update_model_config(
     # 404 rather than 403 for someone else's row: this endpoint must not confirm
     # that a given id exists in another account.
     if cfg is None or cfg.user_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="凭证不存在")
+        raise ApiError(status.HTTP_404_NOT_FOUND, "CREDENTIAL_NOT_FOUND")
 
     # model_fields_set distinguishes "not submitted" from an explicit null.
     if "api_key" in payload.model_fields_set:
@@ -455,7 +485,7 @@ async def delete_model_config(
     """Remove one of the caller's credentials. Falls back to server config after."""
     cfg = await db.get(ModelConfig, config_id)
     if cfg is None or cfg.user_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="凭证不存在")
+        raise ApiError(status.HTTP_404_NOT_FOUND, "CREDENTIAL_NOT_FOUND")
 
     await db.delete(cfg)
     await db.commit()

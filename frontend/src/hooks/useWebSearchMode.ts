@@ -3,6 +3,8 @@
 import { useCallback, useRef, useState } from "react";
 import { apiRequest } from "@/lib/api";
 import { toast } from "sonner";
+import { getTranslator, resolveStoredLocale } from "@/i18n/runtime";
+import type { Translator } from "@/i18n/runtime";
 
 export type WebSearchMode = "auto" | "on" | "off";
 
@@ -15,11 +17,25 @@ const NEXT: Record<WebSearchMode, WebSearchMode> = {
   off: "auto",
 };
 
-const FEEDBACK: Record<WebSearchMode, { title: string; description: string }> = {
-  on: { title: "🌐 联网检索：强制开启", description: "每次提问都将强制检索互联网最新信息" },
-  off: { title: "🌐 联网检索：已关闭", description: "仅使用模型自身知识回答，不联网搜索" },
-  auto: { title: "🌐 联网检索：智能自动", description: "系统将根据问题自动判断是否全网搜索" },
+/**
+ * 三档模式的 toast 文案。存的是**键**，不是字符串 ——
+ * 此前这里写死中文，于是切到英文界面点一下联网检索开关，
+ * 弹出来的还是一句中文，而它在同一个 hook 里、和界面上其他文案挨着。
+ *
+ * 读取走 getTranslator(resolveStoredLocale()) 而不是 hook：这个 hook 的
+ * toggle 是事件回调，拿不到 React 上下文，而这两条文案不在渲染期，
+ * 因此不需要订阅语言变化。
+ */
+const FEEDBACK_KEYS: Record<WebSearchMode, { title: string; description: string }> = {
+  on: { title: "chat.webSearch.toastOnTitle", description: "chat.webSearch.toastOnDesc" },
+  off: { title: "chat.webSearch.toastOffTitle", description: "chat.webSearch.toastOffDesc" },
+  auto: { title: "chat.webSearch.toastAutoTitle", description: "chat.webSearch.toastAutoDesc" },
 };
+
+function feedbackFor(mode: WebSearchMode, t: Translator) {
+  const keys = FEEDBACK_KEYS[mode];
+  return { title: t(keys.title as never), description: t(keys.description as never) };
+}
 
 /**
  * 联网检索模式（auto / on / off）。
@@ -90,8 +106,10 @@ export function useWebSearchMode() {
       /* 偏好已在本机生效，服务端失败不阻断 */
     });
 
-    toast.success(FEEDBACK[next].title, {
-      description: FEEDBACK[next].description,
+    const t = getTranslator(resolveStoredLocale());
+    const feedback = feedbackFor(next, t);
+    toast.success(feedback.title, {
+      description: feedback.description,
       duration: 2200,
     });
   }, []);

@@ -15,6 +15,7 @@ import { UsageView } from "@/components/usage/UsageView";
 import { SettingsView } from "@/components/settings/SettingsView";
 import { toast } from "sonner";
 import { notifyModelSyncResult } from "@/lib/feedback";
+import { useI18n } from "@/i18n";
 import { useRefreshOnResume } from "@/hooks/useRefreshOnResume";
 import { useWebSearchMode } from "@/hooks/useWebSearchMode";
 import { messageEditGuardFlag } from "@/lib/messageEditGuard";
@@ -129,6 +130,7 @@ export default function ChatPage({
 }) {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const { t } = useI18n();
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -196,7 +198,9 @@ export default function ChatPage({
       const bestModel = geminiExact || openaiExact || geminiFallback;
       if (bestModel && bestModel.id !== currentModel) {
         void handleModelChange(bestModel.id);
-        toast.info(`已自动切换至极速翻译模型：${bestModel.name || bestModel.id}`);
+        toast.info(
+          t("chat.translate.autoSwitchModel", { model: bestModel.name || bestModel.id })
+        );
       }
     } else if (!enabled && availableModels.length > 0) {
       // 关闭翻译模式时，恢复用户配置的默认首选模型
@@ -210,7 +214,9 @@ export default function ChatPage({
       if (targetResetModel && targetResetModel !== currentModel) {
         void handleModelChange(targetResetModel);
         const modelObj = availableModels.find((m) => m.id === targetResetModel);
-        toast.info(`已恢复默认模型：${modelObj?.name || targetResetModel}`);
+        toast.info(
+          t("chat.translate.restoreModel", { model: modelObj?.name || targetResetModel })
+        );
       }
     }
   };
@@ -537,12 +543,15 @@ export default function ChatPage({
       // 同步哪一类目录，取决于顶部当前展示的是哪一族模型。原先这里写死
       // /models/sync，于是切到图片 / 视频模式后点刷新会去同步语言模型 ——
       // 报「发现 0 个新语言模型」，而用户眼前那一族列表纹丝不动。
+      //
+      // scope 传的是**语义 id**而不是本地化后的词：toast 文案由
+      // notifyModelSyncResult 内部查词典拼装，调用方不该先翻好词再传进去。
       const target =
         creationMode === "image"
-          ? { path: "/models/sync-images", scope: "绘图模型" as const, emptyKey: "image" as const }
+          ? { path: "/models/sync-images", scope: "image" as const, emptyKey: "image" as const }
           : creationMode === "video"
-          ? { path: "/models/sync-videos", scope: "视频模型" as const, emptyKey: "video" as const }
-          : { path: "/models/sync", scope: "语言模型" as const, emptyKey: "chat" as const };
+          ? { path: "/models/sync-videos", scope: "video" as const, emptyKey: "video" as const }
+          : { path: "/models/sync", scope: "language" as const, emptyKey: "chat" as const };
 
       const syncRes = await apiRequest<{
         success: boolean;
@@ -554,6 +563,7 @@ export default function ChatPage({
       const counts = await loadConfiguredModels();
 
       notifyModelSyncResult({
+        t,
         scope: target.scope,
         newCount: syncRes.new_count || 0,
         message: syncRes.message,
@@ -563,7 +573,7 @@ export default function ChatPage({
       });
     } catch (err: any) {
       console.error("Failed to sync models:", err);
-      toast.error(err.message || "同步模型失败，请检查后台 .env 配置");
+      toast.error(err.message || t("chat.errors.syncModelsFailed"));
     } finally {
       setIsRefreshingModels(false);
     }
@@ -793,7 +803,7 @@ export default function ChatPage({
         method: "PATCH",
         body: JSON.stringify({ memory_enabled: next }),
       }).catch(() => {
-        toast.error("记忆开关未能保存到服务器，刷新后会恢复原状态");
+        toast.error(t("chat.errors.memoryTogglePersistFailed"));
       });
       return next;
     });
@@ -1091,7 +1101,7 @@ export default function ChatPage({
                 ...prev,
                 {
                   role: "assistant",
-                  content: err || "❌ 后端未知错误，请检查服务器日志",
+                  content: err || t("chat.message.backendUnknownError"),
                   // 打上错误标记：ChatMessageItem 靠 finish_reason 决定是否套用错误
                   // 样式（此前靠内容里是否含「HTTP 500」等字符串来嗅探，会把用户正常
                   // 引用这些字样的消息也渲染成红色错误卡片）。
@@ -1131,7 +1141,7 @@ export default function ChatPage({
           ...prev,
           {
             role: "assistant",
-            content: isApiError ? `❌ ${err.message}` : `❌ 网络连接失败: ${err?.message || err}`,
+            content: isApiError ? `❌ ${err.message}` : `❌ ${t("chat.message.networkFailed", { reason: err?.message || err })}`,
             finish_reason: "error",
           },
         ]);
@@ -1210,7 +1220,7 @@ export default function ChatPage({
       if (isStreaming || regenerating) return;
       const clean = newText.trim();
       if (!clean) {
-        toast.error("消息内容不能为空");
+        toast.error(t("chat.errors.emptyEdit"));
         return;
       }
 
@@ -1237,7 +1247,7 @@ export default function ChatPage({
         if (!truncatedOnServer) {
           // 截断本身失败：服务端数据没动过，本地还原即可无损重试
           rollback();
-          toast.error(err.message || "编辑消息失败");
+          toast.error(err.message || t("chat.errors.editFailed"));
           return;
         }
         // 截断已生效、重发失败：服务端分支已被裁掉。此时**不能**把本地列表还原回
@@ -1250,8 +1260,8 @@ export default function ChatPage({
         setStreamingContent("");
         setSearchStatus({ state: "idle" });
         void refreshFromServer();
-        toast.warning("重发失败，对话已按新提问裁剪", {
-          description: `${err?.message || "网络异常"}。该消息之后的内容已被删除，可重新发送或刷新页面查看最新状态。`,
+        toast.warning(t("chat.errors.resendFailedTitle"), {
+          description: t("chat.errors.resendFailedDesc", { reason: err?.message || t("chat.errors.networkReason") }),
           duration: 5000,
         });
       }
@@ -1271,7 +1281,7 @@ export default function ChatPage({
       let userIdx = idx - 1;
       while (userIdx >= 0 && list[userIdx].role !== "user") userIdx--;
       if (userIdx < 0) {
-        toast.error("找不到对应的提问，无法重新生成");
+        toast.error(t("chat.errors.regenerateNoSource"));
         return;
       }
       const prompt = list[userIdx].content;
@@ -1287,7 +1297,7 @@ export default function ChatPage({
         await handleSendMessage(prompt);
       } catch (err: any) {
         rollback();
-        toast.error(err.message || "重新生成失败");
+        toast.error(err.message || t("chat.errors.regenerateFailed"));
       } finally {
         setRegenerating(false);
       }

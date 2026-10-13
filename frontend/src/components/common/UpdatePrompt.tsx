@@ -19,6 +19,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
+import { useI18n } from "@/i18n";
 
 /**
  * 新版本提示。
@@ -28,6 +29,7 @@ import { toast } from "sonner";
  * （偏好设置 → 检查更新，或点 toast 上的「查看详情」）。
  */
 export const UpdatePrompt: React.FC = () => {
+  const { t } = useI18n();
   const [updateInfo, setUpdateInfo] = useState<VersionInfo | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -40,7 +42,7 @@ export const UpdatePrompt: React.FC = () => {
   const runCheck = useCallback(
     async (isManual = false) => {
       if (isManual) {
-        toast.info("正在检查是否有新版本...");
+        toast.info(t("meta.update.checking"));
       }
 
       const result = await checkAppUpdate();
@@ -64,20 +66,20 @@ export const UpdatePrompt: React.FC = () => {
         if (!isIgnored) {
           // 自动检查不打断：只提示一句，想看 changelog 再点进来。
           // 偏好设置里的「检查更新」按钮随时可以主动打开详情。
-          toast.info(`发现新版本 v${result.info.version}`, {
-            description: "更新内容可在偏好设置中查看，或点击此处查看详情",
+          toast.info(t("meta.update.availableTitle", { version: result.info.version }), {
+            description: t("meta.update.changelogHint"),
             duration: 8000,
             action: {
-              label: "查看详情",
+              label: t("meta.update.changelog"),
               onClick: () => openDetail(result.info!),
             },
           });
         }
       } else if (isManual) {
-        toast.success(`已是最新版本 (v${CURRENT_VERSION})，无需更新`);
+        toast.success(t("meta.update.currentDescription", { version: CURRENT_VERSION }));
       }
     },
-    [openDetail]
+    [openDetail, t]
   );
 
   // Initial check on entry / page mount
@@ -143,7 +145,7 @@ export const UpdatePrompt: React.FC = () => {
                 <div>
                   <div className="flex items-center gap-2">
                     <DialogTitle className="text-base font-bold text-white">
-                      发现新版本
+                      {t("meta.update.availableTitle", { version: updateInfo?.version ?? "" })}
                     </DialogTitle>
                     {updateInfo && (
                       <Badge className="bg-white/20 text-amber-200 border-white/20 font-mono">
@@ -152,7 +154,7 @@ export const UpdatePrompt: React.FC = () => {
                     )}
                   </div>
                   <DialogDescription className="text-xs text-indigo-100/90 mt-0.5">
-                    当前版本: v{CURRENT_VERSION}
+                    {t("settings.about.versionValue", { version: CURRENT_VERSION })}
                   </DialogDescription>
                 </div>
               </div>
@@ -168,10 +170,10 @@ export const UpdatePrompt: React.FC = () => {
                 </div>
               )}
 
-              {updateInfo?.changelog && updateInfo.changelog.length > 0 && (
+              {updateInfo?.changelog && updateInfo.changelog.length > 0 ? (
                 <div className="space-y-2">
                   <p className="text-2xs font-bold text-muted-foreground uppercase tracking-wider">
-                    更新内容与特性：
+                    {t("meta.update.changelog")}
                   </p>
                   <div className="space-y-1.5 bg-muted rounded-xl p-3 border">
                     {updateInfo.changelog.map((item, idx) => (
@@ -182,10 +184,16 @@ export const UpdatePrompt: React.FC = () => {
                     ))}
                   </div>
                 </div>
+              ) : (
+                // 服务端没给 changelog 时留一行说明，而不是留一块空白 ——
+                // 空白会让用户以为是加载失败了。
+                <p className="text-2xs text-muted-foreground">
+                  {t("meta.update.noChangelog")}
+                </p>
               )}
 
               <p className="text-2xs text-muted-foreground">
-                更新将自动清理浏览器旧版缓存并重载最新界面组件。建议在非对话中途进行更新。
+                {t("meta.update.cacheWarning")}
               </p>
             </div>
           </ScrollArea>
@@ -198,7 +206,7 @@ export const UpdatePrompt: React.FC = () => {
               onClick={handleDismiss}
               disabled={isUpdating}
             >
-              稍后提醒
+              {t("meta.update.later")}
             </Button>
             <Button
               size="sm"
@@ -206,7 +214,9 @@ export const UpdatePrompt: React.FC = () => {
               disabled={isUpdating}
             >
               <RefreshCw className={`h-3.5 w-3.5 ${isUpdating ? "animate-spin" : ""}`} />
-              <span>{isUpdating ? "正在更新中..." : "立即更新"}</span>
+              <span>
+                {isUpdating ? t("common.action.processing") : t("meta.update.updateNow")}
+              </span>
             </Button>
           </DialogFooter>
         </DialogContent>

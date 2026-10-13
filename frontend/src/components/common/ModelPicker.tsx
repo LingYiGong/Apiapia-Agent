@@ -16,6 +16,7 @@ import {
   PopoverContent,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/i18n";
 import type { ModelOption } from "@/lib/models";
 
 /**
@@ -93,7 +94,7 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
   options,
   kindLabel,
   ariaLabel,
-  placeholder = "请选择模型",
+  placeholder,
   className,
   variant = "default",
   disabled = false,
@@ -105,6 +106,7 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
   isTrialMode = false,
   emptyState,
 }) => {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -221,7 +223,7 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
   const isRawIdFallback = !selectedOption && !!value;
   const triggerLabel = selectedOption
     ? selectedOption.name
-    : value || (loading ? "加载中..." : placeholder);
+    : value || (loading ? t("settings.picker.loading") : (placeholder ?? t("settings.picker.placeholder")));
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -237,7 +239,12 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
           type="button"
           aria-haspopup="dialog"
           aria-expanded={open}
-          aria-label={`选择${a11yLabel}${selectedOption ? `，当前 ${selectedOption.name}` : ""}`}
+          aria-label={t("settings.picker.selectAria", {
+            kind: a11yLabel,
+            current: selectedOption
+              ? t("settings.picker.selectAriaCurrent", { name: selectedOption.name })
+              : "",
+          })}
           disabled={disabled}
           className={cn(
             isCompact
@@ -270,8 +277,8 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
             {selectedOption?.isFree && (
               <span
                 role="img"
-                aria-label="免费模型"
-                title="免费模型"
+                aria-label={t("settings.modelBadges.freeModel")}
+                title={t("settings.modelBadges.freeModel")}
                 className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500"
               />
             )}
@@ -303,7 +310,7 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
         <div className="flex items-center justify-between px-1 pb-2.5">
           <div className="flex min-w-0 items-center gap-1.5">
             <span className="text-xs font-semibold text-foreground">
-              选择{kindLabel}
+              {t("settings.picker.title", { kind: kindLabel })}
             </span>
             <span className="rounded-full bg-surface-3/60 px-1.5 py-0.5 font-mono text-2xs text-muted-foreground">
               {visible.length}
@@ -312,16 +319,16 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
               // 不可聚焦：纯展示信息。徽章本身是 div，套 Tooltip 会造出一个
               // 可聚焦的 div（违反 WCAG 2.1.1）。
               <span
-                title={`当前处于体验模式，仅可使用免费${kindLabel}`}
+                title={t("settings.picker.trialTitle", { kind: kindLabel })}
                 className="shrink-0 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0 text-2xs text-emerald-600 dark:text-emerald-400"
               >
-                体验模式
+                {t("settings.picker.trialBadge")}
               </span>
             )}
           </div>
           {selectedOption && (
             <span className="max-w-[170px] truncate font-mono text-2xs text-muted-foreground">
-              当前: {selectedOption.name}
+              {t("settings.picker.current", { name: selectedOption.name })}
             </span>
           )}
         </div>
@@ -338,8 +345,8 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
             aria-controls={listboxId.current}
             aria-autocomplete="list"
             aria-activedescendant={activeOptionId}
-            aria-label={`搜索${a11yLabel}`}
-            placeholder={`搜索${a11yLabel}`}
+            aria-label={t("settings.picker.searchAria", { kind: a11yLabel })}
+            placeholder={t("settings.picker.searchPh", { kind: a11yLabel })}
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
@@ -354,7 +361,7 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
             <button
               type="button"
               onClick={() => setSearch("")}
-              aria-label="清除搜索"
+              aria-label={t("settings.picker.clearSearch")}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted-foreground transition-transform hover:text-foreground active:scale-95"
             >
               <X className="h-3.5 w-3.5" />
@@ -397,21 +404,21 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
         <div
           id={listboxId.current}
           role="listbox"
-          aria-label={`${a11yLabel}列表`}
+          aria-label={t("settings.picker.listAria", { kind: a11yLabel })}
           onWheel={(e) => e.stopPropagation()}
           className="min-h-0 max-h-[50vh] flex-1 space-y-1 overflow-y-auto overscroll-contain pr-1 touch-pan-y"
         >
           {visible.length === 0 ? (
             emptyState ?? (
               <div className="px-3 py-10 text-center text-xs leading-relaxed text-muted-foreground">
-                未找到匹配的{kindLabel}
+                {t("settings.picker.noMatch", { kind: kindLabel })}
                 {filterKey && (
                   <button
                     type="button"
                     onClick={() => setFilterKey(null)}
                     className="mx-auto mt-2 block cursor-pointer text-xs text-primary underline hover:opacity-80 active:scale-95"
                   >
-                    在全部 {options.length} 个模型中查找
+                    {t("settings.picker.searchAll", { count: options.length })}
                   </button>
                 )}
               </div>
@@ -449,17 +456,17 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
                       {o.isFeatured && (
                         <span className="flex items-center gap-0.5 rounded-md border border-amber-500/25 bg-amber-500/10 px-1.5 py-0.5 text-2xs font-medium text-amber-600 dark:text-amber-400">
                           <Sparkles className="h-2.5 w-2.5" />
-                          精选
+                          {t("settings.picker.featuredBadge")}
                         </span>
                       )}
                       {o.isFree && (
                         <span className="rounded-md border border-emerald-500/25 bg-emerald-500/10 px-1.5 py-0.5 text-2xs font-medium text-emerald-600 dark:text-emerald-400">
-                          免费
+                          {t("settings.picker.freeBadge")}
                         </span>
                       )}
                       {o.isMultimodal && (
                         <span className="rounded-md border border-violet-500/25 bg-violet-500/10 px-1.5 py-0.5 text-2xs font-medium text-violet-600 dark:text-violet-400">
-                          多模态
+                          {t("settings.picker.multimodalBadge")}
                         </span>
                       )}
                       {o.provider && (

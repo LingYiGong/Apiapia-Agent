@@ -17,17 +17,29 @@
  *    等于总数（此前「过去 7 天」与「今天」存在重叠，需要靠文案解释才不歧义）。
  */
 
-/** 分组内的时间键（不含置顶）。按新→旧排列。 */
+/**
+ * 分组内的时间键（不含置顶）。按新→旧排列。
+ */
 export type TimeBucketKey = "last24h" | "last3d" | "last7d" | "earlier";
 
 /** 完整分组键：置顶组 + 四个时间桶。 */
 export type GroupKey = "pinned" | TimeBucketKey;
+
+/** 每个桶的小标文案键。文案本身在词典里。 */
+export const BUCKET_TITLE_KEYS: Record<TimeBucketKey, MessageKey> = {
+  last24h: "common.timeGroups.last24h",
+  last3d: "common.timeGroups.last3d",
+  last7d: "common.timeGroups.last7d",
+  earlier: "common.timeGroups.earlier",
+};
 
 export interface TimeSection<T> {
   key: GroupKey;
   title: string;
   items: T[];
 }
+
+import type { MessageKey, Translator } from "@/i18n";
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
@@ -45,22 +57,22 @@ export const TIME_BUCKET_SPANS: { key: TimeBucketKey; spanMs: number }[] = [
 ];
 
 /** 分组小标文案。与滚动窗口语义一一对应，用户可自行推算边界。 */
-const BUCKET_TITLES: Record<TimeBucketKey, string> = {
-  last24h: "最近24小时",
-  last3d: "最近3天",
-  last7d: "最近7天",
-  earlier: "更早",
-};
-
 export interface GroupOptions<T> {
+  /**
+   * 翻译函数。
+   *
+   * 显式传入而不是内部调 getTranslator：分组是在**渲染期**发生的，
+   * 必须跟着当前语言重渲染，而模块级的 getTranslator 做不到这一点。
+   */
+  t: Translator;
   /** 取每项的时间戳（毫秒）。无法解析时返回 0，会落进「更早」。 */
   getTime: (item: T) => number;
   /** 可选的置顶判定。传入后才会在最前面产出 pinned 组。 */
   isPinned?: (item: T) => boolean;
   /** 置顶项内部的排序键（通常是 pin_order）。不传则沿用传入顺序。 */
   getPinOrder?: (item: T) => number;
-  /** 置顶组的小标文案，默认「置顶对话」。 */
-  pinnedTitle?: string;
+  /** 置顶组的小标文案键，默认「置顶对话」。 */
+  pinnedTitleKey?: MessageKey;
 }
 
 /**
@@ -84,7 +96,13 @@ export function bucketOf(timestampMs: number, now: number = Date.now()): TimeBuc
  */
 export function groupByTimeBuckets<T>(
   items: readonly T[],
-  { getTime, isPinned, getPinOrder, pinnedTitle = "置顶对话" }: GroupOptions<T>
+  {
+    t,
+    getTime,
+    isPinned,
+    getPinOrder,
+    pinnedTitleKey = "common.timeGroups.pinnedConversations",
+  }: GroupOptions<T>
 ): TimeSection<T>[] {
   const pinned: T[] = [];
   const buckets: Record<TimeBucketKey, T[]> = {
@@ -117,10 +135,10 @@ export function groupByTimeBuckets<T>(
   }
 
   const sections: TimeSection<T>[] = [];
-  if (pinned.length > 0) sections.push({ key: "pinned", title: pinnedTitle, items: pinned });
+  if (pinned.length > 0) sections.push({ key: "pinned", title: t(pinnedTitleKey), items: pinned });
   for (const { key } of [...TIME_BUCKET_SPANS, { key: "earlier" as TimeBucketKey }]) {
     const list = buckets[key];
-    if (list.length > 0) sections.push({ key, title: BUCKET_TITLES[key], items: list });
+    if (list.length > 0) sections.push({ key, title: t(BUCKET_TITLE_KEYS[key]), items: list });
   }
   return sections;
 }

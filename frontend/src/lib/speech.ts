@@ -1,4 +1,16 @@
 import { ApiError, getApiBase, getToken } from "./api";
+import { getTranslator, resolveStoredLocale } from "@/i18n/runtime";
+import type { MessageKey, TranslateValues } from "@/i18n";
+
+/**
+ * 按调用时解析翻译器。
+ *
+ * 这个模块全程在事件回调里跑（录音上传、朗读点击），不在渲染期，
+ * 因此不需要订阅语言变化；而在模块顶部抓一份 t 反而会读到首次加载时的语言。
+ */
+function tr(key: MessageKey, values?: TranslateValues): string {
+  return getTranslator(resolveStoredLocale())(key, values);
+}
 
 /**
  * Client for the speech endpoints (`/api/speech/*` on the backend).
@@ -140,11 +152,14 @@ export async function transcribeAudio(
   opts: TranscribeOptions & { filename?: string } = {}
 ): Promise<TranscriptionResult> {
   if (!blob || blob.size === 0) {
-    throw new ApiError("录音内容为空", 400);
+    throw new ApiError(tr("common.speech.transcribeEmpty"), 400);
   }
   if (blob.size > MAX_AUDIO_BYTES) {
     throw new ApiError(
-      `音频文件约 ${(blob.size / (1024 * 1024)).toFixed(1)}MB，超过 ${MAX_AUDIO_BYTES / (1024 * 1024)}MB 上限`,
+      tr("common.speech.transcribeTooLarge", {
+        size: (blob.size / (1024 * 1024)).toFixed(1),
+        max: MAX_AUDIO_BYTES / (1024 * 1024),
+      }),
       413
     );
   }
@@ -168,7 +183,7 @@ export async function transcribeAudio(
   });
 
   if (!response.ok) {
-    throw await readError(response, "语音识别失败");
+    throw await readError(response, tr("common.speech.transcribeFailed"));
   }
   return (await response.json()) as TranscriptionResult;
 }
@@ -195,11 +210,14 @@ export interface SpeakOptions {
 export async function speakText(text: string, opts: SpeakOptions = {}): Promise<Blob> {
   const trimmed = (text || "").trim();
   if (!trimmed) {
-    throw new ApiError("待朗读的文本为空", 400);
+    throw new ApiError(tr("common.speech.speakEmptyText"), 400);
   }
   if (trimmed.length > MAX_SPEECH_CHARS) {
     throw new ApiError(
-      `待朗读文本 ${trimmed.length} 字，超过单次 ${MAX_SPEECH_CHARS} 字上限`,
+      tr("common.speech.speakTextTooLong", {
+        count: trimmed.length,
+        max: MAX_SPEECH_CHARS,
+      }),
       400
     );
   }
@@ -223,7 +241,7 @@ export async function speakText(text: string, opts: SpeakOptions = {}): Promise<
   });
 
   if (!response.ok) {
-    throw await readError(response, "语音合成失败");
+    throw await readError(response, tr("common.speech.speakFailed"));
   }
   return response.blob();
 }

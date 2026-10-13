@@ -5,8 +5,10 @@ import asyncio
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional, Tuple
 
+from app.core.i18n import get_locale, language_directive
 from app.services.memory.service import memory_service
 from app.services.memory.credentials import resolve_memory_credential
+from app.services.prompt.localized import memory_text
 
 logger = logging.getLogger("memory_extraction")
 
@@ -77,8 +79,21 @@ def _extract_facts_with_importance(
         for m in messages
     )
 
+    subject = memory_text("subject")
+    fact_length = memory_text("fact_length")
+
+    # 记忆文本会被原样注入之后每一次对话的上下文。语言一旦在这里
+    # 混进去，后面就再也分不出来了 —— 用户说英文、模型写中文主语，
+    # 于是英文对话的上下文里一直挂着几条中文记忆。所以措辞的语言
+    # 必须显式钉死，而不是指望模型跟着对话内容走。
+    #
+    # 只对需要替换的片段用 f-string：整块字符串再走一次 .format() 的话，
+    # 语言指令里任何 { } 都会被当成占位符解析。
     prompt = (
-        "从以下对话中提取关于「用户」本人的关键事实和偏好（不包括助理说的内容、建议或分析）。\n\n"
+        language_directive(get_locale())
+        + "\n\n"
+        + f"从以下对话中提取关于「{subject}」本人的关键事实和偏好"
+        "（不包括助理说的内容、建议或分析）。\n\n"
         "重要性等级（1-5）：\n"
         "5 = 核心身份信息（姓名、职业、所在城市、长期目标或计划）\n"
         "4 = 强烈偏好或习惯（明确表达的喜好、厌恶、行为习惯）\n"
@@ -86,8 +101,8 @@ def _extract_facts_with_importance(
         "2 = 短期状态（临时性活动、一次性事件，信息可能很快过期）\n"
         "1 = 噪音（随意闲聊、打招呼、无实质记忆价值的内容）\n\n"
         "要求：\n"
-        "- 每条事实用简洁的陈述句（10-60字），主语为「用户」\n"
-        "- 只记录用户「自己」表达的信息，不包括助理的推断\n"
+        + f"- 每条事实用简洁的陈述句（{fact_length}），主语为「{subject}」\n"
+        + f"- 只记录{subject}「自己」表达的信息，不包括助理的推断\n"
         "- 若对话中没有值得记录的事实，facts 返回空列表\n\n"
         "返回纯 JSON（不要包含任何 markdown 格式）：\n"
         '{"facts": [{"text": "事实内容", "importance": 3}]}\n\n'

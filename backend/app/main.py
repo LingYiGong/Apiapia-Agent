@@ -7,6 +7,8 @@ from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 from app.core.config import settings
 from app.core.database import engine, init_db
+from app.core.errors import install_error_handler
+from app.core.i18n import parse_accept_language, set_locale, tr
 from app.api.v1 import api_router
 
 # Configure standard logging format
@@ -67,11 +69,12 @@ class MaxBodySizeMiddleware:
             if length > self.max_bytes:
                 await JSONResponse(
                     {
-                        "detail": (
-                            f"请求体过大（{length // (1024 * 1024)}MB），"
-                            f"上限 {self.max_bytes // (1024 * 1024)}MB。"
-                            "请减少附件数量或体积后重试。"
-                        )
+                        "detail": tr(
+                            "REQUEST_BODY_TOO_LARGE",
+                            size=length // (1024 * 1024),
+                            limit=self.max_bytes // (1024 * 1024),
+                        ),
+                        "code": "REQUEST_BODY_TOO_LARGE",
                     },
                     # Literal rather than status.HTTP_413_*: Starlette renamed that
                     # constant in 2024 (REQUEST_ENTITY_TOO_LARGE → CONTENT_TOO_LARGE)
@@ -81,6 +84,31 @@ class MaxBodySizeMiddleware:
                 )(scope, receive, send)
                 return
 
+        await self.app(scope, receive, send)
+
+
+class LocaleMiddleware:
+    """把请求的语言解析进 ContextVar，让 tr() 在服务层任意深度都能取到。
+
+    与 MaxBodySizeMiddleware 一样写成裸 ASGI，而不是
+    ``@app.middleware("http")``：后者基于 BaseHTTPMiddleware，
+    本应用最核心的工作是推一条长连接 SSE 响应，包一层会引入缓冲与重入，
+    正是流式卡顿和断流的常见来源。这里只读一次请求头，不碰消息体。
+
+    语言来自标准的 ``Accept-Language`` 头，由前端每次请求显式带上
+    （见 frontend/src/i18n/runtime.ts 的 acceptLanguageHeader）。
+    用标准头而不是自定义头，是为了让搜索引擎、CDN 与任何未来绕过本项目
+    前端的调用方都能得到同样正确的语言，而不是看到一句默认中文。
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        set_locale(parse_accept_language(Headers(scope=scope).get("accept-language")))
         await self.app(scope, receive, send)
 
 
@@ -133,16 +161,22 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.APP_VERSION,
-    description="Apiapia 助理 API：多模型解耦调度与 Mem0 OSS 长期记忆",
+    description="Apiapia Assistant API: multi-model routing with Mem0 OSS long-term memory",
     lifespan=lifespan
 )
+install_error_handler(app)
 
-# Starlette makes the most recently added middleware the outermost, so adding
-# MaxBodySize first leaves CORS on the outside. That is the order we want: the 413
-# this gate returns then carries Access-Control-Allow-Origin, so a browser reports
-# "请求体过大" instead of an opaque CORS failure. Prepending it outside CORS would
-# hide the reason from exactly the clients that most need to read it.
+# Starlette makes the most recently added middleware the outermost.
+# 从外到内是 CORS → Locale → MaxBodySize，顺序是刻意排的：
+#
+#   - CORS 在最外，413 之类的拒绝才会带上 Access-Control-Allow-Origin，
+#     浏览器才能报出「请求体过大」而不是一句看不懂的 CORS 失败。
+#   - Locale 必须在 MaxBodySize **内侧**。反过来的话，MaxBodySize 会在
+#     Locale 跑到之前就返回 413，而那条消息是 tr() 查出来的 ——
+#     结果就是唯一一个必然要显示给用户、又必然被这个网关拦下的错误，
+#     永远是默认语言。
 app.add_middleware(MaxBodySizeMiddleware, max_bytes=MAX_REQUEST_BODY_BYTES)
+app.add_middleware(LocaleMiddleware)
 
 # CORS Middleware: 严格只允许 *.apiapia.com 以及本地开发调试端口
 app.add_middleware(

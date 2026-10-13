@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
+import { cookies } from "next/headers";
 import { AuthProvider } from "@/lib/auth";
 import { ThemeProvider } from "@/lib/theme";
+import { I18nProvider, getTranslator, isLocale, DEFAULT_LOCALE, LOCALE_STORAGE_KEY } from "@/i18n";
 import { UpdatePrompt } from "@/components/common/UpdatePrompt";
 import { CapacitorInit } from "@/components/common/CapacitorInit";
 import { Toaster } from "@/components/ui/sonner";
@@ -24,42 +26,56 @@ export const viewport: Viewport = {
   ],
 };
 
-export const metadata: Metadata = {
-  title: "Apiapia 助理",
-  description: "Apiapia 助理——一只拥有长期记忆的猫咪助理",
-  manifest: "/manifest.json",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: "Apiapia",
-    startupImage: [
-      {
-        url: "/apple-touch-icon-180x180.png",
-      },
-    ],
-  },
-  // 图标全部由这里声明。此前 <head> 里还手写了 12 个 <link rel="icon"> /
-  // <link rel="apple-touch-icon">，与下面这份完全重复 —— Next 会把两份都输出，
-  // 浏览器要下两遍同样的资源，且改图标时必须记得改两个地方。
-  icons: {
-    icon: [
-      { url: "/favicon.ico" },
-      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
-      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
-      { url: "/favicon-48x48.png", sizes: "48x48", type: "image/png" },
-      { url: "/icon-192x192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icon.svg", type: "image/svg+xml" },
-    ],
-    shortcut: ["/favicon.ico"],
-    apple: [
-      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
-      { url: "/apple-touch-icon-120x120.png", sizes: "120x120", type: "image/png" },
-      { url: "/apple-touch-icon-152x152.png", sizes: "152x152", type: "image/png" },
-      { url: "/apple-touch-icon-167x167.png", sizes: "167x167", type: "image/png" },
-      { url: "/apple-touch-icon-180x180.png", sizes: "180x180", type: "image/png" },
-    ],
-  },
-};
+/**
+ * 文档 metadata。
+ *
+ * 标题与描述按请求 cookie 里的语言生成；其余字段与语言无关，写死即可。
+ *
+ * 刻意**不再**同时 export const metadata —— Next 14 不允许两者并存，会直接报
+ * `"metadata" and "generateMetadata" cannot be exported at the same time`。
+ * 静态导出（output: "export"）下这段会被烘进 HTML，首屏即为正确语言。
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const stored = (await cookies()).get(LOCALE_STORAGE_KEY)?.value;
+  const t = getTranslator(isLocale(stored) ? stored : DEFAULT_LOCALE);
+
+  return {
+    title: t("meta.appName"),
+    description: t("meta.appDescription"),
+    manifest: "/manifest.json",
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: "default",
+      title: "Apiapia",
+      startupImage: [
+        {
+          url: "/apple-touch-icon-180x180.png",
+        },
+      ],
+    },
+    // 图标全部由这里声明。此前 <head> 里还手写了 12 个 <link rel="icon"> /
+    // <link rel="apple-touch-icon">，与下面这份完全重复 —— Next 会把两份都输出，
+    // 浏览器要下两遍同样的资源，且改图标时必须记得改两个地方。
+    icons: {
+      icon: [
+        { url: "/favicon.ico" },
+        { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+        { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+        { url: "/favicon-48x48.png", sizes: "48x48", type: "image/png" },
+        { url: "/icon-192x192.png", sizes: "192x192", type: "image/png" },
+        { url: "/icon.svg", type: "image/svg+xml" },
+      ],
+      shortcut: ["/favicon.ico"],
+      apple: [
+        { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+        { url: "/apple-touch-icon-120x120.png", sizes: "120x120", type: "image/png" },
+        { url: "/apple-touch-icon-152x152.png", sizes: "152x152", type: "image/png" },
+        { url: "/apple-touch-icon-167x167.png", sizes: "167x167", type: "image/png" },
+        { url: "/apple-touch-icon-180x180.png", sizes: "180x180", type: "image/png" },
+      ],
+    },
+  };
+}
 
 export default function RootLayout({
   children,
@@ -67,21 +83,27 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
+    // `lang` 在这里只能写死默认语言：静态导出（output: "export"，见
+    // next.config.mjs）下这份 HTML 是构建期产物，那时还不存在「用户选了哪种
+    // 语言」。真正的语言由 I18nProvider 在 layout effect 里写到
+    // documentElement.lang 上 —— 在浏览器绘制之前完成，所以不会闪。
     <html lang="zh-CN" suppressHydrationWarning className="h-full">
       <body className="h-full bg-background font-sans text-base text-foreground antialiased">
         <ThemeProvider>
-          <AuthProvider>
-            {/* 全应用共用一个 TooltipProvider，鼠标横扫一排图标按钮时
-                气泡会接力而不是逐个重新计时 */}
-            <TooltipProvider delayDuration={200} skipDelayDuration={300}>
-              <CapacitorInit />
-              <UpdatePrompt />
-              {children}
-            </TooltipProvider>
-            {/* `offset` 省略 —— Toaster 包装层已处理头部避让
-                （见 TOASTER_TOP_OFFSET） */}
-            <Toaster richColors position="top-center" />
-          </AuthProvider>
+          <I18nProvider>
+            <AuthProvider>
+              {/* 全应用共用一个 TooltipProvider，鼠标横扫一排图标按钮时
+                  气泡会接力而不是逐个重新计时 */}
+              <TooltipProvider delayDuration={200} skipDelayDuration={300}>
+                <CapacitorInit />
+                <UpdatePrompt />
+                {children}
+              </TooltipProvider>
+              {/* `offset` 省略 —— Toaster 包装层已处理头部避让
+                  （见 TOASTER_TOP_OFFSET） */}
+              <Toaster richColors position="top-center" />
+            </AuthProvider>
+          </I18nProvider>
         </ThemeProvider>
       </body>
     </html>

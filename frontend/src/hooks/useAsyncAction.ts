@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
+import { getTranslator, resolveStoredLocale } from "@/i18n/runtime";
 
 export interface UseAsyncActionResult {
   /**
@@ -79,7 +80,9 @@ export function useAsyncAction(): UseAsyncActionResult {
         return result;
       } catch (err) {
         const message =
-          err instanceof Error && err.message ? err.message : messages.error || "操作失败";
+          err instanceof Error && err.message
+            ? err.message
+            : messages.error || getTranslator(resolveStoredLocale())("common.error.operationFailed");
         toast.error(message);
         return undefined;
       } finally {

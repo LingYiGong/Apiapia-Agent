@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from app.core.config import settings
 from app.models.user import User
 from app.api.v1.deps import get_current_user, get_current_admin
+from app.core.errors import ApiError
 from app.services.catalog import (
     OPENROUTER_FREE_MODEL_ID,
     check_user_can_use_model,
@@ -140,10 +141,7 @@ async def sync_image_models_from_providers(
     from app.services.image_gen import image_gen_service
 
     if not image_gen_service.active_providers():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="后端 .env 中未配置任何生图服务凭证 (OPENROUTER_API_KEY / OPENAI_API_KEY / SILICONFLOW_API_KEY)"
-        )
+        raise ApiError(status.HTTP_400_BAD_REQUEST, "NO_IMAGE_CREDENTIALS")
 
     return await image_gen_service.sync_models()
 
@@ -183,10 +181,7 @@ async def sync_video_models_from_providers(
     from app.services.video_gen import video_gen_service
 
     if not video_gen_service.active_providers():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="后端 .env 中未配置任何视频生成服务凭证 (OPENROUTER_API_KEY)"
-        )
+        raise ApiError(status.HTTP_400_BAD_REQUEST, "NO_VIDEO_CREDENTIALS")
 
     return await video_gen_service.sync_models()
 
@@ -236,10 +231,7 @@ async def sync_audio_models_from_providers(
     from app.services.speech.service import speech_service
 
     if not speech_service.active_providers():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="后端 .env 中未配置任何语音服务凭证 (OPENROUTER_API_KEY)"
-        )
+        raise ApiError(status.HTTP_400_BAD_REQUEST, "NO_AUDIO_CREDENTIALS")
 
     return await speech_service.sync_models()
 
@@ -254,8 +246,8 @@ async def sync_models_from_providers(
     """
     res = await sync_chat_models()
     if not res.get("success"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=res.get("error", "同步失败")
-        )
+        # 上游返回的 error 是给运维看的英文/中文原文，原样透传；只有在上游
+        # 什么都没给时才落到本地化的兜底文案。
+        detail = res.get("error") or tr("SYNC_FAILED")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
     return res

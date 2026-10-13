@@ -1,6 +1,8 @@
 from typing import Optional
+
 from app.services.prompt.temporal import get_current_temporal_context
-from app.services.prompt.rules import ANTI_TRAP_RULES, SEARCH_INSTRUCTION, FORMAT_INSTRUCTION
+from app.services.prompt.rules import ANTI_TRAP_RULES
+from app.services.prompt.localized import response_language_directive, text
 
 
 class SystemPromptBuilder:
@@ -8,18 +10,30 @@ class SystemPromptBuilder:
     模块化系统提示词构建器。
     根据 OpenAI / Anthropic 官方 Context Engineering 标准，
     将物理时基、批判性常识护栏、长期记忆和排版规范进行优雅整合。
+
+    小节顺序不是随意的：**回复语言指令出现两次**，开头一次压住人设与
+    护栏里的中文表述，末尾一次利用近因效应压住最后读到的一小节。
+    只放一份时，放末尾挡不住前面近千字的护栏，放开头则会被后面冲淡。
+    为什么护栏本身不翻译，见 localized.py 的模块头注释。
     """
 
     def __init__(self, base_system_prompt: Optional[str] = None):
-        self.base_prompt = (base_system_prompt or "").strip() or "你是一个智能、真诚、有洞察力的个人智能助理。"
+        self.base_prompt = (base_system_prompt or "").strip() or text("default_persona")
 
-    def build(self, memory_context: Optional[str] = None, deterministic_context: Optional[str] = None) -> str:
+    def build(
+        self,
+        memory_context: Optional[str] = None,
+        deterministic_context: Optional[str] = None,
+    ) -> str:
         sections = []
 
         # 1. 用户自定义助手人设 / 基础系统角色设定
-        sections.append(f"【角色与核心设定】\n{self.base_prompt}")
+        sections.append(f"{text('role_header')}\n{self.base_prompt}")
 
-        # 2. 动态现实物理时基（解决“今天/明天星期几、当前年份”等问题）
+        # 1b. 回复语言指令（前半）
+        sections.append(response_language_directive())
+
+        # 2. 动态现实物理时基（解决"今天/明天星期几、当前年份"等问题）
         sections.append(get_current_temporal_context()["prompt_instruction"])
 
         # 3. 本地确定性核验事实（针对数字比大小、字符清点、算术的铁证依据）
@@ -34,10 +48,13 @@ class SystemPromptBuilder:
             sections.append(memory_context.strip())
 
         # 6. 实时网络检索引导
-        sections.append(SEARCH_INSTRUCTION)
+        sections.append(text("search_instruction"))
 
         # 7. Markdown 与表格排版规范
-        sections.append(FORMAT_INSTRUCTION)
+        sections.append(text("format_instruction"))
+
+        # 8. 回复语言指令（后半，靠近因效应兜底）
+        sections.append(response_language_directive())
 
         # 遵循清晰分段标准进行拼接
         return "\n\n".join(sections)
@@ -46,9 +63,11 @@ class SystemPromptBuilder:
 def build_system_prompt(
     base_prompt: Optional[str] = None,
     memory_context: Optional[str] = None,
-    deterministic_context: Optional[str] = None
+    deterministic_context: Optional[str] = None,
 ) -> str:
     """快捷构建完整的防翻车系统提示词"""
     builder = SystemPromptBuilder(base_system_prompt=base_prompt)
-    return builder.build(memory_context=memory_context, deterministic_context=deterministic_context)
-
+    return builder.build(
+        memory_context=memory_context,
+        deterministic_context=deterministic_context,
+    )

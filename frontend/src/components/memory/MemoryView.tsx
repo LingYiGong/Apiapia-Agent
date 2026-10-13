@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
+import { useI18n } from "@/i18n";
 import { apiRequest } from "@/lib/api";
 import { ViewShell } from "@/components/common/ViewShell";
 import type { MobileTab } from "@/config/navigation";
@@ -29,7 +30,6 @@ import { useRefreshOnResume } from "@/hooks/useRefreshOnResume";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { useLoadMoreTrigger } from "@/hooks/useLoadMoreTrigger";
 import { FullPageSkeleton, MemoryListSkeleton } from "@/components/common/PageSkeleton";
-import { formatDateTime } from "@/lib/format";
 import { normalizeMemories, type NormalizedMemory } from "@/lib/memory";
 import { groupByTimeBuckets } from "@/lib/timeGroups";
 import { cn } from "@/lib/utils";
@@ -58,9 +58,17 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
 }) => {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const { t, fmt } = useI18n();
 
   /** 每页条数。同时用于浏览态与检索态。后端上限 100，50 在其内。 */
   const PAGE_SIZE = 50;
+
+  /**
+   * ⌘ 只在 Apple 键盘上存在。弹窗是交互后才打开的（不会触发 hydration 不一致），
+   * 因此这里直接读平台，不进 state。
+   */
+  const isApple =
+    typeof navigator !== "undefined" && /mac|iphone|ipad|ipod/i.test(navigator.platform);
 
   /** 已加载的记忆（分页累加）。分组只基于这部分，所以下滑会看到更多分组条目。 */
   const [memories, setMemories] = useState<NormalizedMemory[]>([]);
@@ -106,9 +114,11 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
   const groupedSections = useMemo(
     () =>
       groupByTimeBuckets<NormalizedMemory>(memories, {
+        t,
+        pinnedTitleKey: "common.timeGroups.pinnedMemories",
         getTime: (m) => new Date(m.effectiveAt || 0).getTime(),
       }),
-    [memories]
+    [memories, t]
   );
 
   // 视图内部守卫（此前与 UsageView / SettingsView 逐字相同的三份之一）
@@ -166,7 +176,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
         // 用户以为搜索失败后看到的却是一屏与关键词无关的旧结果，
         // 看起来像「搜索坏了」。
         if (isSearch) {
-          toast.error("检索记忆库失败，已返回全部记忆");
+          toast.error(t("memory.errors.searchFallback"));
           setIsSearching(false);
           try {
             await fetchPage({ query: "", offset: 0, append: false });
@@ -175,7 +185,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
             // 浏览态也失败，落到下面的统一处理
           }
         } else {
-          toast.error("加载记忆失败，请重试");
+          toast.error(t("memory.errors.loadFailed"));
         }
         setMemories([]);
         setTotalCount(0);
@@ -268,10 +278,10 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
         )
       );
       setEditingItem(null);
-      toast.success("已更新记忆");
+      toast.success(t("memory.edit.saved"));
       fetchMemories();
     } catch (err: any) {
-      toast.error(err.message || "修改记忆失败");
+      toast.error(err.message || t("memory.edit.failed"));
     } finally {
       setIsSavingEdit(false);
     }
@@ -290,9 +300,9 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
       // 否则「共 N 条」和「加载更多（还有 N 条）」会一直差 1。
       // hasMore 不动：删掉的只是已加载范围内的一条，不影响「服务端还有没有更多」。
       setTotalCount((prev) => Math.max(0, prev - 1));
-      toast.success("已删除记忆");
+      toast.success(t("memory.remove.done"));
     } catch (err: any) {
-      toast.error(err.message || "删除记忆失败");
+      toast.error(err.message || t("memory.remove.failed"));
     } finally {
       deletingRef.current = false;
       setIsDeleting(false);
@@ -306,7 +316,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
   const handleExport = async () => {
     if (isExporting) return;
     setIsExporting(true);
-    const toastId = toast.loading("正在导出记忆数据...");
+    const toastId = toast.loading(t("memory.export.inProgress"));
     try {
       const data = await apiRequest("/memories/export");
       const jsonString = JSON.stringify(data, null, 2);
@@ -327,15 +337,15 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
       const exported = Array.isArray(data?.memories) ? data.memories.length : 0;
       const partial = exported > 0 && exported < totalCount;
       if (partial) {
-        toast.warning(`已导出 ${exported} 条（服务端总数 ${totalCount} 条，可能未完整）`, {
+        toast.warning(t("memory.export.partial", { exported, total: totalCount }), {
           id: toastId,
         });
       } else {
-        toast.success(`已导出全部 ${exported} 条记忆`, { id: toastId });
+        toast.success(t("memory.export.all", { exported }), { id: toastId });
       }
     } catch (err: any) {
       console.error("Export failed:", err);
-      toast.error(err.message || "导出记忆数据失败", { id: toastId });
+      toast.error(err.message || t("memory.export.failed"), { id: toastId });
     } finally {
       setIsExporting(false);
     }
@@ -352,7 +362,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
   };
 
   return (
-    <ViewShell title="记忆库" isMobileSpa={isMobileSpa} onSelectMobileTab={onSelectMobileTab}>
+    <ViewShell title={t("memory.title")} isMobileSpa={isMobileSpa} onSelectMobileTab={onSelectMobileTab}>
       {/* ── 顶部操作栏 ──
           此前 form 写死 `max-w-2xl`，而下方内容由 ViewShell 统一为 `max-w-3xl`，
           于是搜索栏比它过滤的那份列表窄一截，左右边缘对不齐。现在不再自行限宽，
@@ -361,13 +371,13 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
         <form onSubmit={handleSearch} className="flex w-full items-center gap-2">
           <div className="relative min-w-0 flex-1">
             <Label htmlFor="memory-search" className="sr-only">
-              搜索记忆
+              {t("memory.search.label")}
             </Label>
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               id="memory-search"
               type="search"
-              placeholder="搜索记忆…"
+              placeholder={t("memory.search.placeholder")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="h-10 rounded-xl border-border/40 bg-surface-3/50 pl-9 pr-9 text-sm focus-visible:bg-background focus-visible:ring-1 focus-visible:ring-ring"
@@ -376,7 +386,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
               <button
                 type="button"
                 onClick={handleResetSearch}
-                aria-label="清除搜索"
+                aria-label={t("memory.search.clear")}
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground"
               >
                 <X className="h-3.5 w-3.5" />
@@ -384,7 +394,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
             )}
           </div>
 
-          <ActionTooltip label="搜索记忆" side="bottom">
+          <ActionTooltip label={t("memory.search.submitSr")} side="bottom">
             <Button
               type="submit"
               variant="secondary"
@@ -392,11 +402,11 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
               className="h-10 w-10 shrink-0 cursor-pointer rounded-xl border border-border/40 bg-surface-3/60 text-foreground transition-colors hover:bg-surface-3 active:scale-95"
             >
               <Search className="h-4 w-4" />
-              <span className="sr-only">搜索</span>
+              <span className="sr-only">{t("memory.search.submit")}</span>
             </Button>
           </ActionTooltip>
 
-          <ActionTooltip label={`导出全部 ${totalCount} 条记忆为 JSON`} side="bottom">
+          <ActionTooltip label={t("memory.export.tip", { count: totalCount })} side="bottom">
             <Button
               type="button"
               onClick={handleExport}
@@ -406,7 +416,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
               className="h-10 w-10 shrink-0 cursor-pointer rounded-xl border-border/50 bg-surface-3/30 text-foreground transition-colors hover:bg-surface-3 active:scale-95"
             >
               <Download className="h-4 w-4" />
-              <span className="sr-only">导出 JSON</span>
+              <span className="sr-only">{t("memory.export.sr")}</span>
             </Button>
           </ActionTooltip>
         </form>
@@ -418,7 +428,9 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
       <div className="flex items-center justify-between gap-3 px-1">
         <SectionLabel className="flex min-w-0 items-center gap-1.5 pb-0">
           <Brain className="h-3.5 w-3.5 shrink-0 text-primary" />
-          <span className="truncate">{isSearching ? "搜索结果" : "全部记忆"}</span>
+          <span className="truncate">
+            {isSearching ? t("memory.section.searchResults") : t("memory.section.all")}
+          </span>
           {/* totalCount 是服务端报告的总条数，不是 memories.length ——
               分页后后者只是「已加载多少」。两者不等时补一个进度提示，
               让用户知道下面还有。 */}
@@ -430,9 +442,12 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
           <span className="shrink-0 font-mono text-2xs opacity-60">
             {hasMore
               ? isSearching
-                ? `(已找到 ${memories.length}+ 条)`
-                : `(已加载 ${memories.length} / ${totalCount} 条)`
-              : `(共 ${totalCount} 条)`}
+                ? t("memory.counter.foundPlus", { count: memories.length })
+                : t("memory.counter.loadedOfTotal", {
+                    count: memories.length,
+                    total: totalCount,
+                  })
+              : t("memory.counter.total", { total: totalCount })}
           </span>
         </SectionLabel>
 
@@ -443,7 +458,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
             className="flex shrink-0 cursor-pointer items-center gap-1 text-2xs normal-case tracking-normal text-primary hover:underline"
           >
             <RotateCcw className="h-3 w-3" />
-            <span>显示全部</span>
+            <span>{t("memory.showAll")}</span>
           </button>
         )}
       </div>
@@ -454,13 +469,11 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
       ) : memories.length === 0 ? (
         <EmptyState
           icon={Brain}
-          title={isSearching ? "未找到匹配的记忆记录" : "暂无记忆记录"}
+          title={isSearching ? t("memory.empty.searchTitle") : t("memory.empty.browseTitle")}
           description={
-            isSearching
-              ? "换个关键词试试，或清除搜索框。"
-              : "在与 AI 对话中提及关于你的背景、习惯或关键事实，模型将自动提炼并记录在此处。"
+            isSearching ? t("memory.empty.searchDesc") : t("memory.empty.browseDesc")
           }
-          actionLabel={isSearching ? "重置搜索" : "去新建对话"}
+          actionLabel={isSearching ? t("memory.empty.resetSearch") : t("memory.empty.newChat")}
           actionIcon={isSearching ? RotateCcw : MessageSquare}
           actionVariant={isSearching ? "outline" : "default"}
           onAction={isSearching ? handleResetSearch : goToChat}
@@ -473,7 +486,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
                 <span className="text-xs font-semibold text-muted-foreground select-none">
                   {sec.title}
                   <span className="ml-1.5 font-mono text-2xs opacity-60">
-                    ({sec.items.length})
+                    {t("memory.section.count", { count: sec.items.length })}
                   </span>
                 </span>
               </div>
@@ -490,11 +503,11 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
                           <Brain className="h-4 w-4" />
                         </MemoryCardIcon>
                       }
-                      time={formatDateTime(m.effectiveAt)}
-                      badge={m.isEdited ? "已编辑" : undefined}
+                      time={fmt.dateTime(m.effectiveAt)}
+                      badge={m.isEdited ? t("memory.card.edited") : undefined}
                       actions={
                         <>
-                          <ActionTooltip label="编辑记忆" side="top">
+                          <ActionTooltip label={t("memory.card.editTip")} side="top">
                             <Button
                               type="button"
                               variant="ghost"
@@ -506,11 +519,11 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
                               className="h-8 w-8 cursor-pointer rounded-lg text-muted-foreground transition-all hover:bg-surface-3/80 hover:text-foreground active:scale-90"
                             >
                               <Pencil className="h-3.5 w-3.5" />
-                              <span className="sr-only">编辑记忆</span>
+                              <span className="sr-only">{t("memory.card.editTip")}</span>
                             </Button>
                           </ActionTooltip>
 
-                          <ActionTooltip label="删除记忆" side="top">
+                          <ActionTooltip label={t("memory.card.deleteTip")} side="top">
                             <Button
                               type="button"
                               variant="ghost"
@@ -519,7 +532,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
                               className="h-8 w-8 cursor-pointer rounded-lg text-muted-foreground transition-all hover:bg-destructive/10 hover:text-destructive active:scale-90"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
-                              <span className="sr-only">删除记忆</span>
+                              <span className="sr-only">{t("memory.card.deleteTip")}</span>
                             </Button>
                           </ActionTooltip>
                         </>
@@ -550,7 +563,13 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
                   <RotateCcw
                     className={cn("h-3.5 w-3.5", loadingMore && "animate-spin")}
                   />
-                  <span>{loadingMore ? "正在加载…" : isSearching ? "加载更多结果" : "加载更多"}</span>
+                  <span>
+                    {loadingMore
+                      ? t("memory.loadMore.busy")
+                      : isSearching
+                        ? t("memory.loadMore.searching")
+                        : t("memory.loadMore.browsing")}
+                  </span>
                 </Button>
               </div>
             </div>
@@ -558,7 +577,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
 
           {!hasMore && memories.length > 0 && (
             <p className="pt-2 pb-1 text-center text-2xs text-muted-foreground/60 select-none">
-              已显示全部 {totalCount} 条记忆
+              {t("memory.endOfList", { total: totalCount })}
             </p>
           )}
 
@@ -585,10 +604,10 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
               </div>
               <div className="min-w-0 flex-1">
                 <DialogTitle className="text-body font-semibold text-foreground">
-                  编辑长期记忆
+                  {t("memory.edit.title")}
                 </DialogTitle>
                 <DialogDescription className="mt-0.5 text-xs font-normal leading-normal text-muted-foreground">
-                  修改此条记忆内容，AI 将在全站对话中以修改后的事实作为参考。
+                  {t("memory.edit.desc")}
                 </DialogDescription>
               </div>
             </div>
@@ -603,7 +622,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
           >
             <div className="space-y-2 rounded-xl border border-border/50 bg-surface-3/40 p-3 transition-all focus-within:bg-background focus-within:ring-2 focus-within:ring-primary/20">
               <Label htmlFor="memory-edit-textarea" className="sr-only">
-                记忆内容
+                {t("memory.edit.label")}
               </Label>
               <Textarea
                 id="memory-edit-textarea"
@@ -618,12 +637,12 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
                     }
                   }
                 }}
-                placeholder="修改记忆内容..."
+                placeholder={t("memory.edit.placeholder")}
                 className="min-h-[100px] w-full resize-none border-0 bg-transparent p-0 text-sm leading-relaxed placeholder:text-muted-foreground/60 focus-visible:outline-none focus-visible:ring-0"
               />
               <div className="flex items-center justify-between border-t border-border/30 pt-2 text-2xs text-muted-foreground/70">
-                <span>支持 ⌘ + 回车 完成修改</span>
-                <span>{editText.trim().length} 字</span>
+                <span>{isApple ? t("memory.edit.shortcutMac") : t("memory.edit.shortcutOther")}</span>
+                <span>{t("memory.edit.charCount", { count: editText.trim().length })}</span>
               </div>
             </div>
 
@@ -635,7 +654,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
                 onClick={() => setEditingItem(null)}
                 className="h-9 cursor-pointer rounded-xl border-border/50 bg-surface-3/30 px-4 text-footnote font-medium text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground active:scale-95"
               >
-                取消
+                {t("memory.edit.cancel")}
               </Button>
               <Button
                 type="submit"
@@ -643,7 +662,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
                 disabled={isSavingEdit || !editText.trim()}
                 className="h-9 cursor-pointer rounded-xl bg-primary px-5 text-footnote font-semibold text-primary-foreground shadow-xs transition-all hover:bg-primary/90 active:scale-95 disabled:opacity-40"
               >
-                {isSavingEdit ? "正在保存..." : "完成"}
+                {isSavingEdit ? t("memory.edit.saving") : t("memory.edit.done")}
               </Button>
             </DialogFooter>
           </form>
@@ -662,9 +681,9 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
             // 失去 loading 反馈也失去防连点的视觉提示。
             if (!open && !isDeleting) setDeletingId(null);
           }}
-          title="删除这条记忆"
-          description="确定要从记忆库中永久移除这条记录吗？删除后 AI 将不再参考该事实，此操作无法撤销。"
-          confirmText="删除"
+          title={t("memory.remove.title")}
+          description={t("memory.remove.desc")}
+          confirmText={t("memory.remove.confirm")}
           danger
           loading={isDeleting}
           onConfirm={() => handleDelete(deletingId)}

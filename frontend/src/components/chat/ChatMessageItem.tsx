@@ -15,7 +15,7 @@ import {
   stripAttachmentMarkup,
 } from "@/components/chat/markdown";
 import { messageEditingRef } from "@/lib/messageEditGuard";
-import { formatClock, formatDateTime, formatDuration } from "@/lib/format";
+import { useI18n } from "@/i18n";
 import { useSpeechPlayer } from "@/hooks/useSpeechPlayer";
 import { cn } from "@/lib/utils";
 import {
@@ -74,8 +74,9 @@ function CopyButton({
   copyLabel: string;
   side?: "top" | "bottom";
 }) {
+  const { t } = useI18n();
   return (
-    <ActionTooltip label={isCopied ? "已复制到剪贴板" : copyLabel} side={side}>
+    <ActionTooltip label={isCopied ? t("chat.message.copiedTip") : copyLabel} side={side}>
       <Button
         type="button"
         variant="ghost"
@@ -86,12 +87,14 @@ function CopyButton({
         {isCopied ? (
           <>
             <Check className="h-3.5 w-3.5 text-emerald-500" />
-            <span className="text-2xs font-medium text-emerald-500">已复制</span>
+            <span className="text-2xs font-medium text-emerald-500">
+              {t("chat.message.copied")}
+            </span>
           </>
         ) : (
           <>
             <Copy className="h-3.5 w-3.5" />
-            <span className="text-2xs">复制</span>
+            <span className="text-2xs">{t("chat.message.copy")}</span>
           </>
         )}
       </Button>
@@ -113,17 +116,25 @@ function CopyButton({
 function SpeakButton({
   text,
   side = "bottom",
-  tooltip = "朗读此回答",
+  tooltip,
 }: {
   text: string;
   side?: "top" | "bottom";
+  /** 省略时按「回答」处理，两侧对话各自传入更贴切的措辞。 */
   tooltip?: string;
 }) {
   const { state, isBusy, speak, stop } = useSpeechPlayer();
+  const { t } = useI18n();
 
   return (
     <ActionTooltip
-      label={isBusy ? "停止朗读" : state === "error" ? "朗读失败，点击重试" : tooltip}
+      label={
+        isBusy
+          ? t("chat.message.speakStopTip")
+          : state === "error"
+          ? t("chat.message.speakFailedTip")
+          : tooltip ?? t("chat.message.speakAnswer")
+      }
       side={side}
     >
       <Button
@@ -136,17 +147,17 @@ function SpeakButton({
         {state === "loading" ? (
           <>
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            <span className="text-2xs">合成中</span>
+            <span className="text-2xs">{t("chat.message.speakSynthesizing")}</span>
           </>
         ) : isBusy ? (
           <>
             <VolumeX className="h-3.5 w-3.5" />
-            <span className="text-2xs">停止</span>
+            <span className="text-2xs">{t("chat.message.speakStop")}</span>
           </>
         ) : (
           <>
             <Volume2 className="h-3.5 w-3.5" />
-            <span className="text-2xs">朗读</span>
+            <span className="text-2xs">{t("chat.message.speak")}</span>
           </>
         )}
       </Button>
@@ -191,6 +202,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
   onContinue,
   onQuote,
 }: ChatMessageItemProps) {
+  const { t, fmt } = useI18n();
   const isUser = msg.role === "user";
   // 错误判定用后端下发的 finish_reason，不再靠内容里是否含 "HTTP 500" 之类的
   // 字符串嗅探 —— 那种做法会把用户正常引用这些字样的消息也渲染成红色错误卡片。
@@ -261,7 +273,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
               if (e.key === "Escape") setEditing(false);
             }}
             rows={3}
-            aria-label="编辑这条提问"
+            aria-label={t("chat.message.editAria")}
             className="w-full resize-none rounded-2xl border border-primary/40 bg-background px-4 py-3 text-subhead leading-relaxed focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
           <div className="flex items-center justify-end gap-2">
@@ -272,7 +284,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
               onClick={() => setEditing(false)}
               className="h-7 rounded-lg px-2.5 text-2xs"
             >
-              取消
+              {t("chat.message.editCancel")}
             </Button>
             <Button
               type="button"
@@ -281,7 +293,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
               onClick={commitEdit}
               className="h-7 rounded-lg px-2.5 text-2xs"
             >
-              发送
+              {t("chat.message.editSend")}
             </Button>
           </div>
         </div>
@@ -357,7 +369,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
             <div>
               <div className="mb-1 flex items-center gap-1.5 font-bold text-destructive">
                 <AlertTriangle className="h-4 w-4 shrink-0" />
-                <span>生成出错：</span>
+                <span>{t("chat.message.errorHeading")}</span>
               </div>
               <div className="break-words whitespace-pre-wrap rounded-lg border border-destructive/20 bg-destructive/5 p-2.5 font-mono text-xs [overflow-wrap:anywhere]">
                 {msg.content}
@@ -378,7 +390,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                   <summary className="flex cursor-pointer select-none items-center justify-between p-2.5 font-medium text-foreground transition-colors hover:bg-surface-3/50">
                     <span className="flex items-center gap-1.5">
                       <Cpu className="h-3.5 w-3.5 text-primary" />
-                      <span>工具调用与检索记录（{msg.toolInvocations.length} 项）</span>
+                      <span>{t("chat.message.toolCalls", { count: msg.toolInvocations.length })}</span>
                     </span>
                     <span
                       aria-hidden="true"
@@ -406,16 +418,16 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                             )}
                             <span className="font-semibold text-foreground">
                               {tool.toolName === "search" || tool.toolName === "web_search"
-                                ? "执行联网检索"
+                                ? t("chat.message.toolSearch")
                                 : tool.toolName === "image_generation"
-                                ? "执行 AI 图像绘制"
+                                ? t("chat.message.toolImage")
                                 : tool.toolName === "video_generation"
-                                ? "执行 AI 视频生成"
-                                : `调用工具: ${tool.toolName}`}
+                                ? t("chat.message.toolVideo")
+                                : t("chat.message.toolOther", { name: tool.toolName })}
                             </span>
                           </div>
                           <span className="font-mono text-2xs text-muted-foreground">
-                            {tool.state === "call" ? "运行中..." : "已完成"}
+                            {tool.state === "call" ? t("chat.message.toolRunning") : t("chat.message.toolDone")}
                           </span>
                         </div>
                         {tool.state === "result" && tool.result && (
@@ -466,13 +478,13 @@ export const ChatMessageItem = memo(function ChatMessageItem({
               <CopyButton
                 isCopied={isCopied}
                 onClick={() => onCopy(msg.content, idx)}
-                copyLabel="复制回答"
+                copyLabel={t("chat.message.copyAnswer")}
               />
 
               <SpeakButton text={msg.content} />
 
               {onQuote && (
-                <ActionTooltip label="引用此回答并继续提问" side="bottom">
+                <ActionTooltip label={t("chat.message.quoteAnswer")} side="bottom">
                   <Button
                     type="button"
                     variant="ghost"
@@ -481,30 +493,30 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                     className="flex h-7 items-center gap-1.5 rounded-lg px-2 text-muted-foreground transition-colors hover:bg-surface-3/80 hover:text-foreground"
                   >
                     <Quote className="h-3 w-3" />
-                    <span className="text-2xs">引用</span>
+<span className="text-2xs">{t("chat.message.quote")}</span>
                   </Button>
                 </ActionTooltip>
               )}
 
               {msg.finish_reason === "abort" && (
-                <ActionTooltip label="你在生成过程中点击了停止，此处为已生成的部分内容" side="bottom">
+                <ActionTooltip label={t("chat.message.abortedTip")} side="bottom">
                   <span className="inline-flex h-7 cursor-default items-center gap-1 rounded-lg border border-amber-500/25 bg-amber-500/10 px-2 text-2xs font-medium text-amber-600 dark:text-amber-400">
                     <Square className="h-2.5 w-2.5 fill-current" />
-                    <span>已停止</span>
+                    <span>{t("chat.message.aborted")}</span>
                   </span>
                 </ActionTooltip>
               )}
 
               {msg.finish_reason === "length" && (
                 <>
-                  <ActionTooltip label="因达到模型单次最大 Token 限制，回答已截断" side="bottom">
+                  <ActionTooltip label={t("chat.message.truncatedTip")} side="bottom">
                     <span className="inline-flex h-7 cursor-default items-center gap-1 rounded-lg border border-amber-500/25 bg-amber-500/10 px-2 text-2xs font-medium text-amber-600 dark:text-amber-400">
                       <AlertTriangle className="h-2.5 w-2.5" />
-                      <span>长度截断</span>
+                      <span>{t("chat.message.truncated")}</span>
                     </span>
                   </ActionTooltip>
                   {onContinue && (
-                    <ActionTooltip label="从被截断处继续输出后续内容" side="bottom">
+                    <ActionTooltip label={t("chat.message.continueTip")} side="bottom">
                       <Button
                         type="button"
                         variant="ghost"
@@ -513,7 +525,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                         className="flex h-7 items-center gap-1 rounded-lg border border-primary/30 bg-primary/10 px-2 text-2xs font-medium text-primary hover:bg-primary/20"
                       >
                         <Play className="h-2.5 w-2.5 fill-current" />
-                        <span>继续生成</span>
+                        <span>{t("chat.message.continue")}</span>
                       </Button>
                     </ActionTooltip>
                   )}
@@ -521,7 +533,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
               )}
 
               {canRegenerate && onRegenerate && (
-                <ActionTooltip label="用相同提问重新生成回答" side="bottom">
+                <ActionTooltip label={t("chat.message.regenerateTip")} side="bottom">
                   <Button
                     type="button"
                     variant="ghost"
@@ -531,7 +543,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                     className="flex h-7 items-center gap-1.5 rounded-lg px-2 text-muted-foreground transition-colors hover:bg-surface-3/80 hover:text-foreground disabled:opacity-50"
                   >
                     <RotateCw className={cn("h-3.5 w-3.5", regenerating && "animate-spin")} />
-                    <span className="text-2xs">重新生成</span>
+                    <span className="text-2xs">{t("chat.message.regenerate")}</span>
                   </Button>
                 </ActionTooltip>
               )}
@@ -541,13 +553,13 @@ export const ChatMessageItem = memo(function ChatMessageItem({
               {msg.created_at && (
                 <MetaBadge
                   icon={Clock}
-                  value={formatDateTime(msg.created_at)}
-                  label="回复时间"
+                  value={fmt.dateTime(msg.created_at)}
+                  label={t("chat.message.replyTime")}
                 />
               )}
 
               {msg.model && (
-                <ActionTooltip label="回复模型" side="top">
+                <ActionTooltip label={t("chat.message.replyModel")} side="top">
                   <Badge
                     variant="secondary"
                     className="h-[18px] cursor-default px-1.5 py-0 font-mono text-2xs font-normal"
@@ -561,8 +573,10 @@ export const ChatMessageItem = memo(function ChatMessageItem({
               {typeof msg.thinking_duration_ms === "number" && msg.thinking_duration_ms > 0 && (
                 <MetaBadge
                   icon={Clock}
-                  value={`思考 ${formatDuration(msg.thinking_duration_ms)}`}
-                  label="思考耗时（到首字输出时间）"
+                  value={t("chat.message.thinkingDuration", {
+                    duration: fmt.duration(msg.thinking_duration_ms),
+                  })}
+                  label={t("chat.message.thinkingDurationTip")}
                   className="font-medium text-emerald-600 dark:text-emerald-400"
                   iconClassName="text-emerald-500"
                 />
@@ -571,8 +585,8 @@ export const ChatMessageItem = memo(function ChatMessageItem({
               {typeof msg.duration_ms === "number" && msg.duration_ms > 0 && (
                 <MetaBadge
                   icon={Zap}
-                  value={formatDuration(msg.duration_ms)}
-                  label="总生成耗时"
+                  value={fmt.duration(msg.duration_ms)}
+                  label={t("chat.message.totalDuration")}
                   className="font-medium text-amber-600 dark:text-amber-400"
                   iconClassName="text-amber-500"
                 />
@@ -581,8 +595,8 @@ export const ChatMessageItem = memo(function ChatMessageItem({
               {totalTokens ? (
                 <MetaBadge
                   icon={Cpu}
-                  value={`Tokens: ${totalTokens}`}
-                  label="Token 消耗（输入+输出）"
+                  value={t("chat.message.tokenUsage", { count: totalTokens })}
+                  label={t("chat.message.tokenUsageTip")}
                   className="text-2xs text-slate-500 dark:text-slate-400"
                 />
               ) : null}
@@ -593,7 +607,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
         {/* 用户消息操作栏：与助手消息同一位置，便于扫读 */}
         {isUser && !editing && msg.id && onEditMessage && (
           <div className="mt-2 flex flex-wrap items-center justify-end gap-1 px-0.5 text-2xs text-muted-foreground select-none">
-            <ActionTooltip label="编辑这条提问并重新发送" side="bottom">
+            <ActionTooltip label={t("chat.message.editTip")} side="bottom">
               <Button
                 type="button"
                 variant="ghost"
@@ -602,11 +616,11 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                 className="flex h-7 items-center gap-1.5 rounded-lg px-2 text-muted-foreground transition-colors hover:bg-surface-3/80 hover:text-foreground"
               >
                 <PenLine className="h-3.5 w-3.5" />
-                <span className="text-2xs">编辑</span>
+                <span className="text-2xs">{t("chat.message.edit")}</span>
               </Button>
             </ActionTooltip>
             {onQuote && (
-              <ActionTooltip label="引用此提问" side="bottom">
+              <ActionTooltip label={t("chat.message.quoteQuestion")} side="bottom">
                 <Button
                   type="button"
                   variant="ghost"
@@ -615,21 +629,21 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                   className="flex h-7 items-center gap-1.5 rounded-lg px-2 text-muted-foreground transition-colors hover:bg-surface-3/80 hover:text-foreground"
                 >
                   <Quote className="h-3 w-3" />
-                  <span className="text-2xs">引用</span>
+                  <span className="text-2xs">{t("chat.message.quote")}</span>
                 </Button>
               </ActionTooltip>
             )}
             <CopyButton
               isCopied={isCopied}
               onClick={() => onCopy(stripAttachmentMarkup(msg.content || "").trim(), idx)}
-              copyLabel="复制提问"
+              copyLabel={t("chat.message.copyQuestion")}
             />
             {/* stripAttachmentMarkup 是必须的，不是顺手：用户消息里可能嵌着附件的
                 base64 data URL 和附件标记，不过滤的话 TTS 会把一整串编码念出来。
                 和上面的复制、引用保持同一套取文逻辑。 */}
             <SpeakButton
               text={stripAttachmentMarkup(msg.content || "")}
-              tooltip="朗读此提问"
+              tooltip={t("chat.message.speakQuestion")}
             />
           </div>
         )}

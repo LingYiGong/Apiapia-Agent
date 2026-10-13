@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_
 from app.core.database import get_db
+from app.core.errors import ApiError
 from app.core.security import verify_password, get_password_hash, create_access_token
 from app.core.config import settings
 from app.models.user import User
@@ -18,9 +19,9 @@ async def register(user_in: UserCreate, db: AsyncSession = Depends(get_db)):
     stmt = select(User).where(or_(User.username == user_in.username, User.email == user_in.email))
     existing_user = (await db.execute(stmt)).scalar_one_or_none()
     if existing_user:
-        raise HTTPException(
+        raise ApiError(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Username or email already registered"
+            code="AUTH_USER_ALREADY_EXISTS",
         )
 
     from sqlalchemy import func
@@ -83,15 +84,15 @@ async def login(
     )
     user = (await db.execute(stmt)).scalar_one_or_none()
     if not user or not verify_password(login_data.password, user.password_hash):
-        raise HTTPException(
+        raise ApiError(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username/email or password"
+            code="AUTH_INVALID_CREDENTIALS",
         )
 
     if hasattr(user, "is_active") and not user.is_active:
-        raise HTTPException(
+        raise ApiError(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="该账号已被管理员停用，请联系管理员"
+            code="ACCOUNT_DISABLED",
         )
 
     token = create_access_token(subject=user.id)

@@ -7,6 +7,7 @@ import { apiRequest } from "@/lib/api";
 import { CURRENT_VERSION } from "@/lib/version";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { BrandLogo } from "@/components/common/BrandLogo";
+import { LanguageButton } from "@/components/common/LanguageSwitcher";
 import {
   KeyRound,
   Mail,
@@ -21,8 +22,10 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useI18n } from "@/i18n";
 
 export default function LoginPage() {
+  const { t } = useI18n();
   const [isRegister, setIsRegister] = useState(false);
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -59,28 +62,28 @@ export default function LoginPage() {
 
     if (isRegister) {
       if (!username.trim()) {
-        setError("请输入用户名");
+        setError(t("auth.validation.usernameRequired"));
         return;
       }
       if (!email.trim() || !email.includes("@")) {
-        setError("请输入有效的电子邮箱地址");
+        setError(t("auth.validation.emailInvalid"));
         return;
       }
       if (password.length < 6) {
-        setError("密码长度至少需包含 6 个字符");
+        setError(t("auth.validation.passwordTooShort"));
         return;
       }
       if (password !== confirmPassword) {
-        setError("两次输入的密码不一致，请重新输入");
+        setError(t("auth.validation.passwordMismatch"));
         return;
       }
     } else {
       if (!username.trim() && !email.trim()) {
-        setError("请输入用户名或电子邮箱");
+        setError(t("auth.validation.accountRequired"));
         return;
       }
       if (!password) {
-        setError("请输入密码");
+        setError(t("auth.validation.passwordRequired"));
         return;
       }
     }
@@ -110,7 +113,7 @@ export default function LoginPage() {
       }
       router.push("/chat");
     } catch (err: any) {
-      setError(err.message || "请求失败，请检查输入或稍后重试");
+      setError(err.message || t("auth.validation.submitFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -129,7 +132,12 @@ export default function LoginPage() {
         </div>
 
         {/* Single-layer Apple Theme Toggle */}
-        <ThemeToggle variant="apple" />
+        <div className="flex items-center gap-2">
+          {/* 语言切换放在登录页是因为这是所有人的必经之路：设置页在登录之后，
+              而一个英文用户最需要的就是在**看到错误提示之前**就能换语言。 */}
+          <LanguageButton />
+          <ThemeToggle variant="apple" />
+        </div>
       </header>
 
       {/* Apple Frosted Glass Sign-in Card */}
@@ -139,12 +147,10 @@ export default function LoginPage() {
           <div className="flex flex-col items-center text-center mb-4 sm:mb-5">
             <BrandLogo size={64} className="mb-2.5 drop-shadow-md transition-transform hover:scale-105" />
             <h1 className="text-2xl sm:text-3xl font-semibold text-foreground">
-              {isRegister ? "创建 Apiapia 账户" : "登录 Apiapia"}
+              {isRegister ? t("auth.registerTitle") : t("auth.loginTitle")}
             </h1>
             <p className="mt-0.5 text-xs sm:text-footnote text-muted-foreground font-normal">
-              {isRegister
-                ? "开启拥有长期记忆的私人猫咪助理"
-                : "探索拥有长期记忆的个人 AI 空间"}
+              {isRegister ? t("auth.registerSubtitle") : t("auth.loginSubtitle")}
             </p>
           </div>
 
@@ -159,7 +165,7 @@ export default function LoginPage() {
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              登录
+              {t("auth.tabLogin")}
             </button>
             <button
               type="button"
@@ -170,7 +176,7 @@ export default function LoginPage() {
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              注册
+              {t("auth.tabRegister")}
             </button>
           </div>
 
@@ -197,7 +203,7 @@ export default function LoginPage() {
                 htmlFor="account-input"
                 className="ml-1 text-xs font-medium text-foreground/80"
               >
-                {isRegister ? "用户名" : "账户"}
+                {isRegister ? t("auth.field.username") : t("auth.field.account")}
               </label>
               <div className="group relative flex h-11 sm:h-12 items-center rounded-2xl border border-border/60 bg-surface-3/40 px-3 transition-all duration-200 focus-within:border-primary/80 focus-within:ring-4 focus-within:ring-primary/15 dark:bg-surface-3/30">
                 <UserIcon className="h-4 w-4 shrink-0 text-muted-foreground/60 transition-colors group-focus-within:text-primary mr-2.5" />
@@ -209,7 +215,9 @@ export default function LoginPage() {
                   onChange={(e) => setUsername(e.target.value)}
                   onKeyDown={handleAccountKeyDown}
                   placeholder={
-                    isRegister ? "设置用户名 (例如 alex)" : "用户名或电子邮箱"
+                    isRegister
+                      ? t("auth.field.usernamePlaceholder")
+                      : t("auth.field.accountPlaceholder")
                   }
                   autoComplete="username"
                   autoCapitalize="none"
@@ -222,8 +230,8 @@ export default function LoginPage() {
                     tabIndex={-1}
                     onClick={() => setUsername("")}
                     className="ml-1 rounded-full p-1 text-muted-foreground/50 hover:bg-surface-3 hover:text-muted-foreground"
-                    title="清空用户名"
-                    aria-label="清空用户名"
+                    title={t("auth.field.clearUsername")}
+                    aria-label={t("auth.field.clearUsername")}
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -238,7 +246,7 @@ export default function LoginPage() {
                   htmlFor="email-input"
                   className="ml-1 text-xs font-medium text-foreground/80"
                 >
-                  电子邮箱
+                  {t("auth.field.email")}
                 </label>
                 <div className="group relative flex h-11 sm:h-12 items-center rounded-2xl border border-border/60 bg-surface-3/40 px-3 transition-all duration-200 focus-within:border-primary/80 focus-within:ring-4 focus-within:ring-primary/15 dark:bg-surface-3/30">
                   <Mail className="h-4 w-4 shrink-0 text-muted-foreground/60 transition-colors group-focus-within:text-primary mr-2.5" />
@@ -260,8 +268,8 @@ export default function LoginPage() {
                       tabIndex={-1}
                       onClick={() => setEmail("")}
                       className="ml-1 rounded-full p-1 text-muted-foreground/50 hover:bg-surface-3 hover:text-muted-foreground"
-                      title="清空邮箱"
-                      aria-label="清空邮箱"
+                      title={t("auth.field.clearEmail")}
+                      aria-label={t("auth.field.clearEmail")}
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
@@ -276,7 +284,7 @@ export default function LoginPage() {
                 htmlFor="password-input"
                 className="ml-1 text-xs font-medium text-foreground/80"
               >
-                {isRegister ? "设置密码" : "密码"}
+                {isRegister ? t("auth.field.setPassword") : t("auth.field.password")}
               </label>
               <div className="group relative flex h-11 sm:h-12 items-center rounded-2xl border border-border/60 bg-surface-3/40 px-3 transition-all duration-200 focus-within:border-primary/80 focus-within:ring-4 focus-within:ring-primary/15 dark:bg-surface-3/30">
                 <KeyRound className="h-4 w-4 shrink-0 text-muted-foreground/60 transition-colors group-focus-within:text-primary mr-2.5" />
@@ -287,7 +295,11 @@ export default function LoginPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder={isRegister ? "至少包含 6 位字符" : "请输入密码"}
+                  placeholder={
+                    isRegister
+                      ? t("auth.field.setPasswordPlaceholder")
+                      : t("auth.field.passwordPlaceholder")
+                  }
                   autoComplete={isRegister ? "new-password" : "current-password"}
                   className="w-full bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground/40"
                 />
@@ -296,8 +308,8 @@ export default function LoginPage() {
                   tabIndex={-1}
                   onClick={() => setShowPassword(!showPassword)}
                   className="ml-1 rounded-lg p-1.5 text-muted-foreground/50 hover:bg-surface-3 hover:text-muted-foreground"
-                  title={showPassword ? "隐藏密码" : "显示密码"}
-                  aria-label={showPassword ? "隐藏密码" : "显示密码"}
+                  title={showPassword ? t("auth.field.hidePassword") : t("auth.field.showPassword")}
+                  aria-label={showPassword ? t("auth.field.hidePassword") : t("auth.field.showPassword")}
                   aria-pressed={showPassword}
                 >
                   {showPassword ? (
@@ -316,7 +328,7 @@ export default function LoginPage() {
                   htmlFor="confirm-password-input"
                   className="ml-1 text-xs font-medium text-foreground/80"
                 >
-                  确认密码
+                  {t("auth.field.confirmPassword")}
                 </label>
                 <div className="group relative flex h-11 sm:h-12 items-center rounded-2xl border border-border/60 bg-surface-3/40 px-3 transition-all duration-200 focus-within:border-primary/80 focus-within:ring-4 focus-within:ring-primary/15 dark:bg-surface-3/30">
                   <KeyRound className="h-4 w-4 shrink-0 text-muted-foreground/60 transition-colors group-focus-within:text-primary mr-2.5" />
@@ -326,7 +338,7 @@ export default function LoginPage() {
                     required
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="请再次输入密码"
+                    placeholder={t("auth.field.confirmPasswordPlaceholder")}
                     autoComplete="new-password"
                     className="w-full bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground/40"
                   />
@@ -335,8 +347,8 @@ export default function LoginPage() {
                     tabIndex={-1}
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     className="ml-1 rounded-lg p-1.5 text-muted-foreground/50 hover:bg-surface-3 hover:text-muted-foreground"
-                    title={showConfirmPassword ? "隐藏密码" : "显示密码"}
-                    aria-label={showConfirmPassword ? "隐藏密码" : "显示密码"}
+title={showConfirmPassword ? t("auth.field.hidePassword") : t("auth.field.showPassword")}
+                  aria-label={showConfirmPassword ? t("auth.field.hidePassword") : t("auth.field.showPassword")}
                     aria-pressed={showConfirmPassword}
                   >
                     {showConfirmPassword ? (
@@ -358,11 +370,13 @@ export default function LoginPage() {
               {submitting ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>{isRegister ? "正在创建账户..." : "正在登录..."}</span>
+                  <span>
+                    {isRegister ? t("auth.submittingRegister") : t("auth.submittingLogin")}
+                  </span>
                 </>
               ) : (
                 <>
-                  <span>{isRegister ? "创建账户" : "立即登录"}</span>
+                  <span>{isRegister ? t("auth.submitRegister") : t("auth.submit")}</span>
                   <ArrowRight className="h-4 w-4" />
                 </>
               )}
@@ -373,7 +387,7 @@ export default function LoginPage() {
           <div className="mt-5 border-t border-border/60 pt-3 text-center">
             <div className="flex items-center justify-center gap-1.5 text-2xs text-muted-foreground">
               <ShieldCheck className="h-3.5 w-3.5 text-primary/70 shrink-0" />
-              <span>端到端加密 · 个人对话与记忆仅归您所有</span>
+              <span>{t("auth.privacyBadge")}</span>
             </div>
           </div>
         </div>
@@ -382,7 +396,7 @@ export default function LoginPage() {
       {/* Apple Minimalist Footer */}
       <footer className="relative z-10 w-full max-w-5xl py-1 sm:py-2 text-center mx-auto">
         <p className="text-xs text-muted-foreground/60">
-          Apiapia 助理 · v{CURRENT_VERSION}
+          {t("auth.footer", { version: CURRENT_VERSION })}
         </p>
       </footer>
     </div>

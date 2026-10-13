@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LogOut, ChevronRight } from "lucide-react";
 import { useAuth } from "@/lib/auth";
-import { ACCOUNT_MENU_ITEMS, type MobileTab } from "@/config/navigation";
+import { ACCOUNT_MENU_ITEMS, navLabels, type MobileTab } from "@/config/navigation";
+import { useI18n } from "@/i18n";
 import { useActiveNav } from "@/hooks/useActiveNav";
 import { ThemeSegments } from "@/components/common/ThemeSegments";
 import {
@@ -62,6 +63,7 @@ export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
   const { user, logout } = useAuth();
   const router = useRouter();
   const { isActive, ariaCurrent } = useActiveNav();
+  const { t } = useI18n();
   const isDesktop = variant === "desktop";
 
   if (!user) return null;
@@ -78,7 +80,7 @@ export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
   const trigger = isDesktop ? (
     <button
       type="button"
-      aria-label={`${user.username} 的账户菜单`}
+      aria-label={t("common.account.menu", { username: user.username })}
       className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-border/80 bg-muted/60 p-1 pr-2 text-xs font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring sm:gap-2 sm:pr-2.5"
     >
       <UserAvatar username={user.username} className="h-6 w-6" textClassName="text-2xs" />
@@ -90,7 +92,7 @@ export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
   ) : (
     <button
       type="button"
-      aria-label={`${user.username} 的账户菜单`}
+      aria-label={t("common.account.menu", { username: user.username })}
       className="flex h-8 w-8 shrink-0 cursor-pointer select-none items-center justify-center rounded-full border border-border/70 bg-muted/40 shadow-2xs transition-all hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 active:scale-95"
     >
       <UserAvatar username={user.username} className="h-7 w-7" textClassName="text-2xs" />
@@ -127,7 +129,7 @@ export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
               )}
             </div>
             <span className="mt-0.5 truncate font-mono text-2xs text-muted-foreground">
-              {user.is_superuser ? "超级管理员权限已就绪" : "已登录标准用户"}
+              {user.is_superuser ? t("common.account.adminReady") : t("common.account.standardUser")}
             </span>
           </div>
         </div>
@@ -145,7 +147,7 @@ export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
             <div className="px-2 py-1.5">
               <div className="mb-1.5 flex items-center justify-between">
                 <span className="font-mono text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  外观风格
+                  {t("settings.appearance.avatarMenuHeading")}
                 </span>
               </div>
               <ThemeSegments size="sm" />
@@ -176,7 +178,7 @@ export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
                   active && "font-semibold"
                 )}
               >
-                {item.menuLabel}
+                {navLabels(item, t).menuLabel}
               </span>
             );
 
@@ -228,7 +230,7 @@ export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
           <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
             <LogOut className="h-3.5 w-3.5" />
           </div>
-          <span>退出登录</span>
+          <span>{t("common.account.logout")}</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

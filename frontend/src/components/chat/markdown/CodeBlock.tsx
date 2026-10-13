@@ -4,6 +4,7 @@ import * as React from "react";
 import { Check, Copy, Download, Palette } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/i18n";
 import { WordCard, parseWordData } from "./WordCard";
 
 /**
@@ -73,6 +74,7 @@ function getSvgAspectRatio(svg: string): number | undefined {
 }
 
 export function SvgRenderer({ svgCode }: { svgCode: string }) {
+  const { t } = useI18n();
   const [viewMode, setViewMode] = React.useState<"preview" | "code">("preview");
   const { copied, copy } = useCopyFeedback();
 
@@ -119,12 +121,12 @@ export function SvgRenderer({ svgCode }: { svgCode: string }) {
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 bg-surface-3/60 px-3.5 py-2 text-xs select-none">
         <div className="flex items-center gap-1.5 font-medium text-foreground">
           <Palette className="h-3.5 w-3.5 text-primary" />
-          <span>SVG 矢量画作</span>
+          <span>{t("chat.markdown.svgTitle")}</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="flex rounded-lg border border-border/60 bg-background/80 p-0.5 text-2xs">
-            {modeButton("preview", "预览图形")}
-            {modeButton("code", "查看代码")}
+            {modeButton("preview", t("chat.markdown.svgPreviewToggle"))}
+            {modeButton("code", t("chat.markdown.svgCodeToggle"))}
           </div>
           <Button
             type="button"
@@ -138,7 +140,7 @@ export function SvgRenderer({ svgCode }: { svgCode: string }) {
             ) : (
               <Copy className="h-3 w-3" />
             )}
-            <span>{copied ? "已复制" : "复制"}</span>
+            <span>{copied ? t("chat.message.copied") : t("chat.message.copy")}</span>
           </Button>
           <Button
             type="button"
@@ -148,7 +150,7 @@ export function SvgRenderer({ svgCode }: { svgCode: string }) {
             className="h-7 gap-1 rounded-lg bg-primary/10 px-2 text-2xs font-medium text-primary transition-colors hover:bg-primary/20"
           >
             <Download className="h-3 w-3" />
-            <span>下载 SVG</span>
+            <span>{t("chat.markdown.downloadSvg")}</span>
           </Button>
         </div>
       </div>
@@ -156,7 +158,7 @@ export function SvgRenderer({ svgCode }: { svgCode: string }) {
       {viewMode === "preview" ? (
         <div className="flex min-h-[220px] items-center justify-center overflow-hidden bg-surface-3/20 p-4 sm:p-6">
           <iframe
-            title="SVG 矢量画作预览"
+            title={t("chat.markdown.svgPreview")}
             sandbox=""
             srcDoc={svgSrcDoc}
             style={aspectRatio ? { aspectRatio } : undefined}
@@ -202,6 +204,7 @@ class WordCardSafe extends React.Component<
 }
 
 export function CodeBlock({ children, className }: any) {
+  const { t } = useI18n();
   const { copied, copy } = useCopyFeedback();
   const match = /language-(\w+)/.exec(className || "");
   const lang = match ? match[1] : "";
@@ -229,11 +232,11 @@ export function CodeBlock({ children, className }: any) {
       <div className="flex items-center justify-between border-b border-white/5 bg-[#1f1f23] px-4 py-2 text-xs text-muted-foreground select-none">
         <div className="flex items-center gap-2">
           <span className="font-mono text-2xs font-medium uppercase tracking-wide text-slate-300">
-            {lang || "code"}
+            {lang || t("chat.markdown.codeFallback")}
           </span>
           {isMermaid && (
             <span className="rounded-md bg-primary/20 px-1.5 py-0.5 text-2xs font-medium text-primary">
-              架构图
+              {t("chat.markdown.mermaid")}
             </span>
           )}
         </div>
@@ -248,7 +251,7 @@ export function CodeBlock({ children, className }: any) {
             ) : (
               <Copy className="h-3.5 w-3.5" />
             )}
-            <span>{copied ? "已复制" : "复制"}</span>
+            <span>{copied ? t("chat.message.copied") : t("chat.message.copy")}</span>
           </button>
           <button
             type="button"
@@ -262,7 +265,7 @@ export function CodeBlock({ children, className }: any) {
             className="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-2xs font-medium text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
           >
             <Download className="h-3.5 w-3.5" />
-            <span>下载</span>
+            <span>{t("chat.markdown.download")}</span>
           </button>
         </div>
       </div>

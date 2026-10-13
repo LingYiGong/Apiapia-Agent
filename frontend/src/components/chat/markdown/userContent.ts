@@ -1,5 +1,6 @@
 import type { SearchResultItem } from "@/types";
 import { getMediaImageUrl } from "@/lib/api";
+import { getTranslator, resolveStoredLocale } from "@/i18n";
 
 /**
  * 用户消息正文的解析。
@@ -42,6 +43,21 @@ export interface ParsedUserMessage {
 }
 
 /**
+ * 图片没有 alt 时的兜底名，会被 ImageThumb 当作 alt 显示。
+ *
+ * 注意它与下方 DOC_RE 里的「附件文件 / 附件文档 / 附带文件」性质不同：那三个是
+ * **解析关键词**（后端写进正文里、随后被剥掉的标记），换语言就会匹配失败，必须
+ * 保持原样；这个兜底名是真正渲染出来的文案，所以走 i18n。
+ *
+ * 本文件是纯函数模块（调用方把结果 memo 在 msg.content 上），拿不到 useI18n，
+ * 因此走 i18n 提供的非 React 取值口。代价是切换语言后不会重算 —— 但它只喂
+ * alt 属性，且重新解析要重扫可能数 MB 的内联 base64，拿实时性换这个不划算。
+ */
+function fallbackImageName(): string {
+  return getTranslator(resolveStoredLocale())("chat.markdown.imageAlt");
+}
+
+/**
  * 收集某个带 /g 的正则的全部匹配。
  *
  * 刻意用 `Array.from(...)` 而不是 `for (const m of s.matchAll(re))`：
@@ -70,13 +86,13 @@ export function parseUserMessage(content: string): ParsedUserMessage {
   const docs: string[] = [];
 
   for (const match of collect(content, IMG_RE)) {
-    images.push({ name: match[1] || "图片", url: resolveImageUrl(match[2]) });
+    images.push({ name: match[1] || fallbackImageName(), url: resolveImageUrl(match[2]) });
   }
 
   // 没有标准 markdown 图语法、但正文里直接含 data:image 的情况
   if (images.length === 0 && content.includes("data:image/")) {
     for (const match of collect(content, RAW_IMG_RE)) {
-      images.push({ name: "图片", url: match[1] });
+      images.push({ name: fallbackImageName(), url: match[1] });
     }
   }
 

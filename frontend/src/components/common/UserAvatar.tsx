@@ -1,6 +1,7 @@
 import * as React from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/i18n";
 
 /**
  * 用户头像 + 管理员徽章。
@@ -64,13 +65,15 @@ const ADMIN_BADGE_SIZE: Record<AdminBadgeSize, string> = {
  */
 export function AdminBadge({
   size = "md",
-  label = "管理员",
+  label,
   className,
 }: {
   size?: AdminBadgeSize;
+  /** 不传则用词典里的「管理员」 */
   label?: string;
   className?: string;
 }) {
+  const { t } = useI18n();
   return (
     <span
       className={cn(
@@ -79,7 +82,7 @@ export function AdminBadge({
         className
       )}
     >
-      {label}
+      {label ?? t("common.account.adminBadge")}
     </span>
   );
 }
@@ -92,6 +95,7 @@ export function StandardUserBadge({
   size?: AdminBadgeSize;
   className?: string;
 }) {
+  const { t } = useI18n();
   return (
     <span
       className={cn(
@@ -100,7 +104,7 @@ export function StandardUserBadge({
         className
       )}
     >
-      标准
+      {t("common.account.standardBadge")}
     </span>
   );
 }

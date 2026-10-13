@@ -13,7 +13,7 @@ import { UserAvatarMenu } from "@/components/layout/UserAvatarDropdown";
 import { SwipeableConversationCard } from "@/components/chat/SwipeableConversationCard";
 import { usePinnedDragReorder } from "@/components/chat/usePinnedDragReorder";
 import { useConfirm } from "@/hooks/useConfirm";
-import { formatRelativeTime } from "@/lib/format";
+import { useI18n } from "@/i18n";
 import { groupByTimeBuckets } from "@/lib/timeGroups";
 import { cn } from "@/lib/utils";
 import type { MobileTab } from "@/config/navigation";
@@ -56,6 +56,7 @@ export const MobileHistoryView = ({
   onSelectMobileTab,
 }: MobileHistoryViewProps) => {
   const [search, setSearch] = useState("");
+  const { t, fmt } = useI18n();
   const [editingConv, setEditingConv] = useState<Conversation | null>(null);
   const [newTitle, setNewTitle] = useState("");
   const [activeOpenId, setActiveOpenId] = useState<string | null>(null);
@@ -82,11 +83,12 @@ export const MobileHistoryView = ({
   const groupedSections = useMemo(
     () =>
       groupByTimeBuckets<Conversation>(filteredList, {
+        t,
         getTime: activityOf,
         isPinned: (c) => !!c.is_pinned,
         getPinOrder: (c) => c.pin_order ?? 0,
       }),
-    [filteredList]
+    [filteredList, t]
   );
 
   const pinnedItems = useMemo(
@@ -128,9 +130,11 @@ export const MobileHistoryView = ({
 
   const requestDelete = (c: Conversation) =>
     ask({
-      title: "删除该历史会话",
-      description: `确定要删除对话「${c.title || "新建对话"}」吗？删除后将无法恢复，该操作不可撤销。`,
-      confirmText: "删除",
+      title: t("chat.history.deleteTitle"),
+      description: t("chat.history.deleteDesc", {
+        title: c.title || t("chat.history.untitled"),
+      }),
+      confirmText: t("chat.history.delete"),
       danger: true,
       onConfirm: () => onDelete(c.id),
     });
@@ -138,11 +142,11 @@ export const MobileHistoryView = ({
   return (
     <div className="relative flex h-full flex-1 flex-col overflow-hidden bg-background">
       <MobileHeader
-        title="历史会话"
+        title={t("nav.history.mobileTitle")}
         onSelectMobileTab={onSelectMobileTab}
         right={
           <div className="flex items-center gap-1">
-            <ActionTooltip label="新建对话">
+            <ActionTooltip label={t("chat.history.newChat")}>
               <Button
                 type="button"
                 variant="ghost"
@@ -151,7 +155,7 @@ export const MobileHistoryView = ({
                 className="h-8 w-8 cursor-pointer rounded-full text-foreground transition-colors hover:bg-surface-3/80 active:scale-95"
               >
                 <Plus className="h-4 w-4" />
-                <span className="sr-only">新建对话</span>
+                <span className="sr-only">{t("chat.history.newChat")}</span>
               </Button>
             </ActionTooltip>
             <UserAvatarMenu onSelectMobileTab={onSelectMobileTab} />
@@ -163,13 +167,13 @@ export const MobileHistoryView = ({
       <div className="shrink-0 border-b border-border/30 bg-background/50 px-3.5 py-2 backdrop-blur-md">
         <div className="relative">
           <Label htmlFor="history-search" className="sr-only">
-            搜索历史记录
+            {t("chat.history.searchMobile")}
           </Label>
           <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
             id="history-search"
             type="search"
-            placeholder="搜索历史记录..."
+            placeholder={t("chat.history.searchMobilePh")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             // pl-9/pr-9 与图标（left-3，14px）和清除键（right-2.5）对齐；
@@ -180,7 +184,7 @@ export const MobileHistoryView = ({
             <button
               type="button"
               onClick={() => setSearch("")}
-              aria-label="清除搜索"
+              aria-label={t("chat.history.clearSearch")}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted-foreground transition-colors hover:text-foreground"
             >
               <X className="h-3.5 w-3.5" />
@@ -199,13 +203,13 @@ export const MobileHistoryView = ({
         {filteredList.length === 0 ? (
           <EmptyState
             icon={MessageSquare}
-            title={search ? "未找到匹配的历史对话" : "暂无历史对话"}
+            title={search ? t("chat.history.noResultsTitle") : t("chat.history.emptyTitleMobile")}
             description={
               search
-                ? "换个关键词试试，或清除搜索框。"
-                : "在聊天界面发送一条消息，它将自动保存在这里。"
+                ? t("chat.history.noResultsDesc")
+                : t("chat.history.emptyDescMobile")
             }
-            actionLabel={search ? undefined : "开启新对话"}
+            actionLabel={search ? undefined : t("chat.history.startNew")}
             actionIcon={Plus}
             onAction={search ? undefined : onNewChat}
           />
@@ -229,7 +233,7 @@ export const MobileHistoryView = ({
                       key={c.id}
                       conversation={c}
                       isSelected={c.id === activeId}
-                      timeStr={formatRelativeTime(c.last_message_at || c.created_at)}
+                      timeStr={fmt.relativeTime(c.last_message_at || c.created_at)}
                       onSelect={() => handleSelect(c.id)}
                       onDelete={() => requestDelete(c)}
                       onTogglePin={onTogglePin ? () => onTogglePin(c.id) : undefined}
@@ -268,17 +272,19 @@ export const MobileHistoryView = ({
         <Dialog open onOpenChange={(open) => !open && setEditingConv(null)}>
           <DialogContent className="max-w-sm rounded-2xl">
             <DialogHeader>
-              <DialogTitle className="text-base font-semibold">重命名对话</DialogTitle>
+              <DialogTitle className="text-base font-semibold">
+                {t("chat.history.renameTitle")}
+              </DialogTitle>
             </DialogHeader>
             <div className="py-2">
               <Label htmlFor="rename-conversation-input" className="sr-only">
-                新标题
+                {t("chat.history.renameLabel")}
               </Label>
               <Input
                 id="rename-conversation-input"
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
-                placeholder="请输入新标题"
+                placeholder={t("chat.history.renamePh")}
                 className="h-10 rounded-xl text-sm"
                 autoFocus
                 onKeyDown={(e) => {
@@ -294,10 +300,10 @@ export const MobileHistoryView = ({
                 onClick={() => setEditingConv(null)}
                 className="rounded-xl"
               >
-                取消
+                {t("common.action.cancel")}
               </Button>
               <Button type="button" size="sm" onClick={handleConfirmRename} className="rounded-xl">
-                保存
+                {t("common.action.save")}
               </Button>
             </DialogFooter>
           </DialogContent>

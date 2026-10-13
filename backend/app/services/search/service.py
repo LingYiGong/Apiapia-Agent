@@ -6,6 +6,7 @@ from html import unescape
 from typing import List, Dict, Any, Optional
 import httpx
 from app.core.config import settings
+from app.core.i18n import get_locale
 
 logger = logging.getLogger("web_search")
 
@@ -49,7 +50,25 @@ class WebSearchService:
                 "Chrome/124.0.0.0 Safari/537.36"
             ),
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-            "Accept-Language": "zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7",
+        }
+
+    def _headers_for_request(self) -> dict:
+        """按当前请求的语言组装请求头。
+
+        ``Accept-Language`` 此前硬编码成 ``zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7``，
+        于是不管用户用什么语言，搜回来的都是中文优先的结果 —— 一个英语用户
+        问 "who won the election"，拿回来的可能是中文报道里对同一次选举的
+        转述，还夹着只对中文读者有意义的板块链接。
+
+        DuckDuckGo 会按这个头决定结果的语言，所以它必须跟着请求语言走。
+        裸语言标签放前面、英文兜底放后面：搜索服务对无法识别的地区变体
+        （zh-HK、ja-JP）会直接回落，而不是把这个列表当成「全部都要」。
+        """
+        locale = get_locale()
+        base = locale.split("-")[0]
+        return {
+            **self.headers,
+            "Accept-Language": f"{locale},{base};q=0.9,en;q=0.7" if base != "en" else f"{locale},en;q=0.7",
         }
 
     def is_tavily_configured(self) -> bool:
@@ -197,7 +216,7 @@ class WebSearchService:
     async def _search_duckduckgo_html(self, query: str, max_results: int = 10) -> List[Dict[str, str]]:
         url = "https://html.duckduckgo.com/html/"
         data = {"q": query, "b": ""}
-        async with httpx.AsyncClient(timeout=8.0, follow_redirects=True, headers=self.headers) as client:
+        async with httpx.AsyncClient(timeout=8.0, follow_redirects=True, headers=self._headers_for_request()) as client:
             resp = await client.post(url, data=data)
             if resp.status_code != 200:
                 logger.warning("DuckDuckGo HTML returned HTTP %d", resp.status_code)
@@ -252,7 +271,7 @@ class WebSearchService:
     async def _search_duckduckgo_lite(self, query: str, max_results: int = 10) -> List[Dict[str, str]]:
         url = "https://lite.duckduckgo.com/lite/"
         data = {"q": query}
-        async with httpx.AsyncClient(timeout=8.0, follow_redirects=True, headers=self.headers) as client:
+        async with httpx.AsyncClient(timeout=8.0, follow_redirects=True, headers=self._headers_for_request()) as client:
             resp = await client.post(url, data=data)
             if resp.status_code != 200:
                 return []
@@ -293,7 +312,7 @@ class WebSearchService:
         """
         url = "https://api.duckduckgo.com/"
         params = {"q": query, "format": "json", "no_html": "1", "skip_disambig": "1"}
-        async with httpx.AsyncClient(timeout=6.0, headers=self.headers) as client:
+        async with httpx.AsyncClient(timeout=6.0, headers=self._headers_for_request()) as client:
             resp = await client.get(url, params=params)
             if resp.status_code != 200:
                 return []

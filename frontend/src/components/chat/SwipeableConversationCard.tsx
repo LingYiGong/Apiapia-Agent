@@ -11,6 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useI18n } from "@/i18n";
 import { cn } from "@/lib/utils";
 
 /**
@@ -71,6 +72,7 @@ export const SwipeableConversationCard = ({
   activeOpenId,
   setActiveOpenId,
 }: SwipeableConversationCardProps) => {
+  const { t } = useI18n();
   const isOpen = activeOpenId === c.id;
   const [offset, setOffset] = React.useState(0);
   const [isDragging, setIsDragging] = React.useState(false);
@@ -222,7 +224,7 @@ export const SwipeableConversationCard = ({
       >
         {c.is_pinned ? <PinOff className="mb-0.5 h-5 w-5" /> : <Pin className="mb-0.5 h-5 w-5" />}
         <span className="text-2xs font-semibold">
-          {c.is_pinned ? "取消置顶" : "置顶"}
+          {c.is_pinned ? t("chat.history.unpin") : t("chat.history.pinned")}
         </span>
       </div>
 
@@ -242,7 +244,7 @@ export const SwipeableConversationCard = ({
         )}
       >
         <Trash2 className="mb-0.5 h-5 w-5" />
-        <span className="text-2xs font-semibold">删除</span>
+        <span className="text-2xs font-semibold">{t("chat.history.delete")}</span>
       </div>
 
       {/* 前景卡片 */}
@@ -302,7 +304,7 @@ export const SwipeableConversationCard = ({
                   isSelected ? "font-semibold text-primary" : "text-foreground"
                 )}
               >
-                {c.title || "新建对话"}
+                {c.title || t("chat.history.untitled")}
               </span>
             </button>
             <div className="mt-1 flex items-center gap-2 font-mono text-2xs text-muted-foreground">
@@ -332,7 +334,7 @@ export const SwipeableConversationCard = ({
                 className="h-8 w-8 rounded-full text-muted-foreground hover:bg-surface-3 hover:text-foreground"
               >
                 <MoreHorizontal className="h-4 w-4" />
-                <span className="sr-only">操作菜单</span>
+                <span className="sr-only">{t("chat.history.actionMenu")}</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-40 rounded-xl">
@@ -343,7 +345,7 @@ export const SwipeableConversationCard = ({
                   className="cursor-pointer text-xs disabled:opacity-35"
                 >
                   <ChevronUp className="mr-2 h-3.5 w-3.5" />
-                  <span>上移一位</span>
+                  <span>{t("chat.history.moveUpOne")}</span>
                 </DropdownMenuItem>
               )}
               {c.is_pinned && onMoveDown && (
@@ -353,20 +355,20 @@ export const SwipeableConversationCard = ({
                   className="cursor-pointer text-xs disabled:opacity-35"
                 >
                   <ChevronDown className="mr-2 h-3.5 w-3.5" />
-                  <span>下移一位</span>
+                  <span>{t("chat.history.moveDownOne")}</span>
                 </DropdownMenuItem>
               )}
               {c.is_pinned && (onMoveUp || onMoveDown) && <DropdownMenuSeparator />}
               {onTogglePin && (
                 <DropdownMenuItem onClick={onTogglePin} className="cursor-pointer text-xs">
                   <Pin className="mr-2 h-3.5 w-3.5" />
-                  <span>{c.is_pinned ? "取消置顶" : "置顶对话"}</span>
+                  <span>{c.is_pinned ? t("chat.history.unpin") : t("chat.history.pin")}</span>
                 </DropdownMenuItem>
               )}
               {onRename && (
                 <DropdownMenuItem onClick={onRename} className="cursor-pointer text-xs">
                   <Edit2 className="mr-2 h-3.5 w-3.5" />
-                  <span>重命名</span>
+                  <span>{t("chat.history.rename")}</span>
                 </DropdownMenuItem>
               )}
               <DropdownMenuSeparator />
@@ -375,7 +377,7 @@ export const SwipeableConversationCard = ({
                 className="cursor-pointer text-xs text-destructive focus:bg-destructive/10 focus:text-destructive"
               >
                 <Trash2 className="mr-2 h-3.5 w-3.5" />
-                <span>删除对话</span>
+                <span>{t("chat.history.deleteConversation")}</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -386,7 +388,7 @@ export const SwipeableConversationCard = ({
               键盘用户用上方菜单里的「上移一位 / 下移一位」完成同样的排序。 */}
           {c.is_pinned && onStartDrag ? (
             <div
-              title="按住拖拽排序（键盘请用上移/下移）"
+              title={t("chat.history.dragHintKeyboard")}
               onTouchStart={(e) => {
                 e.stopPropagation();
                 onStartDrag(e.touches[0].clientY);

@@ -17,6 +17,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { speakText } from "@/lib/speech";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/i18n";
+import type { MessageKey, Translator } from "@/i18n";
 
 export interface WordDefinition {
   pos?: string;
@@ -48,19 +50,34 @@ export interface WordCardData {
   grammar_tips?: string;
 }
 
-const LANGUAGE_NAMES: Record<string, string> = {
-  en: "英语",
-  ja: "日语",
-  fr: "法语",
-  de: "德语",
-  es: "西班牙语",
-  ko: "韩语",
-  ru: "俄语",
-  it: "意大利语",
-  pt: "葡萄牙语",
-  zh: "中文",
-  ar: "阿拉伯语",
-};
+/**
+ * ISO 639-1 语言码 → 文案键。
+ *
+ * 此前这里是一张硬编码的中文常量表（en→英语、ja→日语 …），切到英文或日文界面后
+ * 卡片标题仍然是中文。现在只保留「码 → 键」的映射，值交给 i18n 按当前界面语言
+ * 给出（`chat.wordCard.lang<Code>`）。未收录的语种仍回退大写语言码。
+ */
+const LANGUAGE_NAME_KEYS = {
+  en: "chat.wordCard.langEn",
+  ja: "chat.wordCard.langJa",
+  fr: "chat.wordCard.langFr",
+  de: "chat.wordCard.langDe",
+  es: "chat.wordCard.langEs",
+  ko: "chat.wordCard.langKo",
+  ru: "chat.wordCard.langRu",
+  it: "chat.wordCard.langIt",
+  pt: "chat.wordCard.langPt",
+  zh: "chat.wordCard.langZh",
+  ar: "chat.wordCard.langAr",
+} as const satisfies Record<string, MessageKey>;
+
+type LanguageCode = keyof typeof LANGUAGE_NAME_KEYS;
+
+/** 语言码 → 当前界面语言下的语言名；未收录时退回大写语言码。 */
+function languageName(t: Translator, code: string): string {
+  const key = LANGUAGE_NAME_KEYS[code.toLowerCase() as LanguageCode];
+  return key ? t(key) : code.toUpperCase();
+}
 
 /** 本地剪贴板反馈 hook，避免循环依赖 CodeBlock */
 function useLocalCopyFeedback(duration = 2000) {
@@ -336,6 +353,7 @@ export function WordCard({
   rawContent: string;
   initialData?: WordCardData | null;
 }) {
+  const { t } = useI18n();
   const [viewMode, setViewMode] = React.useState<"card" | "code">("card");
 
   // 使用 useMemo 保证流式输出时每一跳都能即时响应数据变化，且不会因异步 useState 延迟卡死
@@ -437,7 +455,7 @@ export function WordCard({
         <div className="mb-2 flex items-center justify-between text-2xs text-muted-foreground/75">
           <span className="flex items-center gap-1.5 text-primary">
             <Loader2 className="h-3 w-3 animate-spin" />
-            <span>单词卡生成中...</span>
+            <span>{t("chat.wordCard.generating")}</span>
           </span>
           <Button
             type="button"
@@ -447,7 +465,7 @@ export function WordCard({
             className="h-6 gap-1 px-2 text-2xs text-slate-300 hover:bg-white/10"
           >
             {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
-            <span>{copied ? "已复制" : "复制"}</span>
+            <span>{copied ? t("chat.message.copied") : t("chat.message.copy")}</span>
           </Button>
         </div>
         <pre className="whitespace-pre-wrap">{rawContent}</pre>
@@ -456,7 +474,7 @@ export function WordCard({
   }
 
   const langCode = (data.language || "en").toLowerCase();
-  const langName = LANGUAGE_NAMES[langCode] || langCode.toUpperCase();
+  const langName = languageName(t, langCode);
 
   return (
     <div className="my-4 overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm transition-all">
@@ -467,11 +485,11 @@ export function WordCard({
             <Languages className="h-3.5 w-3.5" />
             <span className="text-2xs font-semibold">
               {data.query && data.source_lang
-                ? `${LANGUAGE_NAMES[data.source_lang] || data.source_lang} ➔ ${langName}`
-                : `${langName}卡片`}
+                ? `${languageName(t, data.source_lang)} ➔ ${langName}`
+                : t("chat.wordCard.cardLabel", { lang: langName })}
             </span>
           </div>
-          <span className="text-2xs text-muted-foreground">点读发音已就绪</span>
+          <span className="text-2xs text-muted-foreground">{t("chat.wordCard.ttsReady")}</span>
         </div>
 
         <div className="flex items-center gap-1.5">
@@ -487,7 +505,7 @@ export function WordCard({
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
-              卡片视图
+              {t("chat.wordCard.cardView")}
             </button>
             <button
               type="button"
@@ -500,7 +518,7 @@ export function WordCard({
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
-              代码
+              {t("chat.wordCard.codeView")}
             </button>
           </div>
 
@@ -512,7 +530,7 @@ export function WordCard({
             className="h-7 gap-1 rounded-lg px-2 text-2xs text-muted-foreground hover:bg-surface-3 hover:text-foreground"
           >
             {copied ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
-            <span>{copied ? "已复制" : "复制单词"}</span>
+            <span>{copied ? t("chat.message.copied") : t("chat.wordCard.copyWord")}</span>
           </Button>
         </div>
       </div>
@@ -528,7 +546,7 @@ export function WordCard({
             <div className="space-y-1.5">
               {data.query && (
                 <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground font-medium mb-1.5">
-                  <span className="text-2xs text-muted-foreground/80 font-mono">原文:</span>
+                  <span className="text-2xs text-muted-foreground/80 font-mono">{t("chat.wordCard.sourceLabel")}</span>
                   <span className="rounded-md bg-surface-3/80 px-2 py-0.5 text-foreground font-semibold">
                     {safeString(data.query)}
                   </span>
@@ -541,7 +559,7 @@ export function WordCard({
                         data.source_lang || (data.language === "zh" ? "ja" : "zh")
                       )
                     }
-                    title="朗读原文"
+                    title={t("chat.wordCard.pronounceSource")}
                     className={cn(
                       "inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-3xs font-medium transition-all cursor-pointer border",
                       playingKey === "query"
@@ -556,10 +574,10 @@ export function WordCard({
                     ) : (
                       <Volume2 className="h-2.5 w-2.5" />
                     )}
-                    <span>{playingKey === "query" ? "播放中" : "朗读原文"}</span>
+                    <span>{playingKey === "query" ? t("chat.wordCard.playing") : t("chat.wordCard.pronounceSource")}</span>
                   </button>
                   <span className="text-muted-foreground/60 text-2xs">➔</span>
-                  <span className="text-primary font-semibold text-2xs">译文:</span>
+                  <span className="text-primary font-semibold text-2xs">{t("chat.wordCard.translationLabel")}</span>
                 </div>
               )}
               <div className="flex items-baseline gap-3">
@@ -571,7 +589,7 @@ export function WordCard({
                 <button
                   type="button"
                   onClick={() => handlePlay("word", data.word, langCode)}
-                  title="点击朗读单词"
+                  title={t("chat.wordCard.pronounceTitle")}
                   className={cn(
                     "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-all shadow-2xs cursor-pointer",
                     playingKey === "word"
@@ -590,10 +608,10 @@ export function WordCard({
                   )}
                   <span>
                     {loadingKey === "word"
-                      ? "合成中"
+                      ? t("chat.wordCard.synthesizing")
                       : playingKey === "word"
-                      ? "播放中"
-                      : "发音"}
+                      ? t("chat.wordCard.playing")
+                      : t("chat.wordCard.pronounce")}
                   </span>
                 </button>
               </div>
@@ -602,13 +620,13 @@ export function WordCard({
               <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground font-mono">
                 {data.phonetic_uk && (
                   <span className="inline-flex items-center gap-1 rounded bg-surface-3/80 px-1.5 py-0.5">
-                    <span className="text-2xs font-sans text-primary">英</span>
+                    <span className="text-2xs font-sans text-primary">{t("chat.wordCard.phoneticUk")}</span>
                     {safeString(data.phonetic_uk)}
                   </span>
                 )}
                 {data.phonetic_us && (
                   <span className="inline-flex items-center gap-1 rounded bg-surface-3/80 px-1.5 py-0.5">
-                    <span className="text-2xs font-sans text-primary">美</span>
+                    <span className="text-2xs font-sans text-primary">{t("chat.wordCard.phoneticUs")}</span>
                     {safeString(data.phonetic_us)}
                   </span>
                 )}
@@ -626,7 +644,7 @@ export function WordCard({
             <div className="space-y-1.5">
               <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground/80">
                 <BookOpen className="h-3.5 w-3.5 text-primary" />
-                <span>核心释义</span>
+                <span>{t("chat.wordCard.definitions")}</span>
               </div>
               <div className="space-y-1 pl-1">
                 {data.definitions.map((def, idx) => (
@@ -653,7 +671,7 @@ export function WordCard({
             <div className="space-y-2 pt-1">
               <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground/80">
                 <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-                <span>经典例句</span>
+                <span>{t("chat.wordCard.examples")}</span>
               </div>
               <div className="space-y-2.5">
                 {data.examples.map((ex, idx) => {
@@ -690,7 +708,7 @@ export function WordCard({
                         <button
                           type="button"
                           onClick={() => handlePlay(exKey, ex.original, langCode)}
-                          title="点击发音该例句"
+                          title={t("chat.wordCard.sentencePronounceTitle")}
                           className={cn(
                             "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border transition-all cursor-pointer",
                             isExPlaying
@@ -721,7 +739,7 @@ export function WordCard({
             <div className="space-y-1.5 pt-1">
               <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground/80">
                 <Layers className="h-3.5 w-3.5 text-indigo-500" />
-                <span>常用短语 & 搭配</span>
+                <span>{t("chat.wordCard.phrases")}</span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pl-1">
                 {data.phrases.map((p, idx) => (
@@ -748,7 +766,7 @@ export function WordCard({
             <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-900 dark:text-amber-200/90 leading-relaxed space-y-1">
               <div className="flex items-center gap-1.5 font-semibold text-amber-600 dark:text-amber-400">
                 <Lightbulb className="h-3.5 w-3.5 shrink-0" />
-                <span>语法要点 & 提示</span>
+                <span>{t("chat.wordCard.grammar")}</span>
               </div>
               <div className="pl-5 text-2xs text-foreground/85 whitespace-pre-wrap">
                 {safeString(data.grammar_tips)}

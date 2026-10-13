@@ -11,6 +11,7 @@ import {
 } from "@/components/common/ModelPicker";
 import { useIsTrialMode } from "@/hooks/useIsTrialMode";
 import { toChatModelOptions } from "@/lib/models";
+import { useI18n } from "@/i18n";
 import type { ModelCatalogItem } from "@/types";
 
 interface ModelSelectProps {
@@ -36,6 +37,7 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
   variant = "default",
   isVocabMode = false,
 }) => {
+  const { t } = useI18n();
   const options = useMemo(() => toChatModelOptions(models, isVocabMode), [models, isVocabMode]);
 
   const filterGroups = useMemo<ModelFilterGroup[]>(() => {
@@ -44,7 +46,7 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
     return [
       {
         key: "free",
-        label: "免费",
+        label: t("settings.picker.freeGroup"),
         tone: "free",
         icon: Zap,
         count: free.length,
@@ -53,7 +55,7 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
       },
       {
         key: "featured",
-        label: "精选",
+        label: t("settings.picker.featuredGroup"),
         tone: "featured",
         icon: Sparkles,
         count: featured.length,
@@ -62,14 +64,14 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
       },
       {
         key: "all",
-        label: "全部",
+        label: t("settings.picker.allGroup"),
         tone: "all",
         count: options.length,
         available: true,
         match: allFilterMatch,
       },
     ];
-  }, [options]);
+  }, [options, t]);
 
   // 体验模式改由 useIsTrialMode 按**权限**判定（后端权威），目录仅在用户对象
   // 尚未加载时兜底。此前这里是 `options.every(isFree)`，与设置页的
@@ -81,8 +83,8 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
       value={value}
       onChange={onChange}
       options={options}
-      kindLabel="模型"
-      ariaLabel="语言模型"
+      kindLabel={t("settings.picker.genericKind")}
+      ariaLabel={t("settings.picker.languageKind")}
       placeholder={placeholder}
       className={className}
       variant={variant}

@@ -3,6 +3,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.core.database import get_db
+from app.core.errors import ApiError
 from app.core.security import decode_access_token
 from app.models.user import User
 
@@ -12,9 +13,9 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 def _unauthorized() -> HTTPException:
     # Built per call rather than shared: a module-level instance would be the same
     # object for every failed request, and HTTPException carries mutable state.
-    return HTTPException(
+    return ApiError(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
+        code="AUTH_INVALID_TOKEN",
         headers={"WWW-Authenticate": "Bearer"},
     )
 
@@ -49,9 +50,9 @@ async def _load_active_user(db: AsyncSession, raw_token: str | None) -> User:
         raise _unauthorized()
 
     if hasattr(user, "is_active") and not user.is_active:
-        raise HTTPException(
+        raise ApiError(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="该账号已被管理员停用，请联系管理员",
+            code="ACCOUNT_DISABLED",
         )
     return user
 
@@ -88,8 +89,8 @@ async def get_current_admin(
 ) -> User:
     """Dependency ensuring current user has superuser / admin privileges."""
     if not getattr(current_user, "is_superuser", False):
-        raise HTTPException(
+        raise ApiError(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="需要超级管理员权限才能执行此操作"
+            code="ADMIN_REQUIRED"
         )
     return current_user

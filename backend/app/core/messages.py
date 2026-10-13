@@ -1,0 +1,334 @@
+"""后端错误消息的四种语言文案。
+
+与前端 ``frontend/src/i18n/messages/`` 是两套独立的词典，职责不同：
+
+* 这里只管**后端自己产生**的消息 —— HTTP 错误的 detail、模型/凭证校验失败、
+  请求体超限等。前端词典管界面文案。
+* 两边靠**错误码**（本文件的键）对齐，不靠文案内容对齐。所以改这里的
+  措辞不会牵动前端；新增一种语言也只需要在这里补一张表。
+
+占位符名必须与键名一起保留：``tr("PINNED_IDS_UNKNOWN", ids="…")`` 依赖
+``{ids}`` 在四种语言里都存在且同名。中英日的语序差异靠占位符位置吸收，
+不做任何拼接。
+
+新增错误码的规矩：先在这里加齐四种语言，再在 api/v1/*.py 里用
+``ApiError(status_code, "CODE", …)`` 抛。漏了某种语言不会报错，会静默
+回落到简体中文 —— 所以这里刻意把 ``TABLES`` 写成四张完整显式的表，
+新增时漏写能一眼看出来。
+"""
+
+from __future__ import annotations
+
+from typing import Dict
+
+ZH_CN: Dict[str, str] = {
+    # ── 鉴权与账号 ──
+    "AUTH_USER_ALREADY_EXISTS": "该用户名或邮箱已被注册",
+    "AUTH_INVALID_CREDENTIALS": "用户名/邮箱或密码不正确",
+    "AUTH_INVALID_TOKEN": "登录状态已失效，请重新登录",
+    "ACCOUNT_DISABLED": "该账号已被管理员停用，请联系管理员",
+    "ADMIN_REQUIRED": "需要超级管理员权限才能执行此操作",
+    "ADMIN_REQUIRED_RECYCLE_BIN": "仅管理员可查看对话回收站",
+    # ── 会话 ──
+    "CONVERSATION_NOT_FOUND": "对话不存在",
+    "CONVERSATION_NOT_FOUND_OR_DENIED": "对话不存在或无权访问",
+    "MESSAGE_NOT_FOUND": "消息不存在",
+    "PINNED_IDS_EMPTY": "ordered_ids 不能为空",
+    "PINNED_IDS_UNKNOWN": "以下置顶会话不存在或未置顶：{ids}",
+    # ── 记忆 ──
+    "MEMORY_NOT_FOUND": "记忆不存在",
+    # ── 媒体 ──
+    "IMAGE_NOT_FOUND": "图片不存在",
+    "IMAGE_NOT_FOUND_OR_DELETED": "图片不存在或已删除",
+    "IMAGE_FORBIDDEN": "无权访问该图片",
+    "IMAGE_FILE_MISSING": "图片文件已丢失",
+    "VIDEO_NOT_FOUND": "视频不存在",
+    "VIDEO_NOT_FOUND_OR_DELETED": "视频不存在或已删除",
+    "VIDEO_FORBIDDEN": "无权访问该视频",
+    "VIDEO_FILE_MISSING": "视频文件已丢失",    "URL_EMPTY": "地址为空",
+    "URL_SCHEME_UNSUPPORTED": "只支持 http/https 地址，收到：{scheme}",
+    "URL_HAS_CREDENTIALS": "地址不得内嵌用户名或密码",
+    "URL_MISSING_HOST": "地址缺少主机名",
+    "URL_PRIVATE_HOST": "禁止访问指向内网的地址：{host}",
+    "URL_DNS_FAILED": "主机名无法解析：{host}",
+    "URL_DNS_BAD_ADDRESS": "主机名解析出非法地址：{ip}",
+    "URL_PRIVATE_RESOLVED": "禁止访问内网/链路本地地址：{host} → {ip}",
+    "URL_REQUIRES_HTTPS": "远程地址必须使用 https（明文 http 会导致凭证泄露）",
+    "MEDIA_ILLEGAL_PATH": "非法的媒体文件路径",
+    "MEDIA_PATH_ESCAPE": "媒体文件路径越界",
+    # ── 服务端凭证缺失（同步模型目录）──
+    "NO_LLM_CREDENTIALS": "后端 .env 中未配置任何模型提供商 API Key 或服务地址",
+    "NO_IMAGE_CREDENTIALS": (
+        "后端 .env 中未配置任何生图服务凭证 "
+        "(OPENROUTER_API_KEY / OPENAI_API_KEY / SILICONFLOW_API_KEY)"
+    ),
+    "NO_VIDEO_CREDENTIALS": "后端 .env 中未配置任何视频生成服务凭证 (OPENROUTER_API_KEY)",
+    "NO_AUDIO_CREDENTIALS": "后端 .env 中未配置任何语音服务凭证 (OPENROUTER_API_KEY)",
+    # ── 模型可用性 ──
+    "MODEL_IMAGE_UNAVAILABLE": "所选绘图模型当前不可用（对应服务未配置或模型已下架）：{model_id}",
+    "MODEL_VIDEO_UNAVAILABLE": "所选视频模型当前不可用（对应服务未配置或模型已下架）：{model_id}",
+    "MODEL_AUDIO_UNAVAILABLE": "所选{label}模型当前不可用（对应服务未配置或模型已下架）：{model_id}",
+    "MODEL_AUDIO_WRONG_KIND": "「{model_id}」是{other}模型，不能用于{label}。请在上方选择对应的{label}模型。",
+    # ── 体验模式权限 ──
+    "TRIAL_DEFAULT_MODEL_FORBIDDEN": "当前账号处于体验模式，仅支持使用免费模型，无法将默认模型设置为计费模型。",
+    "TRIAL_CHAT_MODEL_FORBIDDEN": "当前账号处于体验模式，仅支持访问免费模型。如需使用该模型，请联系管理员开通完整体验权限。",
+    "TRIAL_VIDEO_GEN_FORBIDDEN": "当前账号处于体验模式，暂不支持使用 AI 视频生成功能。如需开通，请联系管理员获取完整使用权限。",
+    "TRIAL_IMAGE_MODEL_FORBIDDEN": "当前账号处于体验模式，仅可使用免费绘图模型；「{name}」为计费模型。",
+    "TRIAL_VIDEO_MODEL_FORBIDDEN": "当前账号处于体验模式，仅可使用免费视频模型；「{name}」为计费模型。",
+    "TRIAL_AUDIO_MODEL_FORBIDDEN": "当前账号处于体验模式，仅可使用免费{label}模型；「{name}」为计费模型。",
+    # ── 偏好设置 ──
+    "INVALID_WEB_SEARCH_MODE": "无效的联网检索模式：{value}（可选 auto / on / off）",
+    "UNSUPPORTED_PROVIDER": "不支持的 provider：{value}（可选：{supported}）",
+    "CREDENTIAL_NOT_FOUND": "凭证不存在",
+    "API_KEY_REQUIRED": "api_key 不能为空。如需清除已保存的密钥，请改用 PATCH 并提交空字符串。",
+    "TOO_MANY_CREDENTIALS": "最多保存 {max} 组自定义凭证，请先删除不再使用的条目。",
+    # ── 语音 ──
+    "AUDIO_FILE_TOO_LARGE": "音频文件超过 {limit}MB 上限，请压缩或分段录音",
+    "SPEECH_NOT_CONFIGURED": "语音功能未配置：请在 .env 中设置 OPENROUTER_API_KEY",
+    # ── 管理员操作 ──
+    "CANNOT_DISABLE_SELF": "不能停用当前登录的管理员账号",
+    "CANNOT_MODIFY_SELF_ADMIN": "不能修改自己账号的管理员权限",
+    "ADMIN_MODELS_NOOP": "管理员账号默认拥有全部模型访问权限，无需修改",
+    "USER_NOT_FOUND": "用户不存在",
+    # ── 传输层 ──
+    "REQUEST_BODY_TOO_LARGE": "请求体过大（{size}MB），上限 {limit}MB。请减少附件数量或体积后重试。",
+    # ── 模型族称谓（用于拼装上面几条消息）──
+    "MODEL_KIND_STT": "语音识别",
+    "MODEL_KIND_TTS": "语音合成",    # ── 操作成功提示（非错误，也走同一套文案）──
+    "SYNC_FAILED": "同步失败",
+    "SYNC_DONE_NEW": "同步成功！从提供商新增发现了 {count} 个模型",
+    "SYNC_DONE_UPTODATE": "同步完成，当前已是最新模型，未发现新模型",
+    "ADMIN_USER_ENABLED": "用户 {username} 已启用",
+    "ADMIN_USER_DISABLED": "用户 {username} 已停用",
+    "ADMIN_FLAG_GRANTED": "用户 {username} 管理员权限已开启",
+    "ADMIN_FLAG_REVOKED": "用户 {username} 管理员权限已取消",
+    "ADMIN_FULL_ACCESS_ON": "用户 {username} 已开通完整体验",
+    "SPEECH_BAD_RESPONSE_FORMAT": "response_format 仅支持 mp3 或 pcm",    "ADMIN_FULL_ACCESS_OFF": "用户 {username} 已切换为体验模式",
+}
+
+ZH_TW: Dict[str, str] = {
+    "AUTH_USER_ALREADY_EXISTS": "該使用者名稱或電子郵件已被註冊",
+    "AUTH_INVALID_CREDENTIALS": "使用者名稱／電子郵件或密碼不正確",
+    "AUTH_INVALID_TOKEN": "登入狀態已失效，請重新登入",
+    "ACCOUNT_DISABLED": "該帳號已被管理員停用，請聯絡管理員",
+    "ADMIN_REQUIRED": "需要超級管理員權限才能執行此操作",
+    "ADMIN_REQUIRED_RECYCLE_BIN": "僅管理員可檢視對話回收桶",
+    "CONVERSATION_NOT_FOUND": "對話不存在",
+    "CONVERSATION_NOT_FOUND_OR_DENIED": "對話不存在或無權存取",
+    "MESSAGE_NOT_FOUND": "訊息不存在",
+    "PINNED_IDS_EMPTY": "ordered_ids 不能為空",
+    "PINNED_IDS_UNKNOWN": "以下置頂對話不存在或未置頂：{ids}",
+    "MEMORY_NOT_FOUND": "記憶不存在",
+    "IMAGE_NOT_FOUND": "圖片不存在",
+    "IMAGE_NOT_FOUND_OR_DELETED": "圖片不存在或已刪除",
+    "IMAGE_FORBIDDEN": "無權存取該圖片",
+    "IMAGE_FILE_MISSING": "圖片檔案已遺失",
+    "VIDEO_NOT_FOUND": "影片不存在",
+    "VIDEO_NOT_FOUND_OR_DELETED": "影片不存在或已刪除",
+    "VIDEO_FORBIDDEN": "無權存取該影片",
+    "VIDEO_FILE_MISSING": "影片檔案已遺失",    "URL_EMPTY": "網址為空",
+    "URL_SCHEME_UNSUPPORTED": "只支援 http/https 網址，收到：{scheme}",
+    "URL_HAS_CREDENTIALS": "網址不得內嵌使用者名稱或密碼",
+    "URL_MISSING_HOST": "網址缺少主機名稱",
+    "URL_PRIVATE_HOST": "禁止存取指向內網的位址：{host}",
+    "URL_DNS_FAILED": "主機名稱無法解析：{host}",
+    "URL_DNS_BAD_ADDRESS": "主機名稱解析出非法位址：{ip}",
+    "URL_PRIVATE_RESOLVED": "禁止存取內網／連結本機位址：{host} → {ip}",
+    "URL_REQUIRES_HTTPS": "遠端網址必須使用 https（明文 http 會導致憑證外洩）",
+    "MEDIA_ILLEGAL_PATH": "非法的媒體檔案路徑",
+    "MEDIA_PATH_ESCAPE": "媒體檔案路徑越界",
+    "NO_LLM_CREDENTIALS": "後端 .env 中未設定任何模型供應商 API Key 或服務位址",
+    "NO_IMAGE_CREDENTIALS": (
+        "後端 .env 中未設定任何生圖服務憑證 "
+        "(OPENROUTER_API_KEY / OPENAI_API_KEY / SILICONFLOW_API_KEY)"
+    ),
+    "NO_VIDEO_CREDENTIALS": "後端 .env 中未設定任何影片生成服務憑證 (OPENROUTER_API_KEY)",
+    "NO_AUDIO_CREDENTIALS": "後端 .env 中未設定任何語音服務憑證 (OPENROUTER_API_KEY)",
+    "MODEL_IMAGE_UNAVAILABLE": "所選繪圖模型目前無法使用（對應服務未設定或模型已下架）：{model_id}",
+    "MODEL_VIDEO_UNAVAILABLE": "所選影片模型目前無法使用（對應服務未設定或模型已下架）：{model_id}",
+    "MODEL_AUDIO_UNAVAILABLE": "所選{label}模型目前無法使用（對應服務未設定或模型已下架）：{model_id}",
+    "MODEL_AUDIO_WRONG_KIND": "「{model_id}」是{other}模型，不能用於{label}。請在上方選擇對應的{label}模型。",
+    "TRIAL_DEFAULT_MODEL_FORBIDDEN": "目前帳號處於體驗模式，僅支援使用免費模型，無法將預設模型設定為計費模型。",
+    "TRIAL_CHAT_MODEL_FORBIDDEN": "目前帳號處於體驗模式，僅支援存取免費模型。如需使用該模型，請聯絡管理員開通完整體驗權限。",
+    "TRIAL_VIDEO_GEN_FORBIDDEN": "目前帳號處於體驗模式，暫不支援使用 AI 影片生成功能。如需開通，請聯絡管理員取得完整使用權限。",
+    "TRIAL_IMAGE_MODEL_FORBIDDEN": "目前帳號處於體驗模式，僅可使用免費繪圖模型；「{name}」為計費模型。",
+    "TRIAL_VIDEO_MODEL_FORBIDDEN": "目前帳號處於體驗模式，僅可使用免費影片模型；「{name}」為計費模型。",
+    "TRIAL_AUDIO_MODEL_FORBIDDEN": "目前帳號處於體驗模式，僅可使用免費{label}模型；「{name}」為計費模型。",
+    "INVALID_WEB_SEARCH_MODE": "無效的網路檢索模式：{value}（可選 auto / on / off）",
+    "UNSUPPORTED_PROVIDER": "不支援的 provider：{value}（可選：{supported}）",
+    "CREDENTIAL_NOT_FOUND": "憑證不存在",
+    "API_KEY_REQUIRED": "api_key 不能為空。如需清除已儲存的密鑰，請改用 PATCH 並提交空字串。",
+    "TOO_MANY_CREDENTIALS": "最多儲存 {max} 組自訂憑證，請先刪除不再使用的項目。",
+    "AUDIO_FILE_TOO_LARGE": "音訊檔案超過 {limit}MB 上限，請壓縮或分段錄音",
+    "SPEECH_NOT_CONFIGURED": "語音功能未設定：請在 .env 中設定 OPENROUTER_API_KEY",
+    "CANNOT_DISABLE_SELF": "不能停用目前登入的管理員帳號",
+    "CANNOT_MODIFY_SELF_ADMIN": "不能修改自己帳號的管理員權限",
+    "ADMIN_MODELS_NOOP": "管理員帳號預設擁有全部模型存取權限，無需修改",
+    "USER_NOT_FOUND": "使用者不存在",
+    "REQUEST_BODY_TOO_LARGE": "請求內容過大（{size}MB），上限 {limit}MB。請減少附件數量或體積後重試。",
+    "MODEL_KIND_STT": "語音辨識",
+    "MODEL_KIND_TTS": "語音合成",    # ── 操作成功提示（非錯誤，也走同一套文案）──
+    "SYNC_FAILED": "同步失敗",
+    "SYNC_DONE_NEW": "同步成功！從提供商新增發現了 {count} 個模型",
+    "SYNC_DONE_UPTODATE": "同步完成，目前已是最新模型，未發現新模型",
+    "ADMIN_USER_ENABLED": "使用者 {username} 已啟用",
+    "ADMIN_USER_DISABLED": "使用者 {username} 已停用",
+    "ADMIN_FLAG_GRANTED": "使用者 {username} 管理員權限已開啟",
+    "ADMIN_FLAG_REVOKED": "使用者 {username} 管理員權限已取消",
+    "ADMIN_FULL_ACCESS_ON": "使用者 {username} 已開通完整體驗",
+    "SPEECH_BAD_RESPONSE_FORMAT": "response_format 僅支援 mp3 或 pcm",    "ADMIN_FULL_ACCESS_OFF": "使用者 {username} 已切換為體驗模式",
+}
+
+EN: Dict[str, str] = {
+    "AUTH_USER_ALREADY_EXISTS": "That username or email is already registered",
+    "AUTH_INVALID_CREDENTIALS": "Incorrect username/email or password",
+    "AUTH_INVALID_TOKEN": "Your session has expired. Please sign in again.",
+    "ACCOUNT_DISABLED": "This account has been disabled by an administrator. Please contact them.",
+    "ADMIN_REQUIRED": "Super admin privileges are required for this action",
+    "ADMIN_REQUIRED_RECYCLE_BIN": "Only administrators can view the conversation recycle bin",
+    "CONVERSATION_NOT_FOUND": "Conversation not found",
+    "CONVERSATION_NOT_FOUND_OR_DENIED": "Conversation not found or access denied",
+    "MESSAGE_NOT_FOUND": "Message not found",
+    "PINNED_IDS_EMPTY": "ordered_ids must not be empty",
+    "PINNED_IDS_UNKNOWN": "These pinned conversations do not exist or are not pinned: {ids}",
+    "MEMORY_NOT_FOUND": "Memory not found",
+    "IMAGE_NOT_FOUND": "Image not found",
+    "IMAGE_NOT_FOUND_OR_DELETED": "Image not found or has been deleted",
+    "IMAGE_FORBIDDEN": "You do not have access to this image",
+    "IMAGE_FILE_MISSING": "The image file is missing",
+    "VIDEO_NOT_FOUND": "Video not found",
+    "VIDEO_NOT_FOUND_OR_DELETED": "Video not found or has been deleted",
+    "VIDEO_FORBIDDEN": "You do not have access to this video",
+    "VIDEO_FILE_MISSING": "The video file is missing",    "URL_EMPTY": "The address is empty",
+    "URL_SCHEME_UNSUPPORTED": "Only http/https addresses are supported, got: {scheme}",
+    "URL_HAS_CREDENTIALS": "The address must not embed a username or password",
+    "URL_MISSING_HOST": "The address is missing a hostname",
+    "URL_PRIVATE_HOST": "Addresses pointing at a private network are blocked: {host}",
+    "URL_DNS_FAILED": "The hostname could not be resolved: {host}",
+    "URL_DNS_BAD_ADDRESS": "The hostname resolved to an invalid address: {ip}",
+    "URL_PRIVATE_RESOLVED": "Private / link-local addresses are blocked: {host} → {ip}",
+    "URL_REQUIRES_HTTPS": "Remote addresses must use https (plain http would leak the credential)",
+    "MEDIA_ILLEGAL_PATH": "Illegal media file path",
+    "MEDIA_PATH_ESCAPE": "Media file path escapes the storage root",
+    "NO_LLM_CREDENTIALS": (
+        "No model provider API key or service URL is configured in the backend .env "
+        "(OPENAI_API_KEY / OPENROUTER_API_KEY / ANTHROPIC_API_KEY / GEMINI_API_KEY / OLLAMA_BASE_URL)"
+    ),
+    "NO_IMAGE_CREDENTIALS": (
+        "No image generation credential is configured in the backend .env "
+        "(OPENROUTER_API_KEY / OPENAI_API_KEY / SILICONFLOW_API_KEY)"
+    ),
+    "NO_VIDEO_CREDENTIALS": "No video generation credential is configured in the backend .env (OPENROUTER_API_KEY)",
+    "NO_AUDIO_CREDENTIALS": "No speech service credential is configured in the backend .env (OPENROUTER_API_KEY)",
+    "MODEL_IMAGE_UNAVAILABLE": "The selected image model is unavailable (service not configured, or the model was retired): {model_id}",
+    "MODEL_VIDEO_UNAVAILABLE": "The selected video model is unavailable (service not configured, or the model was retired): {model_id}",
+    "MODEL_AUDIO_UNAVAILABLE": "The selected {label} model is unavailable (service not configured, or the model was retired): {model_id}",
+    "MODEL_AUDIO_WRONG_KIND": "\"{model_id}\" is a {other} model and cannot be used for {label}. Pick a {label} model above instead.",
+    "TRIAL_DEFAULT_MODEL_FORBIDDEN": "This account is in trial mode and can only use free models, so the default cannot be set to a paid model.",
+    "TRIAL_CHAT_MODEL_FORBIDDEN": "This account is in trial mode and can only use free models. Ask an administrator to grant full access to use this one.",
+    "TRIAL_VIDEO_GEN_FORBIDDEN": "This account is in trial mode and cannot use AI video generation yet. Ask an administrator for full access.",
+    "TRIAL_IMAGE_MODEL_FORBIDDEN": "This account is in trial mode and can only use free image models; \"{name}\" is a paid model.",
+    "TRIAL_VIDEO_MODEL_FORBIDDEN": "This account is in trial mode and can only use free video models; \"{name}\" is a paid model.",
+    "TRIAL_AUDIO_MODEL_FORBIDDEN": "This account is in trial mode and can only use free {label} models; \"{name}\" is a paid model.",
+    "INVALID_WEB_SEARCH_MODE": "Invalid web search mode: {value} (expected one of auto / on / off)",
+    "UNSUPPORTED_PROVIDER": "Unsupported provider: {value} (supported: {supported})",
+    "CREDENTIAL_NOT_FOUND": "Credential not found",
+    "API_KEY_REQUIRED": "api_key must not be empty. To clear a stored key, use PATCH with an empty string instead.",
+    "TOO_MANY_CREDENTIALS": "You can store at most {max} custom credentials. Remove ones you no longer use first.",
+    "AUDIO_FILE_TOO_LARGE": "The audio file exceeds the {limit}MB limit. Compress it or record in shorter segments.",
+    "SPEECH_NOT_CONFIGURED": "Speech is not configured: set OPENROUTER_API_KEY in the backend .env",
+    "CANNOT_DISABLE_SELF": "You cannot disable the administrator account you are signed in with",
+    "CANNOT_MODIFY_SELF_ADMIN": "You cannot change the admin role of your own account",
+    "ADMIN_MODELS_NOOP": "Administrator accounts already have access to every model, so there is nothing to change",
+    "USER_NOT_FOUND": "User not found",
+    "REQUEST_BODY_TOO_LARGE": "Request body too large ({size}MB); the limit is {limit}MB. Send fewer or smaller attachments and try again.",
+    "MODEL_KIND_STT": "speech-to-text",
+    "MODEL_KIND_TTS": "text-to-speech",    # ── Success messages (not errors, but same tables) ──
+    "SYNC_FAILED": "Sync failed",
+    "SYNC_DONE_NEW": "Sync complete: {count} new model(s) discovered from the provider",
+    "SYNC_DONE_UPTODATE": "Sync complete: the catalog is already up to date",
+    "ADMIN_USER_ENABLED": "User {username} enabled",
+    "ADMIN_USER_DISABLED": "User {username} disabled",
+    "ADMIN_FLAG_GRANTED": "Admin rights granted to {username}",
+    "ADMIN_FLAG_REVOKED": "Admin rights revoked from {username}",
+    "ADMIN_FULL_ACCESS_ON": "{username} now has full access",
+    "SPEECH_BAD_RESPONSE_FORMAT": "response_format must be mp3 or pcm",    "ADMIN_FULL_ACCESS_OFF": "{username} switched to trial mode",
+}
+
+JA: Dict[str, str] = {
+    "AUTH_USER_ALREADY_EXISTS": "そのユーザー名またはメールアドレスは既に登録されています",
+    "AUTH_INVALID_CREDENTIALS": "ユーザー名・メールアドレスまたはパスワードが正しくありません",
+    "AUTH_INVALID_TOKEN": "セッションの有効期限が切れました。もう一度ログインしてください。",
+    "ACCOUNT_DISABLED": "このアカウントは管理者によって無効化されています。管理者にお問い合わせください。",
+    "ADMIN_REQUIRED": "この操作にはスーパー管理者権限が必要です",
+    "ADMIN_REQUIRED_RECYCLE_BIN": "会話のごみ箱を閲覧できるのは管理者のみです",
+    "CONVERSATION_NOT_FOUND": "会話が見つかりません",
+    "CONVERSATION_NOT_FOUND_OR_DENIED": "会話が見つからないか、アクセス権がありません",
+    "MESSAGE_NOT_FOUND": "メッセージが見つかりません",
+    "PINNED_IDS_EMPTY": "ordered_ids を空にすることはできません",
+    "PINNED_IDS_UNKNOWN": "次のピン留めされた会話は存在しないか、ピン留めされていません: {ids}",
+    "MEMORY_NOT_FOUND": "メモリが見つかりません",
+    "IMAGE_NOT_FOUND": "画像が見つかりません",
+    "IMAGE_NOT_FOUND_OR_DELETED": "画像が見つからないか、削除されました",
+    "IMAGE_FORBIDDEN": "この画像にアクセスする権限がありません",
+    "IMAGE_FILE_MISSING": "画像ファイルが失われています",
+    "VIDEO_NOT_FOUND": "動画が見つかりません",
+    "VIDEO_NOT_FOUND_OR_DELETED": "動画が見つからないか、削除されました",
+    "VIDEO_FORBIDDEN": "この動画にアクセスする権限がありません",
+    "VIDEO_FILE_MISSING": "動画ファイルが失われています",    "URL_EMPTY": "アドレスが空です",
+    "URL_SCHEME_UNSUPPORTED": "http/https のアドレスのみ対応しています。受け取った値: {scheme}",
+    "URL_HAS_CREDENTIALS": "アドレスにユーザー名やパスワードを含めることはできません",
+    "URL_MISSING_HOST": "アドレスにホスト名がありません",
+    "URL_PRIVATE_HOST": "プライベートネットワークを指すアドレスはブロックされています: {host}",
+    "URL_DNS_FAILED": "ホスト名を解決できませんでした: {host}",
+    "URL_DNS_BAD_ADDRESS": "ホスト名から不正なアドレスが解決されました: {ip}",
+    "URL_PRIVATE_RESOLVED": "プライベート／リンクローカルアドレスはブロックされています: {host} → {ip}",
+    "URL_REQUIRES_HTTPS": "リモートアドレスは https である必要があります（平文 http では資格情報が漏れます）",
+    "MEDIA_ILLEGAL_PATH": "不正なメディアファイルのパスです",
+    "MEDIA_PATH_ESCAPE": "メディアファイルのパスが保存領域の外を指しています",
+    "NO_LLM_CREDENTIALS": "バックエンドの .env にモデルプロバイダーの API キーまたはサービス URL が設定されていません (OPENAI_API_KEY / OPENROUTER_API_KEY / ANTHROPIC_API_KEY / GEMINI_API_KEY / OLLAMA_BASE_URL)",
+    "NO_IMAGE_CREDENTIALS": "バックエンドの .env に画像生成サービスの資格情報が設定されていません (OPENROUTER_API_KEY / OPENAI_API_KEY / SILICONFLOW_API_KEY)",
+    "NO_VIDEO_CREDENTIALS": "バックエンドの .env に動画生成サービスの資格情報が設定されていません (OPENROUTER_API_KEY)",
+    "NO_AUDIO_CREDENTIALS": "バックエンドの .env に音声サービスの資格情報が設定されていません (OPENROUTER_API_KEY)",
+    "MODEL_IMAGE_UNAVAILABLE": "選択した画像生成モデルを利用できません（サービスが未設定、またはモデルの提供終了）: {model_id}",
+    "MODEL_VIDEO_UNAVAILABLE": "選択した動画生成モデルを利用できません（サービスが未設定、またはモデルの提供終了）: {model_id}",
+    "MODEL_AUDIO_UNAVAILABLE": "選択した{label}モデルを利用できません（サービスが未設定、またはモデルの提供終了）: {model_id}",
+    "MODEL_AUDIO_WRONG_KIND": "「{model_id}」は{other}用のモデルであり、{label}には使用できません。上の一覧から{label}用のモデルを選択してください。",
+    "TRIAL_DEFAULT_MODEL_FORBIDDEN": "このアカウントは体験モードのため無料モデルのみ使用できます。既定モデルを課金モデルに設定することはできません。",
+    "TRIAL_CHAT_MODEL_FORBIDDEN": "このアカウントは体験モードのため無料モデルのみ利用できます。このモデルを使うには管理者に完全な権限を申請してください。",
+    "TRIAL_VIDEO_GEN_FORBIDDEN": "このアカウントは体験モードのため AI 動画生成機能はまだ使用できません。必要な場合は管理者に完全な権限を申請してください。",
+    "TRIAL_IMAGE_MODEL_FORBIDDEN": "このアカウントは体験モードのため無料の画像生成モデルのみ使用できます。「{name}」は課金モデルです。",
+    "TRIAL_VIDEO_MODEL_FORBIDDEN": "このアカウントは体験モードのため無料の動画生成モデルのみ使用できます。「{name}」は課金モデルです。",
+    "TRIAL_AUDIO_MODEL_FORBIDDEN": "このアカウントは体験モードのため無料の{label}モデルのみ使用できます。「{name}」は課金モデルです。",
+    "INVALID_WEB_SEARCH_MODE": "無効なウェブ検索モードです: {value}（auto / on / off のいずれか）",
+    "UNSUPPORTED_PROVIDER": "サポートされていない provider です: {value}（利用可能: {supported}）",
+    "CREDENTIAL_NOT_FOUND": "資格情報が存在しません",
+    "API_KEY_REQUIRED": "api_key を空にすることはできません。保存済みのキーを消去する場合は、PATCH で空文字列を送信してください。",
+    "TOO_MANY_CREDENTIALS": "カスタム資格情報は最大 {max} 件までです。使っていないものから削除してください。",
+    "AUDIO_FILE_TOO_LARGE": "音声ファイルが {limit}MB の上限を超えています。圧縮するか、短い録音に分けてください。",
+    "SPEECH_NOT_CONFIGURED": "音声機能が未設定です：バックエンドの .env に OPENROUTER_API_KEY を設定してください",
+    "CANNOT_DISABLE_SELF": "現在ログインしている管理者アカウントは無効化できません",
+    "CANNOT_MODIFY_SELF_ADMIN": "自分自身のアカウントの管理者権限は変更できません",
+    "ADMIN_MODELS_NOOP": "管理者アカウントは既にすべてのモデルにアクセスできるため、変更は不要です",
+    "USER_NOT_FOUND": "ユーザーが見つかりません",
+    "REQUEST_BODY_TOO_LARGE": "リクエストボディが大きすぎます（{size}MB）。上限は {limit}MB です。添付ファイルを減らすか小さくして再試行してください。",
+    "MODEL_KIND_STT": "音声認識",
+    "MODEL_KIND_TTS": "音声合成",    # ── 成功メッセージ（エラーではないが同じ表を使う）──
+    "SYNC_FAILED": "同期に失敗しました",
+    "SYNC_DONE_NEW": "同期完了：プロバイダーから {count} 件の新しいモデルが見つかりました",
+    "SYNC_DONE_UPTODATE": "同期完了：すでに最新のモデルです",
+    "ADMIN_USER_ENABLED": "ユーザー {username} を有効化しました",
+    "ADMIN_USER_DISABLED": "ユーザー {username} を無効化しました",
+    "ADMIN_FLAG_GRANTED": "ユーザー {username} に管理者権限を付与しました",
+    "ADMIN_FLAG_REVOKED": "ユーザー {username} の管理者権限を取り消しました",
+    "ADMIN_FULL_ACCESS_ON": "ユーザー {username} に全機能アクセスを許可しました",
+    "SPEECH_BAD_RESPONSE_FORMAT": "response_format は mp3 または pcm を指定してください",    "ADMIN_FULL_ACCESS_OFF": "ユーザー {username} を体験モードに切り替えました",
+}
+
+#: 语言 → 文案表。键必须与 core/i18n.py 的 LOCALES 一一对应。
+TABLES: Dict[str, Dict[str, str]] = {
+    "zh-CN": ZH_CN,
+    "zh-TW": ZH_TW,
+    "en": EN,
+    "ja": JA,
+}

@@ -49,7 +49,18 @@ REMOTE_VIDEO_FETCH_TIMEOUT_SECONDS = 180.0
 
 
 class MediaStorageError(RuntimeError):
-    pass
+    """媒体存储层的失败。
+
+    ``code`` 是可选的：给了就说明这条消息**会经由 API 返回给用户**
+    （见 api/v1/media.py 把它转成本地化的 ApiError），于是文案由
+    app/core/messages.py 统一维护。没给就只是内部异常，调用方按
+    ``str(exc)`` 记日志即可 —— 不要为了「顺手」给每条都补码，
+    补了码就等于承诺了用户会看到它。
+    """
+
+    def __init__(self, message: str, code: str | None = None) -> None:
+        super().__init__(message)
+        self.code = code
 
 
 class MediaStorage:
@@ -96,13 +107,13 @@ class MediaStorage:
     def resolve(self, relative_path: str) -> Path:
         """Resolve a stored relative path, refusing anything outside the root."""
         if not relative_path or relative_path.startswith("/") or ".." in relative_path:
-            raise MediaStorageError("非法的图片路径")
+            raise MediaStorageError("非法的图片路径", code="MEDIA_ILLEGAL_PATH")
         candidate = (self.root / relative_path).resolve()
         root = self.root.resolve()
         try:
             candidate.relative_to(root)
         except ValueError:
-            raise MediaStorageError("图片路径越界")
+            raise MediaStorageError("图片路径越界", code="MEDIA_PATH_ESCAPE")
         return candidate
 
     # ── bytes in / bytes out ───────────────────────────────────────

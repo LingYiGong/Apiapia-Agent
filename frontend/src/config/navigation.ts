@@ -1,5 +1,6 @@
 import { AlignLeft, BarChart3, Brain, MessageSquare, Settings } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import type { MessageKey, Translator } from "@/i18n";
 
 /**
  * 全站导航的唯一事实来源。
@@ -33,14 +34,21 @@ export interface NavItem {
   href: string;
   /** 移动端 SPA 页签地址；对话页本身没有子页签 */
   mobileHref: string;
-  /** 完整标签，桌面宽屏显示 */
-  label: string;
+  /**
+   * 文案改存**键**而不是字符串。
+   *
+   * 此前这里直接写死中文，于是每个渲染点都要自己接一份语言上下文 ——
+   * 而 Navbar、MobileHeader、UserAvatarDropdown、MobileTabBar 四处各接一次，
+   * 漏一处就有一个入口留在旧语言上。改成键之后，解析只发生在
+   * `navLabels()` 这一个函数里。
+   */
+  labelKey: MessageKey;
   /** 收窄标签，桌面 lg 以下显示 */
-  shortLabel: string;
+  shortLabelKey: MessageKey;
   /** 头像菜单里的二级文案 */
-  menuLabel: string;
+  menuLabelKey: MessageKey;
   /** MobileHeader 居中标题；不传则该页签用 children 自定义中间内容 */
-  mobileTitle?: string;
+  mobileTitleKey?: MessageKey;
   Icon: LucideIcon;
   /** 图标底色，avatar 菜单的彩色 squircle */
   tint: string;
@@ -50,14 +58,25 @@ export interface NavItem {
   inMobileTabBar: boolean;
 }
 
+/** 把一个入口的四个位置的文案一次性解析出来。 */
+export function navLabels(item: NavItem, t: Translator) {
+  return {
+    label: t(item.labelKey),
+    shortLabel: t(item.shortLabelKey),
+    menuLabel: t(item.menuLabelKey),
+    mobileTitle: item.mobileTitleKey ? t(item.mobileTitleKey) : undefined,
+  };
+}
+
 export const NAV_ITEMS: readonly NavItem[] = [
   {
     id: "chat",
     href: "/chat",
     mobileHref: "/chat",
-    label: "对话",
-    shortLabel: "对话",
-    menuLabel: "对话",
+    labelKey: "nav.chat.label",
+    shortLabelKey: "nav.chat.shortLabel",
+    menuLabelKey: "nav.chat.menuLabel",
+    mobileTitleKey: "nav.chat.mobileTitle",
     Icon: MessageSquare,
     tint: "bg-slate-500/10 text-slate-600 dark:text-slate-300",
     inDesktopNav: true,
@@ -69,10 +88,10 @@ export const NAV_ITEMS: readonly NavItem[] = [
     id: "history",
     href: "/chat",
     mobileHref: "/chat?tab=history",
-    label: "历史",
-    shortLabel: "历史",
-    menuLabel: "历史对话",
-    mobileTitle: "历史会话",
+    labelKey: "nav.history.label",
+    shortLabelKey: "nav.history.shortLabel",
+    menuLabelKey: "nav.history.menuLabel",
+    mobileTitleKey: "nav.history.mobileTitle",
     Icon: AlignLeft,
     tint: "bg-slate-500/10 text-slate-600 dark:text-slate-300",
     inDesktopNav: false,
@@ -82,10 +101,10 @@ export const NAV_ITEMS: readonly NavItem[] = [
     id: "memory",
     href: "/memory",
     mobileHref: "/chat?tab=memory",
-    label: "记忆库",
-    shortLabel: "记忆",
-    menuLabel: "长期记忆库",
-    mobileTitle: "记忆库",
+    labelKey: "nav.memory.label",
+    shortLabelKey: "nav.memory.shortLabel",
+    menuLabelKey: "nav.memory.menuLabel",
+    mobileTitleKey: "nav.memory.mobileTitle",
     Icon: Brain,
     tint: "bg-purple-500/10 text-purple-600 dark:text-purple-400",
     inDesktopNav: true,
@@ -95,10 +114,10 @@ export const NAV_ITEMS: readonly NavItem[] = [
     id: "usage",
     href: "/usage",
     mobileHref: "/chat?tab=usage",
-    label: "用量",
-    shortLabel: "用量",
-    menuLabel: "用量与账单",
-    mobileTitle: "用量与账单",
+    labelKey: "nav.usage.label",
+    shortLabelKey: "nav.usage.shortLabel",
+    menuLabelKey: "nav.usage.menuLabel",
+    mobileTitleKey: "nav.usage.mobileTitle",
     Icon: BarChart3,
     tint: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
     inDesktopNav: true,
@@ -108,10 +127,10 @@ export const NAV_ITEMS: readonly NavItem[] = [
     id: "settings",
     href: "/settings",
     mobileHref: "/chat?tab=settings",
-    label: "设置",
-    shortLabel: "设置",
-    menuLabel: "偏好设置",
-    mobileTitle: "偏好设置",
+    labelKey: "nav.settings.label",
+    shortLabelKey: "nav.settings.shortLabel",
+    menuLabelKey: "nav.settings.menuLabel",
+    mobileTitleKey: "nav.settings.mobileTitle",
     Icon: Settings,
     tint: "bg-slate-500/10 text-slate-600 dark:text-slate-300",
     inDesktopNav: true,

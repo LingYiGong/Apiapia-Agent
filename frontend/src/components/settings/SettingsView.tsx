@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { ThemeSegments } from "@/components/common/ThemeSegments";
+import { LanguageRow } from "@/components/common/LanguageSwitcher";
 import { BrandLogo } from "@/components/common/BrandLogo";
 import { ImageModelSelect } from "@/components/settings/ImageModelSelect";
 import { VideoModelSelect } from "@/components/settings/VideoModelSelect";
@@ -41,6 +42,8 @@ import { Panel, SectionLabel } from "@/components/common/Panel";
 import { notifyModelSyncResult } from "@/lib/feedback";
 import { FullPageSkeleton, SettingsFormSkeleton } from "@/components/common/PageSkeleton";
 import type { MobileTab } from "@/config/navigation";
+import { useI18n } from "@/i18n";
+import type { MessageKey, TranslateValues } from "@/i18n";
 import { RefreshCw, Zap, Brain, Palette, Video, AudioLines, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
@@ -78,11 +81,23 @@ const MEMORY_MODEL_PRESET_IDS = [
   "google/gemini-2.5-flash",
 ];
 
+/** 「关于系统」里的固定行。版本号这类运行时取值走 values 插值，不写进字典。 */
+const ABOUT_ROWS: { labelKey: MessageKey; valueKey: MessageKey; values?: TranslateValues }[] = [
+  {
+    labelKey: "settings.about.versionLabel",
+    valueKey: "settings.about.versionValue",
+    values: { version: CURRENT_VERSION },
+  },
+  { labelKey: "settings.about.archLabel", valueKey: "settings.about.archValue" },
+  { labelKey: "settings.about.engineLabel", valueKey: "settings.about.engineValue" },
+];
+
 export const SettingsView: React.FC<SettingsViewProps> = ({
   isMobileSpa = false,
   onSelectMobileTab,
   active = true,
 }) => {
+  const { t } = useI18n();
   const { user, loading } = useAuth();
   const isAdmin = Boolean(user?.is_superuser);
 
@@ -156,12 +171,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       if (item) presets.push({ id: item.id, label: `${item.name}（${item.provider}）` });
     }
     // 目录里还有免费模型时补充进来（优先取前若干个，避免下拉过长）
+    const freeLabel = t("settings.picker.freeBadge");
     const extra = chatOptions
       .filter((o) => !presets.some((p) => p.id === o.id) && o.isFree)
       .slice(0, 5)
-      .map((o) => ({ id: o.id, label: `${o.name}（免费 · ${o.provider}）` }));
+      .map((o) => ({ id: o.id, label: `${o.name}（${freeLabel} · ${o.provider}）` }));
     return [...presets, ...extra];
-  }, [chatOptions]);
+  }, [chatOptions, t]);
 
   const memoryModelIsPreset = memoryModelOptions.some((o) => o.id === memoryModel);
 
@@ -180,12 +196,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       if (modelsRes?.models) setAvailableModels(modelsRes.models);
 
       notifyModelSyncResult({
-        scope: "语言模型",
+        t,
+        scope: "language",
         newCount: res.new_count || 0,
         message: res.message,
       });
     } catch (err: any) {
-      toast.error(err.message || "同步语言模型失败，请检查后台 .env 是否配置了有效 API 密钥");
+      toast.error(err.message || t("settings.errors.syncLanguageFailed"));
     } finally {
       setSyncingModels(false);
     }
@@ -207,12 +224,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       setImageModelsSynced(imageRes?.synced ?? true);
 
       notifyModelSyncResult({
-        scope: "绘图模型",
+        t,
+        scope: "image",
         newCount: res.new_count || 0,
         message: res.message,
       });
     } catch (err: any) {
-      toast.error(err.message || "同步绘图模型失败，请检查后台 .env 是否配置了有效的生图服务密钥");
+      toast.error(err.message || t("settings.errors.syncImageFailed"));
     } finally {
       setSyncingImageModels(false);
     }
@@ -234,12 +252,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       setVideoModelsSynced(videoRes?.synced ?? true);
 
       notifyModelSyncResult({
-        scope: "视频模型",
+        t,
+        scope: "video",
         newCount: res.new_count || 0,
         message: res.message,
       });
     } catch (err: any) {
-      toast.error(err.message || "同步视频模型失败，请检查后台 .env 是否配置了有效 OpenRouter 密钥");
+      toast.error(err.message || t("settings.errors.syncVideoFailed"));
     } finally {
       setSyncingVideoModels(false);
     }
@@ -261,7 +280,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       setAudioModelsSynced(audioRes?.synced ?? true);
 
       notifyModelSyncResult({
-        scope: "语音模型",
+        t,
+        scope: "speech",
         newCount: res.new_count || 0,
         message: res.message,
         // 语音目录空着就一定是哪里不对了：要么查询写错、要么凭证没生效。
@@ -269,7 +289,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         emptyResult: (audioRes?.models?.length ?? 0) === 0,
       });
     } catch (err: any) {
-      toast.error(err.message || "同步语音模型失败，请检查后台 .env 是否配置了有效 OpenRouter 密钥");
+      toast.error(err.message || t("settings.errors.syncAudioFailed"));
     } finally {
       setSyncingAudioModels(false);
     }
@@ -409,7 +429,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setSystemPrompt(initialSettings.systemPrompt);
     setTemperature(initialSettings.temperature);
     setMemoryEnabled(initialSettings.memoryEnabled);
-    toast.info("已还原至上次保存的配置");
+    toast.info(t("settings.saveBar.resetDone"));
   };
 
   const handleSaveSettings = useCallback(
@@ -450,15 +470,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         });
 
         setSaveSuccess(true);
-        toast.success("偏好设置已成功保存");
+        toast.success(t("settings.saveBar.savedDone"));
         setTimeout(() => setSaveSuccess(false), 2500);
       } catch (err: any) {
-        toast.error(err.message || "保存设置失败");
+        toast.error(err.message || t("settings.saveBar.saveFailed"));
       } finally {
         setSavingSettings(false);
       }
     },
-    [defaultModel, memoryModel, imageModel, videoModel, sttModel, ttsModel, systemPrompt, temperature, memoryEnabled, user, savingSettings]
+    [defaultModel, memoryModel, imageModel, videoModel, sttModel, ttsModel, systemPrompt, temperature, memoryEnabled, user, savingSettings, t]
   );
 
   // Apple Mac Shortcut: Command + S / Ctrl + S to save
@@ -485,7 +505,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   return (
     <ViewShell
-      title="偏好设置"
+      title={t("settings.title")}
       isMobileSpa={isMobileSpa}
       onSelectMobileTab={onSelectMobileTab}
     >
@@ -494,10 +514,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           两者由断点互斥，不再同屏出现两套保存按钮。 */}
       <div className="hidden items-center justify-between gap-4 border-b border-border/40 pb-4 md:flex">
         <div className="flex items-center gap-2.5">
-          <h1 className="text-2xl font-semibold text-foreground">偏好设置</h1>
+          <h1 className="text-2xl font-semibold text-foreground">{t("settings.title")}</h1>
           {user.is_superuser && (
             <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-2xs font-medium text-amber-600 shadow-none dark:text-amber-400">
-              管理员
+              {t("settings.adminBadge")}
             </span>
           )}
         </div>
@@ -514,25 +534,36 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <form onSubmit={handleSaveSettings} className="space-y-4 sm:space-y-5">
           {/* ── GROUP 1: 界面外观 ── */}
           <div>
-            <SectionLabel>界面外观</SectionLabel>
+            <SectionLabel>{t("settings.appearance.label")}</SectionLabel>
             <Panel className="p-2 sm:p-2.5">
               <ThemeSegments />
+              {/* 界面语言与主题并排成组：两者都是「这台设备上的显示偏好」，
+                  都不写服务端、不参与脏检查、不需要点保存 —— 放在一起
+                  正好回答「我该去哪里改」，而不是散进别处。 */}
+              <div className="mt-2 border-t border-border/60 pt-2 sm:mt-2.5 sm:pt-2.5">
+                <LanguageRow />
+              </div>
             </Panel>
           </div>
 
           {/* ── GROUP 2: 默认模型设置（语言 + 绘图 + 视频 + 语音）── */}
           <div>
             <div className="flex items-center justify-between gap-2 px-1 pb-1.5">
-              <SectionLabel className="pb-0">默认模型设置</SectionLabel>
+              <SectionLabel className="pb-0">{t("settings.modelGroup.default")}</SectionLabel>
               <div className="flex items-center gap-2">
                 {isTrialMode && (
                   <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-2xs font-medium normal-case tracking-normal text-emerald-600 dark:text-emerald-400">
                     <Zap className="h-2.5 w-2.5" />
-                    体验模式 · 仅免费
+                    {t("settings.modelGroup.trialBadge")}
                   </span>
                 )}
                 <span className="font-mono text-2xs font-normal normal-case tracking-normal text-muted-foreground">
-                  {availableModels.length} 语言 · {imageModels.length} 绘图 · {videoModels.length} 视频 · {sttCount + ttsCount} 语音
+                  {t("settings.modelGroup.counts", {
+                    chat: availableModels.length,
+                    image: imageModels.length,
+                    video: videoModels.length,
+                    speech: sttCount + ttsCount,
+                  })}
                 </span>
               </div>
             </div>
@@ -544,13 +575,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   <Brain className="h-3.5 w-3.5" />
                 </span>
                 <span className="text-xs font-semibold text-foreground">
-                  语言模型
+                  {t("settings.modelGroup.language")}
                 </span>
                 {isAdmin && (
                   <SyncModelsButton
                     onSync={handleSyncModels}
                     syncing={syncingModels}
-                    scope="语言模型"
+                    scope="language"
                   />
                 )}
               </div>
@@ -560,7 +591,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   value={defaultModel}
                   onChange={setDefaultModel}
                   models={availableModels}
-                  placeholder="选择会话初始模型"
+                  placeholder={t("settings.modelGroup.chatPlaceholder")}
                 />
               </div>
 
@@ -570,7 +601,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   isMultimodal={isMultimodalModel(currentModelItem)}
                   isPaid={!isFreeModel(currentModelItem)}
                   capabilityLabel={
-                    isMultimodalModel(currentModelItem) ? "支持图文视觉" : undefined
+                    isMultimodalModel(currentModelItem)
+                      ? t("settings.modelGroup.capabilityVision")
+                      : undefined
                   }
                 />
               ) : (
@@ -584,13 +617,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     <Palette className="h-3.5 w-3.5" />
                   </span>
                   <span className="text-xs font-semibold text-foreground">
-                    绘图模型
+                    {t("settings.modelGroup.image")}
                   </span>
                   {isAdmin && (
                     <SyncModelsButton
                       onSync={handleSyncImageModels}
                       syncing={syncingImageModels}
-                      scope="绘图模型"
+                      scope="image"
                     />
                   )}
                 </div>
@@ -610,7 +643,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   <ModelInfoPanel
                     model={currentImageItem}
                     isFree={currentImageItem.is_free}
-                    capabilityLabel="位图生成"
+                    capabilityLabel={t("settings.modelGroup.capabilityImage")}
                   />
                 ) : (
                   <ModelMissingNotice id={imageModel ?? ""} />
@@ -624,13 +657,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     <Video className="h-3.5 w-3.5" />
                   </span>
                   <span className="text-xs font-semibold text-foreground">
-                    视频模型
+                    {t("settings.modelGroup.video")}
                   </span>
                   {isAdmin && (
                     <SyncModelsButton
                       onSync={handleSyncVideoModels}
                       syncing={syncingVideoModels}
-                      scope="视频模型"
+                      scope="video"
                     />
                   )}
                 </div>
@@ -650,7 +683,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   <ModelInfoPanel
                     model={currentVideoItem}
                     isFree={currentVideoItem.is_free}
-                    capabilityLabel="视频生成"
+                    capabilityLabel={t("settings.modelGroup.capabilityVideo")}
                   />
                 ) : (
                   <ModelMissingNotice id={videoModel ?? ""} />
@@ -667,13 +700,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     <AudioLines className="h-3.5 w-3.5" />
                   </span>
                   <span className="text-xs font-semibold text-foreground">
-                    语音模型
+                    {t("settings.modelGroup.speech")}
                   </span>
                   {isAdmin && (
                     <SyncModelsButton
                       onSync={handleSyncAudioModels}
                       syncing={syncingAudioModels}
-                      scope="语音模型"
+                      scope="speech"
                     />
                   )}
                 </div>
@@ -681,15 +714,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <div className="mt-2 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                   <div className="min-w-0">
                     <div className="mb-1.5 px-0.5 text-2xs font-medium text-muted-foreground">
-                      语音识别
+                      {t("settings.modelGroup.sttSub")}
                     </div>
                     <AudioModelSelect
                       value={sttModel}
                       onChange={setSttModel}
                       models={audioModels}
                       capability="stt"
-                      kindLabel="语音识别模型"
-                      placeholder="选择语音识别模型"
+                      kindLabel={t("settings.modelGroup.sttKind")}
+                      placeholder={t("settings.modelGroup.sttPlaceholder")}
                       loading={loadingAudioModels}
                       synced={audioModelsSynced}
                       isTrialMode={isTrialMode}
@@ -698,7 +731,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       <ModelInfoPanel
                         model={currentSttItem}
                         isFree={currentSttItem.is_free}
-                        capabilityLabel="语音转文字"
+                        capabilityLabel={t("settings.modelGroup.capabilityStt")}
                       />
                     ) : (
                       <ModelMissingNotice id={sttModel ?? ""} />
@@ -707,15 +740,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
                   <div className="min-w-0">
                     <div className="mb-1.5 px-0.5 text-2xs font-medium text-muted-foreground">
-                      语音合成
+                      {t("settings.modelGroup.ttsSub")}
                     </div>
                     <AudioModelSelect
                       value={ttsModel}
                       onChange={setTtsModel}
                       models={audioModels}
                       capability="tts"
-                      kindLabel="语音合成模型"
-                      placeholder="选择语音合成模型"
+                      kindLabel={t("settings.modelGroup.ttsKind")}
+                      placeholder={t("settings.modelGroup.ttsPlaceholder")}
                       loading={loadingAudioModels}
                       synced={audioModelsSynced}
                       isTrialMode={isTrialMode}
@@ -724,7 +757,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       <ModelInfoPanel
                         model={currentTtsItem}
                         isFree={currentTtsItem.is_free}
-                        capabilityLabel="文字转语音"
+                        capabilityLabel={t("settings.modelGroup.capabilityTts")}
                       />
                     ) : (
                       <ModelMissingNotice id={ttsModel ?? ""} />
@@ -734,15 +767,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
                 {currentTtsItem?.supported_voices?.length ? (
                   <p className="mt-2 px-0.5 font-mono text-2xs leading-relaxed text-muted-foreground">
-                    当前合成模型支持 {currentTtsItem.supported_voices.length} 个音色，默认使用第一个（
-                    {currentTtsItem.supported_voices[0]}）。
+                    {t("settings.modelGroup.voiceNote", {
+                      count: currentTtsItem.supported_voices.length,
+                      voice: currentTtsItem.supported_voices[0],
+                    })}
                   </p>
                 ) : currentTtsItem ? (
                   /* 不公布音色列表的模型（Fish Audio / Seed Audio 系）：后端会省略
                      voice 字段，由 provider 用自己的默认音色。这里说清楚，免得
                      用户以为功能坏了。 */
                   <p className="mt-2 px-0.5 font-mono text-2xs leading-relaxed text-muted-foreground">
-                    该模型未公布音色列表，将使用供应商默认音色。
+                    {t("settings.modelGroup.voiceNoteNoList")}
                   </p>
                 ) : null}
               </div>
@@ -754,7 +789,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
           {/* ── GROUP 4: 默认提示词 ── */}
           <div>
-            <SectionLabel>系统提示词 (System Prompt)</SectionLabel>
+            <SectionLabel>{t("settings.persona.groupLabel")}</SectionLabel>
             <Panel className="p-3 sm:p-4 space-y-2">
               <div className="flex items-center justify-between gap-2 px-0.5">
                 <div className="flex items-center gap-2">
@@ -762,7 +797,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     <Sparkles className="h-3.5 w-3.5" />
                   </span>
                   <Label htmlFor="system-prompt-textarea" className="text-xs font-semibold text-foreground cursor-pointer">
-                    默认人设与全局指导原则
+                    {t("settings.persona.groupDesc")}
                   </Label>
                 </div>
                 <Button
@@ -774,7 +809,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   }
                   className="h-6 px-2 text-2xs text-muted-foreground hover:text-foreground"
                 >
-                  恢复通用默认
+                  {t("settings.persona.resetDefault")}
                 </Button>
               </div>
 
@@ -783,31 +818,31 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 value={systemPrompt}
                 onChange={(e) => setSystemPrompt(e.target.value)}
                 rows={4}
-                placeholder="例如：你是一个智能、真诚、有洞察力的个人智能助理。请根据用户提供的历史背景和长期记忆为用户提供高质量服务。"
+                placeholder={t("settings.persona.promptPhCustom")}
                 className="resize-y rounded-xl border-border/60 bg-background text-xs leading-relaxed font-sans"
               />
               <p className="px-0.5 text-2xs leading-relaxed text-muted-foreground">
-                该提示词将作为与大模型交流的基础人设指令。若留空，系统将使用通用标准人设。
+                {t("settings.persona.promptHint")}
               </p>
             </Panel>
           </div>
 
           {/* ── GROUP 5: 长期记忆 ── */}
           <div>
-            <SectionLabel>记忆系统</SectionLabel>
+            <SectionLabel>{t("settings.memoryGroup.label")}</SectionLabel>
             <Panel className="divide-y divide-border/40">
               <div className="flex items-center justify-between gap-4 p-3.5 sm:p-4">
                 <Label
                   htmlFor="memory-switch"
                   className="cursor-pointer text-sm font-medium text-foreground"
                 >
-                  自动提取与上下文检索
+                  {t("settings.memoryGroup.toggle")}
                 </Label>
                 <Switch
                   id="memory-switch"
                   checked={memoryEnabled}
                   onCheckedChange={setMemoryEnabled}
-                  aria-label="长期记忆开关"
+                  aria-label={t("settings.memoryGroup.toggleAria")}
                 />
               </div>
 
@@ -818,7 +853,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     htmlFor="memory-model-select"
                     className="text-xs font-medium text-muted-foreground"
                   >
-                    提取模型 (Memory LLM)
+                    {t("settings.memoryGroup.modelLabel")}
                   </Label>
 
                   <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
@@ -832,7 +867,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         id="memory-model-select"
                         className="rounded-xl border-border/60 bg-background text-xs"
                       >
-                        <SelectValue placeholder="选择记忆提炼模型" />
+                        <SelectValue placeholder={t("settings.memoryGroup.modelPlaceholder")} />
                       </SelectTrigger>
                       <SelectContent className="rounded-xl">
                         {memoryModelOptions.map((o) => (
@@ -841,21 +876,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                           </SelectItem>
                         ))}
                         <SelectItem value="custom" className="rounded-lg text-xs">
-                          ✍️ 手动输入其它模型 ID...
+                          {t("settings.memoryGroup.manualModel")}
                         </SelectItem>
                       </SelectContent>
                     </Select>
 
                     <div>
                       <Label htmlFor="memory-model-input" className="sr-only">
-                        记忆提炼模型 ID
+                        {t("settings.memoryGroup.modelIdLabel")}
                       </Label>
                       <Input
                         id="memory-model-input"
                         type="text"
                         value={memoryModel}
                         onChange={(e) => setMemoryModel(e.target.value.trim())}
-                        placeholder="例如: openai/gpt-4o-mini"
+                        placeholder={t("settings.memoryGroup.modelIdPlaceholder")}
                         className="rounded-xl border-border/60 bg-background font-mono text-xs"
                       />
                     </div>
@@ -867,15 +902,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
           {/* ── GROUP 6: 关于系统与版本 ── */}
           <div>
-            <SectionLabel>关于系统</SectionLabel>
+            <SectionLabel>{t("settings.about.label")}</SectionLabel>
             <Panel className="divide-y divide-border/40">
               <div className="flex items-center justify-between gap-3 p-3.5 sm:p-4">
                 <div className="flex items-center gap-3">
                   <BrandLogo size={36} className="shadow-2xs" />
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-foreground">Apiapia</span>
+                    <span className="text-sm font-semibold text-foreground">
+                      {t("settings.about.product")}
+                    </span>
                     <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 font-mono text-2xs font-medium text-emerald-600 dark:text-emerald-400">
-                      v{CURRENT_VERSION}
+                      {t("settings.about.versionValue", { version: CURRENT_VERSION })}
                     </span>
                   </div>
                 </div>
@@ -888,29 +925,25 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   className="h-7 shrink-0 cursor-pointer gap-1.5 rounded-full border-border/50 bg-surface-3/30 px-3 text-xs font-medium text-foreground transition-colors hover:bg-surface-3 active:scale-95"
                 >
                   <RefreshCw className="h-3 w-3" />
-                  <span>检查更新</span>
+                  <span>{t("settings.about.checkUpdate")}</span>
                 </Button>
               </div>
 
               <dl className="divide-y divide-border/40">
-                {[
-                  ["软件版本", `v${CURRENT_VERSION}`],
-                  ["客户端架构", "Next.js 14 · React 18"],
-                  ["记忆检索引擎", "PostgreSQL · pgvector"],
-                ].map(([label, value]) => (
+                {ABOUT_ROWS.map((row) => (
                   <div
-                    key={label}
+                    key={row.labelKey}
                     className="flex items-center justify-between px-4 py-2.5 text-footnote sm:px-5"
                   >
-                    <dt className="text-muted-foreground">{label}</dt>
-                    <dd className="font-medium text-foreground">{value}</dd>
+                    <dt className="text-muted-foreground">{t(row.labelKey)}</dt>
+                    <dd className="font-medium text-foreground">{t(row.valueKey, row.values)}</dd>
                   </div>
                 ))}
                 <div className="flex items-center justify-between px-4 py-2.5 text-footnote sm:px-5">
-                  <dt className="text-muted-foreground">更新策略</dt>
+                  <dt className="text-muted-foreground">{t("settings.about.policyLabel")}</dt>
                   <dd className="flex items-center gap-1.5 font-medium text-emerald-600 dark:text-emerald-400">
                     <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                    <span>自动在线校验</span>
+                    <span>{t("settings.about.policyValue")}</span>
                   </dd>
                 </div>
               </dl>
@@ -926,7 +959,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               disabled={savingSettings || !isDirty}
               className="h-9 cursor-pointer rounded-full px-5 text-xs font-semibold"
             >
-              {savingSettings ? "正在保存..." : "保存设置"}
+              {savingSettings ? t("settings.saveBar.savingLong") : t("settings.saveBar.save")}
             </Button>
           </div>
         </form>

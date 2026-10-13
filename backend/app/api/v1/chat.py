@@ -11,6 +11,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.core.database import get_db, AsyncSessionLocal
+from app.core.errors import ApiError
 from app.models.user import User
 from app.models.conversation import Conversation, Message
 from app.models.setting import UserSetting
@@ -262,9 +263,9 @@ async def chat_stream(
 
     # Validate model permission (new users only have access to free models until granted by admin)
     if not check_user_can_use_model(current_user, model_to_use):
-        raise HTTPException(
+        raise ApiError(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="当前账号处于体验模式，仅支持访问免费模型。如需使用该模型，请联系管理员开通完整体验权限。"
+            code="TRIAL_CHAT_MODEL_FORBIDDEN",
         )
 
     # Billable side features (AI image and video generation) permissions
@@ -273,9 +274,9 @@ async def chat_stream(
 
     # 体验用户禁止使用视频生成功能
     if not is_full_access and getattr(chat_req, "video_gen_mode", False):
-        raise HTTPException(
+        raise ApiError(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="当前账号处于体验模式，暂不支持使用 AI 视频生成功能。如需开通，请联系管理员获取完整使用权限。"
+            code="TRIAL_VIDEO_GEN_FORBIDDEN",
         )
 
     # 1.1 Resolve the caller's own provider credential for this model, if any.
@@ -294,9 +295,9 @@ async def chat_stream(
         )
         conversation = (await db.execute(stmt)).scalar_one_or_none()
         if not conversation:
-            raise HTTPException(
+            raise ApiError(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Conversation not found or access denied"
+                code="CONVERSATION_NOT_FOUND_OR_DENIED",
             )
         if chat_req.model and chat_req.model != conversation.model:
             conversation.model = chat_req.model

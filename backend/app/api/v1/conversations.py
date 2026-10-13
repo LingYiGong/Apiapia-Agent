@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from app.core.database import get_db
+from app.core.errors import ApiError
 from app.models.user import User
 from app.models.conversation import Conversation, Message
 from app.models.setting import UserSetting
@@ -50,8 +51,8 @@ async def _load_conversation(
     stmt = select(Conversation).where(*conditions)
     conv = (await db.execute(stmt)).scalar_one_or_none()
     if not conv:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found"
+        raise ApiError(
+            status_code=status.HTTP_404_NOT_FOUND, code="CONVERSATION_NOT_FOUND"
         )
     return conv
 
@@ -97,9 +98,9 @@ async def list_conversations(
 ):
     # Recycle bin is admin-only: ordinary users must not see any deleted items
     if include_deleted and not getattr(current_user, "is_superuser", False):
-        raise HTTPException(
+        raise ApiError(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="仅管理员可查看对话回收站"
+            code="ADMIN_REQUIRED_RECYCLE_BIN",
         )
 
     last_msg_subq = (
@@ -167,7 +168,7 @@ async def reorder_pinned_conversations(
 ):
     """Manually sort pinned conversations. ordered_ids = pinned ids top-to-bottom."""
     if not payload.ordered_ids:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="ordered_ids 不能为空")
+        raise ApiError(status_code=status.HTTP_400_BAD_REQUEST, code="PINNED_IDS_EMPTY")
 
     stmt = select(Conversation).where(
         Conversation.user_id == current_user.id,
@@ -179,9 +180,10 @@ async def reorder_pinned_conversations(
     found = {c.id: c for c in pinned}
     missing = [cid for cid in payload.ordered_ids if cid not in found]
     if missing:
-        raise HTTPException(
+        raise ApiError(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"以下置顶会话不存在或未置顶: {', '.join(missing)}"
+            code="PINNED_IDS_UNKNOWN",
+            ids=", ".join(missing),
         )
 
     for index, cid in enumerate(payload.ordered_ids):
@@ -429,7 +431,7 @@ async def _load_message(db: AsyncSession, conversation_id: str, message_id: str)
     """
     msg = await db.get(Message, message_id)
     if not msg or msg.conversation_id != conversation_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message not found")
+        raise ApiError(status_code=status.HTTP_404_NOT_FOUND, code="MESSAGE_NOT_FOUND")
     return msg
 
 

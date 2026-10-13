@@ -3,15 +3,31 @@ import logging
 import re
 from typing import Tuple, Optional, List, Dict, Any
 
+from app.core.i18n import get_locale, language_name
 from app.services.llm.factory import get_llm_provider, detect_provider
 from app.services.prompt.temporal import get_current_temporal_context
 
 logger = logging.getLogger("web_search_evaluator")
 
+"""
+联网检索的触发判定。
+
+正则里此前只覆盖中文与少量英文。日语用户说「調べて」「検索して」时，
+这些模式一个都命中不了 —— 决策权落到 LLM 语义研判上，等于把一次
+0ms 的确定性短路变成了 200~400ms 的模型调用，而且模型未必判得准。
+
+所以下面每条模式都是**三语并置**而不是按语言分支：用户完全可能用英文
+问一道中文题，反之亦然，全盘接受比「按当前语言挑一组」更稳，
+也省掉了「判定时读到哪种语言」这类边界情况。
+"""
+
 # High-precision intent triggers (commands with inline query or prefix)
 EXPLICIT_SEARCH_PREFIXES = [
     r"^(?:请|请你|你|帮我|麻烦|麻烦你|能否|可以)?\s*(?:去|在|到)?\s*(?:网上|全网|网络上|网络|谷歌|百度|搜索引擎|外网)?\s*(?:去)?\s*(?:搜一下|搜索一下|查一下|搜搜|查查|搜索|查找|检索|查询|打听一下|找找|搜搜看|查查看|搜下|查下|搜一搜|查一查)\s*[:：]?\s*",
     r"^(?:联网|通过网络|通过搜索|用搜索|用搜索引擎)\s*(?:搜一下|搜索一下|查一下|搜索|查找|检索|查询|搜|查|找找)\s*[:：]?\s*",
+    # 日语的助词是「で/に/は」而不是中文的动词重叠；用「調べ」而不是
+    # 「調べる」来匹配，是为了同时覆盖 調べて / 調べたら / 調べると。
+    r"^(?:ネット(?:で)?|ウェブ(?:で)?|インターネット(?:で)?|検索エンジン(?:で)?)?\s*(?:で|に|は)?\s*(?:調べて|検索して|調査して|探して|見て)\s*(?:みて)?\s*[:：]?\s*",
     r"^(?:search(?:\s+the\s+web|\s+online)?|google|look\s+up|find\s+out)\s*(?:for\s*)?",
 ]
 
@@ -19,42 +35,49 @@ EXPLICIT_SEARCH_PREFIXES = [
 STANDALONE_SEARCH_PATTERNS = [
     r"^(?:请|请你|你|帮我|麻烦|麻烦你|能否|可以)?\s*(?:去|在|到)?\s*(?:网上|全网|网络上|网络|谷歌|百度|搜索引擎|外网)?\s*(?:去)?\s*(?:搜一下|搜索一下|查一下|搜搜|查查|搜索|查找|检索|查询|打听一下|找找|搜搜看|查查看|搜下|查下|搜一搜|查一查|看看|翻翻)[!！。?？\s]*$",
     r"^(?:联网|通过网络|通过搜索|用搜索|用搜索引擎)\s*(?:搜一下|搜索一下|查一下|搜索|查找|检索|查询|搜|查|找找|看下|看看)[!！。?？\s]*$",
+    r"^(?:(?:ネット|ウェブ|インターネット|検索エンジン)(?:で)?\s*)?(?:調べて|検索して|調査して|探して|見てみて|調べてみて)[!！。?？\s。]*$",
     r"^(?:search(?:\s+it|\s+the\s+web|\s+online)?|google(?:\s+it)?|look\s+it\s+up|find\s+out)[!！。?？\s]*$",
 ]
 
 # Patterns that indicate financial market data inquiry (requires web search even if containing math/numbers)
 FINANCIAL_MARKET_PATTERNS = [
-    r"(?:QQQ|SPY|DIA|IWM|VOO|纳斯达克|标普|道琼斯|美股|A股|港股|ETF|比特币|BTC|ETH|加密货币)",
-    r"(?:股价|股票|行情|汇率|USD\s*/\s*CNY|USDCNY|美元兑人民币|外汇|金价|油价|大盘|首个交易日|历史价格)",
+    r"(?:QQQ|SPY|DIA|IWM|VOO|纳斯达克|纳指|标普|道琼斯|道指|美股|A股|港股|ETF|比特币|BTC|ETH|加密货币|株価|暗号資産|stock|stocks|nasdaq|s&p\s?500|dow\s?jones|crypto|bitcoin|ethereum)",
+    r"(?:股价|股票|行情|汇率|USD\s*/\s*CNY|USDCNY|美元兑人民币|外汇|金价|油价|大盘|首个交易日|历史价格|相場|株価|為替レート|金価格|原油価格|stock\s?price|share\s?price|exchange\s?rate|forex|oil\s?price|gold\s?price|market\s?cap|earnings)",
 ]
 
 # Time-sensitive patterns mapped to Tavily official search params
 # (pattern, topic, time_range): topic in {general, news, finance}, time_range in {day, week, month, year} or None
 TIME_SENSITIVE_PATTERNS = [
-    (r"(?:今天|今日|现在|目前|近期|最近|本周|本月|今年|2025|2026|2027|实时).*(?:天气|气温|温度|下雨|阴晴)", "general", "day"),
-    (r"(?:今天|今日|现在|目前|实时|最新|历史).*(?:股价|股票|行情|汇率|金价|油价|指数|涨跌|市值|比特币|btc|eth|大盘|首个交易日)", "finance", "year"),
-    (r"(?:QQQ|SPY|纳指|标普|道指|美股|A股|港股|ETF|比特币|BTC|ETH).*(?:价格|行情|走势|汇率|收益|定投|市值|历史)", "finance", "year"),
-    (r"(?:最新|最近|近期|今天|昨晚|刚刚).*(?:新闻|大事件|发布会|动态|通告|消息|爆料)", "news", "week"),
-    (r"(?:最近|近期|下次|下一次|最新|今年|2025|2026|2027).*(?:搞活动|活动|大促|促销|打折|优惠|降价|狂欢节|黑五|prime day|双十一|大促时间)", "news", "month"),
-    (r"(?:比赛结果|比分|谁赢了|战况|总决赛|淘汰赛|奥运会|世界杯|欧冠|英超|nba)", "news", "week"),
-    (r"(?:最新版本|什么时候发布|什么时候出|更新了什么|发布时间|发售日期|上线时间)", "general", "month"),
-    (r"(?:现任|现在的|谁是现在的|目前谁是)", "general", None),
-    (r"(?:官网|官方网址|下载链接|官方文档)", "general", None),
-    (r"(?:地铁|电车|電車|公交|巴士|新干线|城铁|轻轨|票价|车费|运费|運賃|料金|打车).*(?:多少钱|多少|价格|费用|票价|路线|换乘|怎么走)", "general", None),
+(r"(?:今天|今日|现在|目前|近期|最近|本周|本月|今年|2025|2026|2027|实时).*(?:天气|气温|温度|下雨|阴晴|天気|気温|雨|weather|temperature|forecast)", "general", "day"),
+    (r"(?:今天|今日|现在|目前|实时|最新|历史).*(?:股价|股票|行情|汇率|金价|油价|指数|涨跌|市值|比特币|btc|eth|大盘|首个交易日|株価|相場|為替レート|金価格|原油価格|時価総額|stock\s?price|share\s?price|exchange\s?rate|gold\s?price|oil\s?price|market\s?cap|bitcoin|index)", "finance", "year"),
+    (r"(?:QQQ|SPY|纳指|标普|道指|美股|A股|港股|ETF|比特币|BTC|ETH).*(?:价格|行情|走势|汇率|收益|定投|市值|历史|価格|相場|推移|利回り|nasdaq|s&p\s?500|etf|bitcoin)", "finance", "year"),
+    (r"(?:最新|最近|近期|今天|昨晚|刚刚).*(?:新闻|大事件|发布会|动态|通告|消息|爆料|ニュース|発表|報道|速報|news|headline|announcement|press\s+release)", "news", "week"),
+    (r"(?:最近|近期|下次|下一次|最新|今年|2025|2026|2027|次回|いつ|最近).*(?:搞活动|活动|大促|促销|打折|优惠|降价|狂欢节|黑五|prime\s?day|双十一|大促时间|セール|割引|セール情報|promo|sale|discount|black\s?friday)", "news", "month"),
+    (r"(?:比赛结果|比分|谁赢了|战况|总决赛|淘汰赛|奥运会|世界杯|欧冠|英超|nba|試合結果|スコア|優勝|決勝|オリンピック|ワールドカップ|score|who\s+won|final\s+score|olympics|world\s?cup)", "news", "week"),
+    (r"(?:最新版本|什么时候发布|什么时候出|更新了什么|发布时间|发售日期|上线时间|最新版|リリース|配信|発売|newest\s+version|release\s+date|when\s+is\s+.*\s+(?:out|released)|changelog)", "general", "month"),
+    (r"(?:现任|现在的|谁是现在的|目前谁是|誰が|who\s+is\s+the\s+(?:current|new)|current\s+ceo|current\s+president)", "general", None),
+    (r"(?:官网|官方网址|下载链接|官方文档|公式サイト|ダウンロード|official\s+(?:site|website|docs?|documentation)|download\s+link)", "general", None),
+    (r"(?:地铁|电车|電車|公交|巴士|新干线|城铁|轻轨|票价|车费|运费|運賃|料金|打车|地下鉄|電車|バス|新幹線|市電).*(?:多少钱|多少|价格|费用|票价|路线|换乘|怎么走|いくら|価格|運賃|ルート|乗り換え|fares?|how\s+much|route|transfer)", "general", None),
 ]
 
 # Queries that should NEVER trigger web search automatically
 NON_SEARCH_PATTERNS = [
-    r"^(?:你好|早上好|晚上好|嗨|hello|hi|在吗|谢谢|多谢|不客气|再见|拜拜)[!！。？?~]*$",
-    r"^(?:今天|明天|后天|昨天|大后天|前天)?(?:是)?(?:星期|礼拜|周)[一二三四五六日天几\?？\s]+$",
-    r"^(?:现在|今天|明天|后天|昨天)?(?:是)?(?:几点|几点了|几号|几月几号|几月几日|哪一年|什么时间|什么日子)[\?？\s]*$",
-    r"(?:写一首|作一首|写一篇|写一段|写个故事|编一个|翻译|润色|改写|总结上述|概括以上)",
-    r"(?:编写代码|实现一个|写代码|写一个函数|写个脚本|debug|分析这段代码)",
-    r"^(?:解方程|计算一下|\d+\s*[\+\-\*\/]\s*\d+)$",
+    r"^(?:你好|早上好|晚上好|嗨|在吗|谢谢|多谢|不客气|再见|拜拜|おはよう|こんにちは|こんばんは|ありがとう|すみません|さようなら)[!！。？?~。\s]*$",
+    r"^(?:(?:今天|明天|后天|昨天|大后天|前天)?(?:是)?(?:星期|礼拜|周)[一二三四五六日天几\?？\s]+|(?:what|which)\s+day\s+(?:is\s+it|today)\??|何曜日|曜日\??|今日は何曜日)[\?\?\s。]*$",
+    r"^(?:(?:现在|今天|明天|后天|昨天)?(?:是)?(?:几点|几点了|几号|几月几号|几月几日|哪一年|什么时间|什么日子)[\?？\s]*|what\s+time|what'?s\s+the\s+time|what\s+date|today'?s\s+date|which\s+year|何時|今日は何日)[\?\?\s。]*$",
+    r"(?:写一首|作一首|写一篇|写一段|写个故事|编一个|翻译|润色|改写|总结上述|概括以上|詩|物語|小説|描いて|訳して|翻訳|潤色|summari[sz]e|translate|rewrite|proofread|write\s+a\s+(?:poem|story|essay|song))",
+    r"(?:编写代码|实现一个|写代码|写一个函数|写个脚本|debug|分析这段代码|プログラム|コード|スクリプト|デバッグ|write\s+(?:a\s+)?(?:function|script|program)|implement|refactor|debug\s+this|review\s+this\s+code)",
+    r"^(?:解方程|计算一下|計算して|\d+\s*[\+\-\*\/\^]\s*\d+)$",
 ]
 
 SEARCH_DECISION_PROMPT = """你是一个智能联网搜索决策与关键词重写引擎（类似 ChatGPT Search 调度系统）。
 你需要分析用户的最新输入及最近对话上下文，判断是否需要联网获取最新、客观或事实性互联网信息，并提炼出最适合搜索引擎查询的高质量检索词。
+
+【检索词语言】search_query 与 search_queries 一律使用【{query_language}】书写。
+用户界面语言是 {query_language}，用英文检索词去喂一个中文界面只会让搜索结果与
+用户看到的一切都对不上。只有当用户正在询问某个特定国家的本土事务、
+且该国官方语言不是 {query_language} 时，才按下面的「跨语言/本土化一手信源策略」
+额外补一条当地母语检索词。
 
 【当前真实时间】
 {current_time_info}
@@ -319,7 +342,8 @@ async def evaluate_and_generate_search_query(
         prompt = SEARCH_DECISION_PROMPT.format(
             current_time_info=temporal_info,
             history_context=history_context_str,
-            user_message=eval_user_msg
+            user_message=eval_user_msg,
+            query_language=language_name(get_locale()),
         )
 
         # 针对重写研判限制低 token 与微小温度以追求极致速度和稳定性

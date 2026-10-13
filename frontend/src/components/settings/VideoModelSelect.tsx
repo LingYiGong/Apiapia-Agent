@@ -4,6 +4,7 @@ import React, { useMemo } from "react";
 import { Video } from "lucide-react";
 import { ModelPicker } from "@/components/common/ModelPicker";
 import { toVideoModelOptions } from "@/lib/models";
+import { useI18n } from "@/i18n";
 import type { VideoModelItem } from "@/types";
 
 interface VideoModelSelectProps {
@@ -30,40 +31,45 @@ export const VideoModelSelect: React.FC<VideoModelSelectProps> = ({
   value,
   onChange,
   models,
-  placeholder = "选择视频模型",
+  placeholder,
   loading = false,
   synced = true,
   className,
   isTrialMode,
 }) => {
+  const { t } = useI18n();
   const options = useMemo(() => toVideoModelOptions(models), [models]);
+  const kindLabel = t("settings.modelGroup.video");
 
   const emptyState = useMemo(() => {
     if (models.length === 0) {
       return (
         <p className="px-3 py-8 text-center text-xs text-muted-foreground leading-relaxed">
           {!synced
-            ? "视频模型列表尚未同步，请点击列表上方的「同步列表」按钮完成一次同步。"
+            ? t("settings.pickerEmpty.notSynced", { kind: kindLabel })
             : isTrialMode
-              ? "当前无可用免费视频模型，请联系管理员在 FREE_VIDEO_MODELS 中登记免费模型。"
-              : "后端已同步但无可用模型，请检查 .env 中的 OpenRouter 服务凭证是否有效。"}
+              ? t("settings.pickerEmpty.trialNoFree", {
+                  kind: kindLabel,
+                  env: "FREE_VIDEO_MODELS",
+                })
+              : t("settings.pickerEmpty.syncedButEmpty")}
         </p>
       );
     }
     return (
       <p className="px-3 py-8 text-center text-xs text-muted-foreground">
-        未找到匹配的视频模型
+        {t("settings.picker.noMatch", { kind: kindLabel })}
       </p>
     );
-  }, [models.length, synced, isTrialMode]);
+  }, [models.length, synced, isTrialMode, kindLabel, t]);
 
   return (
     <ModelPicker
       value={value}
       onChange={onChange}
       options={options}
-      kindLabel="视频模型"
-      placeholder={placeholder}
+      kindLabel={kindLabel}
+      placeholder={placeholder ?? t("settings.modelGroup.videoPlaceholder")}
       className={className}
       loading={loading}
       triggerIcon={Video}

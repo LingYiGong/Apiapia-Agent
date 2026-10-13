@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/i18n";
 
 /**
  * 路由级错误边界。
@@ -22,21 +23,25 @@ export default function Error({
     console.error("Route error:", error);
   }, [error]);
 
+  const { t } = useI18n();
+
   return (
     <main
       role="alert"
       className="flex h-dvh flex-col items-center justify-center gap-4 bg-background px-6 text-center"
     >
-      <h1 className="text-lg font-semibold">页面出了点问题</h1>
+      <h1 className="text-lg font-semibold">{t("meta.routeError.title")}</h1>
       <p className="max-w-sm text-sm text-muted-foreground">
-        当前页面遇到了一个错误。你可以重试；如果反复出现，请返回对话页。
+        {t("meta.routeError.description")}
       </p>
       {error.digest && (
-        <p className="font-mono text-xs text-muted-foreground/70">错误编号：{error.digest}</p>
+        <p className="font-mono text-xs text-muted-foreground/70">
+          {t("meta.routeError.digest", { digest: error.digest })}
+        </p>
       )}
       <div className="flex flex-wrap items-center justify-center gap-2">
         <Button type="button" onClick={reset} className="rounded-2xl">
-          重试
+          {t("common.action.retry")}
         </Button>
         <Button
           type="button"
@@ -44,7 +49,7 @@ export default function Error({
           onClick={() => (window.location.href = "/chat")}
           className="rounded-2xl"
         >
-          返回对话
+          {t("chat.history.backToChat")}
         </Button>
       </div>
     </main>

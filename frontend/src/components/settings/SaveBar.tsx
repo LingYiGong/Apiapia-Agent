@@ -5,6 +5,7 @@ import { Check, CheckCircle2, RefreshCw, RotateCcw, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ActionTooltip } from "@/components/common/ActionTooltip";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/i18n";
 
 /**
  * 偏好设置的「保存」控件。
@@ -35,19 +36,20 @@ export function SaveStatus({
   onSave: () => void;
 }) {
   const { dirty, saving, justSaved } = state;
+  const { t } = useI18n();
 
   return (
     <div className="flex shrink-0 items-center gap-2.5">
       {justSaved ? (
         <span className="flex items-center gap-1.5 text-footnote font-medium text-emerald-600 animate-in fade-in dark:text-emerald-400">
           <Check className="h-4 w-4" />
-          <span>已保存</span>
+          <span>{t("settings.saveBar.saved")}</span>
         </span>
       ) : dirty ? (
         <div className="flex items-center gap-2">
           <span className="flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
-            <span>未保存更改</span>
+            <span>{t("settings.saveBar.dirty")}</span>
           </span>
           <Button
             type="button"
@@ -57,13 +59,13 @@ export function SaveStatus({
             className="h-8 cursor-pointer rounded-full px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground active:scale-95"
           >
             <RotateCcw className="mr-1 h-3.5 w-3.5" />
-            <span>还原</span>
+            <span>{t("settings.saveBar.reset")}</span>
           </Button>
         </div>
       ) : (
         <span className="flex items-center gap-1.5 text-xs font-normal text-muted-foreground">
           <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-          <span>已是最新</span>
+          <span>{t("settings.saveBar.clean")}</span>
         </span>
       )}
 
@@ -84,10 +86,11 @@ function SaveButton({
   className?: string;
 }) {
   const { dirty, saving, justSaved } = state;
+  const { t } = useI18n();
   const isXs = size === "xs";
 
   return (
-    <ActionTooltip label="保存偏好设置（⌘S / Ctrl+S）">
+    <ActionTooltip label={t("settings.saveBar.tip")}>
       <Button
         type="button"
         onClick={onSave}
@@ -109,7 +112,13 @@ function SaveButton({
         ) : (
           <Save className="h-3.5 w-3.5" />
         )}
-        <span>{saving ? (isXs ? "保存中" : "正在保存...") : "保存设置"}</span>
+        <span>
+          {saving
+            ? isXs
+              ? t("settings.saveBar.savingShort")
+              : t("settings.saveBar.savingLong")
+            : t("settings.saveBar.save")}
+        </span>
         <kbd className="ml-0.5 hidden font-sans text-2xs opacity-70 sm:inline-block">⌘S</kbd>
       </Button>
     </ActionTooltip>
@@ -131,6 +140,7 @@ export function SaveActionBar({
   onSave: () => void;
   className?: string;
 }) {
+  const { t } = useI18n();
   if (!state.dirty) return null;
   return (
     <div
@@ -143,7 +153,7 @@ export function SaveActionBar({
         <div className="flex items-center gap-2 pl-2">
           <span className="h-2 w-2 animate-pulse rounded-full bg-amber-500" />
           <span className="text-xs font-medium text-foreground sm:text-footnote">
-            偏好设置有未保存更改
+            {t("settings.saveBar.mobileNotice")}
           </span>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -154,7 +164,7 @@ export function SaveActionBar({
             onClick={onReset}
             className="h-8 cursor-pointer rounded-full px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground active:scale-95"
           >
-            还原
+            {t("settings.saveBar.reset")}
           </Button>
           <Button
             type="button"
@@ -168,7 +178,9 @@ export function SaveActionBar({
             ) : (
               <Save className="h-3.5 w-3.5" />
             )}
-            <span>{state.saving ? "正在保存..." : "保存设置"}</span>
+            <span>
+              {state.saving ? t("settings.saveBar.savingLong") : t("settings.saveBar.save")}
+            </span>
           </Button>
         </div>
       </div>

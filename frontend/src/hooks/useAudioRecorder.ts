@@ -2,6 +2,19 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { pickRecorderMimeType } from "@/lib/speech";
+import { getTranslator, resolveStoredLocale } from "@/i18n/runtime";
+import type { MessageKey, TranslateValues } from "@/i18n";
+
+/**
+ * 按**调用时**解析翻译器，而不是在 hook 渲染时抓一份。
+ *
+ * 这两处 setError 都在 useCallback 里，而回调的依赖数组里没有语言 ——
+ * 若在 hook 体顶部算好 t 再让闭包捕获，用户切语言后录制失败仍会弹旧语言的
+ * 提示。一行函数调用换来「总是当前语言」，代价可以忽略。
+ */
+function tr(key: MessageKey, values?: TranslateValues): string {
+  return getTranslator(resolveStoredLocale())(key, values);
+}
 
 /**
  * Hard cap on one recording.
@@ -162,7 +175,7 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}): AudioRe
     release();
 
     if (chunks.length === 0) {
-      setError("没有录到声音，请检查麦克风权限后重试");
+      setError(tr("chat.speech.noAudioCaptured"));
       return null;
     }
     return { blob: new Blob(chunks, { type: finalMime }), mimeType: finalMime };
@@ -172,7 +185,7 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}): AudioRe
 
   const start = useCallback(async () => {
     if (unsupported) {
-      setError("当前浏览器不支持录音，请改用上传音频文件的方式");
+      setError(tr("chat.speech.unsupportedHint"));
       return;
     }
     // Already rolling: ignore the second tap rather than orphaning the first
@@ -292,16 +305,18 @@ function describeMicError(err: unknown): string {
   switch (name) {
     case "NotAllowedError":
     case "SecurityError":
-      return "麦克风权限被拒绝，请在浏览器设置中允许本站使用麦克风";
+      return tr("chat.speech.micDenied");
     case "NotFoundError":
     case "DevicesNotFoundError":
-      return "未检测到麦克风设备，请检查设备连接";
+      return tr("chat.speech.micNotFound");
     case "NotReadableError":
     case "TrackStartError":
-      return "麦克风被其他程序占用，请关闭占用程序后重试";
+      return tr("chat.speech.micBusy");
     case "OverconstrainedError":
-      return "麦克风不支持当前的采集参数，请尝试更换设备";
+      return tr("chat.speech.micUnsupportedParams");
     default:
-      return `无法开始录音：${(err as Error)?.message || "未知错误"}`;
+      return tr("chat.speech.micStartFailed", {
+        reason: (err as Error)?.message || tr("chat.speech.unknownError"),
+      });
   }
 }

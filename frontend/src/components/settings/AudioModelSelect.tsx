@@ -4,6 +4,7 @@ import React, { useMemo } from "react";
 import { AudioLines } from "lucide-react";
 import { ModelPicker } from "@/components/common/ModelPicker";
 import { toAudioModelOptions } from "@/lib/models";
+import { useI18n } from "@/i18n";
 import type { AudioModelItem } from "@/types";
 
 type Capability = "stt" | "tts";
@@ -50,6 +51,7 @@ export const AudioModelSelect: React.FC<AudioModelSelectProps> = ({
   className,
   isTrialMode,
 }) => {
+  const { t } = useI18n();
   // Filter before adapting, so the rank assigned inside toAudioModelOptions
   // counts only the family this picker is showing.
   const scoped = useMemo(
@@ -63,19 +65,22 @@ export const AudioModelSelect: React.FC<AudioModelSelectProps> = ({
       return (
         <p className="px-3 py-8 text-center text-xs text-muted-foreground leading-relaxed">
           {!synced
-            ? "语音模型列表尚未同步，请点击列表上方的「同步列表」按钮完成一次同步。"
+            ? t("settings.pickerEmpty.notSynced", { kind: kindLabel })
             : isTrialMode
-              ? `当前无可用免费${kindLabel}，请联系管理员在 FREE_AUDIO_MODELS 中登记免费模型。`
-              : "后端已同步但无可用模型，请检查 .env 中的 OpenRouter 服务凭证是否有效。"}
+              ? t("settings.pickerEmpty.trialNoFree", {
+                  kind: kindLabel,
+                  env: "FREE_AUDIO_MODELS",
+                })
+              : t("settings.pickerEmpty.syncedButEmpty")}
         </p>
       );
     }
     return (
       <p className="px-3 py-8 text-center text-xs text-muted-foreground">
-        未找到匹配的{kindLabel}
+        {t("settings.picker.noMatch", { kind: kindLabel })}
       </p>
     );
-  }, [scoped.length, synced, isTrialMode, kindLabel]);
+  }, [scoped.length, synced, isTrialMode, kindLabel, t]);
 
   return (
     <ModelPicker

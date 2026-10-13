@@ -9,8 +9,8 @@ import { ConversationListSkeleton } from "@/components/common/PageSkeleton";
 import { ActionTooltip } from "@/components/common/ActionTooltip";
 import { EmptyState } from "@/components/common/EmptyState";
 import { useConfirm } from "@/hooks/useConfirm";
+import { useI18n } from "@/i18n";
 import { cn } from "@/lib/utils";
-import { formatDateTime } from "@/lib/format";
 import { groupByTimeBuckets } from "@/lib/timeGroups";
 import {
   Plus,
@@ -63,6 +63,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   loading = false,
 }) => {
   const [search, setSearch] = useState("");
+  const { t, fmt } = useI18n();
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropId, setDropId] = useState<string | null>(null);
   // 行内重命名的目标 id
@@ -83,12 +84,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const groupedSections = useMemo(
     () =>
       groupByTimeBuckets<Conversation>(filtered, {
+        t,
         getTime: activityOf,
         isPinned: (c) => !!c.is_pinned,
         getPinOrder: (c) => c.pin_order ?? 0,
-        pinnedTitle: "置顶",
+        pinnedTitleKey: "chat.history.pinned",
       }),
-    [filtered]
+    [filtered, t]
   );
 
   const pinnedItems = useMemo(
@@ -120,7 +122,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     opts: { showSortControls: boolean; isFirst: boolean; isLast: boolean }
   ) => {
     const isSelected = c.id === activeId;
-    const timeDisplay = formatDateTime(c.last_message_at || c.created_at);
+    const timeDisplay = fmt.dateTime(c.last_message_at || c.created_at);
     const pinnedActive = !!c.is_pinned;
     return (
       <div
@@ -166,7 +168,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           // tabindex，于是产生一个可聚焦却没有任何键盘行为的元素（违反 WCAG 2.1.1），
           // 键盘用户会 Tab 到这里然后不知道该按什么。装饰性元素改用原生 title。
           <span
-            title="拖拽排序"
+            title={t("chat.history.dragHint")}
             onClick={(e) => e.stopPropagation()}
             className="shrink-0 cursor-grab text-muted-foreground/60 hover:text-foreground active:cursor-grabbing"
           >
@@ -189,8 +191,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 if (e.key === "Enter") e.currentTarget.blur();
                 if (e.key === "Escape") setRenamingId(null);
               }}
-              aria-label="重命名对话"
-              className="w-full border-b border-primary/50 bg-transparent px-0 py-0.5 text-footnote text-foreground outline-none"
+aria-label={t("chat.history.renameTitle")}
+               className="w-full border-b border-primary/50 bg-transparent px-0 py-0.5 text-footnote text-foreground outline-none"
             />
           ) : (
             <button
@@ -200,11 +202,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onSelect(c.id);
               }}
               aria-current={isSelected ? "true" : undefined}
-              title={c.title || "新建对话"}
-              className="flex w-full min-w-0 items-center gap-1.5 text-left leading-snug"
-            >
+title={c.title || t("chat.history.untitled")}
+               className="flex w-full min-w-0 items-center gap-1.5 text-left leading-snug"
+             >
               {pinnedActive && <Pin className="h-3 w-3 shrink-0 text-primary" />}
-              <span className="min-w-0 flex-1 truncate font-normal">{c.title || "新建对话"}</span>
+              <span className="min-w-0 flex-1 truncate font-normal">
+                {c.title || t("chat.history.untitled")}
+              </span>
             </button>
           )}
           {timeDisplay && (
@@ -221,7 +225,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               className="flex shrink-0 items-center opacity-0 transition-opacity group-hover:opacity-100"
               onClick={(e) => e.stopPropagation()}
             >
-              <ActionTooltip label="上移" side="top">
+              <ActionTooltip label={t("chat.history.moveUp")} side="top">
                 <Button
                   type="button"
                   variant="ghost"
@@ -231,10 +235,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   className="h-7 w-6 shrink-0 hover:text-primary disabled:opacity-30"
                 >
                   <ChevronUp className="h-4 w-4" />
-                  <span className="sr-only">上移</span>
+                  <span className="sr-only">{t("chat.history.moveUp")}</span>
                 </Button>
               </ActionTooltip>
-              <ActionTooltip label="下移" side="top">
+              <ActionTooltip label={t("chat.history.moveDown")} side="top">
                 <Button
                   type="button"
                   variant="ghost"
@@ -244,7 +248,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   className="h-7 w-6 shrink-0 hover:text-primary disabled:opacity-30"
                 >
                   <ChevronDown className="h-4 w-4" />
-                  <span className="sr-only">下移</span>
+                  <span className="sr-only">{t("chat.history.moveDown")}</span>
                 </Button>
               </ActionTooltip>
             </span>
@@ -257,7 +261,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 variant="ghost"
                 size="icon"
                 onClick={(e) => e.stopPropagation()}
-                aria-label="会话操作"
+                aria-label={t("chat.history.actions")}
                 className="h-7 w-7 shrink-0 text-muted-foreground opacity-0 transition-opacity hover:bg-muted/60 hover:text-foreground group-hover:opacity-100 data-[state=open]:opacity-100"
               >
                 <MoreHorizontal className="h-4 w-4" />
@@ -276,12 +280,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {pinnedActive ? (
                   <>
                     <PinOff className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span>取消置顶</span>
+                    <span>{t("chat.history.unpin")}</span>
                   </>
                 ) : (
                   <>
                     <Pin className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span>置顶会话</span>
+                    <span>{t("chat.history.pin")}</span>
                   </>
                 )}
               </DropdownMenuItem>
@@ -291,7 +295,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 className="flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-foreground focus:bg-muted"
               >
                 <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-                <span>重命名</span>
+                <span>{t("chat.history.rename")}</span>
               </DropdownMenuItem>
 
               <DropdownMenuSeparator className="my-1 opacity-60" />
@@ -299,9 +303,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <DropdownMenuItem
                 onClick={() =>
                   ask({
-                    title: "删除该历史会话",
-                    description: `确定要删除对话「${c.title || "新建对话"}」吗？删除后将无法恢复，该操作不可撤销。`,
-                    confirmText: "删除",
+                    title: t("chat.history.deleteTitle"),
+                    description: t("chat.history.deleteDesc", {
+                      title: c.title || t("chat.history.untitled"),
+                    }),
+                    confirmText: t("chat.history.delete"),
                     danger: true,
                     onConfirm: () => onDelete(c.id),
                   })
@@ -309,7 +315,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 className="flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-destructive focus:bg-destructive/10 focus:text-destructive"
               >
                 <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                <span>删除对话</span>
+                <span>{t("chat.history.deleteConversation")}</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -329,18 +335,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="flex flex-col gap-2 border-b border-border/50 p-3">
           <Button type="button" onClick={onNewChat} className="w-full">
             <Plus className="h-4 w-4" />
-            <span>新建对话</span>
+            <span>{t("chat.history.newChat")}</span>
           </Button>
 
           <div className="relative">
             <Label htmlFor="sidebar-search" className="sr-only">
-              搜索历史对话
+              {t("chat.history.search")}
             </Label>
             <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
               id="sidebar-search"
               type="search"
-              placeholder="搜索历史对话…"
+              placeholder={t("chat.history.searchMobilePh")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               // pr-9：给浏览器内置清除按钮（本项目已在 globals.css 隐藏）
@@ -359,9 +365,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
               className="py-10"
               icon={MessageSquare}
               iconClassName="h-11 w-11"
-              title={isSearching ? "未找到匹配会话" : "暂无历史对话"}
+              title={isSearching ? t("chat.history.noResultsTitle") : t("chat.history.emptyTitle")}
               description={
-                isSearching ? "换个关键词试试。" : "发送一条消息，它就会出现在这里。"
+                isSearching ? t("chat.history.noResultsDesc") : t("chat.history.emptyDesc")
               }
             />
           ) : (
@@ -374,8 +380,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <span>
                         {sec.key === "pinned"
                           ? isSearching
-                            ? "置顶"
-                            : `置顶（${sec.items.length}，可拖拽排序）`
+                            ? t("chat.history.pinned")
+                            : t("chat.history.pinnedDraggable", { count: sec.items.length })
                           : sec.title}
                       </span>
                     </span>

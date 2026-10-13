@@ -12,12 +12,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/i18n";
 
 interface ConfirmDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
   description?: string;
+  /** 留空则用词典里的「确认」；传空字符串是有意的「不给按钮文字」，与留空不同。 */
   confirmText?: string;
   cancelText?: string;
   /** 危险操作（删除/停用等）用红色确认按钮，默认 primary */
@@ -35,12 +37,13 @@ export function ConfirmDialog({
   onOpenChange,
   title,
   description,
-  confirmText = "确认",
-  cancelText = "取消",
+  confirmText,
+  cancelText,
   danger = false,
   loading = false,
   onConfirm,
 }: ConfirmDialogProps) {
+  const { t } = useI18n();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm rounded-2xl">
@@ -74,7 +77,7 @@ export function ConfirmDialog({
             onClick={() => onOpenChange(false)}
             className="flex-1 sm:flex-initial h-9 rounded-xl text-xs font-medium"
           >
-            {cancelText}
+            {cancelText ?? t("common.action.cancel")}
           </Button>
           <Button
             type="button"
@@ -83,7 +86,7 @@ export function ConfirmDialog({
             onClick={onConfirm}
             className="flex-1 sm:flex-initial h-9 rounded-xl text-xs font-semibold"
           >
-            {loading ? "处理中..." : confirmText}
+            {loading ? t("common.action.processing") : (confirmText ?? t("common.action.confirm"))}
           </Button>
         </DialogFooter>
       </DialogContent>

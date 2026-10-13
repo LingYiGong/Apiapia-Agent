@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { Cat } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/i18n";
 
 interface BrandLogoProps {
   size?: number;
@@ -28,6 +29,7 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
   shape = "squircle",
   alt = "Apiapia",
 }) => {
+  const { t } = useI18n();
   const [imgError, setImgError] = useState(false);
 
   const imgSrc =
@@ -73,7 +75,7 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
               textClassName || "text-base tracking-wide"
             )}
           >
-            Apiapia 助理
+            {t("meta.appName")}
           </span>
           {subtitle && (
             <span className="text-2xs text-muted-foreground truncate">

@@ -15,6 +15,9 @@ import asyncio
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 
+from app.core.i18n import get_locale, language_directive
+from app.services.prompt.localized import memory_text
+
 logger = logging.getLogger("memory_dreaming")
 
 # ── Constants ──────────────────────────────────────────────────────────────────
@@ -97,15 +100,20 @@ def run_dreaming_task(
         user_id, conv_id, len(messages), resolved_model,
     )
 
+    subject = memory_text("subject")
+    summary_length = memory_text("summary_length")
+
     prompt = (
-        "你是一个专注于用户画像的记忆分析助理。\n"
-        "请分析以下对话历史，从「宏观视角」总结关于「用户」的深层特征，\n"
+        language_directive(get_locale())
+        + "\n\n"
+        + "你是一个专注于用户画像的记忆分析助理。\n"
+        "请分析以下对话历史，从「宏观视角」总结关于「" + subject + "」的深层特征，\n"
         "重点关注跨越多轮对话反复出现的模式，而不是逐句提取事实。\n\n"
         "分析角度：\n"
-        "- 用户整体是什么样的人？有哪些核心身份特征？\n"
-        "- 用户反复表现出哪些兴趣、关切或偏好？\n"
-        "- 用户的思维方式、沟通风格或行为习惯有何特点？\n"
-        "- 哪些长期目标或计划在对话中多次被提及？\n\n"
+        + f"- {subject}整体是什么样的人？有哪些核心身份特征？\n"
+        + f"- {subject}反复表现出哪些兴趣、关切或偏好？\n"
+        + f"- {subject}的思维方式、沟通风格或行为习惯有何特点？\n"
+        + f"- 哪些长期目标或计划在对话中多次被提及？\n\n"
         "重要性等级（1-5）：\n"
         "5 = 跨多轮都一致的核心身份特征\n"
         "4 = 反复出现的强烈偏好或习惯\n"
@@ -113,7 +121,7 @@ def run_dreaming_task(
         "2 = 仅出现一两次的次要信息\n"
         "1 = 不值得长期记录的内容\n\n"
         "要求：\n"
-        "- 每条总结是完整陈述句，主语为「用户」（10-80字）\n"
+        + f"- 每条总结是完整陈述句，主语为「{subject}」（{summary_length}）\n"
         "- 重点关注能跨会话持续有用的信息\n"
         "- 若没有值得总结的内容，summaries 返回空列表\n\n"
         "返回纯 JSON：\n"

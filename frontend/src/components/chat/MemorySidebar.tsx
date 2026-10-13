@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { EmptyState } from "@/components/common/EmptyState";
 import { MemoryCard } from "@/components/memory/MemoryCard";
-import { formatDateTime } from "@/lib/format";
 import { normalizeMemories } from "@/lib/memory";
+import { useI18n } from "@/i18n";
 import {
   Sheet,
   SheetContent,
@@ -43,6 +43,7 @@ export function MemorySidebar({
   onClose,
   onSelectMobileTab,
 }: MemorySidebarProps) {
+  const { t, fmt } = useI18n();
   const normalized = useMemo(
     () => normalizeMemories(memories ?? [], { sort: true }),
     [memories]
@@ -72,7 +73,7 @@ export function MemorySidebar({
 
         <div className="flex min-w-0 flex-1 items-baseline gap-1.5">
           <h3 className="truncate text-sm font-semibold text-foreground">
-            本次关联记忆
+            {t("chat.recall.title")}
           </h3>
           {normalized.length > 0 && (
             <span className="shrink-0 font-mono text-2xs text-muted-foreground/70">
@@ -91,29 +92,29 @@ export function MemorySidebar({
           <EmptyState
             className="py-8"
             icon={Brain}
-            title="长期记忆检索已暂停"
-            description="开启后，助理会自动参考并记录你的偏好事实。"
+            title={t("chat.recall.disabledTitle")}
+            description={t("chat.recall.disabledDesc")}
           />
         ) : normalized.length === 0 ? (
           <EmptyState
             className="py-8"
             icon={Sparkles}
-            title="暂无关联记忆召回"
-            description="向助理提供关于你的个人偏好、工作背景或习惯后，系统将自动提炼并在此即时呈现。"
+            title={t("chat.recall.emptyTitle")}
+            description={t("chat.recall.emptyDesc")}
           />
         ) : (
           <div className="space-y-2.5">
             <div className="flex items-start gap-2 px-1 py-0.5 text-xs leading-relaxed text-muted-foreground">
               <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
-              <span>以下为系统在本次交流中自动参考的长期个人事实。</span>
+              <span>{t("chat.recall.disclaimer")}</span>
             </div>
 
             {normalized.map((m) => (
               <MemoryCard
                 key={m.id}
                 text={m.text}
-                time={formatDateTime(m.effectiveAt)}
-                badge="已向量化"
+                time={fmt.dateTime(m.effectiveAt)}
+                badge={t("chat.recall.vectorized")}
               />
             ))}
           </div>
@@ -134,12 +135,12 @@ export function MemorySidebar({
       >
         <div className="flex items-center justify-between gap-2 rounded-lg px-1.5 py-1">
           <span className="min-w-0 truncate text-xs font-medium text-muted-foreground">
-            长期记忆检索
+            {t("chat.recall.toggleLabel")}
           </span>
           <Switch
             checked={memoryEnabled}
             onCheckedChange={onToggleMemory}
-            aria-label="长期记忆检索开关"
+            aria-label={t("chat.recall.toggleAria")}
           />
         </div>
 
@@ -157,12 +158,12 @@ export function MemorySidebar({
         >
           {onSelectMobileTab ? (
             <span className="flex items-center justify-center gap-1.5">
-              <span>前往长期记忆库</span>
+              <span>{t("chat.recall.gotoLibrary")}</span>
               <ExternalLink className="h-3 w-3" />
             </span>
           ) : (
             <Link href="/memory" onClick={onClose} className="flex items-center justify-center gap-1.5">
-              <span>前往长期记忆库</span>
+              <span>{t("chat.recall.gotoLibrary")}</span>
               <ExternalLink className="h-3 w-3" />
             </Link>
           )}
@@ -200,8 +201,8 @@ export function MemorySidebar({
           </div>
 
           <SheetHeader className="sr-only">
-            <SheetTitle>本次关联记忆</SheetTitle>
-            <SheetDescription>展示系统为本次对话检索到的长期记忆事实</SheetDescription>
+            <SheetTitle>{t("chat.recall.sheetTitle")}</SheetTitle>
+            <SheetDescription>{t("chat.recall.sheetDesc")}</SheetDescription>
           </SheetHeader>
 
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">

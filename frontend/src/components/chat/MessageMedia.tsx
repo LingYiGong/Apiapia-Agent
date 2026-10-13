@@ -3,7 +3,7 @@
 import React from "react";
 import { FileText, ZoomIn } from "lucide-react";
 import type { AttachmentItem } from "@/types";
-import { formatFileSize } from "@/lib/format";
+import { useI18n } from "@/i18n";
 import { cn } from "@/lib/utils";
 
 /**
@@ -23,12 +23,13 @@ export function ImageThumb({
   alt: string;
   onClick: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <button
       type="button"
       onClick={onClick}
-      title="点击放大查看原图"
-      aria-label={`放大查看 ${alt}`}
+      title={t("chat.markdown.imageZoom")}
+      aria-label={t("chat.media.zoomAlt", { alt })}
       className="group relative cursor-zoom-in overflow-hidden rounded-xl border border-white/20 bg-black/20 shadow-md"
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -50,6 +51,7 @@ export function ImageThumb({
 }
 
 export function DocChip({ name, size }: { name: string; /** 字节数。省略时不显示体积 */ size?: number }) {
+  const { fmt } = useI18n();
   return (
     <span
       title={name}
@@ -57,7 +59,7 @@ export function DocChip({ name, size }: { name: string; /** 字节数。省略�
     >
       <FileText className="h-4 w-4 shrink-0 text-indigo-200" />
       <span className="truncate font-medium">{name}</span>
-      {size ? <span className="font-mono text-2xs text-indigo-200">{formatFileSize(size)}</span> : null}
+      {size ? <span className="font-mono text-2xs text-indigo-200">{fmt.fileSize(size)}</span> : null}
     </span>
   );
 }

@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.v1.deps import get_current_user
 from app.core.config import settings
 from app.core.database import get_db
+from app.core.errors import ApiError
 from app.models.setting import UserSetting
 from app.models.user import User
 from app.schemas.speech import SpeakRequest, SpeakVoicesResponse, SpeechTranscription
@@ -64,14 +65,15 @@ async def _read_capped(file: UploadFile) -> bytes:
             break
         total += len(chunk)
         if total > limit:
-            raise HTTPException(
+            raise ApiError(
                 # Literal rather than status.HTTP_413_*: Starlette renamed that
                 # constant in 2024 (REQUEST_ENTITY_TOO_LARGE → CONTENT_TOO_LARGE)
                 # and kept the old name as a deprecation alias, so depending on
                 # it means this file breaks on one upgrade or the other. This is
                 # the same call main.py's MaxBodySizeMiddleware already makes.
                 status_code=413,
-                detail=f"音频文件超过 {limit // (1024 * 1024)}MB 上限，请压缩或分段录音",
+                code="AUDIO_FILE_TOO_LARGE",
+                limit=limit // (1024 * 1024),
             )
         chunks.append(chunk)
     return b"".join(chunks)
@@ -98,9 +100,15 @@ async def _resolve_user_model(
 
 @router.post("/transcribe", response_model=SpeechTranscription)
 async def transcribe_audio(
-    file: UploadFile = File(..., description="音频文件（浏览器录音或上传）"),
-    language: Optional[str] = Form(None, max_length=8, description="ISO-639-1，如 zh / en；留空自动检测"),
-    prompt: Optional[str] = Form(None, max_length=1000, description="词汇提示，偏向专有名词"),
+    file: UploadFile = File(..., description="Audio file (browser recording or upload)"),
+    language: Optional[str] = Form(
+        None,
+        max_length=8,
+        description="ISO-639-1 code, e.g. zh / en; leave empty to auto-detect",
+    ),
+    prompt: Optional[str] = Form(
+        None, max_length=1000, description="Vocabulary hints, biased toward proper nouns"
+    ),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -194,9 +202,9 @@ async def list_voices(
     next time OpenRouter adds a provider.
     """
     if not speech_service.is_configured():
-        raise HTTPException(
+        raise ApiError(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="语音功能未配置：请在 .env 中设置 OPENROUTER_API_KEY",
+            code="SPEECH_NOT_CONFIGURED",
         )
 
     voice_model = (model or "").strip() or await _resolve_user_model(

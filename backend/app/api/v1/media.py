@@ -11,6 +11,7 @@ from app.models.conversation import Conversation, Message
 from app.models.user import User
 from app.api.v1.deps import get_current_user_allow_query_token
 from app.services.media_storage import media_storage, MediaStorageError
+from app.core.errors import ApiError
 
 router = APIRouter(prefix="/media", tags=["media"])
 
@@ -31,13 +32,19 @@ async def _stream_media_file(
     current_user: User,
     media_id: str,
     media_columns: List[Any],
-    type_name: str,
+    not_found_or_deleted_code: str,
+    forbidden_code: str,
+    file_missing_code: str,
     default_mime: str,
     default_ext: str,
     download: bool,
     extra_headers: Optional[Dict[str, str]] = None,
 ) -> FileResponse:
-    """Stream a stored media attachment back to its owner after verifying ownership."""
+    """Stream a stored media attachment back to its owner after verifying ownership.
+
+    错误码由调用方传入（图片一套、视频一套），文案与语序交给 core/messages.py。
+    此前这里收一个中文 ``type_name`` 再拼进 f-string，抛出的 detail 永远是中文。
+    """
     conditions = [col.contains(media_id) for col in media_columns]
     stmt = (
         select(Message.id, Message.conversation_id, *media_columns)
@@ -74,14 +81,14 @@ async def _stream_media_file(
             break
 
     if not rel_path or not owner_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"{type_name}不存在或已删除")
+        raise ApiError(status.HTTP_404_NOT_FOUND, not_found_or_deleted_code)
 
     conv_stmt = select(Conversation.user_id).where(Conversation.id == owner_id)
     conversation_owner = (await db.execute(conv_stmt)).scalar_one_or_none()
 
     is_owner = conversation_owner == current_user.id
     if not (is_owner or getattr(current_user, "is_superuser", False)):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"无权访问该{type_name}")
+        raise ApiError(status.HTTP_403_FORBIDDEN, forbidden_code)
 
     try:
         absolute = media_storage.resolve(rel_path)
@@ -89,7 +96,7 @@ async def _stream_media_file(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
     if not absolute.is_file():
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"{type_name}文件已丢失")
+        raise ApiError(status.HTTP_404_NOT_FOUND, file_missing_code)
 
     media_type = CONTENT_TYPES.get((ext or absolute.suffix.lstrip(".")).lower(), default_mime)
     headers = {
@@ -118,14 +125,16 @@ async def get_image(
     Stream one generated or uploaded image back to its owner.
     """
     if not media_storage.is_valid_image_id(image_id):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="图片不存在")
+        raise ApiError(status.HTTP_404_NOT_FOUND, "IMAGE_NOT_FOUND")
 
     return await _stream_media_file(
         db=db,
         current_user=current_user,
         media_id=image_id,
         media_columns=[Message.generated_images, Message.user_attachments],
-        type_name="图片",
+        not_found_or_deleted_code="IMAGE_NOT_FOUND_OR_DELETED",
+        forbidden_code="IMAGE_FORBIDDEN",
+        file_missing_code="IMAGE_FILE_MISSING",
         default_mime="application/octet-stream",
         default_ext="png",
         download=bool(download),
@@ -143,14 +152,16 @@ async def get_video(
     Stream one generated video back to its owner.
     """
     if not media_storage.is_valid_video_id(video_id):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="视频不存在")
+        raise ApiError(status.HTTP_404_NOT_FOUND, "VIDEO_NOT_FOUND")
 
     return await _stream_media_file(
         db=db,
         current_user=current_user,
         media_id=video_id,
         media_columns=[Message.generated_videos],
-        type_name="视频",
+        not_found_or_deleted_code="VIDEO_NOT_FOUND_OR_DELETED",
+        forbidden_code="VIDEO_FORBIDDEN",
+        file_missing_code="VIDEO_FILE_MISSING",
         default_mime="video/mp4",
         default_ext="mp4",
         download=bool(download),

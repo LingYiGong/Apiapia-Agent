@@ -34,6 +34,8 @@ from typing import Mapping, Optional, Tuple, Union
 
 import httpx
 
+from app.core.i18n import tr
+
 IPNetwork = Union[ipaddress.IPv4Network, ipaddress.IPv6Network]
 
 #: Networks a caller-influenced URL may never point at.
@@ -107,23 +109,23 @@ async def ensure_public_url(url: str, *, allow_http: bool) -> str:
     """
     candidate = (url or "").strip()
     if not candidate:
-        raise UnsafeURLError("地址为空")
+        raise UnsafeURLError(tr("URL_EMPTY"))
 
     parsed = httpx.URL(candidate)
     if parsed.scheme not in ("http", "https"):
         raise UnsafeURLError(
-            f"只支持 http/https 地址，收到：{parsed.scheme or '(空)'}"
+            tr("URL_SCHEME_UNSUPPORTED", scheme=parsed.scheme or "(空)")
         )
     if parsed.username or parsed.password:
-        raise UnsafeURLError("地址不得内嵌用户名或密码")
+        raise UnsafeURLError(tr("URL_HAS_CREDENTIALS"))
 
     host = parsed.host
     if not host:
-        raise UnsafeURLError("地址缺少主机名")
+        raise UnsafeURLError(tr("URL_MISSING_HOST"))
 
     lowered = host.lower()
     if lowered in BLOCKED_HOSTNAMES:
-        raise UnsafeURLError(f"禁止访问指向内网的地址：{host}")
+        raise UnsafeURLError(tr("URL_PRIVATE_HOST", host=host))
 
     # A bare IP literal can be judged directly; a hostname needs resolving.
     try:
@@ -139,27 +141,23 @@ async def ensure_public_url(url: str, *, allow_http: bool) -> str:
                 type=socket.SOCK_STREAM,
             )
         except socket.gaierror as e:
-            raise UnsafeURLError(f"主机名无法解析：{host}") from e
+            raise UnsafeURLError(tr("URL_DNS_FAILED", host=host)) from e
         addresses = sorted({info[4][0] for info in infos})
 
     if not addresses:
-        raise UnsafeURLError(f"主机名无法解析：{host}")
+        raise UnsafeURLError(tr("URL_DNS_FAILED", host=host))
 
     for raw_ip in addresses:
         try:
             ip = _normalize_ip(raw_ip)
         except ValueError as e:
-            raise UnsafeURLError(f"主机名解析出非法地址：{raw_ip}") from e
+            raise UnsafeURLError(tr("URL_DNS_BAD_ADDRESS", ip=raw_ip)) from e
         if _is_blocked(ip):
-            raise UnsafeURLError(
-                f"禁止访问内网/链路本地地址：{host} → {ip}"
-            )
+            raise UnsafeURLError(tr("URL_PRIVATE_RESOLVED", host=host, ip=ip))
 
     # Plain http to a remote host would ship the credential in the clear.
     if parsed.scheme == "http" and not allow_http:
-        raise UnsafeURLError(
-            "远程地址必须使用 https（明文 http 会导致凭证泄露）"
-        )
+        raise UnsafeURLError(tr("URL_REQUIRES_HTTPS"))
 
     return candidate
 

@@ -5,11 +5,12 @@ import { Target, Scale, Palette } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Panel, SectionLabel } from "@/components/common/Panel";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/i18n";
 
 const TEMPERATURE_PRESETS = [
-  { id: "precise", label: "严谨精确", value: 0.2, icon: Target },
-  { id: "balanced", label: "日常平衡", value: 0.7, icon: Scale },
-  { id: "creative", label: "发散创意", value: 1.0, icon: Palette },
+  { id: "precise", labelKey: "settings.persona.temperaturePrecise", value: 0.2, icon: Target },
+  { id: "balanced", labelKey: "settings.persona.temperatureBalanced", value: 0.7, icon: Scale },
+  { id: "creative", labelKey: "settings.persona.temperatureCreative", value: 1.0, icon: Palette },
 ] as const;
 
 export function TemperatureControl({
@@ -19,10 +20,12 @@ export function TemperatureControl({
   value: number;
   onChange: (v: number) => void;
 }) {
+  const { t } = useI18n();
+
   return (
     <div>
       <div className="flex items-center justify-between gap-2 px-1 pb-1.5">
-        <SectionLabel className="pb-0">采样温度 (Temperature)</SectionLabel>
+        <SectionLabel className="pb-0">{t("settings.persona.temperatureLabel")}</SectionLabel>
         <span className="rounded-full border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 font-mono text-2xs font-semibold text-rose-600 dark:text-rose-400">
           {value.toFixed(2)}
         </span>
@@ -32,10 +35,19 @@ export function TemperatureControl({
         <div className="space-y-1.5 px-1">
           {/* aria-label 与 aria-valutext 由 Slider 强制要求 */}
           <Slider
-            aria-label="采样温度"
-            formatValueText={(v) => `${v.toFixed(2)}，${
-              v < 0.4 ? "严谨精确" : v > 0.85 ? "发散创意" : "日常平衡"
-            }`}
+            aria-label={t("settings.persona.temperatureAria")}
+            formatValueText={(v) =>
+              t("settings.persona.temperatureValueText", {
+                value: v.toFixed(2),
+                label: t(
+                  v < 0.4
+                    ? "settings.persona.temperaturePrecise"
+                    : v > 0.85
+                      ? "settings.persona.temperatureCreative"
+                      : "settings.persona.temperatureBalanced"
+                ),
+              })
+            }
             min={0}
             max={2}
             step={0.05}
@@ -50,9 +62,9 @@ export function TemperatureControl({
             }}
           />
           <div className="flex justify-between px-0.5 font-mono text-2xs text-muted-foreground">
-            <span>0.0 严谨精确</span>
-            <span>1.0 均衡日常</span>
-            <span>2.0 发散创意</span>
+            <span>{t("settings.persona.temperatureTicks.min")}</span>
+            <span>{t("settings.persona.temperatureTicks.mid")}</span>
+            <span>{t("settings.persona.temperatureTicks.max")}</span>
           </div>
         </div>
 
@@ -77,7 +89,7 @@ export function TemperatureControl({
                   className={cn("h-3.5 w-3.5", isActive ? "text-primary" : "text-muted-foreground")}
                 />
                 <span className="text-xs">
-                  {preset.label} ({preset.value})
+                  {t(preset.labelKey)} ({preset.value})
                 </span>
               </button>
             );

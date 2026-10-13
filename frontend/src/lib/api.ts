@@ -1,3 +1,5 @@
+import { acceptLanguageHeader, getTranslator, resolveStoredLocale } from "@/i18n/runtime";
+
 export function getApiBase(): string {
   // SSR / 构建期：可以直接指向内网地址。
   if (typeof window === "undefined") {
@@ -113,6 +115,21 @@ function handleUnauthorized() {
   }
 }
 
+/**
+ * 后端错误消息的本地化靠标准请求头完成。
+ *
+ * 必须**每次请求都带**：语言存在 localStorage，不在 URL 里，所以后端无从
+ * 得知，只能由客户端声明。用 `Accept-Language` 而不是自定义头，是为了让
+ * 搜索引擎、CDN，以及任何将来绕过本项目前端的调用方都能得到正确语言，
+ * 而不是默认落回中文。
+ */
+function localeHeaders(headers: Headers): void {
+  // 无 token 时不要发空的 Authorization 头 —— 空字符串会被 /api/backend 代理
+  // 原样转发给后端，某些网关会把 "" 当成一个格式非法的凭据而直接 400。
+  // （这条判断原本散在两个函数里，各写一遍；这里统一收口。）
+  headers.set("Accept-Language", acceptLanguageHeader());
+}
+
 export async function apiRequest<T = any>(
   path: string,
   options: RequestInit = {}
@@ -126,6 +143,7 @@ export async function apiRequest<T = any>(
   if (token) {
     headers.set("Authorization", `Bearer ${token}`);
   }
+  localeHeaders(headers);
 
   const base = getApiBase();
   const url = `${base}${path.startsWith("/") ? path : `/${path}`}`;
@@ -143,6 +161,12 @@ export async function apiRequest<T = any>(
     let errorMsg = `API request failed with status ${response.status}`;
     try {
       const err = await response.json();
+      // 后端按 Accept-Language 查好的文案就在 detail 里，直接展示即可。
+      // code 仅用于日志与错误聚类 —— 前端**不**再维护一份错误文案表，
+      // 两边各存一份必然漂移，而漂移出来的表现是「英文界面弹出一条中文错误」。
+      if (err.code) {
+        console.warn(`[api] ${response.status} ${err.code}: ${errorMsg}`);
+      }
       errorMsg = err.detail || err.message || errorMsg;
     } catch (_) {}
     throw new ApiError(errorMsg, response.status);
@@ -224,7 +248,10 @@ export async function streamChatResponse(
   const base = getApiBase();
   const url = `${base}/chat`;
 
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "Accept-Language": acceptLanguageHeader(),
+  };
   // 无 token 时不要发空的 Authorization 头 —— 空字符串会被 /api/backend 代理
   // 原样转发给后端，某些网关会把 "" 当成一个格式非法的凭据而直接 400。
   if (token) headers.Authorization = `Bearer ${token}`;
@@ -267,7 +294,7 @@ export async function streamChatResponse(
 
   const reader = response.body?.getReader();
   if (!reader) {
-    throw new Error("当前浏览器不支持流式响应（ReadableStream 不可用）");
+    throw new Error(getTranslator(resolveStoredLocale())("chat.message.streamUnsupported"));
   }
 
   const decoder = new TextDecoder();
@@ -333,7 +360,7 @@ export async function streamChatResponse(
           callbacks.onToken?.("\n</think>\n\n");
         }
         sawError = true;
-        callbacks.onError?.(parsed.error || "Model stream failed.", {
+        callbacks.onError?.(parsed.error || getTranslator(resolveStoredLocale())("chat.message.modelStreamFailed"), {
           finishReason: parsed.finish_reason,
         });
       }
@@ -389,7 +416,7 @@ export async function streamChatResponse(
       consumeText(decoder.decode(value, { stream: true }));
     }
     if (!sawDone && !sawError && !opts?.signal?.aborted) {
-      callbacks.onError?.("模型连接在完成事件前中断，回答可能不完整。 ");
+      callbacks.onError?.(getTranslator(resolveStoredLocale())("chat.message.streamInterrupted"));
     }
   } catch (e: any) {
     // Intentional stop via AbortController: exit silently without onError

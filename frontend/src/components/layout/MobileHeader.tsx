@@ -6,6 +6,7 @@ import { BrandLogo } from "@/components/common/BrandLogo";
 import { UserAvatarMenu } from "@/components/layout/UserAvatarDropdown";
 import type { MobileTab } from "@/config/navigation";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/i18n";
 
 interface MobileHeaderProps {
   /** 居中标题。与 children 二选一。 */
@@ -48,9 +49,10 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
   onLogoClick,
 }) => {
   const router = useRouter();
+  const { t } = useI18n();
 
   const logoLabel =
-    logoAction === "new-chat" ? "新建对话" : "返回 Apiapia 助理对话页";
+    logoAction === "new-chat" ? t("nav.newChat") : t("nav.chat.mobileTitle");
 
   return (
     <header

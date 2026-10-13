@@ -6,6 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from app.core.database import get_db
+from app.core.errors import ApiError
+from app.core.i18n import tr
 from app.models.user import User
 from app.models.conversation import Conversation, Message
 from app.api.v1.deps import get_current_user, get_current_admin
@@ -500,15 +502,15 @@ async def toggle_user_active(
 ):
     """Enable or disable a user account."""
     if user_id == admin_user.id:
-        raise HTTPException(
+        raise ApiError(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="不能停用当前登录的管理员账号"
+            code="CANNOT_DISABLE_SELF",
         )
 
     stmt = select(User).where(User.id == user_id)
     target = (await db.execute(stmt)).scalar_one_or_none()
     if not target:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="用户不存在")
+        raise ApiError(status_code=status.HTTP_404_NOT_FOUND, code="USER_NOT_FOUND")
 
     target.is_active = not target.is_active
     await db.commit()
@@ -517,7 +519,10 @@ async def toggle_user_active(
         "user_id": target.id,
         "username": target.username,
         "is_active": target.is_active,
-        "message": f"用户 {target.username} 已{'启用' if target.is_active else '停用'}"
+        "message": tr(
+            "ADMIN_USER_ENABLED" if target.is_active else "ADMIN_USER_DISABLED",
+            username=target.username,
+        )
     }
 
 
@@ -529,15 +534,15 @@ async def toggle_user_admin(
 ):
     """Grant or revoke super admin privilege."""
     if user_id == admin_user.id:
-        raise HTTPException(
+        raise ApiError(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="不能修改自己账号的管理员权限"
+            code="CANNOT_MODIFY_SELF_ADMIN",
         )
 
     stmt = select(User).where(User.id == user_id)
     target = (await db.execute(stmt)).scalar_one_or_none()
     if not target:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="用户不存在")
+        raise ApiError(status_code=status.HTTP_404_NOT_FOUND, code="USER_NOT_FOUND")
 
     target.is_superuser = not target.is_superuser
     if target.is_superuser:
@@ -555,7 +560,10 @@ async def toggle_user_admin(
         "username": target.username,
         "is_superuser": target.is_superuser,
         "can_access_all_models": target.can_access_all_models,
-        "message": f"用户 {target.username} 管理员权限已{'开启' if target.is_superuser else '取消'}"
+        "message": tr(
+            "ADMIN_FLAG_GRANTED" if target.is_superuser else "ADMIN_FLAG_REVOKED",
+            username=target.username,
+        )
     }
 
 
@@ -577,12 +585,12 @@ async def toggle_user_all_models(
     stmt = select(User).where(User.id == user_id)
     target = (await db.execute(stmt)).scalar_one_or_none()
     if not target:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="用户不存在")
+        raise ApiError(status_code=status.HTTP_404_NOT_FOUND, code="USER_NOT_FOUND")
 
     if target.is_superuser:
-        raise HTTPException(
+        raise ApiError(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="管理员账号默认拥有全部模型访问权限，无需修改"
+            code="ADMIN_MODELS_NOOP",
         )
 
     if payload and payload.can_access_all_models is not None:
@@ -596,7 +604,10 @@ async def toggle_user_all_models(
         "user_id": target.id,
         "username": target.username,
         "can_access_all_models": target.can_access_all_models,
-        "message": f"用户 {target.username} 已{'开通完整体验' if target.can_access_all_models else '切换为体验模式'}"
+        "message": tr(
+            "ADMIN_FULL_ACCESS_ON" if target.can_access_all_models else "ADMIN_FULL_ACCESS_OFF",
+            username=target.username,
+        )
     }
 
 
@@ -654,7 +665,7 @@ async def get_admin_conversation_messages(
     c_stmt = select(Conversation).where(Conversation.id == conversation_id)
     conv = (await db.execute(c_stmt)).scalar_one_or_none()
     if not conv:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="对话不存在")
+        raise ApiError(status_code=status.HTTP_404_NOT_FOUND, code="CONVERSATION_NOT_FOUND")
 
     m_stmt = (
         select(Message)

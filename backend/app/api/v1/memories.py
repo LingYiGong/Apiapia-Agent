@@ -3,6 +3,7 @@ import logging
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import JSONResponse
+from app.core.errors import ApiError
 from app.models.user import User
 from app.schemas.memory import (
     MemoryUpdate,
@@ -110,7 +111,7 @@ async def get_memory(
 ):
     memory = memory_service.get_memory(user_id=current_user.id, memory_id=memory_id)
     if not memory:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Memory not found")
+        raise ApiError(status_code=status.HTTP_404_NOT_FOUND, code="MEMORY_NOT_FOUND")
     return memory
 
 

@@ -4,6 +4,7 @@ import * as React from "react";
 import { Globe, ExternalLink } from "lucide-react";
 import type { SearchResultItem } from "@/types";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/i18n";
 
 /**
  * 「参考了 N 个网页来源」折叠面板。
@@ -36,6 +37,7 @@ export function SearchSources({
   className?: string;
   defaultOpen?: boolean;
 }) {
+  const { t } = useI18n();
   const items = React.useMemo(
     () => results.filter((r) => r && r.url),
     [results]
@@ -53,7 +55,7 @@ export function SearchSources({
       <summary className="flex cursor-pointer select-none items-center justify-between p-2 font-medium text-foreground transition-colors hover:bg-surface-3/60 sm:p-2.5">
         <span className="flex min-w-0 items-center gap-1.5">
           <Globe className="h-3.5 w-3.5 shrink-0 text-primary" />
-          <span className="truncate">参考了 {items.length} 个网页来源</span>
+          <span className="truncate">{t("chat.markdown.sourcesSummary", { count: items.length })}</span>
         </span>
         {/* ▼ 是纯装饰：折叠状态已由 <details> 的语义与浏览器默认标记传达，
             这里只保留一个视觉箭头，并对其 aria-hidden。 */}

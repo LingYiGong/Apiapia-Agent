@@ -7,7 +7,7 @@ import { ViewShell } from "@/components/common/ViewShell";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { ActionTooltip } from "@/components/common/ActionTooltip";
-import { SegmentedControl } from "@/components/common/SegmentedControl";
+import { SegmentedControl, type SegmentedOption } from "@/components/common/SegmentedControl";
 import { AdminBadge } from "@/components/common/UserAvatar";
 import { FullPageSkeleton, StatCardsSkeleton } from "@/components/common/PageSkeleton";
 import {
@@ -25,6 +25,8 @@ import { useRefreshOnResume } from "@/hooks/useRefreshOnResume";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { useConfirm } from "@/hooks/useConfirm";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
+import { useI18n } from "@/i18n";
+import type { MessageKey } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { MyUsageStats, AdminOverviewStats } from "@/types";
@@ -49,28 +51,34 @@ export interface UsageViewProps {
   active?: boolean;
 }
 
-const PERIOD_LABELS: Record<PeriodType, string> = {
-  today: "今天",
-  month: "本月",
-  year: "今年",
-  all: "全部累计",
+const PERIOD_LABEL_KEYS: Record<PeriodType, MessageKey> = {
+  today: "usage.period.today",
+  month: "usage.period.month",
+  year: "usage.period.year",
+  all: "usage.period.all",
+};
+
+const PERIOD_HINT_KEYS: Record<PeriodType, MessageKey> = {
+  today: "usage.period.hintToday",
+  month: "usage.period.hintMonth",
+  year: "usage.period.hintYear",
+  all: "usage.period.hintAll",
 };
 
 /** 时间区间筛选器。上一版是 Tab，一度用 Tabs 组件（role=tablist）实现，
- *  但它不是选项卡而是「一组单选」，现在改为 SegmentedControl（radiogroup）。 */
-const PERIOD_OPTIONS = [
-  { value: "today" as const, label: "今天", icon: Zap, iconClassName: "text-amber-500" },
-  { value: "month" as const, label: "本月", icon: Calendar, iconClassName: "text-blue-500" },
-  { value: "year" as const, label: "今年", icon: TrendingUp, iconClassName: "text-indigo-500" },
-  { value: "all" as const, label: "全部累计", icon: Coins, iconClassName: "text-emerald-500" },
+ *  但它不是选项卡而是「一组单选」，现在改为 SegmentedControl（radiogroup）。
+ *  模块级只存**键**，文案在渲染时经 t() 查 —— 否则换语言时这里必然留下中文。 */
+const PERIOD_OPTIONS: readonly {
+  value: PeriodType;
+  labelKey: MessageKey;
+  icon: typeof Zap;
+  iconClassName: string;
+}[] = [
+  { value: "today", labelKey: "usage.period.today", icon: Zap, iconClassName: "text-amber-500" },
+  { value: "month", labelKey: "usage.period.month", icon: Calendar, iconClassName: "text-blue-500" },
+  { value: "year", labelKey: "usage.period.year", icon: TrendingUp, iconClassName: "text-indigo-500" },
+  { value: "all", labelKey: "usage.period.all", icon: Coins, iconClassName: "text-emerald-500" },
 ];
-
-const PERIOD_HINT: Record<PeriodType, string> = {
-  today: "⚡ 今日 00:00 至今",
-  month: "📅 本月 1 日 00:00 至今",
-  year: "📆 本年 1 月 1 日至今",
-  all: "🌐 历史全部数据汇总",
-};
 
 export const UsageView: React.FC<UsageViewProps> = ({
   isMobileSpa = false,
@@ -78,6 +86,7 @@ export const UsageView: React.FC<UsageViewProps> = ({
   active = true,
 }) => {
   const { user, loading } = useAuth();
+  const { t, fmt } = useI18n();
 
   const [activeTab, setActiveTab] = useState<"overview" | "my">("overview");
   const [period, setPeriod] = useState<PeriodType>("all");
@@ -162,11 +171,11 @@ export const UsageView: React.FC<UsageViewProps> = ({
 
   const handleToggleActive = (userId: string, currentStatus: boolean, username: string) => {
     askConfirm({
-      title: `${currentStatus ? "停用" : "启用"}用户`,
-      description: `确定要${currentStatus ? "停用" : "启用"}用户「${username}」吗？${
-        currentStatus ? "停用后该用户将无法登录使用。" : ""
-      }`,
-      confirmText: currentStatus ? "停用" : "启用",
+      title: currentStatus ? t("usage.admin.disableConfirmTitle") : t("usage.admin.enableConfirmTitle"),
+      description: currentStatus
+        ? t("usage.admin.disableConfirmDesc", { username })
+        : t("usage.admin.enableConfirmDesc", { username }),
+      confirmText: currentStatus ? t("usage.admin.disable") : t("usage.admin.enable"),
       danger: currentStatus,
       onConfirm: () =>
         // key 必须带上动作名。三个操作原本都用裸 userId，于是「设为管理员」在
@@ -178,16 +187,24 @@ export const UsageView: React.FC<UsageViewProps> = ({
             await apiRequest(`/stats/admin/users/${userId}/toggle-active`, { method: "POST" });
             await fetchStats();
           },
-          { success: `已${currentStatus ? "停用" : "启用"}用户「${username}」` }
+          {
+            success: currentStatus
+              ? t("usage.admin.disableDone", { username })
+              : t("usage.admin.enableDone", { username }),
+          }
         ),
     });
   };
 
   const handleToggleAdmin = (userId: string, currentAdmin: boolean, username: string) => {
     askConfirm({
-      title: `${currentAdmin ? "取消" : "授予"}管理员权限`,
-      description: `确定要${currentAdmin ? "取消" : "设置"}用户「${username}」的超级管理员权限吗？`,
-      confirmText: currentAdmin ? "取消权限" : "设为管理员",
+      title: currentAdmin ? t("usage.admin.revokeAdminTitle") : t("usage.admin.grantAdminTitle"),
+      description: currentAdmin
+        ? t("usage.admin.revokeAdminDesc", { username })
+        : t("usage.admin.grantAdminDesc", { username }),
+      confirmText: currentAdmin
+        ? t("usage.admin.revokeAdminConfirm")
+        : t("usage.admin.grantAdminConfirm"),
       danger: currentAdmin,
       onConfirm: () =>
         runAction(
@@ -196,7 +213,11 @@ export const UsageView: React.FC<UsageViewProps> = ({
             await apiRequest(`/stats/admin/users/${userId}/toggle-admin`, { method: "POST" });
             await fetchStats();
           },
-          { success: `已${currentAdmin ? "取消" : "授予"}用户「${username}」的管理员权限` }
+          {
+            success: currentAdmin
+              ? t("usage.admin.revokeAdminDone", { username })
+              : t("usage.admin.grantAdminDone", { username }),
+          }
         ),
     });
   };
@@ -204,11 +225,13 @@ export const UsageView: React.FC<UsageViewProps> = ({
   const handleToggleAllModels = (userId: string, currentAccessAll: boolean, username: string) => {
     const nextStatus = !currentAccessAll;
     askConfirm({
-      title: `${nextStatus ? "开通" : "限制"}模型访问权限`,
+      title: nextStatus ? t("usage.admin.grantModelsTitle") : t("usage.admin.restrictModelsTitle"),
       description: nextStatus
-        ? `确定为用户「${username}」开通完整体验权限吗？开通后该用户可使用系统内包括所有高级付费模型在内的全部可用模型。`
-        : `确定将用户「${username}」切换为体验模式吗？切换后该用户将只能访问和调用免费模型。`,
-      confirmText: nextStatus ? "开通完整体验" : "切换为体验模式",
+        ? t("usage.admin.grantModelsDesc", { username })
+        : t("usage.admin.restrictModelsDesc", { username }),
+      confirmText: nextStatus
+        ? t("usage.admin.grantModelsConfirm")
+        : t("usage.admin.restrictModelsConfirm"),
       danger: !nextStatus,
       onConfirm: () =>
         runAction(
@@ -221,7 +244,9 @@ export const UsageView: React.FC<UsageViewProps> = ({
             await fetchStats();
           },
           {
-            success: `已为用户「${username}」${nextStatus ? "开通完整体验" : "切换为体验模式"}`,
+            success: nextStatus
+              ? t("usage.admin.grantModelsDone", { username })
+              : t("usage.admin.restrictModelsDone", { username }),
           }
         ),
     });
@@ -235,7 +260,7 @@ export const UsageView: React.FC<UsageViewProps> = ({
       const data = await apiRequest<any[]>(`/stats/admin/users/${userId}/conversations`);
       setAuditConversations(data || []);
     } catch (err: any) {
-      toast.error(err.message || "获取对话列表失败");
+      toast.error(err.message || t("usage.audit.loadConversationsFailed"));
     } finally {
       setAuditLoading(false);
     }
@@ -256,7 +281,7 @@ export const UsageView: React.FC<UsageViewProps> = ({
       );
       setInspectData(res);
     } catch (err: any) {
-      toast.error(err.message || "获取对话消息失败");
+      toast.error(err.message || t("usage.audit.loadMessagesFailed"));
     } finally {
       setInspectLoading(false);
     }
@@ -272,9 +297,9 @@ export const UsageView: React.FC<UsageViewProps> = ({
       await apiRequest(`/conversations/${convId}/restore`, { method: "POST" });
       await fetchAuditList(auditUser.id);
       await fetchStats();
-      toast.success(`已恢复对话「${title}」`);
+      toast.success(t("usage.audit.restoreDone", { title }));
     } catch (err: any) {
-      toast.error(err.message || "恢复对话失败");
+      toast.error(err.message || t("usage.audit.restoreFailed"));
     } finally {
       setRestoreLoading(null);
     }
@@ -303,19 +328,36 @@ export const UsageView: React.FC<UsageViewProps> = ({
 
   if (loading || !user) return <FullPageSkeleton variant="list" />;
 
-  const currentPeriodName = PERIOD_LABELS[period];
+  const currentPeriodName = t(PERIOD_LABEL_KEYS[period]);
   const showSkeleton = isLoading && !adminStats && !myStats;
 
-  const trendTitle =
+  // 模块级只存键；文案在渲染时经 t() 查，否则换语言时这里必然留下中文。
+  const periodOptions = PERIOD_OPTIONS.map(
+    (o): SegmentedOption<PeriodType> => ({
+      value: o.value,
+      label: t(o.labelKey),
+      icon: o.icon,
+      iconClassName: o.iconClassName,
+    })
+  );
+
+  const adminTrendTitle =
     period === "today"
-      ? "今日各时段消耗走势 (Hourly Trend)"
+      ? t("usage.trend.adminTodayTitle")
       : period === "year"
-      ? "今年各月份消耗走势 (Monthly Trend)"
-      : `${currentPeriodName}走势明细`;
+      ? t("usage.trend.adminYearTitle")
+      : t("usage.trend.adminDefaultTitle", { period: currentPeriodName });
+
+  const userTrendTitle =
+    period === "today"
+      ? t("usage.trend.userTodayTitle")
+      : period === "year"
+      ? t("usage.trend.userYearTitle")
+      : t("usage.trend.userDefaultTitle", { period: currentPeriodName });
 
   return (
     <ViewShell
-      title="用量与账单"
+      title={t("usage.title")}
       isMobileSpa={isMobileSpa}
       onSelectMobileTab={onSelectMobileTab}
       maxWidth="6xl"
@@ -326,17 +368,15 @@ export const UsageView: React.FC<UsageViewProps> = ({
           <div className="flex items-center gap-2">
             <span className="flex items-center gap-1.5 text-xs font-medium text-primary">
               <BarChart3 className="h-4 w-4 shrink-0" />
-              <span>{isSuperuser ? "平台用量监控" : "个人用量统计"}</span>
+              <span>{isSuperuser ? t("usage.header.adminEyebrow") : t("usage.header.userEyebrow")}</span>
             </span>
             {isSuperuser && <AdminBadge size="sm" />}
           </div>
           <h1 className="text-2xl font-semibold text-foreground sm:text-3xl">
-            {isSuperuser ? "平台用量与成本核算" : "我的用量总览"}
+            {isSuperuser ? t("usage.header.adminTitle") : t("usage.header.userTitle")}
           </h1>
           <p className="max-w-2xl text-footnote leading-relaxed text-muted-foreground">
-            {isSuperuser
-              ? "统计所有注册用户的 Token 消耗、调用轮次与模型定价折算费用，支持时间区间筛选与账号权限管控。"
-              : "查看你在本平台产生的全部对话轮次、输入/输出 Token 消耗及模型调用明细。"}
+            {isSuperuser ? t("usage.header.adminDesc") : t("usage.header.userDesc")}
           </p>
         </div>
 
@@ -347,7 +387,7 @@ export const UsageView: React.FC<UsageViewProps> = ({
       <div className="flex items-center justify-between gap-2 pb-0.5 md:hidden">
         <div className="flex items-center gap-1.5">
           <span className="text-xs font-medium text-muted-foreground">
-            {isSuperuser ? "平台管理员控制台" : "个人用量统计"}
+            {isSuperuser ? t("usage.header.adminMobileSub") : t("usage.header.userMobileSub")}
           </span>
           {isSuperuser && <AdminBadge size="sm" />}
         </div>
@@ -358,20 +398,20 @@ export const UsageView: React.FC<UsageViewProps> = ({
       <div className="flex flex-col gap-2.5 rounded-2xl border border-border/50 bg-card/80 p-2 shadow-2xs backdrop-blur-md sm:flex-row sm:items-center sm:justify-between sm:p-2.5">
         <div className="flex shrink-0 items-center gap-2 overflow-x-auto py-0.5 no-scrollbar">
           <span className="shrink-0 whitespace-nowrap pl-1 text-xs font-medium text-muted-foreground">
-            统计区间:
+            {t("usage.period.label")}
           </span>
           <SegmentedControl
             size="sm"
-            ariaLabel="统计时间区间"
+            ariaLabel={t("usage.period.aria")}
             value={period}
             onValueChange={handlePeriodChange}
-            options={PERIOD_OPTIONS}
+            options={periodOptions}
             listClassName="shrink-0"
           />
         </div>
 
         <span className="shrink-0 self-start rounded-md border border-border/20 bg-surface-3/30 px-2 py-0.5 font-mono text-2xs text-muted-foreground/80 sm:self-auto">
-          {PERIOD_HINT[period]}
+          {t(PERIOD_HINT_KEYS[period])}
         </span>
       </div>
 
@@ -384,10 +424,10 @@ export const UsageView: React.FC<UsageViewProps> = ({
               className="flex h-7 items-center gap-1.5 rounded-lg px-3.5 text-xs font-medium transition-all data-[state=active]:bg-background data-[state=active]:shadow-2xs data-[state=active]:text-foreground sm:text-sm"
             >
               <Users className="h-3.5 w-3.5 text-indigo-500" />
-              <span>全部用户</span>
+              <span>{t("usage.tabs.allUsers")}</span>
               {adminStats && (
                 <span className="rounded-full bg-primary/10 px-1.5 py-px font-mono text-2xs font-semibold text-primary">
-                  {adminStats.total_users}
+                  {fmt.number(adminStats.total_users)}
                 </span>
               )}
             </TabsTrigger>
@@ -396,7 +436,7 @@ export const UsageView: React.FC<UsageViewProps> = ({
               className="flex h-7 items-center gap-1.5 rounded-lg px-3.5 text-xs font-medium transition-all data-[state=active]:bg-background data-[state=active]:shadow-2xs data-[state=active]:text-foreground sm:text-sm"
             >
               <UserCheck className="h-3.5 w-3.5 text-emerald-500" />
-              <span>我的用量</span>
+              <span>{t("usage.tabs.myUsage")}</span>
             </TabsTrigger>
           </TabsList>
         </Tabs>
@@ -424,9 +464,9 @@ export const UsageView: React.FC<UsageViewProps> = ({
 
           <TrendGrid
             items={adminStats.daily_trend}
-            title={trendTitle}
-            description="各时间段的 Token 与费用趋势分布"
-            unitLabel="次"
+            title={adminTrendTitle}
+            description={t("usage.trend.adminDesc")}
+            unitLabel={t("usage.trend.adminUnit")}
           />
         </div>
       )}
@@ -437,15 +477,9 @@ export const UsageView: React.FC<UsageViewProps> = ({
           <MyModelsTable items={myStats.model_breakdown} />
           <TrendGrid
             items={myStats.daily_trend}
-            title={
-              period === "today"
-                ? "今日各时段消耗走势 (Hourly Trend)"
-                : period === "year"
-                ? "今年各月份用量分布 (Monthly Trend)"
-                : `${currentPeriodName}走势明细`
-            }
-            description="你个人在选定区间内的对话与 Token 趋势"
-            unitLabel="次对话"
+            title={userTrendTitle}
+            description={t("usage.trend.userDesc")}
+            unitLabel={t("usage.trend.userUnit")}
           />
         </div>
       )}
@@ -478,7 +512,7 @@ export const UsageView: React.FC<UsageViewProps> = ({
       {/* 查阅中的加载态：inspecting 期间在弹窗标题栏给一个转圈 */}
       {inspectLoading && (
         <span className="sr-only" role="status" aria-live="polite">
-          正在载入对话消息…
+          {t("usage.refresh.loadingAudit")}
         </span>
       )}
     </ViewShell>
@@ -494,8 +528,9 @@ function RefreshButton({
   loading: boolean;
   compact?: boolean;
 }) {
+  const { t } = useI18n();
   return (
-    <ActionTooltip label="重新拉取统计">
+    <ActionTooltip label={t("usage.refresh.tip")}>
       <Button
         type="button"
         variant="outline"
@@ -508,7 +543,7 @@ function RefreshButton({
         )}
       >
         <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin text-primary")} />
-        <span>{compact ? "刷新" : "刷新数据"}</span>
+        <span>{compact ? t("usage.refresh.short") : t("usage.refresh.full")}</span>
       </Button>
     </ActionTooltip>
   );

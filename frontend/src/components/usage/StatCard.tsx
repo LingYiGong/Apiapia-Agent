@@ -4,6 +4,7 @@ import type { LucideIcon } from "lucide-react";
 
 import * as React from "react";
 import { Panel } from "@/components/common/Panel";
+import { useI18n } from "@/i18n";
 import { cn } from "@/lib/utils";
 
 /**
@@ -115,9 +116,10 @@ export function StatusPill({
 
 /** 「免费」徽章。表格与列表里多处复用。 */
 export function FreeBadge() {
+  const { t } = useI18n();
   return (
     <span className="shrink-0 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0 text-2xs font-medium text-emerald-600 shadow-none dark:text-emerald-400">
-      免费
+      {t("usage.cards.freeBadge")}
     </span>
   );
 }
@@ -136,10 +138,11 @@ export function CostValue({
   className?: string;
   strong?: boolean;
 }) {
+  const { fmt } = useI18n();
   if (isFree) {
     return (
       <span className={cn("font-semibold text-emerald-600 dark:text-emerald-400", className)}>
-        ¥0.00
+        ¥{(0).toFixed(2)}
       </span>
     );
   }
@@ -154,7 +157,7 @@ export function CostValue({
         ¥{cny.toFixed(2)}
       </span>
       <span className="block font-mono text-2xs text-muted-foreground">
-        ${usd.toFixed(4)}
+        {fmt.currency(usd)}
       </span>
     </div>
   );

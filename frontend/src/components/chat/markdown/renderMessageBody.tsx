@@ -6,6 +6,7 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import { Brain } from "lucide-react";
+import { useI18n } from "@/i18n";
 import { CodeBlock } from "@/components/chat/markdown/CodeBlock";
 
 /**
@@ -86,14 +87,26 @@ const rehypePlugins = [rehypeKatex];
  */
 const BODY_TEXT = "text-base sm:text-body leading-[1.62] text-foreground/95";
 
-const baseMarkdownComponents: Record<string, any> = {
-  img: ({ node, ...props }: any) => (
+/**
+ * components 表里的渲染函数由 react-markdown 用 createElement 当**组件**渲染，
+ * 所以它们本身可以调 hook —— 这正是把文案留在本模块内的最小改动：既不用给
+ * renderMessageBody 加第四个参数让 ChatArea / ChatMessageItem 先查一遍文案，
+ * 也不必把 t 一路透传下来。而且它们是模块级稳定引用，正好满足上面那条
+ * 「components 必须是模块级常量」的约束。
+ */
+function MarkdownImage({ node, ...props }: any) {
+  const { t } = useI18n();
+  return (
     <img
       {...props}
-      alt={props.alt || "image"}
+      alt={props.alt || t("chat.markdown.imageAlt")}
       className="my-2 max-h-80 max-w-full rounded-xl border border-border/80 object-contain shadow-sm"
     />
-  ),
+  );
+}
+
+const baseMarkdownComponents: Record<string, any> = {
+  img: MarkdownImage,
   a: ({ node, ...props }: any) => (
     <a
       {...props}
@@ -207,20 +220,32 @@ const baseMarkdownComponents: Record<string, any> = {
 let cachedImageClick: ImageClickHandler | undefined;
 let cachedComponents: Record<string, any> | undefined;
 
+/**
+ * 可点击放大的 markdown 内联图。
+ *
+ * 回调不靠闭包捕获，而是直接读模块级的 cachedImageClick：它与
+ * cachedComponents 同生共死，本来就是「同一时刻只有一份」的缓存槽，
+ * 行为与此前每次新建闭包完全一致。
+ */
+function MarkdownImageClickable({ node, ...props }: any) {
+  const { t } = useI18n();
+  return (
+    <img
+      {...props}
+      alt={props.alt || t("chat.markdown.imageAlt")}
+      onClick={() => props.src && cachedImageClick?.(props.src, props.alt)}
+      title={t("chat.markdown.imageZoom")}
+      className="my-2 max-h-80 max-w-full cursor-zoom-in rounded-xl border border-border/80 object-contain shadow-sm transition-opacity hover:opacity-95"
+    />
+  );
+}
+
 function getMessageComponents(onImageClick?: ImageClickHandler) {
   if (cachedComponents && cachedImageClick === onImageClick) return cachedComponents;
   cachedImageClick = onImageClick;
   cachedComponents = {
     ...baseMarkdownComponents,
-    img: ({ node, ...props }: any) => (
-      <img
-        {...props}
-        alt={props.alt || "image"}
-        onClick={() => props.src && onImageClick?.(props.src, props.alt)}
-        title="点击放大查看原图"
-        className="my-2 max-h-80 max-w-full cursor-zoom-in rounded-xl border border-border/80 object-contain shadow-sm transition-opacity hover:opacity-95"
-      />
-    ),
+    img: MarkdownImageClickable,
   };
   return cachedComponents;
 }
@@ -251,6 +276,7 @@ function ThinkingBlock({
   streaming: boolean;
   hasBody: boolean;
 }) {
+  const { t } = useI18n();
   return (
     <details
       open={!hasBody || streaming}
@@ -259,7 +285,7 @@ function ThinkingBlock({
       <summary className="flex cursor-pointer select-none items-center justify-between font-medium text-primary">
         <span className="flex items-center gap-1.5">
           <Brain className="h-3.5 w-3.5 animate-pulse text-primary" />
-          <span>思考过程</span>
+          <span>{t("chat.markdown.thinkingTitle")}</span>
         </span>
         <span
           aria-hidden="true"
@@ -270,6 +296,21 @@ function ThinkingBlock({
       </summary>
       <ThoughtBox thought={thought} autoScroll={streaming && !hasBody} />
     </details>
+  );
+}
+
+/**
+ * 「只输出了思考过程、没有正文」的兜底说明。
+ *
+ * renderMessageBody 是模块级函数，拿不到 hook，所以这段文案单独包成一个
+ * 组件：调用处仍是 `<EmptyAnswerNote />`，不需要把 t 透传进来。
+ */
+function EmptyAnswerNote() {
+  const { t } = useI18n();
+  return (
+    <div className="px-1 py-1 text-xs italic text-muted-foreground/75">
+      {t("chat.markdown.emptyAnswer")}
+    </div>
   );
 }
 
@@ -316,10 +357,7 @@ export function renderMessageBody(
             </ReactMarkdown>
           </div>
         ) : !isStreaming ? (
-          <div className="px-1 py-1 text-xs italic text-muted-foreground/75">
-            （模型仅输出了思考过程，未生成正式正文。这通常是因为该问题推理链较长耗尽了单次最大
-            Token 截断限制，或上游服务提前中断。）
-          </div>
+          <EmptyAnswerNote />
         ) : null}
       </div>
     );

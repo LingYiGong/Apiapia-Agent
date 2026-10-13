@@ -2,7 +2,8 @@
 
 import React from "react";
 import { useTheme, type Theme } from "@/lib/theme";
-import { THEME_LABELS_LONG } from "@/components/common/ThemeSegments";
+import { THEME_LABEL_KEYS_LONG } from "@/components/common/ThemeSegments";
+import { useI18n } from "@/i18n";
 import { type LucideIcon, Sun, Moon, Monitor, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ActionTooltip } from "@/components/common/ActionTooltip";
@@ -32,15 +33,16 @@ export interface ThemeToggleProps {
  *
  * 与 <ThemeSegments> 的分工：分段控件放不下窄栏（顶栏、登录页），用这个；
  * 有整行空间的地方（头像菜单、设置页）用分段控件。文案统一取自
- * THEME_LABELS_LONG，档位定义不再各写一份。
+ * THEME_LABEL_KEYS_LONG（存的是词典键，不是字符串），档位定义不再各写一份。
  */
 export const ThemeToggle: React.FC<ThemeToggleProps> = ({
   className,
   variant = "outline",
 }) => {
   const { theme, resolvedTheme, setTheme } = useTheme();
-  const currentLabel = THEME_LABELS_LONG[theme] ?? "跟随系统";
-  const triggerLabel = `切换外观（当前：${currentLabel}）`;
+  const { t } = useI18n();
+  const currentLabel = t(THEME_LABEL_KEYS_LONG[theme] ?? "common.theme.system");
+  const triggerLabel = t("settings.themeToggle.tooltip", { current: currentLabel });
 
   const icon =
     theme === "system" ? (
@@ -64,7 +66,7 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({
         )}
       >
         {icon}
-        <span className="sr-only">切换外观主题</span>
+        <span className="sr-only">{t("settings.themeToggle.srApple")}</span>
       </button>
     ) : (
       <Button
@@ -73,7 +75,7 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({
         className={cn(className)}
       >
         {icon}
-        <span className="sr-only">切换主题</span>
+        <span className="sr-only">{t("settings.themeToggle.sr")}</span>
       </Button>
     );
 
@@ -87,7 +89,7 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({
         className="w-36 rounded-2xl border border-border/60 bg-background/90 p-1 shadow-xl backdrop-blur-2xl"
       >
         <DropdownMenuLabel className="px-2 py-1 text-2xs font-medium uppercase tracking-wider text-muted-foreground">
-          界面外观
+          {t("settings.themeToggle.heading")}
         </DropdownMenuLabel>
         <DropdownMenuSeparator className="my-1 opacity-60" />
         {(Object.keys(THEME_ICON) as Theme[]).map((value) => {
@@ -111,7 +113,7 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({
                   value === "dark" && "text-indigo-400"
                 )}
               />
-              <span>{THEME_LABELS_LONG[value]}</span>
+              <span>{t(THEME_LABEL_KEYS_LONG[value])}</span>
               {isSelected && <Check className="ml-auto h-3.5 w-3.5 text-primary" />}
             </DropdownMenuItem>
           );

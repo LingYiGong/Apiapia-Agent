@@ -3,6 +3,13 @@
 参考 Anthropic Constitutional AI 准则、OpenAI Developer System Instructions 及学术界 Ruozhiba/TruthfulQA 基准。
 """
 
+# ⚠️ 本文件里的文字**不再被系统提示词构建器读取**，除了 ANTI_TRAP_RULES。
+# SEARCH_INSTRUCTION 与 FORMAT_INSTRUCTION 现在按请求语言从
+# app/services/prompt/localized.py 取；这里保留的是简体中文参考副本，
+# 仅供对照与 `app.services.prompt` 的向后兼容导出。
+# ANTI_TRAP_RULES 仍然是唯一被直接使用的，且是刻意的 —— 理由见
+# localized.py 的模块头注释。
+
 ANTI_TRAP_RULES = (
     "【核心认知与批判性逻辑防翻车规则 (Anti-Trap & Critical Reasoning Protocol)】\n"
     "为了确保回答具备高度可靠的理性和常识双商，你必须严格执行以下思维检验守则：\n"

@@ -1,8 +1,7 @@
 import type { Metadata, Viewport } from "next";
-import { cookies } from "next/headers";
 import { AuthProvider } from "@/lib/auth";
 import { ThemeProvider } from "@/lib/theme";
-import { I18nProvider, getTranslator, isLocale, DEFAULT_LOCALE, LOCALE_STORAGE_KEY } from "@/i18n";
+import { I18nProvider } from "@/i18n";
 import { UpdatePrompt } from "@/components/common/UpdatePrompt";
 import { CapacitorInit } from "@/components/common/CapacitorInit";
 import { Toaster } from "@/components/ui/sonner";
@@ -27,55 +26,58 @@ export const viewport: Viewport = {
 };
 
 /**
- * 文档 metadata。
+ * 文档 metadata —— **静态导出**。
  *
- * 标题与描述按请求 cookie 里的语言生成；其余字段与语言无关，写死即可。
+ * 曾经写成 `generateMetadata()` 读 cookie 取语言，静态导出（Cloudflare Pages，
+ * `output: "export"`）下直接构建失败：
  *
- * 刻意**不再**同时 export const metadata —— Next 14 不允许两者并存，会直接报
- * `"metadata" and "generateMetadata" cannot be exported at the same time`。
- * 静态导出（output: "export"）下这段会被烘进 HTML，首屏即为正确语言。
+ *     Route /login with `dynamic = "error"` couldn't be rendered statically
+ *     because it used `cookies`
+ *
+ * 静态导出没有请求、没有 cookie 可读，任何服务端 API（`cookies()` /
+ * `headers()`）都会触发这条 bailout。所以这里回到静态 export，标题与描述按
+ * **默认语言**烘进 HTML，真实语言由 `I18nProvider` 在挂载后写进
+ * `document.title`（见 i18n/provider.tsx）。
+ *
+ * 代价只是首屏那一瞬的标题是默认语言：正文本来就是登录后才渲染的客户端内容，
+ * 爬虫看不到实质内容，SEO 上没有损失。
  */
-export async function generateMetadata(): Promise<Metadata> {
-  const stored = (await cookies()).get(LOCALE_STORAGE_KEY)?.value;
-  const t = getTranslator(isLocale(stored) ? stored : DEFAULT_LOCALE);
-
-  return {
-    title: t("meta.appName"),
-    description: t("meta.appDescription"),
-    manifest: "/manifest.json",
-    appleWebApp: {
-      capable: true,
-      statusBarStyle: "default",
-      title: "Apiapia",
-      startupImage: [
-        {
-          url: "/apple-touch-icon-180x180.png",
-        },
-      ],
-    },
-    // 图标全部由这里声明。此前 <head> 里还手写了 12 个 <link rel="icon"> /
-    // <link rel="apple-touch-icon">，与下面这份完全重复 —— Next 会把两份都输出，
-    // 浏览器要下两遍同样的资源，且改图标时必须记得改两个地方。
-    icons: {
-      icon: [
-        { url: "/favicon.ico" },
-        { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
-        { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
-        { url: "/favicon-48x48.png", sizes: "48x48", type: "image/png" },
-        { url: "/icon-192x192.png", sizes: "192x192", type: "image/png" },
-        { url: "/icon.svg", type: "image/svg+xml" },
-      ],
-      shortcut: ["/favicon.ico"],
-      apple: [
-        { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
-        { url: "/apple-touch-icon-120x120.png", sizes: "120x120", type: "image/png" },
-        { url: "/apple-touch-icon-152x152.png", sizes: "152x152", type: "image/png" },
-        { url: "/apple-touch-icon-167x167.png", sizes: "167x167", type: "image/png" },
-        { url: "/apple-touch-icon-180x180.png", sizes: "180x180", type: "image/png" },
-      ],
-    },
-  };
-}
+export const metadata: Metadata = {
+  title: "Apiapia 助理",
+  description: "Apiapia 助理——一只拥有长期记忆的猫咪助理",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Apiapia",
+    startupImage: [
+      {
+        url: "/apple-touch-icon-180x180.png",
+      },
+    ],
+  },
+  // 图标全部由这里声明。此前 <head> 里还手写了 12 个 <link rel="icon"> /
+  // <link rel="apple-touch-icon">，与下面这份完全重复 —— Next 会把两份都输出，
+  // 浏览器要下两遍同样的资源，且改图标时必须记得改两个地方。
+  icons: {
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/favicon-48x48.png", sizes: "48x48", type: "image/png" },
+      { url: "/icon-192x192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
+    shortcut: ["/favicon.ico"],
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+      { url: "/apple-touch-icon-120x120.png", sizes: "120x120", type: "image/png" },
+      { url: "/apple-touch-icon-152x152.png", sizes: "152x152", type: "image/png" },
+      { url: "/apple-touch-icon-167x167.png", sizes: "167x167", type: "image/png" },
+      { url: "/apple-touch-icon-180x180.png", sizes: "180x180", type: "image/png" },
+    ],
+  },
+};
 
 export default function RootLayout({
   children,

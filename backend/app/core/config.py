@@ -86,6 +86,16 @@ class Settings(BaseSettings):
     ADMIN_EMAIL: Optional[str] = None
     ADMIN_USERNAME: Optional[str] = None
 
+    # CORS Configuration (comma-separated origins and optional regex)
+    CORS_ORIGINS: str = Field(
+        default="http://localhost:3000,http://127.0.0.1:3000",
+        description="Comma-separated allowed origins for CORS"
+    )
+    CORS_ORIGIN_REGEX: Optional[str] = Field(
+        default=r"^https://([a-zA-Z0-9-]+\.)*apiapia\.com$",
+        description="Optional regex pattern for allowed CORS origins"
+    )
+
     # Mem0 OSS
     # The embedder provider is not configurable: app.services.memory.credentials
     # always resolves it from the same OpenAI/OpenRouter credential the memory LLM

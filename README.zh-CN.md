@@ -840,3 +840,19 @@ docker exec -t apiapia_postgres pg_dump -U postgres apiapia > backup_$(date +%Y%
 ```bash
 cat backup_xxx.sql | docker exec -i apiapia_postgres psql -U postgres -d apiapia
 ```
+
+---
+
+## 📄 开源许可证与商标声明
+
+- **代码开源协议**：本项目代码采用 [MIT License](LICENSE) 授权。
+- **品牌与吉祥物版权声明**：「Apiapia」品牌名称、官方 Logo、小猫吉祥物形象及 `icons/` 与 `frontend/public/` 目录下的所有原创美术设计资产保留所有权利，不属于 MIT 授权范围。未经原作者事先书面同意，不得将上述素材直接用于商业品牌宣传或冒用官方名义。
+
+---
+
+## ⚠️ 免责声明
+
+1. 本项目仅供学习研究、技术交流与个人日常助理使用。
+2. 用户在配置并调用任何第三方模型服务（如 OpenAI、Anthropic、OpenRouter、Tavily 等）时，须自行确保遵守该服务商的使用条款（Terms of Service）与所在地相关法律法规。
+3. 开发者不对因使用本系统产生的任何直接或间接法律责任、API 资费扣费或数据损失承担责任。
+

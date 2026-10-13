@@ -181,14 +181,12 @@ install_error_handler(app)
 app.add_middleware(MaxBodySizeMiddleware, max_bytes=MAX_REQUEST_BODY_BYTES)
 app.add_middleware(LocaleMiddleware)
 
-# CORS Middleware: 严格只允许 *.apiapia.com 以及本地开发调试端口
+# CORS Middleware: 允许配置的外部域名以及本地开发调试端口
+cors_origins = [o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"^https://([a-zA-Z0-9-]+\.)*apiapia\.com$",
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ],
+    allow_origin_regex=settings.CORS_ORIGIN_REGEX.strip() if settings.CORS_ORIGIN_REGEX and settings.CORS_ORIGIN_REGEX.strip() else None,
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

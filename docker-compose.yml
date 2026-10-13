@@ -33,7 +33,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
       POSTGRES_DB: ${POSTGRES_DB:-apiapia}
     ports:
-      - "${POSTGRES_HOST_PORT:-5432}:5432"
+      # Bind to 127.0.0.1 by default so the database is never exposed to the public internet
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"
     volumes:
       - apiapia_postgres_data:/var/lib/postgresql/data
     healthcheck:

@@ -52,7 +52,7 @@ try {
       console.error("      NEXT_PUBLIC_API_URL = https://你的后端域名/api");
       console.error("");
       console.error("    要求：必须以 https 开头，且后端 CORS 放行你的前端域名");
-      console.error("          （main.py 的 allow_origin_regex 目前只允许 *.apiapia.com）。");
+      console.error("          （在后端的 CORS_ORIGINS 或 CORS_ORIGIN_REGEX 中配置）。");
       console.error("");
       console.error("    仅本地验证产物结构时可加 --export-allow-missing-api 跳过检查。");
       console.error("");

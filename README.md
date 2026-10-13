@@ -362,3 +362,18 @@ Example restore command:
 ```bash
 cat backup_xxx.sql | docker exec -i apiapia_postgres psql -U postgres -d apiapia
 ```
+
+---
+
+## 📄 License & Trademark
+
+- **Code License**: This project is licensed under the [MIT License](LICENSE).
+- **Brand & Mascot Notice**: The name "Apiapia", project logos, mascot graphics, and associated artwork in `icons/` and `frontend/public/` are protected brand assets. They are not covered by the MIT license and may not be used for commercial branding without prior permission.
+
+---
+
+## ⚠️ Disclaimer
+
+1. This project is intended for personal assistant workflows, research, and technical exchange.
+2. When configuring and invoking third-party API providers (OpenAI, Anthropic, OpenRouter, Tavily, etc.), users must strictly abide by the respective providers' Terms of Service and applicable local regulations.
+3. The authors assume no liability for any API charges, data loss, or legal consequences resulting from the deployment or use of this project.

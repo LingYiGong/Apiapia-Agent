@@ -27,10 +27,13 @@ logging.getLogger("uvicorn.access").addFilter(HealthCheckFilter())
 
 
 #: Ceiling on a single request body. A chat message carries attachments as inline
-#: base64 data URLs, so one request is roughly 4/3 of the raw file bytes; 32 MB
-#: leaves room for a handful of images while staying far below the point where the
-#: process starts to thrash.
-MAX_REQUEST_BODY_BYTES = 32 * 1024 * 1024
+#: base64 data URLs, so one request is roughly 4/3 of the raw file bytes: the
+#: 40 MB attachment budget in schemas/chat.py lands at ~53 MB on the wire.
+#: This therefore has to sit *above* that budget, not below it — set any lower
+#: and the 40 MB becomes unreachable, because this layer rejects the body before
+#: the schema validator ever runs. 56 MB leaves ~2.5 MB over the worst case,
+#: which covers the JSON envelope and the message text.
+MAX_REQUEST_BODY_BYTES = 56 * 1024 * 1024
 
 
 class MaxBodySizeMiddleware:

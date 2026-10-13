@@ -168,6 +168,23 @@ const readFileAsDataUrl = (file: File): Promise<string> => {
 };
 
 /**
+ * 附件预算，与后端 `backend/app/schemas/chat.py` 的校验保持一致。
+ *
+ * 三层的换算关系（附件是 base64 data URL 内联进 JSON 的，请求体 ≈ 原始字节 ×4/3）：
+ *
+ * - MAX_ATTACHMENT_BYTES 与后端单文件 20MB 对齐；
+ * - MAX_TOTAL_ATTACHMENT_BYTES 与后端总量 40MB 对齐；
+ * - 后端 `main.py` 的 MAX_REQUEST_BODY_BYTES 必须是 56MB，也就是总量 ×4/3 再留
+ *   余量。否则请求体会先被中间件拒掉，这层的 40MB 就成了够不到的死配置。
+ *
+ * 这两个上限必须留在前端：超预算时后端拒的是**整条消息（连同正文）**，用户看到
+ * 的只会是「消息发不出去」，而不是「附件选多了」。
+ */
+const MAX_ATTACHMENTS = 10;
+const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024;
+const MAX_TOTAL_ATTACHMENT_BYTES = 40 * 1024 * 1024;
+
+/**
  * ISO 639-1 语种码 → 文案键。
  *
  * `config/personas.ts` 的 VOCAB_TARGET_LANGUAGES 还没迁到键上，`name` / `label`
@@ -417,25 +434,54 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   }, []);
 
   // Process selected or pasted files
-  const handleFiles = async (files: FileList | File[]) => {
-    if (!files || files.length === 0) return;
+  const handleFiles = async (source: FileList | File[] | null) => {
+    if (!source || source.length === 0) return;
+
+    // 关键：在第一个 await 之前把 FileList 拷成普通数组。
+    //
+    // `input.files` 和 `DataTransfer.files` 返回的都是**活对象**，浏览器在原地改
+    // 动它。各处 onChange 调用 handleFiles 之后会立刻 `e.target.value = ""` 清
+    // 空选择器，那一步正是在把这个活列表清空。而循环条件每次迭代都要重读
+    // `files.length`：循环跑到第一个 await（compressImage / readFileAsDataUrl 都
+    // 是异步的）时控制权回到 onChange，列表被清空，第二次迭代 length 变成 0，
+    // **一次只会真正挂上第一个文件**。
+    //
+    // 粘贴路径没这个毛病，是因为 handlePaste 传进来的是它自己 new 的 File[]，
+    // 本来就是快照。
+    const files = Array.from(source);
+
     setIsUploading(true);
     try {
       const newAttachments: AttachmentItem[] = [];
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
+      // 余量按已挂载的附件算，这样「先选 3 个、再选 3 个」也受同一个上限约束。
+      let room = MAX_ATTACHMENTS - attachments.length;
+      // 后端按**解码后**的字节累加；这里用原始 size 计费，不会因 base64 的
+      // 长度估算误差被顶到线上。
+      let budget = MAX_TOTAL_ATTACHMENT_BYTES;
+
+      for (const file of files) {
+        if (room <= 0) {
+          toast.error(t("chat.composer.tooManyAttachments", { count: MAX_ATTACHMENTS }));
+          break;
+        }
         const isImg = file.type.startsWith("image/") || /\.(png|jpe?g|webp|gif|bmp)$/i.test(file.name);
         let dataUrl = "";
         if (isImg) {
           dataUrl = await compressImage(file);
         } else {
-          if (file.size > 15 * 1024 * 1024) {
+          if (file.size > MAX_ATTACHMENT_BYTES) {
             toast.error(t("chat.composer.fileTooLarge", { name: file.name }));
             continue;
           }
           dataUrl = await readFileAsDataUrl(file);
         }
         if (!dataUrl) continue;
+        if (file.size > budget) {
+          toast.error(t("chat.composer.attachmentsTooLarge"));
+          break;
+        }
+        budget -= file.size;
+        room -= 1;
         newAttachments.push({
           id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
           name: file.name,

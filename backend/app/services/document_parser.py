@@ -23,8 +23,12 @@ MAX_DOCUMENT_CHARS = 50000  # Safe boundary for document context injection
 #: endless or hostile response is never fully buffered.
 MAX_REMOTE_FETCH_BYTES = 25 * 1024 * 1024
 
-#: Ceiling on a single decoded attachment. Frontend already rejects files above
-#: 15 MB (ChatArea.tsx), so this leaves headroom for a client that does not.
+#: Ceiling on a single decoded attachment. Matches the frontend's own gate
+#: (ChatArea.tsx MAX_ATTACHMENT_BYTES) exactly, so there is **no headroom left**:
+#: this is the layer that has to hold for every client that skips the check —
+#: curl, the Cloudflare build, an older frontend still running 15 MB. The estimate
+#: is taken off the encoded length on purpose, before base64 decoding allocates a
+#: buffer proportional to the payload.
 MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024
 
 _FETCH_HEADERS = {

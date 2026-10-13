@@ -73,6 +73,13 @@ This release is a major update that lands the **site-wide internationalization a
 - Fixed type and syntax problems such as JSX attributes missing braces, Next.js `metadata` coexisting with `generateMetadata`, leftover references to deleted modules, and missing hooks in component scope.
 - **Dictionary and interpolation type governance**: a consistency check script for the four-language key sets, plus loosening interpolation variable types to support optional backend fields, so this class of build failure stops recurring.
 
+### 7. Multi-File Attachment Selection and Upload Budget Alignment
+
+- **Multi-select that never selected more than one file**: the inputs already carried `multiple`, but `input.files` hands back a *live* object that the browser mutates in place. Each `onChange` called the handler and then reset `input.value = ""`, which empties that very list — and since the loop re-read `files.length` after every asynchronous step, it stopped after the first file. Pasting several images had always worked, which is what made this so easy to miss: the paste path builds its own array, so it was already a snapshot.
+- **The file picker and the gallery now both accept several files or images at once**, each landing as its own chip in the composer tray.
+- **Size caps moved into the frontend to match the server**: 10 attachments, 20MB per file, 40MB combined. Nothing stopped you at selection time before, and an over-budget set was rejected by the backend at send — taking the **message text down with it**, so the only symptom was "the message won't send" rather than "too many attachments".
+- **Fixed a contradiction in the backend's own gates**: the request body was capped at 32MB while the attachment budget was 40MB, but attachments travel as inline base64, which inflates them by 4/3. Forty megabytes of files therefore arrived as a ~53MB body and was always rejected by the 32MB layer first, leaving the 40MB figure a limit nothing could ever reach. The body ceiling is now 56MB.
+
 ---
 
 ## v2.23.0 Release Notes

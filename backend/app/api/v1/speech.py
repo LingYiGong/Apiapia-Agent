@@ -46,7 +46,7 @@ async def _read_capped(file: UploadFile) -> bytes:
     """Read an upload, refusing to buffer more than the configured ceiling.
 
     ``await file.read()`` with no argument would take whatever was sent. The
-    body-size middleware in ``main.py`` caps the *request* at 32 MB, which is
+    body-size middleware in ``main.py`` caps the *request* at 56 MB, which is
     above the 25 MB multipart limit, so an upload between the two sizes would be
     fully buffered here and then rejected upstream — turning a free local check
     into a paid round trip. Draining in chunks stops at the limit instead.

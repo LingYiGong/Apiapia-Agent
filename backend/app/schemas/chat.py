@@ -8,15 +8,18 @@ from typing import Optional, List
 #: for something a total-byte budget would have happily accepted.
 MAX_ATTACHMENTS = 10
 
-#: Per-file ceiling on the *decoded* bytes. Frontend stops at 15 MB, so this only
-#: bites a client that skips the check. Must stay in step with
-#: app.services.document_parser.MAX_ATTACHMENT_BYTES, which is the place the
+#: Per-file ceiling on the *decoded* bytes. The frontend stops at the same 20 MB,
+#: so in practice this only bites a client that skips the check. Must stay in step
+#: with app.services.document_parser.MAX_ATTACHMENT_BYTES, which is the place the
 #: estimate is actually enforced before base64 is decoded.
 MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024
 
-#: Ceiling on the decoded bytes of all attachments combined. This is the limit that
-#: actually protects the process: the prompt assembly concatenates every document's
-#: extracted text and every image becomes an inline data URI in the payload.
+#: Ceiling on the decoded bytes of all attachments combined. The prompt assembly
+#: concatenates every document's extracted text and every image becomes an inline
+#: data URI in the payload, so the real memory ceiling lives further down: the body
+#: middleware (app.main.MAX_REQUEST_BODY_BYTES) rejects the request first, since
+#: base64 inflates these bytes by 4/3. Keep this below the byte budget that
+#: middleware allows through, or it will never be the constraint that fires.
 MAX_TOTAL_ATTACHMENT_BYTES = 40 * 1024 * 1024
 
 

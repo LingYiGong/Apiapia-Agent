@@ -14,11 +14,11 @@ import {
 import { useI18n } from "@/i18n";
 import { cn } from "@/lib/utils";
 import {
-  actionMenuContentClass,
-  actionMenuDangerItemClass,
-  actionMenuItemClass,
-  actionMenuSeparatorClass,
-} from "@/components/common/actionMenu";
+  overlaySurfaceClass,
+  menuItemDangerClass,
+  menuItemClass,
+  menuSeparatorClass,
+} from "@/components/common/surfaces";
 
 /**
  * 可左右滑动的会话卡片（移动端历史列表）。
@@ -347,13 +347,13 @@ export const SwipeableConversationCard = ({
               align="end"
               sideOffset={8}
               collisionPadding={12}
-              className={actionMenuContentClass}
+              className={overlaySurfaceClass}
             >
               {c.is_pinned && onMoveUp && (
                 <DropdownMenuItem
                   disabled={isFirstPinned}
                   onClick={onMoveUp}
-                  className={actionMenuItemClass}
+                  className={menuItemClass}
                 >
                   <ChevronUp className="h-4 w-4 text-muted-foreground" />
                   <span>{t("chat.history.moveUpOne")}</span>
@@ -363,29 +363,29 @@ export const SwipeableConversationCard = ({
                 <DropdownMenuItem
                   disabled={isLastPinned}
                   onClick={onMoveDown}
-                  className={actionMenuItemClass}
+                  className={menuItemClass}
                 >
                   <ChevronDown className="h-4 w-4 text-muted-foreground" />
                   <span>{t("chat.history.moveDownOne")}</span>
                 </DropdownMenuItem>
               )}
               {c.is_pinned && (onMoveUp || onMoveDown) && (
-                <DropdownMenuSeparator className={actionMenuSeparatorClass} />
+                <DropdownMenuSeparator className={menuSeparatorClass} />
               )}
               {onTogglePin && (
-                <DropdownMenuItem onClick={onTogglePin} className={actionMenuItemClass}>
+                <DropdownMenuItem onClick={onTogglePin} className={menuItemClass}>
                   <Pin className="h-4 w-4 text-muted-foreground" />
                   <span>{c.is_pinned ? t("chat.history.unpin") : t("chat.history.pin")}</span>
                 </DropdownMenuItem>
               )}
               {onRename && (
-                <DropdownMenuItem onClick={onRename} className={actionMenuItemClass}>
+                <DropdownMenuItem onClick={onRename} className={menuItemClass}>
                   <Edit2 className="h-4 w-4 text-muted-foreground" />
                   <span>{t("chat.history.rename")}</span>
                 </DropdownMenuItem>
               )}
-              <DropdownMenuSeparator className={actionMenuSeparatorClass} />
-              <DropdownMenuItem onClick={onDelete} className={actionMenuDangerItemClass}>
+              <DropdownMenuSeparator className={menuSeparatorClass} />
+              <DropdownMenuItem onClick={onDelete} className={menuItemDangerClass}>
                 <Trash2 className="h-4 w-4" />
                 <span>{t("chat.history.deleteConversation")}</span>
               </DropdownMenuItem>

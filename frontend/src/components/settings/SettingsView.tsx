@@ -869,7 +869,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       >
                         <SelectValue placeholder={t("settings.memoryGroup.modelPlaceholder")} />
                       </SelectTrigger>
-                      <SelectContent className="rounded-xl">
+                      {/* 不套 overlaySurfaceClass：position="popper" 时 Radix 用
+                        min-w-[var(--radix-select-trigger-width)] 把宽度钉在触发器上，
+                        塞 w-max 会和这段 pin 打架。这里只补安全边距。 */}
+                        <SelectContent collisionPadding={12} className="rounded-xl">
                         {memoryModelOptions.map((o) => (
                           <SelectItem key={o.id} value={o.id} className="rounded-lg text-xs">
                             {o.label}

@@ -9,8 +9,6 @@ import { ActionTooltip } from "@/components/common/ActionTooltip";
 import { UserAvatarMenu } from "@/components/layout/UserAvatarDropdown";
 import {
   Brain,
-  Plus,
-  RotateCw,
   Pin,
   PinOff,
   Pencil,
@@ -42,11 +40,11 @@ import type { Conversation } from "@/types";
 
 import { MobileHeader } from "@/components/layout/MobileHeader";
 import {
-  actionMenuContentClass,
-  actionMenuDangerItemClass,
-  actionMenuItemClass,
-  actionMenuSeparatorClass,
-} from "@/components/common/actionMenu";
+  overlaySurfaceClass,
+  menuItemDangerClass,
+  menuItemClass,
+  menuSeparatorClass,
+} from "@/components/common/surfaces";
 
 /**
  * 聊天页两个头部真正共有的 props：模型选择 + 同步 + 新建对话。
@@ -169,18 +167,18 @@ export const MobileChatHeader: React.FC<MobileChatHeaderProps> = ({
                     <span className="sr-only">{t("chat.history.actionMenu")}</span>
                   </Button>
                 </DropdownMenuTrigger>
-                {/* 样式收敛到 components/common/actionMenu.ts —— 与下方相邻的头像
+                {/* 样式收敛到 components/common/surfaces.ts —— 与下方相邻的头像
                     菜单同一套刻度，四个问题的根因见那里的注释。 */}
                 <DropdownMenuContent
                   align="end"
                   sideOffset={8}
                   collisionPadding={12}
-                  className={actionMenuContentClass}
+                  className={overlaySurfaceClass}
                 >
                   {onTogglePin && (
                     <DropdownMenuItem
                       onClick={() => onTogglePin(activeConversation.id, !isPinned)}
-                      className={actionMenuItemClass}
+                      className={menuItemClass}
                     >
                       {isPinned ? (
                         <>
@@ -198,7 +196,7 @@ export const MobileChatHeader: React.FC<MobileChatHeaderProps> = ({
                   {onRename && (
                     <DropdownMenuItem
                       onClick={handleStartRename}
-                      className={actionMenuItemClass}
+                      className={menuItemClass}
                     >
                       <Edit2 className="h-4 w-4 text-muted-foreground" />
                       <span>{t("chat.history.rename")}</span>
@@ -206,7 +204,7 @@ export const MobileChatHeader: React.FC<MobileChatHeaderProps> = ({
                   )}
                   {onDelete && (
                     <>
-                      <DropdownMenuSeparator className={actionMenuSeparatorClass} />
+                      <DropdownMenuSeparator className={menuSeparatorClass} />
                       <DropdownMenuItem
                         onClick={() =>
                           ask({
@@ -219,7 +217,7 @@ export const MobileChatHeader: React.FC<MobileChatHeaderProps> = ({
                             onConfirm: () => onDelete(activeConversation.id),
                           })
                         }
-                        className={actionMenuDangerItemClass}
+                        className={menuItemDangerClass}
                       >
                         <Trash2 className="h-4 w-4" />
                         <span>{t("chat.history.deleteConversation")}</span>

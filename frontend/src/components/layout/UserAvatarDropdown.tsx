@@ -21,6 +21,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { overlaySurfaceClass } from "@/components/common/surfaces";
 import { cn } from "@/lib/utils";
 
 /**
@@ -107,7 +108,11 @@ export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
         align="end"
         sideOffset={8}
         collisionPadding={12}
-        className="z-50 w-[270px] select-none rounded-[22px] border border-border/50 bg-background/95 p-2 shadow-[0_20px_50px_rgba(0,0,0,0.22)] backdrop-blur-2xl animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 dark:shadow-[0_24px_60px_rgba(0,0,0,0.6)]"
+        // 材质全部来自 overlaySurfaceClass，这里只追加头像菜单独有的两点：
+        // 固定宽度（账户卡 + 带箭头的导航项需要恒定宽度），以及把默认的
+        // w-max 顶掉。此前那 6 个 animate-in / zoom-in-95 是基础类
+        // DropdownMenuContent 已经提供过的（data-[state=open]: 前缀版），属冗余。
+        className={cn(overlaySurfaceClass, "w-[270px]")}
       >
         {/* 1. 账户卡片 */}
         <div className="flex items-center gap-3 p-2 pb-2.5">

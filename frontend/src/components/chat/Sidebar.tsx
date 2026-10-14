@@ -33,11 +33,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  actionMenuContentClass,
-  actionMenuDangerItemClass,
-  actionMenuItemClass,
-  actionMenuSeparatorClass,
-} from "@/components/common/actionMenu";
+  overlaySurfaceClass,
+  menuItemDangerClass,
+  menuItemClass,
+  menuSeparatorClass,
+} from "@/components/common/surfaces";
 
 interface SidebarProps {
   conversations: Conversation[];
@@ -278,11 +278,11 @@ title={c.title || t("chat.history.untitled")}
               sideOffset={8}
               collisionPadding={12}
               onClick={(e) => e.stopPropagation()}
-              className={actionMenuContentClass}
+              className={overlaySurfaceClass}
             >
               <DropdownMenuItem
                 onClick={() => onTogglePin(c.id, !pinnedActive)}
-                className={actionMenuItemClass}
+                className={menuItemClass}
               >
                 {pinnedActive ? (
                   <>
@@ -299,13 +299,13 @@ title={c.title || t("chat.history.untitled")}
 
               <DropdownMenuItem
                 onClick={() => setRenamingId(c.id)}
-                className={actionMenuItemClass}
+                className={menuItemClass}
               >
                 <Pencil className="h-4 w-4 text-muted-foreground" />
                 <span>{t("chat.history.rename")}</span>
               </DropdownMenuItem>
 
-              <DropdownMenuSeparator className={actionMenuSeparatorClass} />
+              <DropdownMenuSeparator className={menuSeparatorClass} />
 
               <DropdownMenuItem
                 onClick={() =>
@@ -319,7 +319,7 @@ title={c.title || t("chat.history.untitled")}
                     onConfirm: () => onDelete(c.id),
                   })
                 }
-                className={actionMenuDangerItemClass}
+                className={menuItemDangerClass}
               >
                 <Trash2 className="h-4 w-4" />
                 <span>{t("chat.history.deleteConversation")}</span>

@@ -15,6 +15,7 @@ import {
   PopoverTrigger,
   PopoverContent,
 } from "@/components/ui/popover";
+import { overlaySurfaceClass } from "@/components/common/surfaces";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n";
 import type { ModelOption } from "@/lib/models";
@@ -300,8 +301,11 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
         collisionPadding={12}
         onOpenAutoFocus={(e) => e.preventDefault()}
         className={cn(
-          "z-50 flex max-h-[75vh] flex-col rounded-[22px] border border-border/50 bg-background/95 p-3 pt-3.5 backdrop-blur-2xl",
-          "shadow-[0_20px_50px_rgba(0,0,0,0.2)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.6)]",
+          // 材质来自 overlaySurfaceClass，此前这里是手写的同一套值（连两档
+          // 阴影都相同，只是主档透明度写成 0.2 而非 0.22）。这里只保留弹层
+          // 特有的部分：面板自身的 flex 布局、高度上限、内距，以及宽度策略。
+          overlaySurfaceClass,
+          "flex max-h-[75vh] flex-col p-3 pt-3.5",
           width === "wide"
             ? "w-[calc(100vw-24px)] max-w-[500px]"
             : "w-[calc(100vw-24px)] max-w-[390px] sm:w-[420px]"

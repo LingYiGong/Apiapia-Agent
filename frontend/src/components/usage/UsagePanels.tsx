@@ -53,10 +53,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  actionMenuContentClass,
-  actionMenuItemClass,
-  actionMenuSeparatorClass,
-} from "@/components/common/actionMenu";
+  overlaySurfaceClass,
+  menuItemClass,
+  menuSeparatorClass,
+} from "@/components/common/surfaces";
 import { SegmentedControl, type SegmentedOption } from "@/components/common/SegmentedControl";
 import { useI18n } from "@/i18n";
 import type { MessageKey } from "@/i18n";
@@ -504,29 +504,29 @@ function UserRowMenu({ user, isMe, actions }: { user: AdminUserUsageItem; isMe: 
       </DropdownMenuTrigger>
       {/* w-44 固定宽在多语言下会截断：英文 "Switch to trial mode" 约 130px，
           容器扣掉内边距和图标后标签只剩 116px，必然折行。四个问题的根因见
-          components/common/actionMenu.ts。 */}
+          components/common/surfaces.ts。 */}
       <DropdownMenuContent
         align="end"
         sideOffset={8}
         collisionPadding={12}
-        className={actionMenuContentClass}
+        className={overlaySurfaceClass}
       >
         {!user.is_superuser && (
           <>
             <DropdownMenuItem
               onClick={() => actions.onToggleAllModels(user.user_id, !!user.can_access_all_models, user.username)}
-              className={actionMenuItemClass}
+              className={menuItemClass}
             >
               <Sparkles className="h-4 w-4 text-indigo-500" />
               <span>{user.can_access_all_models ? t("usage.admin.switchToTrial") : t("usage.admin.grantFull")}</span>
             </DropdownMenuItem>
-            <DropdownMenuSeparator className={actionMenuSeparatorClass} />
+            <DropdownMenuSeparator className={menuSeparatorClass} />
           </>
         )}
         <DropdownMenuItem
           onClick={() => actions.onToggleActive(user.user_id, user.is_active, user.username)}
           className={cn(
-            actionMenuItemClass,
+            menuItemClass,
             user.is_active
               ? "text-destructive hover:bg-destructive/10 focus:bg-destructive/10 data-[highlighted]:bg-destructive/10 dark:text-destructive"
               : "text-emerald-600 hover:bg-emerald-500/10 focus:bg-emerald-500/10 data-[highlighted]:bg-emerald-500/10 dark:text-emerald-400"
@@ -539,10 +539,10 @@ function UserRowMenu({ user, isMe, actions }: { user: AdminUserUsageItem; isMe: 
           )}
           <span>{user.is_active ? t("usage.admin.disable") : t("usage.admin.enable")}</span>
         </DropdownMenuItem>
-        <DropdownMenuSeparator className={actionMenuSeparatorClass} />
+        <DropdownMenuSeparator className={menuSeparatorClass} />
         <DropdownMenuItem
           onClick={() => actions.onToggleAdmin(user.user_id, user.is_superuser, user.username)}
-          className={actionMenuItemClass}
+          className={menuItemClass}
         >
           <Shield className="h-4 w-4 text-muted-foreground" />
           <span>{user.is_superuser ? t("usage.admin.revokeAdmin") : t("usage.admin.grantAdmin")}</span>

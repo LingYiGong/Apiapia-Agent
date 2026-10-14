@@ -54,6 +54,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { overlaySurfaceClass } from "@/components/common/surfaces";
 import { BrandLogo } from "@/components/common/BrandLogo";
 import { EmptyState } from "@/components/common/EmptyState";
 import { DEFAULT_PROMPT_COMMANDS, PromptCommand } from "@/config/promptCommands";
@@ -1329,7 +1330,15 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 sideOffset={12}
                 collisionPadding={12}
                 style={composerWidth ? { width: `${composerWidth}px`, maxWidth: "calc(100vw - 24px)" } : undefined}
-                className="z-50 select-none rounded-[26px] border border-border/60 bg-background/95 p-2.5 sm:p-3 backdrop-blur-2xl shadow-[0_24px_60px_rgba(0,0,0,0.25)] dark:shadow-[0_28px_70px_rgba(0,0,0,0.65)] animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95"
+                className={cn(
+                  // 材质来自 overlaySurfaceClass，这里只保留这块面板刻意更大的
+                  // 三处：更深的圆角、更宽的内距（内部是三列卡片网格）、更重
+                  // 的阴影。宽度由上面的 inline style 按输入框实际宽度钉死，
+                  // 所以默认的 w-max / min-w 不参与。末尾 6 个 animate-in /
+                  // zoom-in-95 原本是基础类已有的（data-[state=open]: 版），冗余。
+                  overlaySurfaceClass,
+                  "rounded-[26px] p-2.5 sm:p-3 shadow-[0_24px_60px_rgba(0,0,0,0.25)] dark:shadow-[0_28px_70px_rgba(0,0,0,0.65)]"
+                )}
               >
                 <div className="px-3 pt-1 pb-2.5 border-b border-border/40 mb-2 flex items-center justify-between">
                   <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground font-mono">

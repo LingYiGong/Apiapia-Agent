@@ -13,10 +13,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  actionMenuContentClass,
-  actionMenuItemClass,
-  actionMenuSeparatorClass,
-} from "@/components/common/actionMenu";
+  overlaySurfaceClass,
+  menuItemClass,
+  menuSeparatorClass,
+} from "@/components/common/surfaces";
 import { ActionTooltip } from "@/components/common/ActionTooltip";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -83,12 +83,12 @@ export function LanguageDropdown({
         align="end"
         sideOffset={8}
         collisionPadding={12}
-        className={actionMenuContentClass}
+        className={overlaySurfaceClass}
       >
         <DropdownMenuLabel className="px-2 py-1 text-2xs font-medium uppercase tracking-wider text-muted-foreground">
           {t("common.language.label")}
         </DropdownMenuLabel>
-        <DropdownMenuSeparator className={actionMenuSeparatorClass} />
+        <DropdownMenuSeparator className={menuSeparatorClass} />
         {LOCALES.map((value: Locale) => {
           const meta = LOCALE_META[value];
           const isSelected = locale === value;
@@ -100,7 +100,7 @@ export function LanguageDropdown({
               // 选中行必须同时覆盖 hover / data-[highlighted]，否则高亮的灰底会
               // 盖掉 bg-primary/10。容器宽度交给 w-max 自适应，不再写死 w-52。
               className={cn(
-                actionMenuItemClass,
+                menuItemClass,
                 "items-center py-2",
                 isSelected
                   ? "bg-primary/10 font-semibold text-primary hover:bg-primary/15 data-[highlighted]:bg-primary/15"

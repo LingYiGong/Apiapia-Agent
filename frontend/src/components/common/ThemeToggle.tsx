@@ -17,10 +17,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  actionMenuContentClass,
-  actionMenuItemClass,
-  actionMenuSeparatorClass,
-} from "@/components/common/actionMenu";
+  overlaySurfaceClass,
+  menuItemClass,
+  menuSeparatorClass,
+} from "@/components/common/surfaces";
 
 const THEME_ICON: Record<Theme, LucideIcon> = {
   system: Monitor,
@@ -91,17 +91,17 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({
       </ActionTooltip>
       {/* w-36 固定宽在日文下必折行：「システムに合わせる」9 个全角字约 108px，
           容器扣掉内边距和图标后标签只剩 92px。四个问题的根因见
-          components/common/actionMenu.ts。 */}
+          components/common/surfaces.ts。 */}
       <DropdownMenuContent
         align="end"
         sideOffset={8}
         collisionPadding={12}
-        className={actionMenuContentClass}
+        className={overlaySurfaceClass}
       >
         <DropdownMenuLabel className="px-2 py-1 text-2xs font-medium uppercase tracking-wider text-muted-foreground">
           {t("settings.themeToggle.heading")}
         </DropdownMenuLabel>
-        <DropdownMenuSeparator className={actionMenuSeparatorClass} />
+        <DropdownMenuSeparator className={menuSeparatorClass} />
         {(Object.keys(THEME_ICON) as Theme[]).map((value) => {
           const Icon = THEME_ICON[value];
           const isSelected = theme === value;
@@ -110,7 +110,7 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({
               key={value}
               onClick={() => setTheme(value)}
               className={cn(
-                actionMenuItemClass,
+                menuItemClass,
                 // 选中行必须同时覆盖 hover / data-[highlighted]，否则高亮的灰底
                 // 会盖掉下面的 bg-primary/10，主题一变就看不出选中的是哪一项。
                 isSelected

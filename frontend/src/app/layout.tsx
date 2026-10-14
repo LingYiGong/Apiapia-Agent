@@ -19,6 +19,7 @@ export const viewport: Viewport = {
   // 保留 viewportFit: "cover" —— globals.css 里的 env(safe-area-inset-*)
   // 依赖它才能拿到刘海与底部安全区数值。
   viewportFit: "cover",
+  colorScheme: "light dark",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#ffffff" },
     { media: "(prefers-color-scheme: dark)", color: "#000000" },
@@ -89,7 +90,7 @@ export default function RootLayout({
     // next.config.mjs）下这份 HTML 是构建期产物，那时还不存在「用户选了哪种
     // 语言」。真正的语言由 I18nProvider 在 layout effect 里写到
     // documentElement.lang 上 —— 在浏览器绘制之前完成，所以不会闪。
-    <html lang="zh-CN" suppressHydrationWarning className="h-full">
+    <html lang="zh-CN" suppressHydrationWarning className="h-full bg-background">
       <body className="h-full bg-background font-sans text-base text-foreground antialiased">
         <ThemeProvider>
           <I18nProvider>

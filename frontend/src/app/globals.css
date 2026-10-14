@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    color-scheme: light;
+    color-scheme: light dark;
 
     /* ── shadcn 语义色 ─────────────────────────────────────────
        全部经 tailwind.config.ts 的 `colors` 暴露为工具类
@@ -94,6 +94,10 @@
     --sar: env(safe-area-inset-right, 0px);
   }
 
+  .light {
+    color-scheme: light;
+  }
+
   .dark {
     color-scheme: dark;
 
@@ -132,6 +136,10 @@
   * {
     @apply border-border;
   }
+  html,
+  body {
+    @apply bg-background text-foreground;
+  }
   html {
     -webkit-tap-highlight-color: transparent;
     -webkit-font-smoothing: antialiased;
@@ -142,7 +150,6 @@
     font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
   }
   body {
-    @apply bg-background text-foreground;
     font-family: var(--font-sans);
     /* 字距**不在这里设**。Apple 的 SF Pro tracking 表随字号变化
        （10/11pt 为正值 +12/+6‰，12pt 为 0，16pt 为 -20‰，24pt 越过零点
@@ -216,6 +223,7 @@ body {
   height: 100%;
   overflow: hidden;
   overscroll-behavior: none;
+  background-color: hsl(var(--background));
 }
 
 /* 滚动容器兜住橡皮筋：阻止滚动穿透到 document。

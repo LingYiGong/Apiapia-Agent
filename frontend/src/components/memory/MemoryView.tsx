@@ -518,7 +518,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
                               }}
                               className="h-8 w-8 cursor-pointer rounded-lg text-muted-foreground transition-all hover:bg-surface-3/80 hover:text-foreground active:scale-90"
                             >
-                              <Pencil className="h-3.5 w-3.5" />
+                              <Pencil className="h-4 w-4" />
                               <span className="sr-only">{t("memory.card.editTip")}</span>
                             </Button>
                           </ActionTooltip>
@@ -531,7 +531,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
                               onClick={() => setDeletingId(m.id)}
                               className="h-8 w-8 cursor-pointer rounded-lg text-muted-foreground transition-all hover:bg-destructive/10 hover:text-destructive active:scale-90"
                             >
-                              <Trash2 className="h-3.5 w-3.5" />
+                              <Trash2 className="h-4 w-4" />
                               <span className="sr-only">{t("memory.card.deleteTip")}</span>
                             </Button>
                           </ActionTooltip>
@@ -561,7 +561,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
                   className="h-9 cursor-pointer gap-1.5 rounded-xl border-border/50 bg-surface-3/40 px-5 text-footnote font-medium text-foreground transition-colors hover:bg-surface-3 active:scale-95"
                 >
                   <RotateCcw
-                    className={cn("h-3.5 w-3.5", loadingMore && "animate-spin")}
+                    className={cn("h-4 w-4", loadingMore && "animate-spin")}
                   />
                   <span>
                     {loadingMore

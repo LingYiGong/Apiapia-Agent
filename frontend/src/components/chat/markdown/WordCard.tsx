@@ -464,7 +464,7 @@ export function WordCard({
             onClick={() => copy(rawContent)}
             className="h-6 gap-1 px-2 text-2xs text-slate-300 hover:bg-white/10"
           >
-            {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+            {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
             <span>{copied ? t("chat.message.copied") : t("chat.message.copy")}</span>
           </Button>
         </div>
@@ -529,7 +529,7 @@ export function WordCard({
             onClick={() => copy(data.word)}
             className="h-7 gap-1 rounded-lg px-2 text-2xs text-muted-foreground hover:bg-surface-3 hover:text-foreground"
           >
-            {copied ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
+            {copied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
             <span>{copied ? t("chat.message.copied") : t("chat.wordCard.copyWord")}</span>
           </Button>
         </div>

@@ -435,6 +435,12 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
                   aria-selected={isSelected}
                   onClick={() => commit(idx)}
                   onMouseMove={() => setActiveIndex(idx)}
+                  // onMouseMove 在触摸设备上永远不触发（iOS 只合成 mousedown/
+                  // mouseup/click，不合成 mousemove），于是 activeIndex 一直停在
+                  // -1，手指点下去之前没有任何行被高亮。pointerdown 对鼠标和触摸
+                  // 都会触发，且早于 click，正好补上这条路径；onMouseMove 保留，
+                  // 桌面端不按鼠标也能实时跟随。
+                  onPointerDown={() => setActiveIndex(idx)}
                   className={cn(
                     "flex cursor-pointer items-center justify-between gap-2.5 rounded-xl p-2.5 text-xs transition-all active:scale-[0.99] sm:px-3",
                     isActive && !isSelected && "bg-surface-3/50",

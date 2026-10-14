@@ -213,7 +213,7 @@ export const UpdatePrompt: React.FC = () => {
               onClick={handleUpdateNow}
               disabled={isUpdating}
             >
-              <RefreshCw className={`h-3.5 w-3.5 ${isUpdating ? "animate-spin" : ""}`} />
+              <RefreshCw className={`h-4 w-4 ${isUpdating ? "animate-spin" : ""}`} />
               <span>
                 {isUpdating ? t("common.action.processing") : t("meta.update.updateNow")}
               </span>

@@ -86,14 +86,14 @@ function CopyButton({
       >
         {isCopied ? (
           <>
-            <Check className="h-3.5 w-3.5 text-emerald-500" />
+            <Check className="h-4 w-4 text-emerald-500" />
             <span className="text-2xs font-medium text-emerald-500">
               {t("chat.message.copied")}
             </span>
           </>
         ) : (
           <>
-            <Copy className="h-3.5 w-3.5" />
+            <Copy className="h-4 w-4" />
             <span className="text-2xs">{t("chat.message.copy")}</span>
           </>
         )}
@@ -146,17 +146,17 @@ function SpeakButton({
       >
         {state === "loading" ? (
           <>
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            <Loader2 className="h-4 w-4 animate-spin" />
             <span className="text-2xs">{t("chat.message.speakSynthesizing")}</span>
           </>
         ) : isBusy ? (
           <>
-            <VolumeX className="h-3.5 w-3.5" />
+            <VolumeX className="h-4 w-4" />
             <span className="text-2xs">{t("chat.message.speakStop")}</span>
           </>
         ) : (
           <>
-            <Volume2 className="h-3.5 w-3.5" />
+            <Volume2 className="h-4 w-4" />
             <span className="text-2xs">{t("chat.message.speak")}</span>
           </>
         )}
@@ -492,7 +492,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                     onClick={() => onQuote(msg.content, msg.id)}
                     className="flex h-7 items-center gap-1.5 rounded-lg px-2 text-muted-foreground transition-colors hover:bg-surface-3/80 hover:text-foreground"
                   >
-                    <Quote className="h-3 w-3" />
+                    <Quote className="h-4 w-4" />
 <span className="text-2xs">{t("chat.message.quote")}</span>
                   </Button>
                 </ActionTooltip>
@@ -524,7 +524,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                         onClick={onContinue}
                         className="flex h-7 items-center gap-1 rounded-lg border border-primary/30 bg-primary/10 px-2 text-2xs font-medium text-primary hover:bg-primary/20"
                       >
-                        <Play className="h-2.5 w-2.5 fill-current" />
+                        <Play className="h-4 w-4 fill-current" />
                         <span>{t("chat.message.continue")}</span>
                       </Button>
                     </ActionTooltip>
@@ -542,7 +542,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                     onClick={() => msg.id && onRegenerate(msg.id)}
                     className="flex h-7 items-center gap-1.5 rounded-lg px-2 text-muted-foreground transition-colors hover:bg-surface-3/80 hover:text-foreground disabled:opacity-50"
                   >
-                    <RotateCw className={cn("h-3.5 w-3.5", regenerating && "animate-spin")} />
+                    <RotateCw className={cn("h-4 w-4", regenerating && "animate-spin")} />
                     <span className="text-2xs">{t("chat.message.regenerate")}</span>
                   </Button>
                 </ActionTooltip>
@@ -615,7 +615,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                 onClick={startEdit}
                 className="flex h-7 items-center gap-1.5 rounded-lg px-2 text-muted-foreground transition-colors hover:bg-surface-3/80 hover:text-foreground"
               >
-                <PenLine className="h-3.5 w-3.5" />
+                <PenLine className="h-4 w-4" />
                 <span className="text-2xs">{t("chat.message.edit")}</span>
               </Button>
             </ActionTooltip>
@@ -628,7 +628,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                   onClick={() => onQuote(stripAttachmentMarkup(msg.content || ""), msg.id)}
                   className="flex h-7 items-center gap-1.5 rounded-lg px-2 text-muted-foreground transition-colors hover:bg-surface-3/80 hover:text-foreground"
                 >
-                  <Quote className="h-3 w-3" />
+                  <Quote className="h-4 w-4" />
                   <span className="text-2xs">{t("chat.message.quote")}</span>
                 </Button>
               </ActionTooltip>

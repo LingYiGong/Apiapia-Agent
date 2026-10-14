@@ -68,7 +68,7 @@ export function EmptyState({
           size="sm"
           className="mt-4 gap-1.5 rounded-xl px-4 text-xs font-medium active:scale-95"
         >
-          {ActionIcon && <ActionIcon className="h-3.5 w-3.5" />}
+          {ActionIcon && <ActionIcon className="h-4 w-4" />}
           <span>{actionLabel}</span>
         </Button>
       )}

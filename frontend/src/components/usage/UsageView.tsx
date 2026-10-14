@@ -542,7 +542,7 @@ function RefreshButton({
           compact ? "h-7 px-3 text-2xs" : "h-8 px-3.5 text-xs"
         )}
       >
-        <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin text-primary")} />
+        <RefreshCw className={cn("h-4 w-4", loading && "animate-spin text-primary")} />
         <span>{compact ? t("usage.refresh.short") : t("usage.refresh.full")}</span>
       </Button>
     </ActionTooltip>

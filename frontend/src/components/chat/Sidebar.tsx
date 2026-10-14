@@ -33,11 +33,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  conversationMenuContentClass,
-  conversationMenuDangerItemClass,
-  conversationMenuItemClass,
-  conversationMenuSeparatorClass,
-} from "@/components/chat/conversationActionMenu";
+  actionMenuContentClass,
+  actionMenuDangerItemClass,
+  actionMenuItemClass,
+  actionMenuSeparatorClass,
+} from "@/components/common/actionMenu";
 
 interface SidebarProps {
   conversations: Conversation[];
@@ -278,11 +278,11 @@ title={c.title || t("chat.history.untitled")}
               sideOffset={8}
               collisionPadding={12}
               onClick={(e) => e.stopPropagation()}
-              className={conversationMenuContentClass}
+              className={actionMenuContentClass}
             >
               <DropdownMenuItem
                 onClick={() => onTogglePin(c.id, !pinnedActive)}
-                className={conversationMenuItemClass}
+                className={actionMenuItemClass}
               >
                 {pinnedActive ? (
                   <>
@@ -299,13 +299,13 @@ title={c.title || t("chat.history.untitled")}
 
               <DropdownMenuItem
                 onClick={() => setRenamingId(c.id)}
-                className={conversationMenuItemClass}
+                className={actionMenuItemClass}
               >
                 <Pencil className="h-4 w-4 text-muted-foreground" />
                 <span>{t("chat.history.rename")}</span>
               </DropdownMenuItem>
 
-              <DropdownMenuSeparator className={conversationMenuSeparatorClass} />
+              <DropdownMenuSeparator className={actionMenuSeparatorClass} />
 
               <DropdownMenuItem
                 onClick={() =>
@@ -319,7 +319,7 @@ title={c.title || t("chat.history.untitled")}
                     onConfirm: () => onDelete(c.id),
                   })
                 }
-                className={conversationMenuDangerItemClass}
+                className={actionMenuDangerItemClass}
               >
                 <Trash2 className="h-4 w-4" />
                 <span>{t("chat.history.deleteConversation")}</span>

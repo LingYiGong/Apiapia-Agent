@@ -115,7 +115,10 @@ export function SegmentedControl<T extends string>({
             className={cn(
               "inline-flex items-center justify-center gap-1.5 rounded-lg font-medium transition-all",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-surface-3",
-              isSm ? "h-6 px-2.5 text-2xs" : "h-7 px-3 text-xs",
+              // 此前 h-6（24px）/ h-7（28px）都低于 globals.css 自述的 h-9（36px）
+              // 触控目标下限，而 sm 档被用在移动端头像菜单里的主题三段、UsageView
+              // 与 UsagePanels 的周期筛选。分别提到 h-8 / h-9。
+              isSm ? "h-8 px-2.5 text-2xs" : "h-9 px-3 text-xs",
               active
                 ? opt.activeClassName ??
                   "bg-background text-foreground font-semibold shadow-2xs"

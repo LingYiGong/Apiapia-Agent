@@ -159,12 +159,12 @@ export function MemorySidebar({
           {onSelectMobileTab ? (
             <span className="flex items-center justify-center gap-1.5">
               <span>{t("chat.recall.gotoLibrary")}</span>
-              <ExternalLink className="h-3 w-3" />
+              <ExternalLink className="h-4 w-4" />
             </span>
           ) : (
             <Link href="/memory" onClick={onClose} className="flex items-center justify-center gap-1.5">
               <span>{t("chat.recall.gotoLibrary")}</span>
-              <ExternalLink className="h-3 w-3" />
+              <ExternalLink className="h-4 w-4" />
             </Link>
           )}
         </Button>

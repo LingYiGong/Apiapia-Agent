@@ -58,7 +58,7 @@ export function SaveStatus({
             onClick={onReset}
             className="h-8 cursor-pointer rounded-full px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground active:scale-95"
           >
-            <RotateCcw className="mr-1 h-3.5 w-3.5" />
+            <RotateCcw className="mr-1 h-4 w-4" />
             <span>{t("settings.saveBar.reset")}</span>
           </Button>
         </div>
@@ -108,9 +108,9 @@ function SaveButton({
         )}
       >
         {saving ? (
-          <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+          <RefreshCw className="h-4 w-4 animate-spin" />
         ) : (
-          <Save className="h-3.5 w-3.5" />
+          <Save className="h-4 w-4" />
         )}
         <span>
           {saving
@@ -174,9 +174,9 @@ export function SaveActionBar({
             className="h-8 cursor-pointer gap-1.5 rounded-full bg-primary px-4 text-xs font-semibold text-primary-foreground shadow-2xs transition-colors hover:bg-primary/90 active:scale-95"
           >
             {state.saving ? (
-              <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+              <RefreshCw className="h-4 w-4 animate-spin" />
             ) : (
-              <Save className="h-3.5 w-3.5" />
+              <Save className="h-4 w-4" />
             )}
             <span>
               {state.saving ? t("settings.saveBar.savingLong") : t("settings.saveBar.save")}

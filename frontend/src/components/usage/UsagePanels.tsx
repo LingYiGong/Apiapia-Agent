@@ -52,6 +52,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  actionMenuContentClass,
+  actionMenuItemClass,
+  actionMenuSeparatorClass,
+} from "@/components/common/actionMenu";
 import { SegmentedControl, type SegmentedOption } from "@/components/common/SegmentedControl";
 import { useI18n } from "@/i18n";
 import type { MessageKey } from "@/i18n";
@@ -491,43 +496,55 @@ function UserRowMenu({ user, isMe, actions }: { user: AdminUserUsageItem; isMe: 
           variant="ghost"
           size="icon"
           disabled={actions.isRowPending(user.user_id)}
-          className="inline-flex h-7 w-7 cursor-pointer rounded-full align-middle text-muted-foreground hover:bg-surface-3 hover:text-foreground"
+          className="inline-flex h-9 w-9 cursor-pointer rounded-full align-middle text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground sm:h-7 sm:w-7"
         >
           <MoreHorizontal className="h-4 w-4" />
           <span className="sr-only">{t("usage.admin.actionMenu")}</span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-44 rounded-xl border border-border/50 p-1 shadow-lg">
+      {/* w-44 固定宽在多语言下会截断：英文 "Switch to trial mode" 约 130px，
+          容器扣掉内边距和图标后标签只剩 116px，必然折行。四个问题的根因见
+          components/common/actionMenu.ts。 */}
+      <DropdownMenuContent
+        align="end"
+        sideOffset={8}
+        collisionPadding={12}
+        className={actionMenuContentClass}
+      >
         {!user.is_superuser && (
           <>
             <DropdownMenuItem
               onClick={() => actions.onToggleAllModels(user.user_id, !!user.can_access_all_models, user.username)}
-              className="cursor-pointer rounded-lg px-2.5 py-1.5 text-xs text-foreground focus:bg-surface-3"
+              className={actionMenuItemClass}
             >
-              <Sparkles className="mr-2 h-3.5 w-3.5 text-indigo-500" />
+              <Sparkles className="h-4 w-4 text-indigo-500" />
               <span>{user.can_access_all_models ? t("usage.admin.switchToTrial") : t("usage.admin.grantFull")}</span>
             </DropdownMenuItem>
-            <DropdownMenuSeparator className="my-1" />
+            <DropdownMenuSeparator className={actionMenuSeparatorClass} />
           </>
         )}
         <DropdownMenuItem
           onClick={() => actions.onToggleActive(user.user_id, user.is_active, user.username)}
           className={cn(
-            "cursor-pointer rounded-lg px-2.5 py-1.5 text-xs",
+            actionMenuItemClass,
             user.is_active
-              ? "text-destructive focus:bg-destructive/10 focus:text-destructive"
-              : "text-emerald-600 focus:bg-emerald-500/10 focus:text-emerald-600"
+              ? "text-destructive hover:bg-destructive/10 focus:bg-destructive/10 data-[highlighted]:bg-destructive/10 dark:text-destructive"
+              : "text-emerald-600 hover:bg-emerald-500/10 focus:bg-emerald-500/10 data-[highlighted]:bg-emerald-500/10 dark:text-emerald-400"
           )}
         >
-          {user.is_active ? <UserX className="mr-2 h-3.5 w-3.5" /> : <UserCheck className="mr-2 h-3.5 w-3.5" />}
+          {user.is_active ? (
+            <UserX className="h-4 w-4" />
+          ) : (
+            <UserCheck className="h-4 w-4" />
+          )}
           <span>{user.is_active ? t("usage.admin.disable") : t("usage.admin.enable")}</span>
         </DropdownMenuItem>
-        <DropdownMenuSeparator className="my-1" />
+        <DropdownMenuSeparator className={actionMenuSeparatorClass} />
         <DropdownMenuItem
           onClick={() => actions.onToggleAdmin(user.user_id, user.is_superuser, user.username)}
-          className="cursor-pointer rounded-lg px-2.5 py-1.5 text-xs"
+          className={actionMenuItemClass}
         >
-          <Shield className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+          <Shield className="h-4 w-4 text-muted-foreground" />
           <span>{user.is_superuser ? t("usage.admin.revokeAdmin") : t("usage.admin.grantAdmin")}</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
@@ -606,7 +623,7 @@ function UserCard({ user, isMe, actions }: { user: AdminUserUsageItem; isMe: boo
             onClick={() => actions.onOpenAudit(user.user_id, user.username)}
             className="h-7 cursor-pointer gap-1 rounded-full border-primary/20 bg-primary/5 px-2.5 text-2xs font-medium text-primary transition-colors hover:bg-primary/10 active:scale-95"
           >
-            <Eye className="h-3 w-3" />
+            <Eye className="h-4 w-4" />
             <span>{t("usage.userCard.audit")}</span>
           </Button>
         </ActionTooltip>
@@ -735,7 +752,7 @@ export function UsersTable({
                             onClick={() => actions.onOpenAudit(u.user_id, u.username)}
                             className="h-7 cursor-pointer gap-1 rounded-full border-primary/20 bg-primary/5 px-2.5 text-2xs font-medium text-primary transition-colors hover:bg-primary/10 active:scale-95"
                           >
-                            <Eye className="h-3 w-3" />
+                            <Eye className="h-4 w-4" />
                             <span>{t("usage.userCard.audit")}</span>
                           </Button>
                         </ActionTooltip>
@@ -865,7 +882,7 @@ export function AuditDialog({
             disabled={loading}
             className="h-7 cursor-pointer gap-1 rounded-full px-2.5 text-2xs text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground"
           >
-            <RefreshCw className={cn("h-3 w-3", loading && "animate-spin text-primary")} />
+            <RefreshCw className={cn("h-4 w-4", loading && "animate-spin text-primary")} />
             <span>{t("usage.audit.refresh")}</span>
           </Button>
         </div>
@@ -930,7 +947,7 @@ export function AuditDialog({
                     onClick={() => onInspect(conv.id)}
                     className="h-7 cursor-pointer gap-1.5 rounded-full border-border/50 bg-background/80 px-3 text-xs shadow-2xs transition-colors hover:bg-surface-3 active:scale-95"
                   >
-                    <FileText className="h-3 w-3" />
+                    <FileText className="h-4 w-4" />
                     <span>{t("usage.audit.inspect")}</span>
                   </Button>
                   {conv.is_deleted && (
@@ -942,7 +959,7 @@ export function AuditDialog({
                       onClick={() => onRestore(conv.id, conv.title || "")}
                       className="h-7 cursor-pointer gap-1.5 rounded-full border-emerald-500/30 bg-emerald-500/10 px-3 text-xs text-emerald-600 transition-colors hover:bg-emerald-500/20 active:scale-95 dark:text-emerald-400"
                     >
-                      <RotateCcw className={cn("h-3 w-3", restoringId === conv.id && "animate-spin")} />
+                      <RotateCcw className={cn("h-4 w-4", restoringId === conv.id && "animate-spin")} />
                       <span>{t("usage.audit.restore")}</span>
                     </Button>
                   )}

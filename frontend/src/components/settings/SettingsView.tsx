@@ -924,7 +924,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   onClick={triggerManualUpdateCheck}
                   className="h-7 shrink-0 cursor-pointer gap-1.5 rounded-full border-border/50 bg-surface-3/30 px-3 text-xs font-medium text-foreground transition-colors hover:bg-surface-3 active:scale-95"
                 >
-                  <RefreshCw className="h-3 w-3" />
+                  <RefreshCw className="h-4 w-4" />
                   <span>{t("settings.about.checkUpdate")}</span>
                 </Button>
               </div>

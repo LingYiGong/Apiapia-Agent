@@ -1026,7 +1026,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               }}
               className="rounded-full shadow-lg text-xs"
             >
-              <ChevronDown className="h-3.5 w-3.5" />
+              <ChevronDown className="h-4 w-4" />
               <span>{t("chat.composer.scrollToLatest")}</span>
             </Button>
           </ActionTooltip>
@@ -1171,9 +1171,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 variant="ghost"
                 size="icon"
                 onClick={() => setActiveQuote(null)}
-                className="h-5 w-5 rounded-full text-muted-foreground hover:text-destructive shrink-0"
+                className="h-8 w-8 rounded-full text-muted-foreground hover:text-destructive shrink-0"
               >
-                <X className="h-3 w-3" />
+                <X className="h-4 w-4" />
                 <span className="sr-only">{t("chat.composer.cancelQuote")}</span>
               </Button>
             </div>
@@ -1211,9 +1211,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                       variant="ghost"
                       size="icon"
                       onClick={() => setAttachments((prev) => prev.filter((a) => a.id !== att.id))}
-                      className="h-6 w-6 rounded-full text-muted-foreground hover:text-destructive"
+                      className="h-8 w-8 rounded-full text-muted-foreground hover:text-destructive"
                     >
-                      <X className="h-3.5 w-3.5" />
+                      <X className="h-4 w-4" />
                       <span className="sr-only">{t("chat.composer.removeAttachment")}</span>
                     </Button>
                   </ActionTooltip>
@@ -1405,7 +1405,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                         e.preventDefault();
                         onToggleWebSearchMode();
                       }}
-                      className="flex items-center gap-3.5 rounded-2xl p-3 cursor-pointer transition-colors hover:bg-surface-3 focus:bg-surface-3 active:scale-[0.99]"
+                      className="flex items-center gap-3.5 rounded-2xl p-3 cursor-pointer transition-colors hover:bg-surface-3 focus:bg-surface-3 data-[highlighted]:bg-surface-3 active:scale-[0.99]"
                     >
                       <div className={cn(
                         "h-10 w-10 rounded-2xl flex items-center justify-center shrink-0 transition-colors shadow-xs",
@@ -1453,7 +1453,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                   {/* 3. 音频转文字 */}
                   <DropdownMenuItem
                     onClick={() => audioInputRef.current?.click()}
-                    className="flex items-center gap-3.5 rounded-2xl p-3 cursor-pointer transition-colors hover:bg-surface-3 focus:bg-surface-3 active:scale-[0.99]"
+                    className="flex items-center gap-3.5 rounded-2xl p-3 cursor-pointer transition-colors hover:bg-surface-3 focus:bg-surface-3 data-[highlighted]:bg-surface-3 active:scale-[0.99]"
                   >
                     <div className="h-10 w-10 rounded-2xl bg-teal-500/15 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0 shadow-xs">
                       <AudioLines className="h-5 w-5" />
@@ -1482,7 +1482,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                       "flex items-center gap-3.5 rounded-2xl p-3 cursor-pointer transition-colors active:scale-[0.99]",
                       creationMode === "image"
                         ? "bg-amber-500/10 border border-amber-500/30"
-                        : "hover:bg-surface-3 focus:bg-surface-3"
+                        : "hover:bg-surface-3 focus:bg-surface-3 data-[highlighted]:bg-surface-3"
                     )}
                   >
                     <div className="h-10 w-10 rounded-2xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 shadow-xs">
@@ -1511,7 +1511,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                       onClick={() => {
                         toast.info(t("chat.creation.videoBlockedTitle"));
                       }}
-                      className="flex items-center gap-3.5 rounded-2xl p-3 opacity-55 cursor-not-allowed hover:bg-transparent focus:bg-transparent"
+                      className="flex items-center gap-3.5 rounded-2xl p-3 opacity-55 cursor-not-allowed hover:bg-transparent focus:bg-transparent data-[highlighted]:bg-transparent"
                     >
                       <div className="h-10 w-10 rounded-2xl bg-surface-3 text-muted-foreground flex items-center justify-center shrink-0 shadow-xs">
                         <Video className="h-5 w-5" />
@@ -1537,7 +1537,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                         "flex items-center gap-3.5 rounded-2xl p-3 cursor-pointer transition-colors active:scale-[0.99]",
                         creationMode === "video"
                           ? "bg-purple-500/10 border border-purple-500/30"
-                          : "hover:bg-surface-3 focus:bg-surface-3"
+                          : "hover:bg-surface-3 focus:bg-surface-3 data-[highlighted]:bg-surface-3"
                       )}
                     >
                       <div className="h-10 w-10 rounded-2xl bg-purple-500/15 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0 shadow-xs">
@@ -1573,7 +1573,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                       "flex items-center gap-3.5 rounded-2xl p-3 cursor-pointer transition-colors active:scale-[0.99]",
                       isTranslateMode && creationMode === "chat"
                         ? "bg-indigo-500/10 border border-indigo-500/30"
-                        : "hover:bg-surface-3 focus:bg-surface-3"
+                        : "hover:bg-surface-3 focus:bg-surface-3 data-[highlighted]:bg-surface-3"
                     )}
                   >
                     <div className="h-10 w-10 rounded-2xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 shadow-xs">
@@ -1655,7 +1655,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 {isTranscribing ? (
                   <RotateCw className="h-4 w-4 animate-spin" />
                 ) : recorder.isRecording ? (
-                  <Square className="h-3.5 w-3.5 fill-current" />
+                  <Square className="h-4 w-4 fill-current" />
                 ) : (
                   <Mic className="h-4 w-4" />
                 )}
@@ -1688,7 +1688,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                   variant="destructive"
                   size="icon"
                   onClick={() => onStopGenerating?.()}
-                  className="h-8 w-8 sm:h-9 sm:w-9 rounded-full shrink-0 ml-1 mb-1 shadow-sm"
+                  className="h-9 w-9 sm:h-10 sm:w-10 rounded-full shrink-0 ml-1 mb-1 shadow-sm"
                 >
                   <Square className="h-4 w-4 fill-current" />
                   <span className="sr-only">{t("chat.composer.stop")}</span>
@@ -1705,7 +1705,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                   onClick={handleSend}
                   disabled={(!input.trim() && attachments.length === 0) || isStreaming || isUploading}
                   size="icon"
-                  className="h-8 w-8 sm:h-9 sm:w-9 rounded-full shrink-0 ml-1 mb-1 shadow-sm"
+                  className="h-9 w-9 sm:h-10 sm:w-10 rounded-full shrink-0 ml-1 mb-1 shadow-sm"
                 >
                   <Send className="h-4 w-4" />
                   <span className="sr-only">{t("chat.composer.send")}</span>
@@ -1741,7 +1741,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                         rel="noopener noreferrer"
                         className="cursor-pointer"
                       >
-                        <Download className="h-3.5 w-3.5" />
+                        <Download className="h-4 w-4" />
                         <span>{t("chat.composer.lightboxDownload")}</span>
                       </a>
                     </Button>

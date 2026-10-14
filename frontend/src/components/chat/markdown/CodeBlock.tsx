@@ -136,9 +136,9 @@ export function SvgRenderer({ svgCode }: { svgCode: string }) {
             className="h-7 gap-1 rounded-lg px-2 text-2xs text-muted-foreground hover:bg-surface-3 hover:text-foreground"
           >
             {copied ? (
-              <Check className="h-3 w-3 text-emerald-500" />
+              <Check className="h-4 w-4 text-emerald-500" />
             ) : (
-              <Copy className="h-3 w-3" />
+              <Copy className="h-4 w-4" />
             )}
             <span>{copied ? t("chat.message.copied") : t("chat.message.copy")}</span>
           </Button>
@@ -149,7 +149,7 @@ export function SvgRenderer({ svgCode }: { svgCode: string }) {
             onClick={() => downloadTextFile(`vector-artwork-${Date.now()}.svg`, svgCode, "image/svg+xml;charset=utf-8")}
             className="h-7 gap-1 rounded-lg bg-primary/10 px-2 text-2xs font-medium text-primary transition-colors hover:bg-primary/20"
           >
-            <Download className="h-3 w-3" />
+            <Download className="h-4 w-4" />
             <span>{t("chat.markdown.downloadSvg")}</span>
           </Button>
         </div>

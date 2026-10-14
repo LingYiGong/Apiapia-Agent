@@ -94,7 +94,7 @@ export function AiVideoCard({
             onClick={handleDownload}
             className="h-7 gap-1 rounded-lg bg-primary/10 px-2 text-2xs font-medium text-primary transition-colors hover:bg-primary/20"
           >
-            <Download className="h-3 w-3" />
+            <Download className="h-4 w-4" />
             <span>{t("chat.markdown.download")}</span>
           </Button>
         </div>

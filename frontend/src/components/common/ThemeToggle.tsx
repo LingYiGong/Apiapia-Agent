@@ -16,6 +16,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  actionMenuContentClass,
+  actionMenuItemClass,
+  actionMenuSeparatorClass,
+} from "@/components/common/actionMenu";
 
 const THEME_ICON: Record<Theme, LucideIcon> = {
   system: Monitor,
@@ -84,14 +89,19 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({
       <ActionTooltip label={triggerLabel}>
         <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
       </ActionTooltip>
+      {/* w-36 固定宽在日文下必折行：「システムに合わせる」9 个全角字约 108px，
+          容器扣掉内边距和图标后标签只剩 92px。四个问题的根因见
+          components/common/actionMenu.ts。 */}
       <DropdownMenuContent
         align="end"
-        className="w-36 rounded-2xl border border-border/60 bg-background/90 p-1 shadow-xl backdrop-blur-2xl"
+        sideOffset={8}
+        collisionPadding={12}
+        className={actionMenuContentClass}
       >
         <DropdownMenuLabel className="px-2 py-1 text-2xs font-medium uppercase tracking-wider text-muted-foreground">
           {t("settings.themeToggle.heading")}
         </DropdownMenuLabel>
-        <DropdownMenuSeparator className="my-1 opacity-60" />
+        <DropdownMenuSeparator className={actionMenuSeparatorClass} />
         {(Object.keys(THEME_ICON) as Theme[]).map((value) => {
           const Icon = THEME_ICON[value];
           const isSelected = theme === value;
@@ -100,21 +110,23 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({
               key={value}
               onClick={() => setTheme(value)}
               className={cn(
-                "flex cursor-pointer items-center gap-2 rounded-xl px-2.5 py-1.5 text-xs font-medium transition-colors",
+                actionMenuItemClass,
+                // 选中行必须同时覆盖 hover / data-[highlighted]，否则高亮的灰底
+                // 会盖掉下面的 bg-primary/10，主题一变就看不出选中的是哪一项。
                 isSelected
-                  ? "bg-primary/10 font-semibold text-primary"
-                  : "text-foreground/80 hover:bg-surface-3/60"
+                  ? "bg-primary/10 font-semibold text-primary hover:bg-primary/15 data-[highlighted]:bg-primary/15"
+                  : "text-foreground/80"
               )}
             >
               <Icon
                 className={cn(
-                  "h-3.5 w-3.5",
+                  "h-4 w-4",
                   value === "light" && "text-amber-500",
                   value === "dark" && "text-indigo-400"
                 )}
               />
               <span>{t(THEME_LABEL_KEYS_LONG[value])}</span>
-              {isSelected && <Check className="ml-auto h-3.5 w-3.5 text-primary" />}
+              {isSelected && <Check className="ml-auto h-4 w-4 shrink-0 text-primary" />}
             </DropdownMenuItem>
           );
         })}

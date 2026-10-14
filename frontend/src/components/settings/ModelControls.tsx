@@ -54,7 +54,7 @@ export function SyncModelsButton({
           className
         )}
       >
-        <RefreshCw className={cn("h-3 w-3", syncing && "animate-spin text-primary")} />
+        <RefreshCw className={cn("h-4 w-4", syncing && "animate-spin text-primary")} />
         <span className="hidden sm:inline">
           {syncing ? t("settings.sync.syncing") : t("settings.sync.label")}
         </span>

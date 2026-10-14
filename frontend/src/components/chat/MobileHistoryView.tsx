@@ -152,7 +152,7 @@ export const MobileHistoryView = ({
                 variant="ghost"
                 size="icon"
                 onClick={onNewChat}
-                className="h-8 w-8 cursor-pointer rounded-full text-foreground transition-colors hover:bg-surface-3/80 active:scale-95"
+                className="h-9 w-9 cursor-pointer rounded-full text-foreground transition-colors hover:bg-surface-3/80 active:scale-95"
               >
                 <Plus className="h-4 w-4" />
                 <span className="sr-only">{t("chat.history.newChat")}</span>

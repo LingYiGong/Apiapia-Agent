@@ -93,7 +93,7 @@ export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
     <button
       type="button"
       aria-label={t("common.account.menu", { username: user.username })}
-      className="flex h-8 w-8 shrink-0 cursor-pointer select-none items-center justify-center rounded-full border border-border/70 bg-muted/40 shadow-2xs transition-all hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 active:scale-95"
+      className="flex h-9 w-9 shrink-0 cursor-pointer select-none items-center justify-center rounded-full border border-border/70 bg-muted/40 shadow-2xs transition-all hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 active:scale-95"
     >
       <UserAvatar username={user.username} className="h-7 w-7" textClassName="text-2xs" />
     </button>
@@ -196,7 +196,7 @@ export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
                   </div>
                   {label}
                 </div>
-                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40 transition-colors group-hover:text-muted-foreground" />
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/40 transition-colors group-hover:text-muted-foreground" />
               </>
             );
 

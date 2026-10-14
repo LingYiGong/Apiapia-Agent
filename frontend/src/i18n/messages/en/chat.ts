@@ -31,6 +31,7 @@ export default {
     lightboxDownload: "Download",
     lightboxDownloadTip: "Download the original",
     lightboxHint: "Press Esc or click outside to close",
+    lightboxHintTouch: "Pinch to zoom, tap outside to close",
   },
 
   creation: {

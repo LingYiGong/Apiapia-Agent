@@ -30,10 +30,21 @@ const DialogOverlay = React.forwardRef<
 ));
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 
+/**
+ * 传 `showCloseButton={false}` 隐藏右上角关闭键。
+ *
+ * 默认那个键是浅色 `bg-accent` 底 + `text-muted-foreground`，为浅色弹窗调的。
+ * 图片查看器这类**深色全屏**弹层自己会画一套控件，叠上去就是一块浅灰方块。
+ */
+export interface DialogContentProps
+  extends React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> {
+  showCloseButton?: boolean;
+}
+
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => {
+  DialogContentProps
+>(({ className, children, showCloseButton = true, ...props }, ref) => {
   const { t } = useI18n();
 
   return (
@@ -48,18 +59,22 @@ const DialogContent = React.forwardRef<
         {...props}
       >
         {children}
-        {/* 此前这个关闭键既没有 padding 也没有任何尺寸类，而 DialogPrimitive.Close
-            渲染出来就是一个 <button>，于是按钮的实际热区等于里面那个 h-4 的 <X>
-            —— 16×16px。全项目 9 处 DialogContent 都带它，其中移动端会话重命名、
-            删除确认、图片灯箱都是手指点按，16px 远远不够。
-            这里补 h-9 w-9 + flex 居中，落在 globals.css 自述的触控目标下限；
-            right/top 由 right-4 top-4 收到 right-3 top-3，图标中心基本不动。 */}
-        <DialogPrimitive.Close
-          className="absolute right-3 top-3 flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
-        >
-          <X className="h-4 w-4" />
-          <span className="sr-only">{t("common.action.close")}</span>
-        </DialogPrimitive.Close>
+        {showCloseButton && (
+          <>
+            {/* 此前这个关闭键既没有 padding 也没有任何尺寸类，而 DialogPrimitive.Close
+                渲染出来就是一个 <button>，于是按钮的实际热区等于里面那个 h-4 的 <X>
+                —— 16×16px。全项目 9 处 DialogContent 都带它，其中移动端会话重命名、
+                删除确认、图片灯箱都是手指点按，16px 远远不够。
+                这里补 h-9 w-9 + flex 居中，落在 globals.css 自述的触控目标下限；
+                right/top 由 right-4 top-4 收到 right-3 top-3，图标中心基本不动。 */}
+            <DialogPrimitive.Close
+              className="absolute right-3 top-3 flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
+            >
+              <X className="h-4 w-4" />
+              <span className="sr-only">{t("common.action.close")}</span>
+            </DialogPrimitive.Close>
+          </>
+        )}
       </DialogPrimitive.Content>
     </DialogPortal>
   );

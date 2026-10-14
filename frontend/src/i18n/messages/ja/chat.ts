@@ -31,6 +31,7 @@ export default {
     lightboxDownload: "ダウンロード",
     lightboxDownloadTip: "元画像をダウンロード",
     lightboxHint: "Esc を押すか、オーバーレイの余白をクリックして閉じます",
+    lightboxHintTouch: "ピンチで拡大縮小、画像の外をクリックして閉じます",
   },
 
   creation: {

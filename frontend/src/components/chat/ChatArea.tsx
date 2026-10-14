@@ -8,6 +8,7 @@ import {
   Dialog,
   DialogContent,
   DialogTitle,
+  DialogClose,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { ActionTooltip } from "@/components/common/ActionTooltip";
@@ -1725,51 +1726,91 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         </div>
       </div>
 
-      {/* Image Lightbox / Modal */}
+      {/* ── 图片查看器 ────────────────────────────────────────────────────
+          此前是「一张居中的黑色卡片」：DialogContent 是 fixed + translate 居中，
+          内部 overflow 没有放开，而图片按 max-h-[75vh] 约束，上面再叠顶栏、
+          底部提示和 p-3/sm-p-6 —— 合计高度会超过视口。超出部分从上下两端被裁掉
+          且无法滚动，横屏手机（可视高度约 375px）必然点不到顶栏的下载键。
+
+          改动：
+          1. 移动端铺满整屏、sm 以上才回到居中卡片，与 iOS / Android 相册一致，
+             图片拿到整屏可用面积，也顺带消掉了高度溢出。
+          2. 高度改由 flex 链决定：顶栏 flex-none、图片容器 min-h-0 flex-1、
+             图片 h-full w-full object-contain，不再有 vh 魔法数字互相打架。
+          3. touch-action: pinch-zoom 显式放行双指缩放 —— Radix Dialog 打开时
+             会锁掉 body 的触摸手势，默认会被吃掉，而「看图」最核心的手势就是缩放。
+          4. 自绘深色控件：默认关闭键是浅色 bg-accent，叠在纯黑上是一块浅灰方块。
+          5. 下载键从 32px 提到 36px，并去掉 secondary 的亮色实心底。
+          6. 底部提示改成按输入方式分流：触摸设备上没有 Esc 键，原来那句
+             "Press Esc or click outside to close" 对手机用户是错的。
+             ---------------------------------------------------------------- */}
       <Dialog
         open={!!previewImage}
         onOpenChange={(open) => {
           if (!open) setPreviewImage(null);
         }}
       >
-        <DialogContent className="max-w-5xl bg-black/90 backdrop-blur-md p-3 sm:p-6 border-none text-white shadow-2xl flex flex-col items-center justify-center">
+        <DialogContent
+          showCloseButton={false}
+          className={cn(
+            "flex w-full max-w-none flex-col gap-0 overflow-hidden border-0 bg-black/92 p-0 text-white shadow-none backdrop-blur-xl dark:bg-black/92",
+            "h-[100dvh] max-h-[100dvh] rounded-none",
+            "sm:h-auto sm:max-h-[92dvh] sm:w-auto sm:max-w-[min(94vw,1100px)] sm:rounded-2xl sm:shadow-2xl",
+            // 刘海 / home 条：与 MobileHeader 引用同一组变量，不另抄字面量
+            "pt-[var(--sat)] pb-[max(0.75rem,var(--sab))] pl-[max(0.75rem,var(--sal))] pr-[max(0.75rem,var(--sar))]"
+          )}
+        >
           {previewImage && (
             <>
-              {/* Top action bar */}
-              <div className="w-full flex items-center justify-between mb-2 text-white/90 px-1">
-                <DialogTitle className="text-xs sm:text-sm font-medium truncate max-w-[60%] text-white">
+              {/* 顶栏：标题 + 下载 + 关闭 */}
+              <div className="flex shrink-0 items-center gap-2 py-2">
+                <DialogTitle className="min-w-0 flex-1 truncate text-subhead font-semibold text-white/90">
                   {previewImage.alt || t("chat.composer.lightboxTitle")}
                 </DialogTitle>
-                <div className="flex items-center gap-2">
-                  <ActionTooltip label={t("chat.composer.lightboxDownloadTip")} side="bottom">
-                    <Button variant="secondary" size="sm" asChild>
-                      <a
-                        href={previewImage.src}
-                        download={previewImage.alt || "image.png"}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="cursor-pointer"
-                      >
-                        <Download className="h-4 w-4" />
-                        <span>{t("chat.composer.lightboxDownload")}</span>
-                      </a>
-                    </Button>
-                  </ActionTooltip>
-                </div>
+
+                <ActionTooltip label={t("chat.composer.lightboxDownloadTip")} side="bottom">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    asChild
+                    className="h-9 shrink-0 cursor-pointer gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 text-footnote font-medium text-white transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 active:scale-95"
+                  >
+                    <a
+                      href={previewImage.src}
+                      download={previewImage.alt || "image.png"}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <Download className="h-4 w-4" />
+                      <span>{t("chat.composer.lightboxDownload")}</span>
+                    </a>
+                  </Button>
+                </ActionTooltip>
+
+                <DialogClose
+                  className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-white/10 text-white/90 transition-colors hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50 active:scale-95"
+                  aria-label={t("common.action.close")}
+                >
+                  <X className="h-4 w-4" />
+                </DialogClose>
               </div>
 
-              {/* Centered Image */}
-              <div className="relative flex items-center justify-center max-w-full max-h-[80vh] overflow-hidden">
+              {/* 图片：flex-1 + min-h-0 让它自己收缩，容器高度永远不溢出 */}
+              <div className="relative flex min-h-0 flex-1 touch-pinch-zoom">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={previewImage.src}
                   alt={previewImage.alt || t("chat.composer.lightboxAlt")}
-                  className="max-h-[75vh] max-w-[90vw] sm:max-w-[80vw] object-contain rounded-xl shadow-2xl select-none"
+                  decoding="async"
+                  className="h-full w-full select-none object-contain"
                 />
               </div>
 
-              {/* Bottom hint */}
-              <p className="text-2xs text-white/50 mt-2 select-none">
-                {t("chat.composer.lightboxHint")}
+              {/* 提示：触摸设备没有 Esc 键，那句话对手机用户是错的 */}
+              <p className="shrink-0 select-none py-2 text-center text-2xs text-white/55">
+                {isTouchPrimary
+                  ? t("chat.composer.lightboxHintTouch")
+                  : t("chat.composer.lightboxHint")}
               </p>
             </>
           )}

@@ -31,6 +31,7 @@ export default {
     lightboxDownload: "下載",
     lightboxDownloadTip: "下載原圖",
     lightboxHint: "按 Esc 或點擊遮罩空白處關閉",
+    lightboxHintTouch: "雙指可縮放，點擊空白處關閉",
   },
 
   creation: {

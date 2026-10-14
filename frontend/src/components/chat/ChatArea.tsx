@@ -885,8 +885,19 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         aria-busy={isStreaming}
         className={cn(
           "flex-1 overflow-x-hidden px-3.5 sm:px-5 md:px-8 relative min-w-0",
+          // space-y 必须与下方消息列表内部的 space-y-6 sm:space-y-8 一致。
+          //
+          // 流式块是「列表 div」的**兄弟节点**，所以它和最后一条已渲染消息之间的
+          // 间距由**这里**决定，而不是列表内部的值。此前这里写的是 space-y-3
+          // sm:space-y-4（12/16px），于是生成结束后：流式块卸载 → 正式消息挂进
+          // 列表内部 → 间距从 12px 变成 24px（sm+ 从 16 变 32）→ 答案在用户眼前
+          // 整体下移一格，底栏同时从流式 meta 整条换成操作栏。每条消息都会触发。
+          //
+          // 两处取同一个值后，生成中与生成后的间距同源，位置不再跳。附带效果：
+          // messagesEndRef 那个空 div（scrollIntoView 的锚点）下方留白从 12px
+          // 变成 24px，是列表末尾更正常的呼吸空间。
           messages.length > 0 || isStreaming
-            ? "overflow-y-auto py-3 sm:py-5 space-y-3 sm:space-y-4"
+            ? "overflow-y-auto py-3 sm:py-5 space-y-6 sm:space-y-8"
             : "overflow-y-hidden py-1 flex flex-col justify-center"
         )}
       >
@@ -981,7 +992,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
                   <div className="relative">
                     {renderMessageBody(streamingContent, true, handleImageClick)}
-                    <span className="ml-1.5 inline-block h-[18px] w-2 translate-y-0.5 animate-pulse rounded-xs bg-primary/80" />
+                    {/* 输入光标。animate-caret 是 530ms 硬开关（tailwind.config.ts 里
+                    新增的 keyframe），不是 animate-pulse 那种 2 秒不透明度呼吸。 */}
+                    <span className="ml-1.5 inline-block h-[18px] w-2 translate-y-0.5 animate-caret rounded-xs bg-primary/80" />
                   </div>
 
                   <div className="mt-3 flex items-center justify-between gap-1.5 border-t border-border/40 pt-2 font-mono text-2xs text-muted-foreground opacity-60">

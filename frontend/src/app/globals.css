@@ -154,7 +154,45 @@
        fontSize 刻度，每档都直接标注了对应的 Apple tracking 值。 */
     line-height: 1.5; /* 中文正文节奏；Apple iOS Body 为 22/17 = 1.294，
                         中文方块字需要比拉丁更松的行距，1.5 是网页通用值。 */
-    transition: background-color 0.2s ease, color 0.2s ease;
+    /* 这里此前还有一行 `transition: background-color 0.2s ease, color 0.2s
+       ease`，看起来是想让主题切换淡入，但它**从未生效过**：
+       lib/theme.tsx 给 next-themes 传了 disableTransitionOnChange，它会在
+       切换那一帧往 <head> 注入 `*,*::before,*::after{transition:none!important}`，
+       恰好在 --background / --foreground 唯一变化的瞬间把它抵消。
+       而且即使不抵消它也只是半淡入：--background 定义在 :root 上而非 body，
+       body 的底色是继承来的；而 transition 不继承，所以每个自带 bg-* /
+       border-* / shadow-* 的后代依然瞬切 —— 那才是最糟的半吊子。
+       主题瞬时切换是**正确**的行为（shadcn 选 disableTransitionOnChange
+       正是为了避开半淡入），故此处删掉这行误导性的声明，不做替代。 */
+  }
+}
+
+/* 尊重系统「减弱动态效果」。
+   ------------------------------------------------------------------
+   iOS 的「减弱动态效果」/ macOS 的「减少动态」/ Windows 的「动画效果」
+   都会通过 prefers-reduced-motion 告知页面。本项目此前 0 处响应它，而弹层
+   是 `zoom-in-95` + `slide-in-from-top-[48%]` 这种位移加缩放的组合，对前庭
+   功能障碍用户会引发恶心 —— 系统已经明确表态了，页面却完全无视。
+
+   为什么用全局覆写而不是 motion-reduce: 变体逐点改：全站有 146 处
+   transition-*、19 处 animate-in/out、23 处 animate-spin，加上 Radix 组件
+   内部的动画，逐个加变体既改不完也会漏。这里一处解决，且能覆盖第三方库。
+
+   两个取值说明：
+   - duration 用 0.01ms 而非 0，是为了让 animationend 事件仍然照常触发
+     （直接写 0 有些浏览器会跳过事件，依赖它的逻辑就卡住了）。
+   - iteration-count 必须一起压到 1：只压 duration 的话，animate-spin 会在
+     0.01ms 内无限循环，等于高速频闪，比原来的旋转更糟。代价是转圈类加载
+     指示器会静止 —— 但本项目每一处 spinner 旁边都有文字（"思考中"、模型名、
+     已耗时几秒），状态语义仍由文字承载，不依赖动画本身。 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 

@@ -133,11 +133,26 @@ const config: Config = {
           "0%": { backgroundPosition: "-200% 0" },
           "100%": { backgroundPosition: "200% 0" },
         },
+        /**
+         * 文本输入光标的硬闪烁。
+         *
+         * 流式正文末尾那个方块此前直接用 Tailwind 的 `animate-pulse`，那是
+         * 2 秒一轮的**不透明度呼吸**（50% 处 opacity .5），读起来像"有个东西在
+         * 变暗"，不像"模型在打字"。真正的光标是 400~530ms 的硬开关 —— 用
+         * steps(1, end) 去掉两个关键帧之间的插值，边缘保持利落，不产生渐变糊边。
+         *
+         * 1.06s 周期 = 530ms 亮 / 530ms 灭，落在终端光标的常规区间。
+         */
+        caret: {
+          "0%, 49%": { opacity: "1" },
+          "50%, 100%": { opacity: "0" },
+        },
       },
       animation: {
         // accordion-down / accordion-up 此前在此定义，但 `@tailwindcss/accordion`
         // 并未安装，全站 0 处引用 `animate-accordion-*` —— 已删。
         shimmer: "shimmer 1.5s infinite linear",
+        caret: "caret 1.06s steps(1, end) infinite",
       },
     },
   },

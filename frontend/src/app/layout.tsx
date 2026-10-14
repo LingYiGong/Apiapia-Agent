@@ -79,33 +79,6 @@ export const metadata: Metadata = {
   },
 };
 
-/**
- * 首帧主题引导 —— 必须**内联**且**同步**执行，不能 `defer` / `async`，
- * 也不能挪进独立文件（那会多一个阻塞首帧的网络往返，等于没做）。
- *
- * 为什么需要它：`next-themes` 的主题脚本挂在 <body> 内的 ThemeProvider 下，
- * 而 `<body class="bg-background">` 的底色来自 globals.css 的 `--background`。
- * 浏览器解析到 <body> 时 `<html>` 上还没有 `dark` 类，`:root` 的浅色 token
- * 已经生效 —— 于是夜间模式用户每次冷启动都会先闪一屏纯白，这正是手机 web
- * app「进入 app 前的等待页」发白的直接原因。
- *
- * 这里把同一套判定提前到 <head> 里同步跑完：`<html>` 在 <body> 解析前就带上
- * `dark` / `light` 与 `color-scheme`，首帧就是最终配色。
- *
- * 两个约束，改动时务必同步维护：
- *   1. 存储键 `apiapia_theme` 与 `lib/theme.tsx` 的 storageKey 必须一致，
- *      否则脚本和 next-themes 得出相反结论，来回切主题。
- *   2. 判定顺序（显式 light/dark 优先于系统偏好）与 next-themes 一致。
- *
- * 后半段切 manifest：Web App Manifest 规范没有 `prefers-color-scheme`，
- * 没法在一份 JSON 里同时表达白/黑两套底色，所以拆成 manifest.json（浅）
- * 与 manifest-dark.json（深），按解析结果改 <link rel="manifest"> 的 href。
- * `metadata.manifest` 仍输出浅色那份，作为无脚本 / 脚本异常时的兜底。
- * 注意：系统启动画面（logo 闪屏）在「添加到主屏幕」时就被系统缓存了，
- * 改 manifest 只影响之后重新访问/重装，不会追溯已安装 App 的启动画面。
- */
-const THEME_BOOT_SCRIPT = `(function(){var d=document.documentElement,t=null;try{t=localStorage.getItem("apiapia_theme")}catch(e){}var m=typeof matchMedia==="function"&&matchMedia("(prefers-color-scheme: dark)").matches;var k=t==="dark"?true:t==="light"?false:m;d.classList.add(k?"dark":"light");d.style.colorScheme=k?"dark":"light";var href=k?"/manifest-dark.json":"/manifest.json",l=d.querySelector('link[rel="manifest"]');if(l){l.setAttribute("href",href)}else{var n=document.createElement("link");n.rel="manifest";n.setAttribute("href",href);d.appendChild(n)}document.addEventListener("DOMContentLoaded",function(){var a=d.querySelectorAll('link[rel="manifest"]');for(var i=1;i<a.length;i++){a[i].parentNode&&a[i].parentNode.removeChild(a[i])}});})();`;
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -117,12 +90,6 @@ export default function RootLayout({
     // 语言」。真正的语言由 I18nProvider 在 layout effect 里写到
     // documentElement.lang 上 —— 在浏览器绘制之前完成，所以不会闪。
     <html lang="zh-CN" suppressHydrationWarning className="h-full">
-      {/* 引导脚本必须是 <head> 的第一个子节点：在样式表与 <body> 之前同步
-          跑完，`<html>` 才拿得到 dark 类，首帧才不会白。放在 <body> 里
-          （next-themes 现在的位置）就已经晚了。 */}
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
-      </head>
       <body className="h-full bg-background font-sans text-base text-foreground antialiased">
         <ThemeProvider>
           <I18nProvider>

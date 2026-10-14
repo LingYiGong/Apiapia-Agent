@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.24.0-indigo?style=flat-square" alt="Version"></a>
+  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.25.0-indigo?style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
@@ -192,7 +192,29 @@ cat backup_xxx.sql | docker exec -i apiapia_postgres psql -U postgres -d apiapia
 
 ## 📜 版本发布与更新说明 (Release Notes)
 
-### 🚀 最新版本：v2.24.0 (2026-10-13)
+### 🚀 最新版本：v2.25.0 (2026-10-14)
+
+本版本是一次聚焦于**记忆系统自洽整理与开箱即用体验**的重要更新。新增了独立的记忆整理合并模型（Consolidation LLM）自定义配置、AI 整理全流程多阶段状态机动态可视化、系统默认模型全面迁移至 `openrouter/free` 官方免费智能路由，并对齐最新同步模型目录。
+
+#### 1. 记忆整理合并模型独立配置 (Consolidation LLM)
+- **记忆整理模型解耦与专属设定**：在系统设置 · 记忆系统中，将「整理合并模型」与原有的提炼模型解耦，允许管理员独立指定高阶推理模型专职负责记忆脱水、时序消歧与矛盾合并。
+- **沿用通用模型选择器**：完全对齐主选择器的 UI 交互体验与搜索能力，支持全站模型任意检索或手动输入自定模型 ID。
+
+#### 2. 精选整理模型推荐卡片与一键快捷选用
+- **紧跟最新 OpenRouter 模型目录**：参考最新同步目录，精选出 11 款在长文本理解、时序推理与事实脱水方面表现卓越的模型（涵盖 Nemotron 3 Ultra、Gemma 4、DeepSeek V4.1、Claude Sonnet 5.5 等）。
+- **结构化卡片与一键填入**：清晰标注计费类型（免费 / API 计费）、模型准确 ID 与选用理由，点击任意卡片即可一秒选用，当前选用项自动高亮。
+
+#### 3. AI 记忆整理多阶段执行状态机
+- **4 阶段动态可视化流程**：告别以往长时间分析时的黑盒等待，清晰展现「读取全量记忆与领域聚类 → 构建时序拓扑与状态矩阵 → 大模型全局深度推理与综合去噪 → 安全熔断校验与生成 Diff 变更草案」4 个动态推进阶段。
+- **实时计时器与进度条**：直观展示分析耗时与阶段流转进度条，操作掌控感倍增。
+
+#### 4. 开箱即用：全局默认模型与向后平滑兼容
+- **默认模型设为 `openrouter/free`**：默认会话模型与记忆整理模型均更新为 OpenRouter 官方智能免费路由，新用户部署即可零成本体验全部核心能力。
+- **端点别名规范化与防 404 保障**：后端智能映射历史已下线模型至当前目录活跃端点，数据库自迁移自动平滑更新旧存量默认值。
+
+---
+
+### v2.24.0 (2026-10-13)
 
 本版本是一次**全站国际化架构落地**的重要更新。自研轻量 i18n 框架，简体中文 / 繁體中文 / English / 日本語 四语完整覆盖前端界面、后端错误、AI 提示词与记忆抽取；同时智能翻译的目标语言不再写死中文，改为跟随界面语言。
 

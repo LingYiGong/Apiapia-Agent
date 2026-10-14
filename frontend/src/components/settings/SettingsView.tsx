@@ -8,6 +8,7 @@ import { ModelCatalogItem, ImageModelItem, ImageModelsResponse, VideoModelItem, 
 import { ModelSelect } from "@/components/common/ModelSelect";
 import { isFreeModel, isMultimodalModel, toChatModelOptions } from "@/lib/models";
 import { CURRENT_VERSION, triggerManualUpdateCheck } from "@/lib/version";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -50,6 +51,7 @@ import { toast } from "sonner";
 interface InitialSettings {
   defaultModel: string;
   memoryModel: string;
+  consolidationModel: string;
   imageModel: string | null;
   videoModel: string | null;
   sttModel: string | null;
@@ -81,6 +83,94 @@ const MEMORY_MODEL_PRESET_IDS = [
   "google/gemini-2.5-flash",
 ];
 
+interface RecommendedConsolidationModel {
+  id: string;
+  name: string;
+  tag: string;
+  isFree: boolean;
+  desc: string;
+}
+
+const RECOMMENDED_CONSOLIDATION_MODELS: RecommendedConsolidationModel[] = [
+  {
+    id: "openrouter/free",
+    name: "Free Models Router",
+    tag: "免费",
+    isFree: true,
+    desc: "官方免费智能路由，自动调度在线可用免费大模型池，开箱即用",
+  },
+  {
+    id: "nvidia/nemotron-3-ultra-550b-a55b:free",
+    name: "NVIDIA Nemotron 3 Ultra (Free)",
+    tag: "免费",
+    isFree: true,
+    desc: "550B 参数开源旗舰前沿推理模型（55B 激活），逻辑消歧与时序推断极强",
+  },
+  {
+    id: "google/gemma-4-31b-it:free",
+    name: "Google Gemma 4 31B (Free)",
+    tag: "免费",
+    isFree: true,
+    desc: "Google DeepMind 30.7B 密集指令微调模型，长文本遵循优秀，事实提炼严谨",
+  },
+  {
+    id: "nvidia/nemotron-3-super-120b-a12b:free",
+    name: "NVIDIA Nemotron 3 Super (Free)",
+    tag: "免费",
+    isFree: true,
+    desc: "120B 参数混合 MoE 架构，大算力长上下文，高吞吐批量记忆脱水合并",
+  },
+  {
+    id: "liquid/lfm-2.5-2.6b:free",
+    name: "LiquidAI LFM 2.5 (Free)",
+    tag: "免费",
+    isFree: true,
+    desc: "专为长上下文、数据提取（Data Extraction）与 RAG 优化的轻快推理模型",
+  },
+  {
+    id: "deepseek/deepseek-v4.1-flash",
+    name: "DeepSeek V4.1 Flash",
+    tag: "API 计费",
+    isFree: false,
+    desc: "DeepSeek 最新稀疏 MoE 架构，长文本理解顶尖，JSON 格式输出高度遵从且极低成本",
+  },
+  {
+    id: "anthropic/claude-sonnet-5.5",
+    name: "Claude Sonnet 5.5",
+    tag: "API 计费",
+    isFree: false,
+    desc: "Anthropic 新一代 Sonnet 旗舰，记忆推理天花板，细微时序冲突辨析与碎片归纳最精准",
+  },
+  {
+    id: "anthropic/claude-haiku-5.5",
+    name: "Claude Haiku 5.5",
+    tag: "API 计费",
+    isFree: false,
+    desc: "专为高吞吐摘要与长文脱水优化的高速模型，响应极快，兼顾推理精度与经济性",
+  },
+  {
+    id: "openai/gpt-6-luna",
+    name: "GPT-6 Luna",
+    tag: "API 计费",
+    isFree: false,
+    desc: "OpenAI GPT-6 系列高性价比主力，极速响应，指令遵从度极高，单次整理成本极低",
+  },
+  {
+    id: "google/gemini-3.8-flash",
+    name: "Gemini 3.8 Flash",
+    tag: "API 计费",
+    isFree: false,
+    desc: "Google 最新 Flash 超大上下文模型，擅长跨时间线全局扫描与海量历史条目综合梳理",
+  },
+  {
+    id: "qwen/qwen3.8-omni-flash",
+    name: "Qwen 3.8 Omni Flash",
+    tag: "API 计费",
+    isFree: false,
+    desc: "阿里通义千问最新多模态智能体模型，中文本土语义理解深刻，擅长人物关系与复杂事实梳理",
+  },
+];
+
 /** 「关于系统」里的固定行。版本号这类运行时取值走 values 插值，不写进字典。 */
 const ABOUT_ROWS: { labelKey: MessageKey; valueKey: MessageKey; values?: TranslateValues }[] = [
   {
@@ -104,6 +194,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   // User Settings State
   const [defaultModel, setDefaultModel] = useState("openrouter/free");
   const [memoryModel, setMemoryModel] = useState("openai/gpt-4o-mini");
+  const [consolidationModel, setConsolidationModel] = useState("openrouter/free");
   const [imageModel, setImageModel] = useState<string | null>(null);
   const [videoModel, setVideoModel] = useState<string | null>(null);
   // 语音识别与语音合成各一个选择，各存一个字段。两者在上游是互不相交的模型族，
@@ -146,6 +237,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     return (
       defaultModel !== initialSettings.defaultModel ||
       memoryModel !== initialSettings.memoryModel ||
+      consolidationModel !== initialSettings.consolidationModel ||
       imageModel !== initialSettings.imageModel ||
       videoModel !== initialSettings.videoModel ||
       sttModel !== initialSettings.sttModel ||
@@ -154,7 +246,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       Math.abs(temperature - initialSettings.temperature) > 0.001 ||
       memoryEnabled !== initialSettings.memoryEnabled
     );
-  }, [initialSettings, defaultModel, memoryModel, imageModel, videoModel, sttModel, ttsModel, systemPrompt, temperature, memoryEnabled]);
+  }, [initialSettings, defaultModel, memoryModel, consolidationModel, imageModel, videoModel, sttModel, ttsModel, systemPrompt, temperature, memoryEnabled]);
 
   const saveState: SaveState = { dirty: isDirty, saving: savingSettings, justSaved: saveSuccess };
 
@@ -180,6 +272,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   }, [chatOptions, t]);
 
   const memoryModelIsPreset = memoryModelOptions.some((o) => o.id === memoryModel);
+
 
   const handleSyncModels = async () => {
     setSyncingModels(true);
@@ -325,6 +418,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           dModel = dModel || "openrouter/free";
         }
         const mModel = settingsRes.memory_model || "openai/gpt-4o-mini";
+        const cModel = settingsRes.consolidation_model || "openrouter/free";
         // Mirror the chat model contract: an absent selection falls back to the
         // zero-cost default rather than staying empty.
         const freeImage =
@@ -365,6 +459,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
         setDefaultModel(dModel);
         setMemoryModel(mModel);
+        setConsolidationModel(cModel);
         setImageModel(iModel);
         setVideoModel(vModel);
         setSttModel(sModel);
@@ -376,6 +471,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         setInitialSettings({
           defaultModel: dModel,
           memoryModel: mModel,
+          consolidationModel: cModel,
           imageModel: iModel,
           videoModel: vModel,
           sttModel: sModel,
@@ -422,6 +518,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     if (!initialSettings) return;
     setDefaultModel(initialSettings.defaultModel);
     setMemoryModel(initialSettings.memoryModel);
+    setConsolidationModel(initialSettings.consolidationModel);
     setImageModel(initialSettings.imageModel);
     setVideoModel(initialSettings.videoModel);
     setSttModel(initialSettings.sttModel);
@@ -443,7 +540,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           method: "PATCH",
           body: JSON.stringify({
             default_model: defaultModel,
-            ...(user?.is_superuser ? { memory_model: memoryModel } : {}),
+            ...(user?.is_superuser
+              ? {
+                  memory_model: memoryModel,
+                  consolidation_model: consolidationModel,
+                }
+              : {}),
             image_model: imageModel,
             video_model: videoModel,
             stt_model: sttModel,
@@ -460,6 +562,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         setInitialSettings({
           defaultModel,
           memoryModel,
+          consolidationModel,
           imageModel,
           videoModel,
           sttModel,
@@ -478,7 +581,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         setSavingSettings(false);
       }
     },
-    [defaultModel, memoryModel, imageModel, videoModel, sttModel, ttsModel, systemPrompt, temperature, memoryEnabled, user, savingSettings, t]
+    [defaultModel, memoryModel, consolidationModel, imageModel, videoModel, sttModel, ttsModel, systemPrompt, temperature, memoryEnabled, user, savingSettings, t]
   );
 
   // Apple Mac Shortcut: Command + S / Ctrl + S to save
@@ -846,56 +949,125 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 />
               </div>
 
-              {/* 记忆提炼模型：仅超管可见（普通用户的字段后端不接收）*/}
+              {/* 记忆提炼与整理合并模型：仅超管可见（普通用户的字段后端不接收）*/}
               {memoryEnabled && user.is_superuser && (
-                <div className="space-y-2.5 bg-surface-3/20 p-3.5 sm:p-4">
-                  <Label
-                    htmlFor="memory-model-select"
-                    className="text-xs font-medium text-muted-foreground"
-                  >
-                    {t("settings.memoryGroup.modelLabel")}
-                  </Label>
-
-                  <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                    <Select
-                      value={memoryModelIsPreset ? memoryModel : "custom"}
-                      onValueChange={(v) => {
-                        if (v !== "custom") setMemoryModel(v);
-                      }}
+                <div className="space-y-4 bg-surface-3/20 p-3.5 sm:p-4">
+                  {/* 记忆提炼模型 */}
+                  <div className="space-y-2.5">
+                    <Label
+                      htmlFor="memory-model-select"
+                      className="text-xs font-medium text-muted-foreground"
                     >
-                      <SelectTrigger
-                        id="memory-model-select"
-                        className="rounded-xl border-border/60 bg-background text-xs"
-                      >
-                        <SelectValue placeholder={t("settings.memoryGroup.modelPlaceholder")} />
-                      </SelectTrigger>
-                      {/* 不套 overlaySurfaceClass：position="popper" 时 Radix 用
-                        min-w-[var(--radix-select-trigger-width)] 把宽度钉在触发器上，
-                        塞 w-max 会和这段 pin 打架。这里只补安全边距。 */}
-                        <SelectContent collisionPadding={12} className="rounded-xl">
-                        {memoryModelOptions.map((o) => (
-                          <SelectItem key={o.id} value={o.id} className="rounded-lg text-xs">
-                            {o.label}
-                          </SelectItem>
-                        ))}
-                        <SelectItem value="custom" className="rounded-lg text-xs">
-                          {t("settings.memoryGroup.manualModel")}
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
+                      {t("settings.memoryGroup.modelLabel")}
+                    </Label>
 
-                    <div>
-                      <Label htmlFor="memory-model-input" className="sr-only">
-                        {t("settings.memoryGroup.modelIdLabel")}
-                      </Label>
-                      <Input
-                        id="memory-model-input"
-                        type="text"
-                        value={memoryModel}
-                        onChange={(e) => setMemoryModel(e.target.value.trim())}
-                        placeholder={t("settings.memoryGroup.modelIdPlaceholder")}
-                        className="rounded-xl border-border/60 bg-background font-mono text-xs"
-                      />
+                    <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                      <Select
+                        value={memoryModelIsPreset ? memoryModel : "custom"}
+                        onValueChange={(v) => {
+                          if (v !== "custom") setMemoryModel(v);
+                        }}
+                      >
+                        <SelectTrigger
+                          id="memory-model-select"
+                          className="rounded-xl border-border/60 bg-background text-xs"
+                        >
+                          <SelectValue placeholder={t("settings.memoryGroup.modelPlaceholder")} />
+                        </SelectTrigger>
+                        <SelectContent collisionPadding={12} className="rounded-xl">
+                          {memoryModelOptions.map((o) => (
+                            <SelectItem key={o.id} value={o.id} className="rounded-lg text-xs">
+                              {o.label}
+                            </SelectItem>
+                          ))}
+                          <SelectItem value="custom" className="rounded-lg text-xs">
+                            {t("settings.memoryGroup.manualModel")}
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+
+                      <div>
+                        <Label htmlFor="memory-model-input" className="sr-only">
+                          {t("settings.memoryGroup.modelIdLabel")}
+                        </Label>
+                        <Input
+                          id="memory-model-input"
+                          type="text"
+                          value={memoryModel}
+                          onChange={(e) => setMemoryModel(e.target.value.trim())}
+                          placeholder={t("settings.memoryGroup.modelIdPlaceholder")}
+                          className="rounded-xl border-border/60 bg-background font-mono text-xs"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 记忆整理合并模型 */}
+                  <div className="space-y-2.5 pt-3 border-t border-border/40">
+                    <Label className="text-xs font-medium text-muted-foreground">
+                      {t("settings.memoryGroup.consolidationModelLabel")}
+                    </Label>
+
+                    <ModelSelect
+                      value={consolidationModel}
+                      onChange={setConsolidationModel}
+                      models={availableModels}
+                      placeholder={t("settings.memoryGroup.consolidationModelPlaceholder")}
+                    />
+
+                    {/* 推荐整理模型说明卡片列表 */}
+                    <div className="mt-2 space-y-1.5 rounded-xl border border-border/40 bg-surface-2/40 p-3">
+                      <div className="flex items-center gap-1.5 px-0.5 text-2xs font-semibold text-foreground">
+                        <Sparkles className="h-3 w-3 text-primary" />
+                        <span>推荐整理模型及选用理由（点击卡片可快速选用）：</span>
+                      </div>
+                      <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 pt-1">
+                        {RECOMMENDED_CONSOLIDATION_MODELS.map((item) => {
+                          const isSelected = consolidationModel === item.id;
+                          return (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => setConsolidationModel(item.id)}
+                              className={cn(
+                                "flex flex-col gap-1 p-2.5 rounded-lg border text-left transition-all cursor-pointer",
+                                isSelected
+                                  ? "border-primary/50 bg-primary/10 shadow-xs ring-1 ring-primary/30"
+                                  : "border-border/40 bg-background/60 hover:bg-surface-3/80 hover:border-border/70"
+                              )}
+                            >
+                              <div className="flex items-center justify-between gap-1.5 flex-wrap">
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <span
+                                    className={cn(
+                                      "text-[10px] font-medium px-1.5 py-0.2 rounded font-sans shrink-0",
+                                      item.isFree
+                                        ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                                        : "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                                    )}
+                                  >
+                                    {item.tag}
+                                  </span>
+                                  <span className="font-semibold text-xs text-foreground truncate">
+                                    {item.name}
+                                  </span>
+                                </div>
+                                {isSelected && (
+                                  <span className="text-[10px] font-medium text-primary shrink-0">
+                                    当前选用
+                                  </span>
+                                )}
+                              </div>
+                              <span className="font-mono text-2xs text-muted-foreground truncate">
+                                {item.id}
+                              </span>
+                              <p className="text-2xs text-muted-foreground leading-relaxed mt-0.5">
+                                {item.desc}
+                              </p>
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
                 </div>

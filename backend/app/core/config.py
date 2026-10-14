@@ -112,8 +112,8 @@ class Settings(BaseSettings):
     MEDIA_DIR: str = "/app/data/media"
 
     # LLMs
-    DEFAULT_MODEL: str = "gpt-4o-mini"
-    DEFAULT_PROVIDER: str = "openai"
+    DEFAULT_MODEL: str = "openrouter/free"
+    DEFAULT_PROVIDER: str = "openrouter"
 
     OPENAI_API_KEY: Optional[str] = None
     OPENAI_BASE_URL: str = "https://api.openai.com/v1"

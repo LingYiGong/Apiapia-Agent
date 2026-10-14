@@ -104,11 +104,43 @@ export interface MemoryItem {
   score?: number;
 }
 
+export interface ConsolidationPlanItem {
+  id?: string;
+  text: string;
+  old_text?: string;
+  category?: string;
+  importance?: number;
+  reason?: string;
+}
+
+export interface ConsolidationPlan {
+  to_delete: ConsolidationPlanItem[];
+  to_update: ConsolidationPlanItem[];
+  to_add: ConsolidationPlanItem[];
+  to_keep: ConsolidationPlanItem[];
+}
+
+export interface ConsolidationPreviewResponse {
+  status: string;
+  message?: string;
+  total_count?: number;
+  summary?: string;
+  plan?: ConsolidationPlan;
+}
+
+export interface ConsolidationSnapshotStatus {
+  has_snapshot: boolean;
+  snapshot_time?: string | null;
+  count: number;
+}
+
+
 export interface UserSetting {
   id: string;
   user_id: string;
   default_model: string;
   memory_model?: string;
+  consolidation_model?: string;
   image_model?: string | null;
   video_model?: string | null;
   /** 语音识别与语音合成分开两个字段：上游是两族互不相交的模型 */

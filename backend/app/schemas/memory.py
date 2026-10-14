@@ -27,3 +27,46 @@ class MemorySearchResponse(BaseModel):
     total: int
     results: List[Dict[str, Any]]
     has_more: bool
+
+
+class ConsolidationPlanItem(BaseModel):
+    id: Optional[str] = None
+    text: str
+    old_text: Optional[str] = None
+    category: Optional[str] = None
+    importance: Optional[int] = None
+    reason: Optional[str] = None
+
+
+class ConsolidationPlan(BaseModel):
+    to_delete: List[Dict[str, Any]] = []
+    to_update: List[Dict[str, Any]] = []
+    to_add: List[Dict[str, Any]] = []
+    to_keep: List[Dict[str, Any]] = []
+
+
+class ConsolidationPreviewResponse(BaseModel):
+    status: str
+    message: Optional[str] = None
+    total_count: Optional[int] = None
+    summary: Optional[str] = None
+    plan: Optional[ConsolidationPlan] = None
+
+
+class ConsolidationApplyRequest(BaseModel):
+    plan: ConsolidationPlan
+
+
+class ConsolidationApplyResponse(BaseModel):
+    status: str
+    deleted_count: int
+    updated_count: int
+    added_count: int
+    snapshot_created: bool
+
+
+class ConsolidationSnapshotStatus(BaseModel):
+    has_snapshot: bool
+    snapshot_time: Optional[str] = None
+    count: int
+

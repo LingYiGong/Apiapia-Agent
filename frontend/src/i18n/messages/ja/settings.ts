@@ -49,6 +49,10 @@ export default {
     modelPlaceholder: "記憶の要約に使うモデルを選択",
     modelIdLabel: "記憶抽出モデルの ID",
     modelIdPlaceholder: "例: openai/gpt-4o-mini",
+    consolidationModelLabel: "整理統合モデル (Consolidation LLM)",
+    consolidationModelPlaceholder: "記憶整理モデルを選択",
+    consolidationModelIdLabel: "記憶整理モデルの ID",
+    consolidationModelIdPlaceholder: "例: openrouter/free",
     manualModel: "✍️ 別のモデル ID を入力…",
   },
 

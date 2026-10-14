@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.24.0-indigo?style=flat-square" alt="Version"></a>
+  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.25.0-indigo?style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
@@ -193,7 +193,29 @@ cat backup_xxx.sql | docker exec -i apiapia_postgres psql -U postgres -d apiapia
 
 ## 📜 Releases & Changelog
 
-### 🚀 Latest Release: v2.24.0 (2026-10-13)
+### 🚀 Latest Release: v2.25.0 (2026-10-14)
+
+This release introduces independent configuration for the **Memory Consolidation Model (Consolidation LLM)**, real-time stage progress animation during AI memory deduplication, zero-barrier default model scheduling with `openrouter/free`, and synchronized recommendation models.
+
+#### 1. Independent Memory Consolidation Model Configuration
+- **Consolidation LLM Configuration**: Dedicated selector under Memory Settings allowing administrators to configure custom models for memory timeline deduplication and conflict resolution.
+- **Universal Model Picker**: Reuses the native `<ModelSelect>` component with full search, categorisation, and custom model ID inputs.
+
+#### 2. Curated Recommendation Cards with One-Click Selection
+- **Synchronized OpenRouter Catalog**: Curated 11 cutting-edge models from the latest catalog (e.g. `openrouter/free`, `nvidia/nemotron-3-ultra-550b-a55b:free`, `google/gemma-4-31b-it:free`, `deepseek/deepseek-v4.1-flash`, `anthropic/claude-sonnet-5.5`).
+- **One-Click Quick Selection**: Card-style recommendations with detailed reasoning for memory summarization and click-to-select capability.
+
+#### 3. Real-Time Stage State Machine for Memory Consolidation
+- **Multi-Stage Visual Timeline**: 4-stage execution animation (Data Retrieval & Domain Clustering → Temporal Matrix Construction → Global LLM Reasoning & Denoising → Safety Threshold Validation & Diff Generation).
+- **Elapsed Timer & Progress Bar**: Real-time second counter and stage-aligned progress indicator during analysis.
+
+#### 4. Out-of-the-Box Zero-Barrier Default Model
+- **`openrouter/free` as System Default**: Default language model and consolidation model set to OpenRouter's official aggregated free model router.
+- **Legacy Compatibility & 404 Prevention**: Automatic endpoint alias normalization mapping retired model names to active catalog models with smooth database migration.
+
+---
+
+### v2.24.0 (2026-10-13)
 
 This release is a major update that lands the **site-wide internationalization architecture**. A self-developed lightweight i18n framework gives full four-language coverage — Simplified Chinese / Traditional Chinese / English / Japanese — across the frontend UI, backend error responses, AI prompts and memory extraction. At the same time, the target language of smart translation is no longer hardcoded to Chinese and now follows the interface language.
 

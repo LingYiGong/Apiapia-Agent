@@ -7,8 +7,15 @@ import { useI18n } from "@/i18n";
 import { apiRequest } from "@/lib/api";
 import { ViewShell } from "@/components/common/ViewShell";
 import type { MobileTab } from "@/config/navigation";
-import { MemoryItem } from "@/types";
+import {
+  MemoryItem,
+  ConsolidationPlan,
+  ConsolidationPreviewResponse,
+  ConsolidationSnapshotStatus,
+} from "@/types";
 import { Button } from "@/components/ui/button";
+
+
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -42,7 +49,12 @@ import {
   Download,
   X,
   RotateCcw,
+  Sparkles,
+  History,
 } from "lucide-react";
+import { ConsolidateDialog } from "@/components/memory/ConsolidateDialog";
+
+
 
 export interface MemoryViewProps {
   isMobileSpa?: boolean;
@@ -97,8 +109,17 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
   // 「处理中…」—— onConfirm 永远不触发，删除功能从 UI 完全不可达。
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  // 单飞闸门：state 更新是异步的，光靠 isDeleting 挡不住同一帧内的双击
   const deletingRef = useRef(false);
+
+  // Consolidation State
+  const [isConsolidateOpen, setIsConsolidateOpen] = useState(false);
+  const [isAnalyzingConsolidation, setIsAnalyzingConsolidation] = useState(false);
+  const [isApplyingConsolidation, setIsApplyingConsolidation] = useState(false);
+  const [consolidationPreview, setConsolidationPreview] = useState<ConsolidationPreviewResponse | null>(null);
+  const [snapshotStatus, setSnapshotStatus] = useState<ConsolidationSnapshotStatus | null>(null);
+  const [showRollbackConfirm, setShowRollbackConfirm] = useState(false);
+  const [isRollingBack, setIsRollingBack] = useState(false);
+
 
 /**
  * 时间分组小标（最近 24 小时 / 最近 3 天 / 最近 7 天 / 更早）。
@@ -199,8 +220,18 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
     }
   };
 
+  const checkSnapshotStatus = async () => {
+    try {
+      const res = await apiRequest<ConsolidationSnapshotStatus>("/memories/consolidate/snapshot-status");
+      setSnapshotStatus(res);
+    } catch (_) {}
+  };
+
   /** 重置到第一页（浏览态）。切回前台刷新、退出搜索都走这里。 */
-  const fetchMemories = () => fetchPage({ query: "", offset: 0, append: false });
+  const fetchMemories = () => {
+    fetchPage({ query: "", offset: 0, append: false });
+    checkSnapshotStatus();
+  };
 
   /** 下滑加载更多。浏览态与检索态都走它。 */
   const loadMore = () => {
@@ -226,8 +257,80 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
     if (isMobileSpa && !active) return;
     if (user) {
       fetchMemories();
+      checkSnapshotStatus();
     }
   }, [user, isMobileSpa, active]);
+
+  const handleStartConsolidation = async () => {
+    setIsConsolidateOpen(true);
+    setIsAnalyzingConsolidation(true);
+    setConsolidationPreview(null);
+    try {
+      const res = await apiRequest<ConsolidationPreviewResponse>("/memories/consolidate/preview", {
+        method: "POST",
+      });
+      setConsolidationPreview(res);
+      if (res.status === "already_optimal") {
+        toast.success(res.summary || res.message || "当前记忆库已高度精炼，无待整理项！");
+        setIsConsolidateOpen(false);
+      } else if (res.status === "too_few" || res.status === "empty") {
+        toast.info(res.message || "记忆数量较少，无需整理");
+        setIsConsolidateOpen(false);
+      } else if (res.status === "error") {
+        toast.error(res.message || "分析记忆库失败");
+        setIsConsolidateOpen(false);
+      }
+    } catch (err: any) {
+      toast.error(err.message || "分析记忆库失败");
+      setIsConsolidateOpen(false);
+    } finally {
+      setIsAnalyzingConsolidation(false);
+    }
+  };
+
+  const handleApplyConsolidation = async (approvedPlan: ConsolidationPlan) => {
+    setIsApplyingConsolidation(true);
+    const toastId = toast.loading("正在应用智能整理并写入数据库…");
+    try {
+      const res = await apiRequest<{
+        status: string;
+        deleted_count: number;
+        updated_count: number;
+        added_count: number;
+      }>("/memories/consolidate/apply", {
+        method: "POST",
+        body: JSON.stringify({ plan: approvedPlan }),
+      });
+      toast.success(
+        `整理完成：淘汰 ${res.deleted_count} 条过期，更新 ${res.updated_count} 处冲突，提炼新增 ${res.added_count} 条核心事实`,
+        { id: toastId }
+      );
+      setIsConsolidateOpen(false);
+      fetchMemories();
+    } catch (err: any) {
+      toast.error(err.message || "应用整理失败", { id: toastId });
+    } finally {
+      setIsApplyingConsolidation(false);
+    }
+  };
+
+  const handleRollbackConsolidation = async () => {
+    setIsRollingBack(true);
+    const toastId = toast.loading("正在恢复历史备份快照…");
+    try {
+      const res = await apiRequest<{ status: string; restored_count: number }>("/memories/consolidate/rollback", {
+        method: "POST",
+      });
+      toast.success(`已撤销整理，成功恢复 ${res.restored_count} 条记忆`, { id: toastId });
+      setShowRollbackConfirm(false);
+      fetchMemories();
+    } catch (err: any) {
+      toast.error(err.message || "恢复备份快照失败", { id: toastId });
+    } finally {
+      setIsRollingBack(false);
+    }
+  };
+
 
   // 切后台 / 切回本页签时刷新，避免看到别的设备写入的旧记忆。
   // 正在编辑某条记忆时必须跳过，否则会丢掉未保存的改动。
@@ -405,6 +508,39 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
               <span className="sr-only">{t("memory.search.submit")}</span>
             </Button>
           </ActionTooltip>
+
+          <ActionTooltip label="AI 智能整理全部记忆（时序覆盖与脱水）" side="bottom">
+            <Button
+              type="button"
+              onClick={handleStartConsolidation}
+              disabled={loadingMemories || isExporting}
+              variant="outline"
+              size="icon"
+              className="h-10 w-10 shrink-0 cursor-pointer rounded-xl border-primary/40 bg-primary/10 text-primary transition-colors hover:bg-primary/20 active:scale-95"
+            >
+              <Sparkles className="h-4 w-4" />
+              <span className="sr-only">智能整理记忆</span>
+            </Button>
+          </ActionTooltip>
+
+          {snapshotStatus?.has_snapshot && (
+            <ActionTooltip
+              label={`恢复整理前备份 (${snapshotStatus.count} 条)`}
+              side="bottom"
+            >
+              <Button
+                type="button"
+                onClick={() => setShowRollbackConfirm(true)}
+                disabled={loadingMemories || isExporting}
+                variant="outline"
+                size="icon"
+                className="h-10 w-10 shrink-0 cursor-pointer rounded-xl border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 transition-colors hover:bg-amber-500/20 active:scale-95"
+              >
+                <History className="h-4 w-4" />
+                <span className="sr-only">恢复整理前备份</span>
+              </Button>
+            </ActionTooltip>
+          )}
 
           <ActionTooltip label={t("memory.export.tip", { count: totalCount })} side="bottom">
             <Button
@@ -689,6 +825,35 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
           onConfirm={() => handleDelete(deletingId)}
         />
       )}
+
+
+      {/* ── 智能整理弹窗 ── */}
+      <ConsolidateDialog
+
+        open={isConsolidateOpen}
+        onOpenChange={setIsConsolidateOpen}
+        previewData={consolidationPreview}
+        isAnalyzing={isAnalyzingConsolidation}
+        isApplying={isApplyingConsolidation}
+        onApply={handleApplyConsolidation}
+      />
+
+      {/* ── 恢复备份确认弹窗 ── */}
+      {showRollbackConfirm && (
+        <ConfirmDialog
+          open
+          onOpenChange={(open) => {
+            if (!open && !isRollingBack) setShowRollbackConfirm(false);
+          }}
+          title="恢复整理前备份快照"
+          description={`确定要撤销上次整理并将记忆库还原为整理前的状态吗？快照中包含 ${snapshotStatus?.count || 0} 条记忆。`}
+          confirmText="确认恢复"
+          danger
+          loading={isRollingBack}
+          onConfirm={handleRollbackConsolidation}
+        />
+      )}
     </ViewShell>
   );
 };
+

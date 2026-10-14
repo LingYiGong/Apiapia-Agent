@@ -50,6 +50,10 @@ export default {
     modelPlaceholder: "Choose a memory extraction model",
     modelIdLabel: "Memory extraction model ID",
     modelIdPlaceholder: "e.g. openai/gpt-4o-mini",
+    consolidationModelLabel: "Consolidation model (Consolidation LLM)",
+    consolidationModelPlaceholder: "Choose a memory consolidation model",
+    consolidationModelIdLabel: "Memory consolidation model ID",
+    consolidationModelIdPlaceholder: "e.g. openrouter/free",
     manualModel: "✍️ Enter another model ID…",
   },
 

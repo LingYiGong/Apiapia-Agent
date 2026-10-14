@@ -57,6 +57,43 @@ def _openai_first() -> Optional[Dict[str, Any]]:
     return None
 
 
+def _normalize_openrouter_model(model: str) -> str:
+    """Normalize common model alias typos for OpenRouter endpoints.
+
+    OpenRouter uses dots for Claude versions (claude-3.5-sonnet, claude-3.5-haiku)
+    and 'gemini-pro-1.5' instead of 'gemini-1.5-pro'.
+    """
+    alias_map = {
+        # Anthropic Claude legacy -> current synced endpoints
+        "anthropic/claude-3-5-sonnet": "anthropic/claude-sonnet-5.5",
+        "anthropic/claude-3.5-sonnet": "anthropic/claude-sonnet-5.5",
+        "anthropic/claude-3-5-sonnet-20241022": "anthropic/claude-sonnet-5.5",
+        "anthropic/claude-3-5-sonnet-latest": "anthropic/claude-sonnet-5.5",
+        "anthropic/claude-3-7-sonnet": "anthropic/claude-sonnet-5.5",
+        "anthropic/claude-3.7-sonnet": "anthropic/claude-sonnet-5.5",
+        "anthropic/claude-3-5-haiku": "anthropic/claude-haiku-5.5",
+        "anthropic/claude-3.5-haiku": "anthropic/claude-haiku-5.5",
+
+        # OpenAI legacy -> current synced endpoints
+        "openai/gpt-4o-mini": "openai/gpt-6-luna",
+        "openai/gpt-4o": "openai/gpt-6.1-sol",
+
+        # DeepSeek legacy -> current synced endpoints
+        "deepseek/deepseek-chat": "deepseek/deepseek-v4.1-flash",
+        "deepseek/deepseek-chat:free": "openrouter/free",
+
+        # Google Gemini & Meta legacy -> current synced endpoints
+        "google/gemini-1.5-pro": "google/gemini-3.8-flash",
+        "google/gemini-pro-1.5": "google/gemini-3.8-flash",
+        "google/gemini-1.5-flash": "google/gemini-3.8-flash",
+        "google/gemini-2.0-flash": "google/gemini-3.8-flash",
+        "google/gemini-2.0-flash-exp:free": "google/gemma-4-31b-it:free",
+        "meta-llama/llama-3.3-70b-instruct:free": "nvidia/nemotron-3-ultra-550b-a55b:free",
+    }
+    cleaned = (model or "").strip()
+    return alias_map.get(cleaned, cleaned)
+
+
 def _apply_prefix(model: str, credential: Dict[str, Any]) -> str:
     """Qualify a bare model id for the endpoint the credential points at.
 
@@ -66,7 +103,8 @@ def _apply_prefix(model: str, credential: Dict[str, Any]) -> str:
     """
     if not credential.get("prefix_models"):
         return model
-    return model if "/" in model else f"openai/{model}"
+    normalized = _normalize_openrouter_model(model)
+    return normalized if "/" in normalized else f"openai/{normalized}"
 
 
 def resolve_memory_credential(

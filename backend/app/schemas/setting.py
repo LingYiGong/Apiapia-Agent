@@ -18,6 +18,7 @@ class UserSettingUpdate(BaseModel):
     # With them it is a 422 that names the offending field.
     default_model: Optional[str] = Field(default=None, max_length=100)
     memory_model: Optional[str] = Field(default=None, max_length=100)
+    consolidation_model: Optional[str] = Field(default=None, max_length=120)
     image_model: Optional[str] = Field(default=None, max_length=120)
     video_model: Optional[str] = Field(default=None, max_length=120)
     # Two audio columns, not one: speech-to-text and text-to-speech are disjoint
@@ -37,8 +38,9 @@ class UserSettingUpdate(BaseModel):
 class UserSettingResponse(BaseModel):
     id: str
     user_id: str
-    default_model: str
+    default_model: str = "openrouter/free"
     memory_model: Optional[str] = "openai/gpt-4o-mini"
+    consolidation_model: Optional[str] = "openrouter/free"
     image_model: Optional[str] = None
     video_model: Optional[str] = None
     stt_model: Optional[str] = None

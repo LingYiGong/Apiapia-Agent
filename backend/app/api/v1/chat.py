@@ -11,6 +11,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.core.database import get_db, AsyncSessionLocal
+from app.core.config import settings as app_settings
 from app.core.errors import ApiError
 from app.models.user import User
 from app.models.conversation import Conversation, Message
@@ -254,7 +255,7 @@ async def chat_stream(
     base_system_prompt = chat_req.system_prompt_override or (
         user_settings.system_prompt if user_settings else "你是一个智能、真诚、有洞察力的个人智能助理。"
     )
-    model_to_use = chat_req.model or (user_settings.default_model if user_settings else "gpt-4o-mini")
+    model_to_use = chat_req.model or (user_settings.default_model if user_settings else app_settings.DEFAULT_MODEL)
     temperature = chat_req.temperature if chat_req.temperature is not None else (user_settings.temperature if user_settings else 0.7)
     use_memory = chat_req.memory_enabled if chat_req.memory_enabled is not None else (user_settings.memory_enabled if user_settings else True)
     memory_score_thresh = chat_req.memory_score_threshold if chat_req.memory_score_threshold is not None else 0.35

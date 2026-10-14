@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from app.core.database import get_db
+from app.core.config import settings as app_settings
 from app.core.errors import ApiError
 from app.models.user import User
 from app.models.conversation import Conversation, Message
@@ -209,7 +210,7 @@ async def create_conversation(
     if not model_to_use:
         settings_stmt = select(UserSetting).where(UserSetting.user_id == current_user.id)
         user_settings = (await db.execute(settings_stmt)).scalar_one_or_none()
-        model_to_use = user_settings.default_model if user_settings else "gpt-4o-mini"
+        model_to_use = user_settings.default_model if user_settings else app_settings.DEFAULT_MODEL
 
     now = datetime.now(timezone.utc)
     conv = Conversation(

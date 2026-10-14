@@ -49,6 +49,10 @@ export default {
     modelPlaceholder: "選擇記憶提煉模型",
     modelIdLabel: "記憶提煉模型 ID",
     modelIdPlaceholder: "例如: openai/gpt-4o-mini",
+    consolidationModelLabel: "整理合併模型 (Consolidation LLM)",
+    consolidationModelPlaceholder: "選擇記憶整理模型",
+    consolidationModelIdLabel: "記憶整理模型 ID",
+    consolidationModelIdPlaceholder: "例如: openrouter/free",
     manualModel: "✍️ 手動輸入其他模型 ID…",
   },
 

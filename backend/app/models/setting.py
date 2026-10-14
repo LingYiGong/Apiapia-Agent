@@ -10,8 +10,9 @@ class UserSetting(Base):
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
     user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False, index=True)
-    default_model = Column(String(100), default="gpt-4o-mini", nullable=False)
+    default_model = Column(String(100), default="openrouter/free", nullable=False)
     memory_model = Column(String(100), default="openai/gpt-4o-mini", nullable=True)
+    consolidation_model = Column(String(120), default="openrouter/free", nullable=True)
     image_model = Column(String(120), default=None, nullable=True)
     video_model = Column(String(120), default=None, nullable=True)
     # Two columns rather than one `audio_model`: OpenRouter exposes speech-to-text

@@ -204,6 +204,7 @@ async def get_user_settings(
             user_id=current_user.id,
             default_model=app_settings.DEFAULT_MODEL,
             memory_model="openai/gpt-4o-mini",
+            consolidation_model="openrouter/free",
             system_prompt="你是一个智能、真诚、有洞察力的个人智能助理。请根据用户提供的历史背景和长期记忆为用户提供高质量服务。",
             temperature=0.7,
             memory_enabled=True
@@ -213,6 +214,11 @@ async def get_user_settings(
         await db.refresh(setting)
     elif not setting.memory_model:
         setting.memory_model = "openai/gpt-4o-mini"
+        await db.commit()
+        await db.refresh(setting)
+
+    if not setting.consolidation_model:
+        setting.consolidation_model = "openrouter/free"
         await db.commit()
         await db.refresh(setting)
 
@@ -311,6 +317,9 @@ async def update_user_settings(
         # (rejecting outright would break older clients that always submit it)
         if getattr(current_user, "is_superuser", False):
             setting.memory_model = update_data.memory_model
+    if update_data.consolidation_model is not None:
+        if getattr(current_user, "is_superuser", False):
+            setting.consolidation_model = update_data.consolidation_model
     # model_fields_set distinguishes an omitted field from an explicit null. A null
     # is normalized to the zero-cost default rather than stored, so image_model
     # is always concrete.

@@ -41,6 +41,12 @@ import { cn } from "@/lib/utils";
 import type { Conversation } from "@/types";
 
 import { MobileHeader } from "@/components/layout/MobileHeader";
+import {
+  conversationMenuContentClass,
+  conversationMenuDangerItemClass,
+  conversationMenuItemClass,
+  conversationMenuSeparatorClass,
+} from "@/components/chat/conversationActionMenu";
 
 /**
  * 聊天页两个头部真正共有的 props：模型选择 + 同步 + 新建对话。
@@ -157,40 +163,50 @@ export const MobileChatHeader: React.FC<MobileChatHeaderProps> = ({
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 shrink-0 cursor-pointer rounded-full text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground active:scale-95"
+                    className="h-8 w-8 shrink-0 cursor-pointer rounded-full text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 active:scale-95"
                   >
                     <MoreHorizontal className="h-4 w-4" />
                     <span className="sr-only">{t("chat.history.actionMenu")}</span>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-40 rounded-xl">
+                {/* 样式收敛到 conversationActionMenu.ts —— 与下方相邻的头像菜单
+                    同一套刻度，理由见那里的注释。 */}
+                <DropdownMenuContent
+                  align="end"
+                  sideOffset={8}
+                  collisionPadding={12}
+                  className={conversationMenuContentClass}
+                >
                   {onTogglePin && (
                     <DropdownMenuItem
                       onClick={() => onTogglePin(activeConversation.id, !isPinned)}
-                      className="cursor-pointer text-xs"
+                      className={conversationMenuItemClass}
                     >
                       {isPinned ? (
                         <>
-                          <PinOff className="mr-2 h-3.5 w-3.5" />
+                          <PinOff className="h-4 w-4 text-muted-foreground" />
                           <span>{t("chat.history.unpin")}</span>
                         </>
                       ) : (
                         <>
-                          <Pin className="mr-2 h-3.5 w-3.5" />
+                          <Pin className="h-4 w-4 text-muted-foreground" />
                           <span>{t("chat.history.pin")}</span>
                         </>
                       )}
                     </DropdownMenuItem>
                   )}
                   {onRename && (
-                    <DropdownMenuItem onClick={handleStartRename} className="cursor-pointer text-xs">
-                      <Edit2 className="mr-2 h-3.5 w-3.5" />
+                    <DropdownMenuItem
+                      onClick={handleStartRename}
+                      className={conversationMenuItemClass}
+                    >
+                      <Edit2 className="h-4 w-4 text-muted-foreground" />
                       <span>{t("chat.history.rename")}</span>
                     </DropdownMenuItem>
                   )}
                   {onDelete && (
                     <>
-                      <DropdownMenuSeparator />
+                      <DropdownMenuSeparator className={conversationMenuSeparatorClass} />
                       <DropdownMenuItem
                         onClick={() =>
                           ask({
@@ -203,9 +219,9 @@ export const MobileChatHeader: React.FC<MobileChatHeaderProps> = ({
                             onConfirm: () => onDelete(activeConversation.id),
                           })
                         }
-                        className="cursor-pointer text-xs text-destructive focus:bg-destructive/10 focus:text-destructive"
+                        className={conversationMenuDangerItemClass}
                       >
-                        <Trash2 className="mr-2 h-3.5 w-3.5" />
+                        <Trash2 className="h-4 w-4" />
                         <span>{t("chat.history.deleteConversation")}</span>
                       </DropdownMenuItem>
                     </>

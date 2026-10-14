@@ -13,6 +13,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useI18n } from "@/i18n";
 import { cn } from "@/lib/utils";
+import {
+  conversationMenuContentClass,
+  conversationMenuDangerItemClass,
+  conversationMenuItemClass,
+  conversationMenuSeparatorClass,
+} from "@/components/chat/conversationActionMenu";
 
 /**
  * 可左右滑动的会话卡片（移动端历史列表）。
@@ -331,20 +337,25 @@ export const SwipeableConversationCard = ({
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 rounded-full text-muted-foreground hover:bg-surface-3 hover:text-foreground"
+                className="h-8 w-8 shrink-0 cursor-pointer rounded-full text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 active:scale-95"
               >
                 <MoreHorizontal className="h-4 w-4" />
                 <span className="sr-only">{t("chat.history.actionMenu")}</span>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-40 rounded-xl">
+            <DropdownMenuContent
+              align="end"
+              sideOffset={8}
+              collisionPadding={12}
+              className={conversationMenuContentClass}
+            >
               {c.is_pinned && onMoveUp && (
                 <DropdownMenuItem
                   disabled={isFirstPinned}
                   onClick={onMoveUp}
-                  className="cursor-pointer text-xs disabled:opacity-35"
+                  className={conversationMenuItemClass}
                 >
-                  <ChevronUp className="mr-2 h-3.5 w-3.5" />
+                  <ChevronUp className="h-4 w-4 text-muted-foreground" />
                   <span>{t("chat.history.moveUpOne")}</span>
                 </DropdownMenuItem>
               )}
@@ -352,31 +363,30 @@ export const SwipeableConversationCard = ({
                 <DropdownMenuItem
                   disabled={isLastPinned}
                   onClick={onMoveDown}
-                  className="cursor-pointer text-xs disabled:opacity-35"
+                  className={conversationMenuItemClass}
                 >
-                  <ChevronDown className="mr-2 h-3.5 w-3.5" />
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
                   <span>{t("chat.history.moveDownOne")}</span>
                 </DropdownMenuItem>
               )}
-              {c.is_pinned && (onMoveUp || onMoveDown) && <DropdownMenuSeparator />}
+              {c.is_pinned && (onMoveUp || onMoveDown) && (
+                <DropdownMenuSeparator className={conversationMenuSeparatorClass} />
+              )}
               {onTogglePin && (
-                <DropdownMenuItem onClick={onTogglePin} className="cursor-pointer text-xs">
-                  <Pin className="mr-2 h-3.5 w-3.5" />
+                <DropdownMenuItem onClick={onTogglePin} className={conversationMenuItemClass}>
+                  <Pin className="h-4 w-4 text-muted-foreground" />
                   <span>{c.is_pinned ? t("chat.history.unpin") : t("chat.history.pin")}</span>
                 </DropdownMenuItem>
               )}
               {onRename && (
-                <DropdownMenuItem onClick={onRename} className="cursor-pointer text-xs">
-                  <Edit2 className="mr-2 h-3.5 w-3.5" />
+                <DropdownMenuItem onClick={onRename} className={conversationMenuItemClass}>
+                  <Edit2 className="h-4 w-4 text-muted-foreground" />
                   <span>{t("chat.history.rename")}</span>
                 </DropdownMenuItem>
               )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={onDelete}
-                className="cursor-pointer text-xs text-destructive focus:bg-destructive/10 focus:text-destructive"
-              >
-                <Trash2 className="mr-2 h-3.5 w-3.5" />
+              <DropdownMenuSeparator className={conversationMenuSeparatorClass} />
+              <DropdownMenuItem onClick={onDelete} className={conversationMenuDangerItemClass}>
+                <Trash2 className="h-4 w-4" />
                 <span>{t("chat.history.deleteConversation")}</span>
               </DropdownMenuItem>
             </DropdownMenuContent>

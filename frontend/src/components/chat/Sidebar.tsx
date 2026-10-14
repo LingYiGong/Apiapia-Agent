@@ -32,6 +32,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  conversationMenuContentClass,
+  conversationMenuDangerItemClass,
+  conversationMenuItemClass,
+  conversationMenuSeparatorClass,
+} from "@/components/chat/conversationActionMenu";
 
 interface SidebarProps {
   conversations: Conversation[];
@@ -269,22 +275,23 @@ title={c.title || t("chat.history.untitled")}
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="end"
-              sideOffset={4}
+              sideOffset={8}
+              collisionPadding={12}
               onClick={(e) => e.stopPropagation()}
-              className="w-36 rounded-xl border-border/60 bg-popover/95 p-1 shadow-lg backdrop-blur-md"
+              className={conversationMenuContentClass}
             >
               <DropdownMenuItem
                 onClick={() => onTogglePin(c.id, !pinnedActive)}
-                className="flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-foreground focus:bg-muted"
+                className={conversationMenuItemClass}
               >
                 {pinnedActive ? (
                   <>
-                    <PinOff className="h-3.5 w-3.5 text-muted-foreground" />
+                    <PinOff className="h-4 w-4 text-muted-foreground" />
                     <span>{t("chat.history.unpin")}</span>
                   </>
                 ) : (
                   <>
-                    <Pin className="h-3.5 w-3.5 text-muted-foreground" />
+                    <Pin className="h-4 w-4 text-muted-foreground" />
                     <span>{t("chat.history.pin")}</span>
                   </>
                 )}
@@ -292,13 +299,13 @@ title={c.title || t("chat.history.untitled")}
 
               <DropdownMenuItem
                 onClick={() => setRenamingId(c.id)}
-                className="flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-foreground focus:bg-muted"
+                className={conversationMenuItemClass}
               >
-                <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                <Pencil className="h-4 w-4 text-muted-foreground" />
                 <span>{t("chat.history.rename")}</span>
               </DropdownMenuItem>
 
-              <DropdownMenuSeparator className="my-1 opacity-60" />
+              <DropdownMenuSeparator className={conversationMenuSeparatorClass} />
 
               <DropdownMenuItem
                 onClick={() =>
@@ -312,9 +319,9 @@ title={c.title || t("chat.history.untitled")}
                     onConfirm: () => onDelete(c.id),
                   })
                 }
-                className="flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-destructive focus:bg-destructive/10 focus:text-destructive"
+                className={conversationMenuDangerItemClass}
               >
-                <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                <Trash2 className="h-4 w-4" />
                 <span>{t("chat.history.deleteConversation")}</span>
               </DropdownMenuItem>
             </DropdownMenuContent>

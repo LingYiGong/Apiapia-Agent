@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { notifyModelSyncResult } from "@/lib/feedback";
 import { useI18n } from "@/i18n";
 import { useRefreshOnResume } from "@/hooks/useRefreshOnResume";
+import { useWakeLock } from "@/hooks/useWakeLock";
 import { useWebSearchMode } from "@/hooks/useWebSearchMode";
 import { messageEditGuardFlag } from "@/lib/messageEditGuard";
 import { hydrateMessages } from "@/lib/message";
@@ -1208,6 +1209,11 @@ export default function ChatPage({
   useRefreshOnResume(refreshFromServer, {
     enabled: !isStreaming && !regenerating,
     visible: mobileTab === "chat",
+  });
+
+  // 在等待模型回复、流式生成以及重新生成期间保持屏幕常亮，防止手机等移动端自动熄屏黑屏
+  useWakeLock({
+    active: isStreaming || isWaitingForFirstToken || regenerating,
   });
 
   // ── Per-message actions (regenerate / edit) ─────────────────────────

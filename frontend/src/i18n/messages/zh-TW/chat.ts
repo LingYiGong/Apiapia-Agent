@@ -129,15 +129,12 @@ export default {
     renameTitle: "重新命名對話",
     renameLabel: "新標題",
     renamePh: "請輸入新標題",
-    deleteDisabled: "停用帳號",
-    restoreActive: "恢復啟用",
   },
 
   header: {
     currentModel: "目前模型：",
     memoryCountTip: "檢視目前對話使用的 {count} 筆關聯記憶",
     memoryCountLabel: "筆關聯記憶，點擊檢視",
-    goHome: "返回 Apiapia 助理對話頁",
   },
 
   message: {
@@ -278,11 +275,9 @@ export default {
     grammar: "語法重點與提示",
     cardView: "卡片檢視",
     codeView: "程式碼",
-    ttsUnsupported: "瀏覽器不支援語音合成",
     sourceLabel: "原文:",
     translationLabel: "譯文:",
     pronounceSource: "朗讀原文",
-    cardSuffix: "卡片",
     /** 卡片名整體。{lang} 由 ISO 語言碼查出的語言名填入（見 WordCard.tsx）。 */
     cardLabel: "{lang}卡片",
     ttsReady: "點讀發音已就緒",
@@ -319,8 +314,6 @@ export default {
     menuTitle: "智慧翻譯",
     menuDesc: "全語言雙向互譯與語法教學，含動詞變化解析、日語平假名片假名及類似例句",
     placeholder: "輸入需要翻譯的單字、片語或句子…",
-    pickerLabel: "雙向互譯語言",
-      sourceLangLabel: "{src}",
     /** 語種名稱。鍵為 ISO 639-1，值必須是該語言的自稱 */
     langs: {
       en: "英語",

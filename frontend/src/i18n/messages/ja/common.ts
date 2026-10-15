@@ -13,54 +13,9 @@ export default {
     confirm: "確認",
     cancel: "キャンセル",
     save: "保存",
-    saving: "保存中…",
-    saved: "保存しました",
-    delete: "削除",
-    deleting: "削除中…",
-    edit: "編集",
-    rename: "名前を変更",
     close: "閉じる",
     retry: "再試行",
-    back: "戻る",
-    copy: "コピー",
-    copied: "コピーしました",
-    download: "ダウンロード",
-    upload: "アップロード",
-    export: "エクスポート",
-    exportAs: "{format} でエクスポート",
-    importing: "インポート中…",
-    refresh: "更新",
-    create: "新規作成",
-    add: "追加",
-    remove: "削除",
-    clear: "クリア",
-    submit: "送信",
-    search: "検索",
-    reset: "リセット",
-    select: "選択",
-    selectAll: "すべて選択",
-    deselectAll: "選択を解除",
-    more: "その他",
-    expand: "展開",
-    collapse: "折りたたむ",
-    viewAll: "すべて表示",
-    loadMore: "さらに読み込む",
-    send: "送信",
-    stop: "停止",
-    regenerate: "再生成",
     processing: "処理中…",
-    loading: "読み込み中…",
-    optional: "任意",
-    required: "必須",
-    yes: "はい",
-    no: "いいえ",
-    on: "オン",
-    off: "オフ",
-    default: "デフォルト",
-    none: "なし",
-    unknown: "不明",
-    all: "すべて",
-    copyFailed: "コピーできませんでした。テキストを選択して手動でコピーしてください。",
   },
 
   /**
@@ -76,7 +31,6 @@ export default {
     daysAgo_one: "{n} 日前",
     daysAgo_other: "{n} 日前",
     monthDay: "{month} 月 {day} 日",
-    fullDateTime: "{date} {time}",
   },
 
   /**
@@ -95,35 +49,10 @@ export default {
   /** 汎用のフォールバックエラー。業務固有の意味を持つものは各領域へ。 */
   error: {
     operationFailed: "操作に失敗しました",
-    requestFailed: "リクエストに失敗しました（{status}）",
-    networkError: "ネットワークに接続できませんでした。接続を確認して再試行してください。",
-    unknownError: "不明なエラー",
-    notFound: "この内容は存在しないか、削除されました",
-    unhandledCode: "操作に失敗しました（{code}）",
-  },
-
-  backendError: {
-    fallback: "サービスが一時的に利用できません。しばらくしてからもう一度お試しください。",
-  },
-
-  unit: {
-    seconds: "{n} 秒",
-    count: "{n} 件",
-    token: "{n} トークン",
-    times: "{n} 回",
-    currencyUsd: "${value}",
   },
 
   /** スクリーンリーダー用のラベル。読み上げられるため、画面上の省略形は使わない。 */
   a11y: {
-    openMenu: "メニューを開く",
-    closeMenu: "メニューを閉じる",
-    moreActions: "その他の操作",
-    loading: "読み込み中",
-    loadingMore: "さらに読み込んでいます",
-    selected: "選択中",
-    expandSection: "このセクションを展開",
-    collapseSection: "このセクションを折りたたむ",
     mobileTabBar: "モバイルの下部タブバー",
   },
 
@@ -157,7 +86,6 @@ export default {
   language: {
     label: "表示言語",
     description: "インターフェース言語を選択します。AI の応答言語もこれに追従します。",
-    current: "現在の言語",
   },
 
   /** 4 つの「リスト同期」ボタンで共有する結果フィードバック。 */

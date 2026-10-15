@@ -55,9 +55,9 @@ export type AdminBadgeSize = "sm" | "md" | "lg";
    内边距承担。此前 sm/md/lg 分别是 9/10/10px，md 与 lg 完全同值却占着
    两档，且 9px 在 3x 屏上已低于可读阈值。 */
 const ADMIN_BADGE_SIZE: Record<AdminBadgeSize, string> = {
-  sm: "text-2xs leading-[13px] px-1 py-0",
-  md: "text-2xs px-1.5 py-0.5",
-  lg: "text-2xs px-2 py-1",
+  sm: "text-2xs leading-[14px] px-1.5 py-0",
+  md: "text-xs px-2 py-0.5",
+  lg: "text-xs px-2.5 py-1",
 };
 
 /**

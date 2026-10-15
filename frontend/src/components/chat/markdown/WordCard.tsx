@@ -452,7 +452,7 @@ export function WordCard({
   if (!data || !data.word) {
     return (
       <div className="my-3 overflow-hidden rounded-2xl border border-border/70 bg-[#0d0d0d] p-4 text-xs font-mono text-muted-foreground">
-        <div className="mb-2 flex items-center justify-between text-2xs text-muted-foreground/75">
+        <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground/75">
           <span className="flex items-center gap-1.5 text-primary">
             <Loader2 className="h-3 w-3 animate-spin" />
             <span>{t("chat.wordCard.generating")}</span>
@@ -462,7 +462,7 @@ export function WordCard({
             variant="ghost"
             size="sm"
             onClick={() => copy(rawContent)}
-            className="h-6 gap-1 px-2 text-2xs text-slate-300 hover:bg-white/10"
+            className="h-6 gap-1 px-2 text-xs text-slate-300 hover:bg-white/10"
           >
             {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
             <span>{copied ? t("chat.message.copied") : t("chat.message.copy")}</span>
@@ -483,17 +483,17 @@ export function WordCard({
         <div className="flex items-center gap-2">
           <div className="flex h-6 items-center gap-1.5 rounded-md bg-primary/10 px-2 font-medium text-primary">
             <Languages className="h-3.5 w-3.5" />
-            <span className="text-2xs font-semibold">
+            <span className="text-xs font-semibold">
               {data.query && data.source_lang
                 ? `${languageName(t, data.source_lang)} ➔ ${langName}`
                 : t("chat.wordCard.cardLabel", { lang: langName })}
             </span>
           </div>
-          <span className="text-2xs text-muted-foreground">{t("chat.wordCard.ttsReady")}</span>
+          <span className="text-xs text-muted-foreground">{t("chat.wordCard.ttsReady")}</span>
         </div>
 
         <div className="flex items-center gap-1.5">
-          <div className="flex rounded-lg border border-border/60 bg-background/80 p-0.5 text-2xs">
+          <div className="flex rounded-lg border border-border/60 bg-background/80 p-0.5 text-xs">
             <button
               type="button"
               onClick={() => setViewMode("card")}
@@ -527,7 +527,7 @@ export function WordCard({
             variant="ghost"
             size="sm"
             onClick={() => copy(data.word)}
-            className="h-7 gap-1 rounded-lg px-2 text-2xs text-muted-foreground hover:bg-surface-3 hover:text-foreground"
+            className="h-7 gap-1 rounded-lg px-2 text-xs text-muted-foreground hover:bg-surface-3 hover:text-foreground"
           >
             {copied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
             <span>{copied ? t("chat.message.copied") : t("chat.wordCard.copyWord")}</span>
@@ -546,7 +546,7 @@ export function WordCard({
             <div className="space-y-1.5">
               {data.query && (
                 <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground font-medium mb-1.5">
-                  <span className="text-2xs text-muted-foreground/80 font-mono">{t("chat.wordCard.sourceLabel")}</span>
+                  <span className="text-xs text-muted-foreground/80 font-mono">{t("chat.wordCard.sourceLabel")}</span>
                   <span className="rounded-md bg-surface-3/80 px-2 py-0.5 text-foreground font-semibold">
                     {safeString(data.query)}
                   </span>
@@ -561,7 +561,7 @@ export function WordCard({
                     }
                     title={t("chat.wordCard.pronounceSource")}
                     className={cn(
-                      "inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-3xs font-medium transition-all cursor-pointer border",
+                      "inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium transition-all cursor-pointer border",
                       playingKey === "query"
                         ? "bg-primary text-primary-foreground border-primary animate-pulse"
                         : loadingKey === "query"
@@ -570,14 +570,14 @@ export function WordCard({
                     )}
                   >
                     {loadingKey === "query" ? (
-                      <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                      <Loader2 className="h-3 w-3 animate-spin" />
                     ) : (
-                      <Volume2 className="h-2.5 w-2.5" />
+                      <Volume2 className="h-3 w-3" />
                     )}
                     <span>{playingKey === "query" ? t("chat.wordCard.playing") : t("chat.wordCard.pronounceSource")}</span>
                   </button>
-                  <span className="text-muted-foreground/60 text-2xs">➔</span>
-                  <span className="text-primary font-semibold text-2xs">{t("chat.wordCard.translationLabel")}</span>
+                  <span className="text-muted-foreground/60 text-xs">➔</span>
+                  <span className="text-primary font-semibold text-xs">{t("chat.wordCard.translationLabel")}</span>
                 </div>
               )}
               <div className="flex items-baseline gap-3">
@@ -620,13 +620,13 @@ export function WordCard({
               <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground font-mono">
                 {data.phonetic_uk && (
                   <span className="inline-flex items-center gap-1 rounded bg-surface-3/80 px-1.5 py-0.5">
-                    <span className="text-2xs font-sans text-primary">{t("chat.wordCard.phoneticUk")}</span>
+                    <span className="text-xs font-sans text-primary">{t("chat.wordCard.phoneticUk")}</span>
                     {safeString(data.phonetic_uk)}
                   </span>
                 )}
                 {data.phonetic_us && (
                   <span className="inline-flex items-center gap-1 rounded bg-surface-3/80 px-1.5 py-0.5">
-                    <span className="text-2xs font-sans text-primary">{t("chat.wordCard.phoneticUs")}</span>
+                    <span className="text-xs font-sans text-primary">{t("chat.wordCard.phoneticUs")}</span>
                     {safeString(data.phonetic_us)}
                   </span>
                 )}
@@ -652,7 +652,7 @@ export function WordCard({
                     {def.pos && (
                       <Badge
                         variant="secondary"
-                        className="rounded px-1.5 py-0 text-2xs font-mono font-medium text-primary bg-primary/10 hover:bg-primary/15 shrink-0"
+                        className="rounded px-1.5 py-0.5 text-xs font-mono font-medium text-primary bg-primary/10 hover:bg-primary/15 shrink-0"
                       >
                         {safeString(def.pos)}
                       </Badge>
@@ -698,7 +698,7 @@ export function WordCard({
                           )}
                           {/* 语法点说明 */}
                           {ex.note && (
-                            <div className="text-2xs text-primary/80 pt-0.5">
+                            <div className="text-xs text-primary/80 pt-0.5">
                               💡 {safeString(ex.note)}
                             </div>
                           )}
@@ -751,7 +751,7 @@ export function WordCard({
                       {safeString(p.phrase)}
                     </span>
                     {p.meaning && (
-                      <span className="text-2xs text-muted-foreground">
+                      <span className="text-xs text-muted-foreground">
                         {safeString(p.meaning)}
                       </span>
                     )}
@@ -768,7 +768,7 @@ export function WordCard({
                 <Lightbulb className="h-3.5 w-3.5 shrink-0" />
                 <span>{t("chat.wordCard.grammar")}</span>
               </div>
-              <div className="pl-5 text-2xs text-foreground/85 whitespace-pre-wrap">
+              <div className="pl-5 text-xs sm:text-footnote leading-relaxed text-foreground/85 whitespace-pre-wrap">
                 {safeString(data.grammar_tips)}
               </div>
             </div>

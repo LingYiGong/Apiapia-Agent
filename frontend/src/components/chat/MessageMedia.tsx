@@ -55,11 +55,11 @@ export function DocChip({ name, size }: { name: string; /** 字节数。省略�
   return (
     <span
       title={name}
-      className="flex max-w-[160px] items-center gap-1.5 rounded-xl border border-indigo-400/40 bg-indigo-700/70 px-3 py-1.5 text-xs text-white shadow-xs"
+      className="flex max-w-[200px] items-center gap-1.5 rounded-xl border border-indigo-400/40 bg-indigo-700/70 px-3 py-1.5 text-xs text-white shadow-xs"
     >
       <FileText className="h-4 w-4 shrink-0 text-indigo-200" />
       <span className="truncate font-medium">{name}</span>
-      {size ? <span className="font-mono text-2xs text-indigo-200">{fmt.fileSize(size)}</span> : null}
+      {size ? <span className="font-mono text-xs text-indigo-200">{fmt.fileSize(size)}</span> : null}
     </span>
   );
 }

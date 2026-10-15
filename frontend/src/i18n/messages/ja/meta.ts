@@ -31,12 +31,9 @@ export default {
 
   update: {
     availableTitle: "バージョン {version} が利用可能です",
-    availableDescription: "更新すると最新機能をすぐに使えます。",
-    currentTitle: "最新バージョンです",
     currentDescription: "バージョン {version} が最新版です。",
     changelog: "更新内容",
     changelogHint: "更新内容は設定で確認できます。タップして詳細をご覧ください",
-    dismiss: "閉じる",
     later: "あとで",
     updateNow: "今すぐ更新",
     checking: "更新を確認中…",

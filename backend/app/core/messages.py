@@ -57,7 +57,6 @@ ZH_CN: Dict[str, str] = {
     "MEDIA_ILLEGAL_PATH": "非法的媒体文件路径",
     "MEDIA_PATH_ESCAPE": "媒体文件路径越界",
     # ── 服务端凭证缺失（同步模型目录）──
-    "NO_LLM_CREDENTIALS": "后端 .env 中未配置任何模型提供商 API Key 或服务地址",
     "NO_IMAGE_CREDENTIALS": (
         "后端 .env 中未配置任何生图服务凭证 "
         "(OPENROUTER_API_KEY / OPENAI_API_KEY / SILICONFLOW_API_KEY)"
@@ -137,7 +136,6 @@ ZH_TW: Dict[str, str] = {
     "URL_REQUIRES_HTTPS": "遠端網址必須使用 https（明文 http 會導致憑證外洩）",
     "MEDIA_ILLEGAL_PATH": "非法的媒體檔案路徑",
     "MEDIA_PATH_ESCAPE": "媒體檔案路徑越界",
-    "NO_LLM_CREDENTIALS": "後端 .env 中未設定任何模型供應商 API Key 或服務位址",
     "NO_IMAGE_CREDENTIALS": (
         "後端 .env 中未設定任何生圖服務憑證 "
         "(OPENROUTER_API_KEY / OPENAI_API_KEY / SILICONFLOW_API_KEY)"
@@ -210,10 +208,6 @@ EN: Dict[str, str] = {
     "URL_REQUIRES_HTTPS": "Remote addresses must use https (plain http would leak the credential)",
     "MEDIA_ILLEGAL_PATH": "Illegal media file path",
     "MEDIA_PATH_ESCAPE": "Media file path escapes the storage root",
-    "NO_LLM_CREDENTIALS": (
-        "No model provider API key or service URL is configured in the backend .env "
-        "(OPENAI_API_KEY / OPENROUTER_API_KEY / ANTHROPIC_API_KEY / GEMINI_API_KEY / OLLAMA_BASE_URL)"
-    ),
     "NO_IMAGE_CREDENTIALS": (
         "No image generation credential is configured in the backend .env "
         "(OPENROUTER_API_KEY / OPENAI_API_KEY / SILICONFLOW_API_KEY)"
@@ -286,7 +280,6 @@ JA: Dict[str, str] = {
     "URL_REQUIRES_HTTPS": "リモートアドレスは https である必要があります（平文 http では資格情報が漏れます）",
     "MEDIA_ILLEGAL_PATH": "不正なメディアファイルのパスです",
     "MEDIA_PATH_ESCAPE": "メディアファイルのパスが保存領域の外を指しています",
-    "NO_LLM_CREDENTIALS": "バックエンドの .env にモデルプロバイダーの API キーまたはサービス URL が設定されていません (OPENAI_API_KEY / OPENROUTER_API_KEY / ANTHROPIC_API_KEY / GEMINI_API_KEY / OLLAMA_BASE_URL)",
     "NO_IMAGE_CREDENTIALS": "バックエンドの .env に画像生成サービスの資格情報が設定されていません (OPENROUTER_API_KEY / OPENAI_API_KEY / SILICONFLOW_API_KEY)",
     "NO_VIDEO_CREDENTIALS": "バックエンドの .env に動画生成サービスの資格情報が設定されていません (OPENROUTER_API_KEY)",
     "NO_AUDIO_CREDENTIALS": "バックエンドの .env に音声サービスの資格情報が設定されていません (OPENROUTER_API_KEY)",

@@ -229,7 +229,7 @@ export const SwipeableConversationCard = ({
         )}
       >
         {c.is_pinned ? <PinOff className="mb-0.5 h-5 w-5" /> : <Pin className="mb-0.5 h-5 w-5" />}
-        <span className="text-2xs font-semibold">
+        <span className="text-xs font-semibold">
           {c.is_pinned ? t("chat.history.unpin") : t("chat.history.pinned")}
         </span>
       </div>
@@ -250,7 +250,7 @@ export const SwipeableConversationCard = ({
         )}
       >
         <Trash2 className="mb-0.5 h-5 w-5" />
-        <span className="text-2xs font-semibold">{t("chat.history.delete")}</span>
+        <span className="text-xs font-semibold">{t("chat.history.delete")}</span>
       </div>
 
       {/* 前景卡片 */}
@@ -313,15 +313,15 @@ export const SwipeableConversationCard = ({
                 {c.title || t("chat.history.untitled")}
               </span>
             </button>
-            <div className="mt-1 flex items-center gap-2 font-mono text-2xs text-muted-foreground">
+            <div className="mt-1 flex items-center gap-2 font-mono text-xs text-muted-foreground">
               {timeStr && (
                 <span className="flex shrink-0 items-center gap-1">
-                  <Clock className="h-3 w-3" />
+                  <Clock className="h-3.5 w-3.5" />
                   <span>{timeStr}</span>
                 </span>
               )}
               {c.model && (
-                <span className="max-w-[120px] truncate rounded bg-surface-3/60 px-1 text-2xs">
+                <span className="max-w-[120px] truncate rounded bg-surface-3/60 px-1 text-xs">
                   {c.model}
                 </span>
               )}

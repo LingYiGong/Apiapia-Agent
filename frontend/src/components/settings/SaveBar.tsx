@@ -119,7 +119,7 @@ function SaveButton({
               : t("settings.saveBar.savingLong")
             : t("settings.saveBar.save")}
         </span>
-        <kbd className="ml-0.5 hidden font-sans text-2xs opacity-70 sm:inline-block">⌘S</kbd>
+        <kbd className="ml-0.5 hidden font-sans text-xs opacity-75 sm:inline-block">⌘S</kbd>
       </Button>
     </ActionTooltip>
   );

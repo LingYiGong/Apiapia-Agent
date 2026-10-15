@@ -105,18 +105,18 @@ export function MemoryCard({
          */
         <div
           className={cn(
-            "flex flex-wrap items-center gap-1.5 border-t border-border/40 pt-2 text-2xs text-muted-foreground/70",
+            "flex flex-wrap items-center gap-1.5 border-t border-border/40 pt-2 text-xs text-muted-foreground/75",
             icon && "pl-11"
           )}
         >
           {time && (
             <span className="inline-flex items-center gap-1 font-mono">
-              <Clock className="h-3 w-3 shrink-0 opacity-70" />
+              <Clock className="h-3.5 w-3.5 shrink-0 opacity-70" />
               <span>{time}</span>
             </span>
           )}
           {badge && (
-            <span className="shrink-0 select-none rounded-md bg-surface-3/60 px-1.5 py-0.5 font-normal text-2xs text-muted-foreground/80">
+            <span className="shrink-0 select-none rounded-md bg-surface-3/60 px-1.5 py-0.5 font-normal text-xs text-muted-foreground/80">
               {badge}
             </span>
           )}

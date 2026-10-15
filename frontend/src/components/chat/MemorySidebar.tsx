@@ -76,7 +76,7 @@ export function MemorySidebar({
             {t("chat.recall.title")}
           </h3>
           {normalized.length > 0 && (
-            <span className="shrink-0 font-mono text-2xs text-muted-foreground/70">
+            <span className="shrink-0 font-mono text-xs text-muted-foreground/75">
               {normalized.length}
             </span>
           )}

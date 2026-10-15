@@ -62,6 +62,15 @@ async def list_configured_models(
         if any(m.get("provider") == "ollama" for m in stored):
             active_providers.add("ollama")
 
+    # If catalog is empty but providers are configured, auto-fetch from APIs live on demand
+    if not stored and active_providers:
+        try:
+            logger.info("Model catalog empty; automatically syncing live from configured providers on demand...")
+            await sync_chat_models()
+            stored = load_stored_models()
+        except Exception as e:
+            logger.warning("On-demand live model sync failed: %s", e)
+
     configured_models = [
         m for m in stored
         if m.get("provider") in active_providers
@@ -110,14 +119,18 @@ async def list_image_models(
     """
     Image generation catalog, read from the synced_image_models.json file that
     POST /models/sync-images populates.
-
-    Accounts without full model access only ever see the zero-cost entries, which
-    are declared through FREE_IMAGE_MODELS because the OpenRouter images endpoint
-    exposes no pricing information.
     """
     from app.services.image_gen import image_gen_service
 
     catalog = await image_gen_service.list_available_models()
+    if not catalog and image_gen_service.active_providers():
+        try:
+            logger.info("Image models empty; automatically syncing live from providers on demand...")
+            await image_gen_service.sync_models()
+            catalog = await image_gen_service.list_available_models()
+        except Exception as e:
+            logger.warning("On-demand image model sync failed: %s", e)
+
     can_all = has_full_model_access(current_user)
     if not can_all:
         catalog = [m for m in catalog if m.get("is_free")]
@@ -132,7 +145,7 @@ async def list_image_models(
 
 @router.post("/sync-images")
 async def sync_image_models_from_providers(
-    current_admin: User = Depends(get_current_admin)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Query the configured image providers live and persist the result to
@@ -161,6 +174,13 @@ async def list_video_models(
         catalog = []
     else:
         catalog = await video_gen_service.list_available_models()
+        if not catalog and video_gen_service.active_providers():
+            try:
+                logger.info("Video models empty; automatically syncing live from providers on demand...")
+                await video_gen_service.sync_models()
+                catalog = await video_gen_service.list_available_models()
+            except Exception as e:
+                logger.warning("On-demand video model sync failed: %s", e)
 
     return {
         "total": len(catalog),
@@ -172,7 +192,7 @@ async def list_video_models(
 
 @router.post("/sync-videos")
 async def sync_video_models_from_providers(
-    current_admin: User = Depends(get_current_admin)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Query configured video providers live and persist the result to
@@ -193,18 +213,18 @@ async def list_audio_models(
     """
     Speech catalog, read from the synced_audio_models.json file that
     POST /models/sync-audio populates.
-
-    One catalog holds both directions, discriminated by each entry's
-    ``capability`` ("stt" | "tts"), because OpenRouter returns them from two
-    disjoint modality filters. The frontend splits on that field to feed the two
-    selectors; the server never assumes which one a caller means.
-
-    Accounts without full model access see only the zero-cost entries, which the
-    models feed reports directly through zero pricing.
     """
     from app.services.speech.service import speech_service
 
     catalog = await speech_service.list_available_models()
+    if not catalog and speech_service.active_providers():
+        try:
+            logger.info("Audio models empty; automatically syncing live from providers on demand...")
+            await speech_service.sync_models()
+            catalog = await speech_service.list_available_models()
+        except Exception as e:
+            logger.warning("On-demand audio model sync failed: %s", e)
+
     can_all = has_full_model_access(current_user)
     if not can_all:
         catalog = [m for m in catalog if m.get("is_free")]
@@ -219,14 +239,11 @@ async def list_audio_models(
 
 @router.post("/sync-audio")
 async def sync_audio_models_from_providers(
-    current_admin: User = Depends(get_current_admin)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Query OpenRouter for speech-to-text and text-to-speech models live and persist
     the result to synced_audio_models.json.
-
-    Both modality filters are fetched in one request, so a single click in the
-    settings page populates both selectors.
     """
     from app.services.speech.service import speech_service
 
@@ -238,7 +255,7 @@ async def sync_audio_models_from_providers(
 
 @router.post("/sync")
 async def sync_models_from_providers(
-    current_admin: User = Depends(get_current_admin)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Manually query active LLM providers (Gemini, OpenAI, OpenRouter, Anthropic, Ollama)
@@ -246,8 +263,7 @@ async def sync_models_from_providers(
     """
     res = await sync_chat_models()
     if not res.get("success"):
-        # 上游返回的 error 是给运维看的英文/中文原文，原样透传；只有在上游
-        # 什么都没给时才落到本地化的兜底文案。
         detail = res.get("error") or tr("SYNC_FAILED")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
     return res
+

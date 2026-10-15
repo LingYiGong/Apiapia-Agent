@@ -575,7 +575,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
             （向量检索没有 count 接口），所以还有下一页时用「N+」表示
             「至少 N 条」，不谎报一个具体数字。
           */}
-          <span className="shrink-0 font-mono text-2xs opacity-60">
+          <span className="shrink-0 font-mono text-xs opacity-75">
             {hasMore
               ? isSearching
                 ? t("memory.counter.foundPlus", { count: memories.length })
@@ -591,9 +591,9 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
           <button
             type="button"
             onClick={handleResetSearch}
-            className="flex shrink-0 cursor-pointer items-center gap-1 text-2xs normal-case tracking-normal text-primary hover:underline"
+            className="flex shrink-0 cursor-pointer items-center gap-1 text-xs normal-case tracking-normal text-primary hover:underline"
           >
-            <RotateCcw className="h-3 w-3" />
+            <RotateCcw className="h-3.5 w-3.5" />
             <span>{t("memory.showAll")}</span>
           </button>
         )}
@@ -621,7 +621,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
               <div className="flex items-center justify-between px-1">
                 <span className="text-xs font-semibold text-muted-foreground select-none">
                   {sec.title}
-                  <span className="ml-1.5 font-mono text-2xs opacity-60">
+                  <span className="ml-1.5 font-mono text-xs opacity-75">
                     {t("memory.section.count", { count: sec.items.length })}
                   </span>
                 </span>
@@ -712,7 +712,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
           )}
 
           {!hasMore && memories.length > 0 && (
-            <p className="pt-2 pb-1 text-center text-2xs text-muted-foreground/60 select-none">
+            <p className="pt-2 pb-1 text-center text-xs text-muted-foreground/75 select-none">
               {t("memory.endOfList", { total: totalCount })}
             </p>
           )}
@@ -776,7 +776,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
                 placeholder={t("memory.edit.placeholder")}
                 className="min-h-[100px] w-full resize-none border-0 bg-transparent p-0 text-sm leading-relaxed placeholder:text-muted-foreground/60 focus-visible:outline-none focus-visible:ring-0"
               />
-              <div className="flex items-center justify-between border-t border-border/30 pt-2 text-2xs text-muted-foreground/70">
+              <div className="flex items-center justify-between border-t border-border/30 pt-2 text-xs text-muted-foreground/75">
                 <span>{isApple ? t("memory.edit.shortcutMac") : t("memory.edit.shortcutOther")}</span>
                 <span>{t("memory.edit.charCount", { count: editText.trim().length })}</span>
               </div>

@@ -26,7 +26,7 @@ export function TemperatureControl({
     <div>
       <div className="flex items-center justify-between gap-2 px-1 pb-1.5">
         <SectionLabel className="pb-0">{t("settings.persona.temperatureLabel")}</SectionLabel>
-        <span className="rounded-full border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 font-mono text-2xs font-semibold text-rose-600 dark:text-rose-400">
+        <span className="rounded-full border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 font-mono text-xs font-semibold text-rose-600 dark:text-rose-400">
           {value.toFixed(2)}
         </span>
       </div>
@@ -61,7 +61,7 @@ export function TemperatureControl({
               }
             }}
           />
-          <div className="flex justify-between px-0.5 font-mono text-2xs text-muted-foreground">
+          <div className="flex justify-between px-0.5 font-mono text-xs text-muted-foreground">
             <span>{t("settings.persona.temperatureTicks.min")}</span>
             <span>{t("settings.persona.temperatureTicks.mid")}</span>
             <span>{t("settings.persona.temperatureTicks.max")}</span>

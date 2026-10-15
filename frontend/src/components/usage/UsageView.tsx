@@ -410,7 +410,7 @@ export const UsageView: React.FC<UsageViewProps> = ({
           />
         </div>
 
-        <span className="shrink-0 self-start rounded-md border border-border/20 bg-surface-3/30 px-2 py-0.5 font-mono text-2xs text-muted-foreground/80 sm:self-auto">
+        <span className="shrink-0 self-start rounded-md border border-border/20 bg-surface-3/30 px-2 py-0.5 font-mono text-xs text-muted-foreground/85 sm:self-auto">
           {t(PERIOD_HINT_KEYS[period])}
         </span>
       </div>
@@ -426,7 +426,7 @@ export const UsageView: React.FC<UsageViewProps> = ({
               <Users className="h-3.5 w-3.5 text-indigo-500" />
               <span>{t("usage.tabs.allUsers")}</span>
               {adminStats && (
-                <span className="rounded-full bg-primary/10 px-1.5 py-px font-mono text-2xs font-semibold text-primary">
+                <span className="rounded-full bg-primary/10 px-1.5 py-px font-mono text-xs font-semibold text-primary">
                   {fmt.number(adminStats.total_users)}
                 </span>
               )}
@@ -539,7 +539,7 @@ function RefreshButton({
         disabled={loading}
         className={cn(
           "shrink-0 cursor-pointer gap-1.5 rounded-full border-border/50 bg-card/80 font-medium text-muted-foreground shadow-2xs transition-colors hover:bg-surface-3 active:scale-95",
-          compact ? "h-7 px-3 text-2xs" : "h-8 px-3.5 text-xs"
+          compact ? "h-7 px-3 text-xs" : "h-8 px-3.5 text-xs"
         )}
       >
         <RefreshCw className={cn("h-4 w-4", loading && "animate-spin text-primary")} />

@@ -28,12 +28,9 @@ export default {
 
   update: {
     availableTitle: "發現新版本 {version}",
-    availableDescription: "更新後可直接使用最新功能。",
-    currentTitle: "已是最新版本",
     currentDescription: "目前版本 {version} 已是最新。",
     changelog: "更新內容",
     changelogHint: "更新內容可在偏好設定中檢視，或點擊此處檢視詳情",
-    dismiss: "知道了",
     later: "稍後再說",
     updateNow: "立即更新",
     checking: "正在檢查更新…",

@@ -248,7 +248,7 @@ export function ModelBreakdown({
                 <div className="flex items-center gap-3">
                   <span
                     className={cn(
-                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-lg font-mono text-2xs font-semibold",
+                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-lg font-mono text-xs font-semibold",
                       idx === 0
                         ? "border border-amber-500/30 bg-amber-500/15 text-amber-600 dark:text-amber-400"
                         : idx === 1
@@ -268,7 +268,7 @@ export function ModelBreakdown({
                       </span>
                       {m.is_free && <FreeBadge />}
                     </div>
-                    <div className="mt-0.5 font-mono text-2xs text-muted-foreground">
+                    <div className="mt-0.5 font-mono text-xs text-muted-foreground">
                       {t("usage.models.rowSubline", {
                         calls: fmt.number(m.calls),
                         tokens: fmt.number(m.total_tokens),
@@ -333,13 +333,13 @@ export function TrendGrid({
           >
             {/* date 是后端已经按区间切好的桶标签（HH:00 / YYYY-MM / YYYY-MM-DD），
                 不是 ISO 时间戳 —— 交给 fmt.longDate 会解析失败变成空串，原样输出。 */}
-            <div className="font-mono text-2xs font-medium text-muted-foreground">
+            <div className="font-mono text-xs font-medium text-muted-foreground">
               {d.date}
             </div>
             <div className="text-sm font-semibold tabular-nums text-foreground sm:text-base">
               {fmt.number(d.tokens)}
             </div>
-            <div className="font-mono text-2xs text-muted-foreground/80">
+            <div className="font-mono text-xs text-muted-foreground/85">
               {t("usage.trend.cellFooter", {
                 calls: fmt.number(d.calls),
                 unit: unitLabel,
@@ -387,7 +387,7 @@ export function MyModelsTable({ items }: { items: MyUsageStats["model_breakdown"
                     key={key}
                     scope="col"
                     className={cn(
-                      "whitespace-nowrap px-4 py-3 text-2xs font-medium text-muted-foreground",
+                      "whitespace-nowrap px-4 py-3 text-xs font-semibold text-muted-foreground",
                       i === all.length - 1 && "text-right"
                     )}
                   >
@@ -448,7 +448,7 @@ function ModelAccessCell({ user, actions }: { user: AdminUserUsageItem; actions:
   const { t } = useI18n();
   if (user.is_superuser) {
     return (
-      <span className="whitespace-nowrap rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-2xs font-medium text-emerald-600 shadow-none dark:text-emerald-400">
+      <span className="whitespace-nowrap rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600 shadow-none dark:text-emerald-400">
         {t("usage.admin.fullAccessBadge")}
       </span>
     );
@@ -470,7 +470,7 @@ function ModelAccessCell({ user, actions }: { user: AdminUserUsageItem; actions:
         />
         <span
           className={cn(
-            "whitespace-nowrap text-2xs font-medium select-none",
+            "whitespace-nowrap text-xs font-medium select-none",
             on
               ? "font-semibold text-emerald-600 dark:text-emerald-400"
               : "text-amber-600 dark:text-amber-400"
@@ -486,7 +486,7 @@ function ModelAccessCell({ user, actions }: { user: AdminUserUsageItem; actions:
 function UserRowMenu({ user, isMe, actions }: { user: AdminUserUsageItem; isMe: boolean; actions: UserActions }) {
   const { t } = useI18n();
   if (isMe) {
-    return <span className="ml-1 whitespace-nowrap text-2xs italic text-muted-foreground">{t("usage.admin.currentAccount")}</span>;
+    return <span className="ml-1 whitespace-nowrap text-xs italic text-muted-foreground">{t("usage.admin.currentAccount")}</span>;
   }
   return (
     <DropdownMenu>
@@ -561,7 +561,7 @@ function IdentityCell({ user, isMe }: { user: AdminUserUsageItem; isMe: boolean 
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="font-semibold text-foreground">{user.username}</span>
           {isMe && (
-            <span className="rounded-full bg-surface-3 px-1.5 py-0 text-2xs font-medium">
+            <span className="rounded-full bg-surface-3 px-1.5 py-0 text-xs font-medium">
               {t("usage.users.meBadge")}
             </span>
           )}
@@ -569,7 +569,7 @@ function IdentityCell({ user, isMe }: { user: AdminUserUsageItem; isMe: boolean 
         </div>
         <span
           title={user.email}
-          className="mt-0.5 block max-w-[200px] truncate font-mono text-2xs text-muted-foreground"
+          className="mt-0.5 block max-w-[200px] truncate font-mono text-xs text-muted-foreground"
         >
           {user.email}
         </span>
@@ -584,7 +584,7 @@ function UserCard({ user, isMe, actions }: { user: AdminUserUsageItem; isMe: boo
     <Panel tone="muted" className="space-y-3 p-4">
       <IdentityCell user={user} isMe={isMe} />
 
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 font-mono text-2xs text-muted-foreground">
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 font-mono text-xs text-muted-foreground">
         <div className="flex justify-between">
           <dt>{t("usage.userCard.messages")}</dt>
           <dd className="font-semibold tabular-nums text-foreground">
@@ -621,7 +621,7 @@ function UserCard({ user, isMe, actions }: { user: AdminUserUsageItem; isMe: boo
             variant="outline"
             size="sm"
             onClick={() => actions.onOpenAudit(user.user_id, user.username)}
-            className="h-7 cursor-pointer gap-1 rounded-full border-primary/20 bg-primary/5 px-2.5 text-2xs font-medium text-primary transition-colors hover:bg-primary/10 active:scale-95"
+            className="h-7 cursor-pointer gap-1 rounded-full border-primary/20 bg-primary/5 px-2.5 text-xs font-medium text-primary transition-colors hover:bg-primary/10 active:scale-95"
           >
             <Eye className="h-4 w-4" />
             <span>{t("usage.userCard.audit")}</span>
@@ -682,14 +682,14 @@ export function UsersTable({
                     <TableHead
                       key={key}
                       scope="col"
-                      className="whitespace-nowrap px-4 py-3 text-2xs font-medium text-muted-foreground"
+                      className="whitespace-nowrap px-4 py-3 text-xs font-semibold text-muted-foreground"
                     >
                       {t(key)}
                     </TableHead>
                   ))}
                   <TableHead
                     scope="col"
-                    className="whitespace-nowrap px-4 py-3 text-right text-2xs font-medium text-muted-foreground"
+                    className="whitespace-nowrap px-4 py-3 text-right text-xs font-semibold text-muted-foreground"
                   >
                     {t("usage.users.colActions")}
                   </TableHead>
@@ -710,14 +710,14 @@ export function UsersTable({
                         <span className="font-semibold text-foreground">
                           {fmt.number(u.messages_count)}
                         </span>
-                        <span className="text-2xs text-muted-foreground">
+                        <span className="text-xs text-muted-foreground ml-1">
                           {t("usage.users.roundsSuffix", { count: fmt.number(u.conversations_count) })}
                         </span>
                       </TableCell>
                       <TableCell className="whitespace-nowrap px-4 py-3.5 font-mono font-semibold tabular-nums">
                         {fmt.number(u.total_tokens)}
                       </TableCell>
-                      <TableCell className="whitespace-nowrap px-4 py-3.5 font-mono text-2xs tabular-nums text-muted-foreground">
+                      <TableCell className="whitespace-nowrap px-4 py-3.5 font-mono text-xs tabular-nums text-muted-foreground">
                         <div>{t("usage.users.promptLine", { count: fmt.number(u.prompt_tokens) })}</div>
                         <div>
                           {t("usage.users.completionLine", { count: fmt.number(u.completion_tokens) })}
@@ -730,7 +730,7 @@ export function UsersTable({
                           className="text-left"
                         />
                       </TableCell>
-                      <TableCell className="max-w-[180px] truncate px-4 py-3.5 font-mono text-2xs text-muted-foreground">
+                      <TableCell className="max-w-[180px] truncate px-4 py-3.5 font-mono text-xs text-muted-foreground">
                         <span title={u.top_model} className="rounded-md border border-border/30 bg-surface-3/50 px-2 py-0.5">
                           {u.top_model || t("usage.users.noTopModel")}
                         </span>
@@ -750,7 +750,7 @@ export function UsersTable({
                             variant="outline"
                             size="sm"
                             onClick={() => actions.onOpenAudit(u.user_id, u.username)}
-                            className="h-7 cursor-pointer gap-1 rounded-full border-primary/20 bg-primary/5 px-2.5 text-2xs font-medium text-primary transition-colors hover:bg-primary/10 active:scale-95"
+                            className="h-7 cursor-pointer gap-1 rounded-full border-primary/20 bg-primary/5 px-2.5 text-xs font-medium text-primary transition-colors hover:bg-primary/10 active:scale-95"
                           >
                             <Eye className="h-4 w-4" />
                             <span>{t("usage.userCard.audit")}</span>
@@ -880,7 +880,7 @@ export function AuditDialog({
             size="sm"
             onClick={onRefresh}
             disabled={loading}
-            className="h-7 cursor-pointer gap-1 rounded-full px-2.5 text-2xs text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground"
+            className="h-7 cursor-pointer gap-1 rounded-full px-2.5 text-xs text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground"
           >
             <RefreshCw className={cn("h-4 w-4", loading && "animate-spin text-primary")} />
             <span>{t("usage.audit.refresh")}</span>
@@ -910,25 +910,25 @@ export function AuditDialog({
                       {conv.title || t("usage.audit.untitled")}
                     </h4>
                     {conv.is_deleted ? (
-                      <span className="inline-flex items-center gap-1 rounded-full border border-destructive/20 bg-destructive/10 px-2 py-px text-2xs font-medium text-destructive">
-                        <Trash2 className="mr-0.5 h-2.5 w-2.5" />
+                      <span className="inline-flex items-center gap-1 rounded-full border border-destructive/20 bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
+                        <Trash2 className="mr-0.5 h-3 w-3" />
                         {t("usage.audit.deletedBadge", {
                           date: conv.deleted_at || t("usage.audit.recycleBin"),
                         })}
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-px text-2xs font-medium text-emerald-600 dark:text-emerald-400">
-                        <CheckCircle2 className="mr-0.5 h-2.5 w-2.5" />
+                      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                        <CheckCircle2 className="mr-0.5 h-3 w-3" />
                         {t("usage.audit.activeBadge")}
                       </span>
                     )}
                     {conv.model && (
-                      <span className="rounded-full bg-surface-3 px-2 py-px font-mono text-2xs">
+                      <span className="rounded-full bg-surface-3 px-2 py-0.5 font-mono text-xs">
                         {conv.model}
                       </span>
                     )}
                   </div>
-                  <div className="flex flex-wrap gap-4 font-mono text-2xs text-muted-foreground">
+                  <div className="flex flex-wrap gap-4 font-mono text-xs text-muted-foreground">
                     <span>{t("usage.audit.messagesMeta", { count: fmt.number(conv.message_count ?? 0) })}</span>
                     <span>{t("usage.audit.tokensMeta", { count: fmt.number(conv.total_tokens ?? 0) })}</span>
                     <span>
@@ -998,7 +998,7 @@ export function InspectMessagesDialog({
                   <DialogTitle className="max-w-md truncate text-sm font-semibold">
                     {data.conversation.title || t("usage.audit.untitled")}
                   </DialogTitle>
-                  <DialogDescription className="mt-0.5 text-2xs text-muted-foreground">
+                  <DialogDescription className="mt-0.5 text-xs text-muted-foreground">
                     <span>{t("usage.audit.inspectModel", { model: data.conversation.model ?? "" })}</span>
                     <span> · </span>
                     <span>{t("usage.audit.inspectCount", { count: fmt.number(data.messages.length) })}</span>
@@ -1027,7 +1027,7 @@ export function InspectMessagesDialog({
                       msg.role === "user" ? "items-end" : "items-start"
                     )}
                   >
-                    <div className="flex items-center gap-2 px-1 font-mono text-2xs text-muted-foreground">
+                    <div className="flex items-center gap-2 px-1 font-mono text-xs text-muted-foreground">
                       <span className="font-semibold uppercase tracking-wider">{msg.role}</span>
                       <span>{msg.created_at}</span>
                       {!!msg.token_usage && msg.token_usage > 0 && (
@@ -1038,7 +1038,7 @@ export function InspectMessagesDialog({
                     </div>
                     <div
                       className={cn(
-                        "max-w-[85%] whitespace-pre-wrap p-3.5 text-xs leading-relaxed shadow-2xs",
+                        "max-w-[85%] whitespace-pre-wrap p-3.5 text-sm leading-relaxed shadow-2xs",
                         msg.role === "user"
                           ? "rounded-2xl rounded-tr-xs bg-primary text-primary-foreground"
                           : "rounded-2xl rounded-tl-xs border border-border/40 bg-card/90 text-foreground dark:bg-surface-3/60"

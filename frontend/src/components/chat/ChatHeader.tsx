@@ -15,6 +15,7 @@ import {
   Trash2,
   MoreHorizontal,
   Edit2,
+  RefreshCw,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -138,6 +139,32 @@ export const MobileChatHeader: React.FC<MobileChatHeaderProps> = ({
         onLogoClick={onNewChat}
         right={
           <div className="flex shrink-0 items-center gap-1">
+            {onRefreshModels && (
+              <ActionTooltip
+                label={
+                  isRefreshingModels
+                    ? t("settings.sync.syncing")
+                    : t("settings.sync.tooltip", { scope: t("settings.modelGroup.language") })
+                }
+              >
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  disabled={isRefreshingModels}
+                  onClick={onRefreshModels}
+                  className="h-8 w-8 shrink-0 cursor-pointer rounded-full text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground active:scale-95"
+                  aria-label={t("settings.sync.sr", { scope: t("settings.modelGroup.language") })}
+                >
+                  <RefreshCw
+                    className={cn(
+                      "h-3.5 w-3.5",
+                      isRefreshingModels && "animate-spin text-primary"
+                    )}
+                  />
+                </Button>
+              </ActionTooltip>
+            )}
             {hasActiveMemories ? (
               <ActionTooltip label={t("chat.header.memoryCountTip", { count: memoriesCount })}>
                 <Button
@@ -148,7 +175,7 @@ export const MobileChatHeader: React.FC<MobileChatHeaderProps> = ({
                   className="h-8 shrink-0 cursor-pointer gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 text-xs font-medium text-primary transition-colors hover:bg-primary/15 active:scale-95"
                 >
                   <Brain className="h-4 w-4 shrink-0 text-primary" />
-                  <span className="font-mono text-2xs font-semibold">{memoriesCount}</span>
+                  <span className="font-mono text-xs font-semibold">{memoriesCount}</span>
                   <span className="sr-only">{t("chat.header.memoryCountLabel")}</span>
                 </Button>
               </ActionTooltip>
@@ -343,7 +370,7 @@ export const DesktopChatHeader: React.FC<DesktopChatHeaderProps> = ({
             {t("chat.header.currentModel")}
           </span>
 
-          <div className="flex min-w-0 items-center">
+          <div className="flex min-w-0 items-center gap-1.5">
             <ModelSelect
               value={currentModel}
               onChange={onModelChange}
@@ -351,6 +378,32 @@ export const DesktopChatHeader: React.FC<DesktopChatHeaderProps> = ({
               variant="compact"
               isVocabMode={isVocabMode}
             />
+            {onRefreshModels && (
+              <ActionTooltip
+                label={
+                  isRefreshingModels
+                    ? t("settings.sync.syncing")
+                    : t("settings.sync.tooltip", { scope: t("settings.modelGroup.language") })
+                }
+              >
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  disabled={isRefreshingModels}
+                  onClick={onRefreshModels}
+                  className="h-8 w-8 shrink-0 rounded-lg text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground active:scale-95"
+                  aria-label={t("settings.sync.sr", { scope: t("settings.modelGroup.language") })}
+                >
+                  <RefreshCw
+                    className={cn(
+                      "h-3.5 w-3.5",
+                      isRefreshingModels && "animate-spin text-primary"
+                    )}
+                  />
+                </Button>
+              </ActionTooltip>
+            )}
           </div>
         </div>
 

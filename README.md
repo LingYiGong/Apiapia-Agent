@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.25.0-indigo?style=flat-square" alt="Version"></a>
+  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.26.0-indigo?style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
@@ -193,7 +193,35 @@ cat backup_xxx.sql | docker exec -i apiapia_postgres psql -U postgres -d apiapia
 
 ## 📜 Releases & Changelog
 
-### 🚀 Latest Release: v2.25.0 (2026-10-14)
+### 🚀 Latest Release: v2.26.0 (2026-10-16)
+
+This release brings a comprehensive refactor of **site-wide typography and reading hierarchy across Mobile and PC**, systematic readability improvements for high-DPI screens, and a zero-redundancy audit of the multi-language (i18n) codebase.
+
+#### 1. Typography Hierarchy Refactor & Markdown Heading Inversion Fix
+- **Heading Scale Rationalization**: Completely resolved the legacy issue where `h3` (15px) and `h4-h6` (13px) rendered smaller than the 16px body text. Re-engineered a responsive heading scale from `h1` (24/28px) down to `h6` (14px).
+- **Desktop Code Block Alignment**: Elevated code block font size to 14px on desktop, fully matching GitHub, VS Code, and ChatGPT desktop standards. Action badges and buttons scaled to 12px.
+- **Enhanced Tables & Inline Code**: Upgraded table cells and inline code to responsive `text-xs sm:text-sm` for effortless scanning of dense tabular data.
+
+#### 2. CJK Line-Height Optimization & Systematic Micro-Text Elevation
+- **Breathing Room for CJK Glyphs**: Tuned `2xs` (11px) and `xs` (12px) line heights to 15px and 17px, preventing descender clipping and stroke collision for complex Chinese and Japanese characters.
+- **Micro-Text Elevation to 12px/14px**: Upgraded chat message action bars, usage analytics, model rankings, cost trends, conversation histories, memory consolidation diffs, and media cards from 11px micro-text to legible 12px/14px.
+- **Mobile Touch Interaction Enhancements**: Increased default opacity for metadata and action triggers on touchscreens to prevent washed-out text without hover capabilities.
+
+#### 3. Elimination of Invalid CSS Classes & Design Token Unification
+- **Eradication of `text-3xs`**: Replaced all instances of undefined `text-3xs` with standard design tokens across language switchers, slash commands, and audio speed buttons.
+- **Arbitrary Pixel Cleanup**: Normalized non-standard `text-[10px]` into system tokens.
+
+#### 4. Zero-Redundancy Multi-Language (i18n) Cleanup
+- **Pruned 83 Unused i18n Keys**: Removed orphaned translation keys across all 4 locales (Simplified Chinese, Traditional Chinese, English, Japanese) using AST verification.
+- **Backend Error Code Cleanup & Missing Key Wiring**: Pruned unreferenced `NO_LLM_CREDENTIALS` error code and properly wired missing login placeholder translations.
+
+#### 5. Model Feature Guide Tags & Catalog Synchronization
+- **Intuitive Guide Tags**: Integrated visual pricing tags and capability badges to facilitate seamless model selection.
+- **Streamlined Catalog Fetching**: Optimized model synchronization flow, eliminating redundant local file fallbacks.
+
+---
+
+### v2.25.0 (2026-10-14)
 
 This release introduces independent configuration for the **Memory Consolidation Model (Consolidation LLM)**, real-time stage progress animation during AI memory deduplication, zero-barrier default model scheduling with `openrouter/free`, and synchronized recommendation models.
 

@@ -15,54 +15,9 @@ export default {
     confirm: "確認",
     cancel: "取消",
     save: "儲存",
-    saving: "儲存中…",
-    saved: "已儲存",
-    delete: "刪除",
-    deleting: "刪除中…",
-    edit: "編輯",
-    rename: "重新命名",
     close: "關閉",
     retry: "重試",
-    back: "返回",
-    copy: "複製",
-    copied: "已複製",
-    download: "下載",
-    upload: "上傳",
-    export: "匯出",
-    exportAs: "匯出為 {format}",
-    importing: "匯入中…",
-    refresh: "重新整理",
-    create: "新增",
-    add: "新增",
-    remove: "移除",
-    clear: "清除",
-    submit: "送出",
-    search: "搜尋",
-    reset: "重設",
-    select: "選擇",
-    selectAll: "全選",
-    deselectAll: "取消全選",
-    more: "更多",
-    expand: "展開",
-    collapse: "收合",
-    viewAll: "查看全部",
-    loadMore: "載入更多",
-    send: "傳送",
-    stop: "停止",
-    regenerate: "重新產生",
     processing: "處理中…",
-    loading: "載入中…",
-    optional: "選填",
-    required: "必填",
-    yes: "是",
-    no: "否",
-    on: "開",
-    off: "關",
-    default: "預設",
-    none: "無",
-    unknown: "未知",
-    all: "全部",
-    copyFailed: "複製失敗，請手動選取後複製",
   },
 
   /**
@@ -77,7 +32,6 @@ export default {
     daysAgo_one: "{n} 天前",
     daysAgo_other: "{n} 天前",
     monthDay: "{month} 月 {day} 日",
-    fullDateTime: "{date} {time}",
   },
 
   /**
@@ -96,35 +50,10 @@ export default {
   /** 通用 fallback 錯誤。帶業務語意的錯誤留在各自區域。 */
   error: {
     operationFailed: "操作失敗",
-    requestFailed: "請求失敗（{status}）",
-    networkError: "網路連線失敗，請檢查網路後重試",
-    unknownError: "未知錯誤",
-    notFound: "內容不存在或已被刪除",
-    unhandledCode: "操作失敗（{code}）",
-  },
-
-  backendError: {
-    fallback: "服務暫時無法使用，請稍後再試",
-  },
-
-  unit: {
-    seconds: "{n} 秒",
-    count: "{n} 個",
-    token: "{n} tokens",
-    times: "{n} 次",
-    currencyUsd: "${value}",
   },
 
   /** 無障礙標籤。這些會被螢幕閱讀器朗讀，因此不得使用視覺上的簡寫。 */
   a11y: {
-    openMenu: "開啟選單",
-    closeMenu: "關閉選單",
-    moreActions: "更多操作",
-    loading: "載入中",
-    loadingMore: "正在載入更多內容",
-    selected: "已選取",
-    expandSection: "展開此區塊",
-    collapseSection: "收合此區塊",
     mobileTabBar: "行動裝置底部標籤列",
   },
 
@@ -158,7 +87,6 @@ export default {
   language: {
     label: "介面語言",
     description: "選擇介面顯示語言。AI 的回覆語言也會跟隨此設定。",
-    current: "目前語言",
   },
 
   /** 四種模型清單「同步」的共用結果回饋。 */

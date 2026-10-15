@@ -31,12 +31,9 @@ export default {
 
   update: {
     availableTitle: "Version {version} is available",
-    availableDescription: "Update to get the latest features straight away.",
-    currentTitle: "You're up to date",
     currentDescription: "Version {version} is the latest release.",
     changelog: "What's new",
     changelogHint: "See what changed in preferences, or tap here for details",
-    dismiss: "Got it",
     later: "Remind me later",
     updateNow: "Update now",
     checking: "Checking for updates…",

@@ -219,9 +219,9 @@ export const MobileHistoryView = ({
               <div key={sec.key} className={cn("space-y-1.5", secIdx > 0 && "pt-2.5")}>
                 <div className="flex items-center justify-between px-1 pb-0.5">
                   <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground select-none">
-                    {sec.key === "pinned" && <Pin className="h-3 w-3 text-primary" />}
+                    {sec.key === "pinned" && <Pin className="h-3.5 w-3.5 text-primary" />}
                     <span>{sec.title}</span>
-                    <span className="font-mono text-2xs opacity-60">({sec.items.length})</span>
+                    <span className="font-mono text-xs opacity-75">({sec.items.length})</span>
                   </span>
                 </div>
 

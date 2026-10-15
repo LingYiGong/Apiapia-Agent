@@ -619,7 +619,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <div className="flex items-center gap-2.5">
           <h1 className="text-2xl font-semibold text-foreground">{t("settings.title")}</h1>
           {user.is_superuser && (
-            <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-2xs font-medium text-amber-600 shadow-none dark:text-amber-400">
+            <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-0.5 text-xs font-medium text-amber-600 shadow-none dark:text-amber-400">
               {t("settings.adminBadge")}
             </span>
           )}
@@ -655,12 +655,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <SectionLabel className="pb-0">{t("settings.modelGroup.default")}</SectionLabel>
               <div className="flex items-center gap-2">
                 {isTrialMode && (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-2xs font-medium normal-case tracking-normal text-emerald-600 dark:text-emerald-400">
-                    <Zap className="h-2.5 w-2.5" />
+                  <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-xs font-medium normal-case tracking-normal text-emerald-600 dark:text-emerald-400">
+                    <Zap className="h-3 w-3" />
                     {t("settings.modelGroup.trialBadge")}
                   </span>
                 )}
-                <span className="font-mono text-2xs font-normal normal-case tracking-normal text-muted-foreground">
+                <span className="font-mono text-xs font-normal normal-case tracking-normal text-muted-foreground">
                   {t("settings.modelGroup.counts", {
                     chat: availableModels.length,
                     image: imageModels.length,
@@ -816,7 +816,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
                 <div className="mt-2 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                   <div className="min-w-0">
-                    <div className="mb-1.5 px-0.5 text-2xs font-medium text-muted-foreground">
+                    <div className="mb-1.5 px-0.5 text-xs font-medium text-muted-foreground">
                       {t("settings.modelGroup.sttSub")}
                     </div>
                     <AudioModelSelect
@@ -842,7 +842,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   </div>
 
                   <div className="min-w-0">
-                    <div className="mb-1.5 px-0.5 text-2xs font-medium text-muted-foreground">
+                    <div className="mb-1.5 px-0.5 text-xs font-medium text-muted-foreground">
                       {t("settings.modelGroup.ttsSub")}
                     </div>
                     <AudioModelSelect
@@ -869,7 +869,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </div>
 
                 {currentTtsItem?.supported_voices?.length ? (
-                  <p className="mt-2 px-0.5 font-mono text-2xs leading-relaxed text-muted-foreground">
+                  <p className="mt-2 px-0.5 font-mono text-xs leading-relaxed text-muted-foreground">
                     {t("settings.modelGroup.voiceNote", {
                       count: currentTtsItem.supported_voices.length,
                       voice: currentTtsItem.supported_voices[0],
@@ -879,7 +879,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   /* 不公布音色列表的模型（Fish Audio / Seed Audio 系）：后端会省略
                      voice 字段，由 provider 用自己的默认音色。这里说清楚，免得
                      用户以为功能坏了。 */
-                  <p className="mt-2 px-0.5 font-mono text-2xs leading-relaxed text-muted-foreground">
+                  <p className="mt-2 px-0.5 font-mono text-xs leading-relaxed text-muted-foreground">
                     {t("settings.modelGroup.voiceNoteNoList")}
                   </p>
                 ) : null}
@@ -910,7 +910,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   onClick={() =>
                     setSystemPrompt("你是一个智能、真诚、有洞察力的个人智能助理。请根据用户提供的历史背景和长期记忆为用户提供高质量服务。")
                   }
-                  className="h-6 px-2 text-2xs text-muted-foreground hover:text-foreground"
+                  className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
                 >
                   {t("settings.persona.resetDefault")}
                 </Button>
@@ -922,9 +922,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 onChange={(e) => setSystemPrompt(e.target.value)}
                 rows={4}
                 placeholder={t("settings.persona.promptPhCustom")}
-                className="resize-y rounded-xl border-border/60 bg-background text-xs leading-relaxed font-sans"
+                className="resize-y rounded-xl border-border/60 bg-background text-xs sm:text-sm leading-relaxed font-sans"
               />
-              <p className="px-0.5 text-2xs leading-relaxed text-muted-foreground">
+              <p className="px-0.5 text-xs leading-relaxed text-muted-foreground">
                 {t("settings.persona.promptHint")}
               </p>
             </Panel>
@@ -1017,8 +1017,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
                     {/* 推荐整理模型说明卡片列表 */}
                     <div className="mt-2 space-y-1.5 rounded-xl border border-border/40 bg-surface-2/40 p-3">
-                      <div className="flex items-center gap-1.5 px-0.5 text-2xs font-semibold text-foreground">
-                        <Sparkles className="h-3 w-3 text-primary" />
+                      <div className="flex items-center gap-1.5 px-0.5 text-xs font-semibold text-foreground">
+                        <Sparkles className="h-3.5 w-3.5 text-primary" />
                         <span>推荐整理模型及选用理由（点击卡片可快速选用）：</span>
                       </div>
                       <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 pt-1">
@@ -1040,7 +1040,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                                 <div className="flex items-center gap-1.5 min-w-0">
                                   <span
                                     className={cn(
-                                      "text-[10px] font-medium px-1.5 py-0.2 rounded font-sans shrink-0",
+                                      "text-xs font-medium px-1.5 py-0.5 rounded font-sans shrink-0",
                                       item.isFree
                                         ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
                                         : "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20"
@@ -1053,15 +1053,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                                   </span>
                                 </div>
                                 {isSelected && (
-                                  <span className="text-[10px] font-medium text-primary shrink-0">
+                                  <span className="text-xs font-medium text-primary shrink-0">
                                     当前选用
                                   </span>
                                 )}
                               </div>
-                              <span className="font-mono text-2xs text-muted-foreground truncate">
+                              <span className="font-mono text-xs text-muted-foreground truncate">
                                 {item.id}
                               </span>
-                              <p className="text-2xs text-muted-foreground leading-relaxed mt-0.5">
+                              <p className="text-xs text-muted-foreground leading-relaxed mt-0.5">
                                 {item.desc}
                               </p>
                             </button>
@@ -1086,7 +1086,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     <span className="text-sm font-semibold text-foreground">
                       {t("settings.about.product")}
                     </span>
-                    <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 font-mono text-2xs font-medium text-emerald-600 dark:text-emerald-400">
+                    <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 font-mono text-xs font-medium text-emerald-600 dark:text-emerald-400">
                       {t("settings.about.versionValue", { version: CURRENT_VERSION })}
                     </span>
                   </div>

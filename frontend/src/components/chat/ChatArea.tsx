@@ -961,7 +961,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                       {streamStartedAt && (
                         <ElapsedSeconds
                           startedAt={streamStartedAt}
-                          className="font-mono text-2xs opacity-70"
+                          className="font-mono text-xs opacity-80"
                         />
                       )}
                     </div>
@@ -972,7 +972,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                       {streamStartedAt && (
                         <ElapsedSeconds
                           startedAt={streamStartedAt}
-                          className="font-mono text-2xs opacity-70"
+                          className="font-mono text-xs opacity-80"
                         />
                       )}
                     </div>
@@ -997,7 +997,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                     <span className="ml-1.5 inline-block h-[18px] w-2 translate-y-0.5 animate-caret rounded-xs bg-primary/80" />
                   </div>
 
-                  <div className="mt-3 flex items-center justify-between gap-1.5 border-t border-border/40 pt-2 font-mono text-2xs text-muted-foreground opacity-60">
+                  <div className="mt-3 flex items-center justify-between gap-1.5 border-t border-border/40 pt-2 font-mono text-xs text-muted-foreground opacity-80">
                     <div className="flex items-center gap-1.5">
                       <Cpu className="h-3 w-3 animate-spin text-primary" />
                       <span>{currentModel}</span>
@@ -1064,12 +1064,12 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           {/* Slash Commands Autocomplete Popup */}
           {showCommandsMenu && filteredCommands.length > 0 && (
             <div className="mx-1 mb-2 rounded-xl border border-border/80 bg-background/95 backdrop-blur-xl shadow-xl overflow-hidden p-1 z-30 animate-in fade-in slide-in-from-bottom-2 duration-150">
-              <div className="flex items-center justify-between px-2.5 py-1 text-2xs font-medium text-muted-foreground border-b border-border/40 mb-1">
+              <div className="flex items-center justify-between px-2.5 py-1 text-xs font-medium text-muted-foreground border-b border-border/40 mb-1">
                 <span className="flex items-center gap-1.5">
-                  <Terminal className="h-3 w-3 text-primary" />
+                  <Terminal className="h-3.5 w-3.5 text-primary" />
                   <span>{t("chat.commands.hint")}</span>
                 </span>
-                <span className="font-mono text-3xs">
+                <span className="font-mono text-xs">
                   {t("chat.commands.count", { count: filteredCommands.length })}
                 </span>
               </div>
@@ -1087,14 +1087,14 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                     )}
                   >
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className="font-mono font-semibold text-2xs px-1 rounded bg-black/10 dark:bg-white/10 shrink-0">
+                      <span className="font-mono font-semibold text-xs px-1 rounded bg-black/10 dark:bg-white/10 shrink-0">
                         /{cmd.key}
                       </span>
                       <span className="truncate">{t(cmd.titleKey)}</span>
                     </div>
                     <span
                       className={cn(
-                        "text-3xs truncate ml-2 max-w-[180px] sm:max-w-[240px]",
+                        "text-xs truncate ml-2 max-w-[180px] sm:max-w-[240px]",
                         idx === selectedCommandIdx ? "text-primary-foreground/80" : "text-muted-foreground"
                       )}
                     >
@@ -1108,7 +1108,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
           {/* Active Translation Mode Banner */}
           {isTranslateMode && (
-            <div className="mx-1 mb-1.5 px-2.5 py-1.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex flex-wrap items-center justify-between gap-2 text-2xs animate-in fade-in-0 duration-150">
+            <div className="mx-1 mb-1.5 px-2.5 py-1.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex flex-wrap items-center justify-between gap-2 text-xs animate-in fade-in-0 duration-150">
               <div className="flex items-center gap-1.5 min-w-0">
                 <span className="font-semibold text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
                   <Languages className="h-3.5 w-3.5" />
@@ -1129,7 +1129,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               <button
                 type="button"
                 onClick={() => handleSetTranslateMode(false)}
-                className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md hover:bg-surface-3 transition-colors text-2xs cursor-pointer shrink-0"
+                className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md hover:bg-surface-3 transition-colors text-xs cursor-pointer shrink-0"
                 title={t("chat.translate.exitTip")}
               >
                 <span>{t("chat.translate.exitLabel")}</span>
@@ -1138,7 +1138,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
               {/* 快速语种选择栏：首选英文、日语、中文，其次按全球使用广泛度排序 */}
               <div className="w-full pt-1 border-t border-indigo-500/15 flex items-center gap-1 overflow-x-auto no-scrollbar">
-                <span className="text-muted-foreground text-3xs shrink-0 mr-0.5 font-medium">
+                <span className="text-muted-foreground text-xs shrink-0 mr-0.5 font-medium">
                   {t("chat.translate.targetLabel")}
                 </span>
                 {VOCAB_TARGET_LANGUAGES.map((item) => {
@@ -1150,7 +1150,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                       type="button"
                       onClick={() => handleSelectVocabLang(item.id)}
                       className={cn(
-                        "px-2 py-0.5 rounded-md text-3xs font-medium transition-all shrink-0 cursor-pointer border",
+                        "px-2 py-0.5 rounded-md text-xs font-medium transition-all shrink-0 cursor-pointer border",
                         isSelected
                           ? "bg-indigo-600 text-white border-indigo-600 shadow-2xs font-semibold dark:bg-indigo-500"
                           : "bg-background/80 text-foreground/75 border-border/60 hover:bg-surface-3 hover:text-foreground"
@@ -1174,10 +1174,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               <div className="flex items-start gap-2 min-w-0">
                 <Quote className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
                 <div className="min-w-0">
-                  <span className="font-medium text-2xs text-primary block">
+                  <span className="font-semibold text-xs text-primary block">
                     {t("chat.composer.quoteLabel")}
                   </span>
-                  <p className="text-2xs text-muted-foreground line-clamp-2 leading-relaxed">
+                  <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
                     {activeQuote.text}
                   </p>
                 </div>
@@ -1217,7 +1217,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                     <p className="text-xs font-medium truncate" title={att.name}>
                       {att.name}
                     </p>
-                    <p className="text-2xs text-muted-foreground font-mono">
+                    <p className="text-xs text-muted-foreground font-mono">
                       {fmt.fileSize(att.size)}
                     </p>
                   </div>
@@ -1630,7 +1630,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 the difference between "my microphone is broken" and "I am just
                 too quiet". */}
             {recorder.isRecording && (
-              <span className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-destructive/10 px-2.5 text-2xs font-medium text-destructive">
+              <span className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-destructive/10 px-2.5 text-xs font-medium text-destructive">
                 <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-destructive" />
                 <span className="font-mono tabular-nums">
                   {String(Math.floor(recorder.elapsed / 60)).padStart(2, "0")}:
@@ -1820,7 +1820,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               </div>
 
               {/* 提示：触摸设备没有 Esc 键，那句话对手机用户是错的 */}
-              <p className="shrink-0 select-none py-2 text-center text-2xs text-white/55">
+              <p className="shrink-0 select-none py-2 text-center text-xs text-white/75">
                 {isTouchPrimary
                   ? t("chat.composer.lightboxHintTouch")
                   : t("chat.composer.lightboxHint")}

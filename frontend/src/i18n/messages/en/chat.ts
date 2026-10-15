@@ -131,15 +131,12 @@ export default {
     renameTitle: "Rename conversation",
     renameLabel: "New title",
     renamePh: "Enter a new title",
-    deleteDisabled: "Disable account",
-    restoreActive: "Re-enable",
   },
 
   header: {
     currentModel: "Model: ",
     memoryCountTip: "View the {count} memories used in this conversation",
     memoryCountLabel: "linked memories — tap to view",
-    goHome: "Back to the Apiapia Assistant chat",
   },
 
   message: {
@@ -302,12 +299,9 @@ export default {
     grammar: "Grammar notes",
     cardView: "Card",
     codeView: "Code",
-    ttsUnsupported: "This browser doesn't support speech synthesis",
     sourceLabel: "Source:",
     translationLabel: "Translation:",
     pronounceSource: "Read source aloud",
-    /** Word order differs per locale ("English card" vs 「英語カード」), so the whole label is a key. */
-    cardSuffix: "card",
     /** Whole card label. {lang} is filled from the ISO language code (see WordCard.tsx). */
     cardLabel: "{lang} card",
     ttsReady: "Tap to read aloud",
@@ -352,8 +346,6 @@ export default {
     menuDesc:
       "Two-way translation and grammar teaching in any language, with verb conjugation breakdowns, Japanese kana and matching examples",
     placeholder: "Enter the word, phrase or sentence to translate…",
-    pickerLabel: "Two-way language",
-      sourceLangLabel: "{src}",
     /** Language names. Keys are ISO 639-1; each value is that language's own name. */
     langs: {
       en: "English",

@@ -115,10 +115,9 @@ export function SegmentedControl<T extends string>({
             className={cn(
               "inline-flex items-center justify-center gap-1.5 rounded-lg font-medium transition-all",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-surface-3",
-              // 此前 h-6（24px）/ h-7（28px）都低于 globals.css 自述的 h-9（36px）
-              // 触控目标下限，而 sm 档被用在移动端头像菜单里的主题三段、UsageView
-              // 与 UsagePanels 的周期筛选。分别提到 h-8 / h-9。
-              isSm ? "h-8 px-2.5 text-2xs" : "h-9 px-3 text-xs",
+              // 轨道外层已设 h-8（32px）/ h-9（36px）并带 p-1（4px 内边距），
+              // 内部按钮对应应为 h-6（24px）/ h-7（28px），避免高度溢出导致超出轨道边框错乱。
+              isSm ? "h-6 px-2.5 text-xs" : "h-7 px-3 text-xs",
               active
                 ? opt.activeClassName ??
                   "bg-background text-foreground font-semibold shadow-2xs"
@@ -131,7 +130,7 @@ export function SegmentedControl<T extends string>({
                 className={cn(
                   "shrink-0",
                   isSm ? "h-3 w-3" : "h-3.5 w-3.5",
-                  !active && opt.iconClassName
+                  opt.iconClassName
                 )}
               />
             )}

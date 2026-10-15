@@ -133,7 +133,7 @@ export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
                 <StandardUserBadge size="sm" />
               )}
             </div>
-            <span className="mt-0.5 truncate font-mono text-2xs text-muted-foreground">
+            <span className="mt-0.5 truncate font-mono text-xs text-muted-foreground">
               {user.is_superuser ? t("common.account.adminReady") : t("common.account.standardUser")}
             </span>
           </div>
@@ -151,7 +151,7 @@ export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
           <>
             <div className="px-2 py-1.5">
               <div className="mb-1.5 flex items-center justify-between">
-                <span className="font-mono text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <span className="font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   {t("settings.appearance.avatarMenuHeading")}
                 </span>
               </div>

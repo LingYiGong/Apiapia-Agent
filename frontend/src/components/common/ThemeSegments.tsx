@@ -6,6 +6,7 @@ import { useTheme, type Theme } from "@/lib/theme";
 import { useI18n } from "@/i18n";
 import type { MessageKey } from "@/i18n";
 import { SegmentedControl, type SegmentedOption } from "@/components/common/SegmentedControl";
+import { cn } from "@/lib/utils";
 
 /**
  * 外观三档（跟随系统 / 浅色 / 深色）。
@@ -56,8 +57,7 @@ export function ThemeSegments({ size = "md", className }: { size?: "sm" | "md"; 
         })
       )}
       size={size}
-      className={className}
-      listClassName="grid grid-cols-3 w-full"
+      listClassName={cn("grid grid-cols-3 w-full", className)}
     />
   );
 }

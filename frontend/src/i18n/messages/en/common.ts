@@ -14,54 +14,9 @@ export default {
     confirm: "Confirm",
     cancel: "Cancel",
     save: "Save",
-    saving: "Saving…",
-    saved: "Saved",
-    delete: "Delete",
-    deleting: "Deleting…",
-    edit: "Edit",
-    rename: "Rename",
     close: "Close",
     retry: "Try again",
-    back: "Back",
-    copy: "Copy",
-    copied: "Copied",
-    download: "Download",
-    upload: "Upload",
-    export: "Export",
-    exportAs: "Export as {format}",
-    importing: "Importing…",
-    refresh: "Refresh",
-    create: "New",
-    add: "Add",
-    remove: "Remove",
-    clear: "Clear",
-    submit: "Submit",
-    search: "Search",
-    reset: "Reset",
-    select: "Select",
-    selectAll: "Select all",
-    deselectAll: "Deselect all",
-    more: "More",
-    expand: "Expand",
-    collapse: "Collapse",
-    viewAll: "View all",
-    loadMore: "Load more",
-    send: "Send",
-    stop: "Stop",
-    regenerate: "Regenerate",
     processing: "Working…",
-    loading: "Loading…",
-    optional: "Optional",
-    required: "Required",
-    yes: "Yes",
-    no: "No",
-    on: "On",
-    off: "Off",
-    default: "Default",
-    none: "None",
-    unknown: "Unknown",
-    all: "All",
-    copyFailed: "Copy failed. Select the text and copy it manually.",
   },
 
   /**
@@ -77,7 +32,6 @@ export default {
     daysAgo_one: "{n} day ago",
     daysAgo_other: "{n} days ago",
     monthDay: "{month}/{day}",
-    fullDateTime: "{date} {time}",
   },
 
   /**
@@ -96,35 +50,10 @@ export default {
   /** Fallback errors. Anything with real business meaning lives in its own area. */
   error: {
     operationFailed: "Something went wrong",
-    requestFailed: "Request failed ({status})",
-    networkError: "Network error. Check your connection and try again.",
-    unknownError: "Unknown error",
-    notFound: "This item no longer exists",
-    unhandledCode: "The operation failed ({code})",
-  },
-
-  backendError: {
-    fallback: "The service is temporarily unavailable. Please try again shortly.",
-  },
-
-  unit: {
-    seconds: "{n}s",
-    count: "{n}",
-    token: "{n} tokens",
-    times: "{n} times",
-    currencyUsd: "${value}",
   },
 
   /** Screen-reader labels. Read aloud, so no visual shorthand here. */
   a11y: {
-    openMenu: "Open menu",
-    closeMenu: "Close menu",
-    moreActions: "More actions",
-    loading: "Loading",
-    loadingMore: "Loading more content",
-    selected: "Selected",
-    expandSection: "Expand this section",
-    collapseSection: "Collapse this section",
     mobileTabBar: "Bottom tab bar",
   },
 
@@ -158,7 +87,6 @@ export default {
   language: {
     label: "Language",
     description: "Choose the interface language. The assistant replies in this language too.",
-    current: "Current language",
   },
 
   /** Shared result feedback for the four "sync model list" buttons. */

@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.25.0-indigo?style=flat-square" alt="Version"></a>
+  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.26.0-indigo?style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
@@ -192,7 +192,35 @@ cat backup_xxx.sql | docker exec -i apiapia_postgres psql -U postgres -d apiapia
 
 ## 📜 版本发布与更新说明 (Release Notes)
 
-### 🚀 最新版本：v2.25.0 (2026-10-14)
+### 🚀 最新版本：v2.26.0 (2026-10-16)
+
+本版本是一次聚焦于**全站字体排版层次重构、移动端与 PC 端高清晰阅读体验、以及多语言体系深度瘦身**的重要版本。修复了长久以来 Markdown 三级以下标题字号倒挂的历史缺陷，系统性提升了高分屏与移动设备上的微型文字辨识度，彻底消除无效 CSS 类名，并对全站四语字典进行了零冗余清理。
+
+#### 1. 全站排版层次重构与标题字号倒挂修正
+- **Markdown 标题阶梯体系化规范**：彻底修复 `h3`（15px）及 `h4~h6`（13px）小于 16px 正文的倒挂问题，规范重构 `h1`（24/28px）、`h2`（20/24px）、`h3`（18/20px）、`h4`（16/18px）、`h5`（15/16px）、`h6`（14px）自适应层级。
+- **代码块阅读标准对齐**：代码块桌面端正文由 13px 提升至 14px，与 GitHub、VS Code 及 ChatGPT 桌面端规范完全对齐；顶部语言标识与操作按钮提升至 12px。
+- **表格与行内代码增强**：数据表格单元格与行内代码升级为响应式 `text-xs sm:text-sm`，宽屏阅读长表格数据更清晰舒适。
+
+#### 2. CJK 字符排版优化与微型文字系统性提升
+- **字阶行高舒展化**：调整 `2xs`（11px）与 `xs`（12px）行高至 15px / 17px，彻底解决中日文字符（如「囊」、「藏」、「题」等复杂字形）在小字号下笔画粘连或上下截断的痛点。
+- **核心面板告别 11px 模糊阅读**：消息下方操作栏（复制/朗读/重试/编辑等）、用量统计与排行卡片、费用与趋势数据、会话历史列表、记忆脱水 Diff 对比、AI 图片与视频卡片、单词学习卡等全部微小字号升级为清晰的 12px/14px。
+- **移动端触屏交互优化**：调整移动端操作栏与时间戳的默认透明度（从 50% 提高至 75%），消除触屏无鼠标 hover 导致界面泛白淡化的体验缺陷。
+
+#### 3. 样式健壮性与无效类名根除
+- **彻底消除 `text-3xs`**：排查并替换所有历史遗留的未定义类名 `text-3xs`，确保生产打包后所有语言切换标签、快捷命令提示、单词发音按钮均拥有正规设计系统样式。
+- **全站任意像素字号统一**：消除散落在各处的 `text-[10px]` 等任意像素值，全部收拢至标准设计系统 Token。
+
+#### 4. 多语言（i18n）字典零冗余清理
+- **清理 83 处历史废弃键**：经 AST 语法树全量扫描，移除全部四语（简中、繁中、英文、日文）中已不再调用的冗余键，字典体积显著缩减。
+- **后端错误码精简与漏译修复**：移除后端无引用的 `NO_LLM_CREDENTIALS` 错误码，补齐登录页占位符多语言动态绑定，多语言无用字段彻底归零。
+
+#### 5. 模型特性引导与列表获取优化
+- **直观特性引导标签**：支持模型价格标签、特性标签（多模态等），为用户选模提供更直观引导。
+- **统一模型获取机制**：理顺模型初始化拉取逻辑，移除冗余本地文件存盘，保持数据流一致。
+
+---
+
+### v2.25.0 (2026-10-14)
 
 本版本是一次聚焦于**记忆系统自洽整理与开箱即用体验**的重要更新。新增了独立的记忆整理合并模型（Consolidation LLM）自定义配置、AI 整理全流程多阶段状态机动态可视化、系统默认模型全面迁移至 `openrouter/free` 官方免费智能路由，并对齐最新同步模型目录。
 

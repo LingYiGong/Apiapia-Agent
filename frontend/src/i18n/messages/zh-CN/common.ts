@@ -13,54 +13,9 @@ export default {
     confirm: "确认",
     cancel: "取消",
     save: "保存",
-    saving: "保存中…",
-    saved: "已保存",
-    delete: "删除",
-    deleting: "删除中…",
-    edit: "编辑",
-    rename: "重命名",
     close: "关闭",
     retry: "重试",
-    back: "返回",
-    copy: "复制",
-    copied: "已复制",
-    download: "下载",
-    upload: "上传",
-    export: "导出",
-    exportAs: "导出为 {format}",
-    importing: "导入中…",
-    refresh: "刷新",
-    create: "新建",
-    add: "添加",
-    remove: "移除",
-    clear: "清空",
-    submit: "提交",
-    search: "搜索",
-    reset: "重置",
-    select: "选择",
-    selectAll: "全选",
-    deselectAll: "取消全选",
-    more: "更多",
-    expand: "展开",
-    collapse: "收起",
-    viewAll: "查看全部",
-    loadMore: "加载更多",
-    send: "发送",
-    stop: "停止",
-    regenerate: "重新生成",
     processing: "处理中…",
-    loading: "加载中…",
-    optional: "可选",
-    required: "必填",
-    yes: "是",
-    no: "否",
-    on: "开",
-    off: "关",
-    default: "默认",
-    none: "无",
-    unknown: "未知",
-    all: "全部",
-    copyFailed: "复制失败，请手动选中后复制",
   },
 
   /** 相对时间。超过 30 天退化为「月日」，不再显示冗长的「N月N日前」。 */
@@ -73,8 +28,6 @@ export default {
     daysAgo_one: "{n} 天前",
     daysAgo_other: "{n} 天前",
     monthDay: "{month} 月 {day} 日",
-    /** 绝对时间的占位说明，仅用于 title 属性等场合 */
-    fullDateTime: "{date} {time}",
   },
 
   /**
@@ -93,37 +46,10 @@ export default {
   /** 通用兜底错误。带具体业务语义的错误留在各自区域，不要往这里堆。 */
   error: {
     operationFailed: "操作失败",
-    requestFailed: "请求失败（{status}）",
-    networkError: "网络连接失败，请检查网络后重试",
-    unknownError: "未知错误",
-    notFound: "内容不存在或已被删除",
-    /** 前端无法归类的兜底，通常意味着后端返回了未收录的新错误码 */
-    unhandledCode: "操作失败（{code}）",
-  },
-
-  /** 后端返回的、尚未在前端文案里单列的错误码统一在此渲染。 */
-  backendError: {
-    fallback: "服务暂时不可用，请稍后再试",
-  },
-
-  unit: {
-    seconds: "{n} 秒",
-    count: "{n} 个",
-    token: "{n} tokens",
-    times: "{n} 次",
-    currencyUsd: "${value}",
   },
 
   /** 无障碍标签。这些会被读屏软件朗读，因此不得使用视觉上的简写。 */
   a11y: {
-    openMenu: "打开菜单",
-    closeMenu: "关闭菜单",
-    moreActions: "更多操作",
-    loading: "加载中",
-    loadingMore: "正在加载更多内容",
-    selected: "已选中",
-    expandSection: "展开该区域",
-    collapseSection: "收起该区域",
     mobileTabBar: "移动端底部标签栏",
   },
 
@@ -157,7 +83,6 @@ export default {
   language: {
     label: "界面语言",
     description: "选择界面显示语言。AI 的回复语言会跟随此项。",
-    current: "当前语言",
   },
 
   /** 「同步模型列表」的结果反馈，设置页四类模型共用。 */

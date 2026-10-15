@@ -256,7 +256,7 @@ export default function LoginPage() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="your-email@example.com"
+                    placeholder={t("auth.field.emailPlaceholder")}
                     autoComplete="email"
                     autoCapitalize="none"
                     autoCorrect="off"
@@ -385,8 +385,8 @@ title={showConfirmPassword ? t("auth.field.hidePassword") : t("auth.field.showPa
 
           {/* Privacy & Trust Badge */}
           <div className="mt-5 border-t border-border/60 pt-3 text-center">
-            <div className="flex items-center justify-center gap-1.5 text-2xs text-muted-foreground">
-              <ShieldCheck className="h-3.5 w-3.5 text-primary/70 shrink-0" />
+            <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+              <ShieldCheck className="h-4 w-4 text-primary/70 shrink-0" />
               <span>{t("auth.privacyBadge")}</span>
             </div>
           </div>

@@ -85,7 +85,7 @@ export function LanguageDropdown({
         collisionPadding={12}
         className={overlaySurfaceClass}
       >
-        <DropdownMenuLabel className="px-2 py-1 text-2xs font-medium uppercase tracking-wider text-muted-foreground">
+        <DropdownMenuLabel className="px-2 py-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           {t("common.language.label")}
         </DropdownMenuLabel>
         <DropdownMenuSeparator className={menuSeparatorClass} />
@@ -109,7 +109,7 @@ export function LanguageDropdown({
             >
               <span className="flex min-w-0 flex-col">
                 <span className="truncate leading-tight">{meta.nativeName}</span>
-                <span className="truncate text-3xs font-normal text-muted-foreground">
+                <span className="truncate text-xs font-normal text-muted-foreground">
                   {meta.englishName}
                 </span>
               </span>

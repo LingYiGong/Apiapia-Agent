@@ -83,7 +83,7 @@ export function AiVideoCard({
         <div className="flex items-center gap-1.5">
           <Badge
             variant="secondary"
-            className="h-[18px] px-1.5 py-0 font-mono text-2xs font-normal"
+            className="h-5 px-2 py-0 font-mono text-xs font-normal"
           >
             {video.provider} · {video.model}
           </Badge>
@@ -92,7 +92,7 @@ export function AiVideoCard({
             variant="ghost"
             size="sm"
             onClick={handleDownload}
-            className="h-7 gap-1 rounded-lg bg-primary/10 px-2 text-2xs font-medium text-primary transition-colors hover:bg-primary/20"
+            className="h-7 gap-1 rounded-lg bg-primary/10 px-2.5 text-xs font-medium text-primary transition-colors hover:bg-primary/20"
           >
             <Download className="h-4 w-4" />
             <span>{t("chat.markdown.download")}</span>

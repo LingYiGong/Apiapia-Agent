@@ -138,8 +138,6 @@ export default {
     renameTitle: "重命名对话",
     renameLabel: "新标题",
     renamePh: "请输入新标题",
-    deleteDisabled: "停用账号",
-    restoreActive: "恢复启用",
   },
 
   /** 移动端头部 */
@@ -147,7 +145,6 @@ export default {
     currentModel: "当前模型：",
     memoryCountTip: "查看当前对话使用的 {count} 条关联记忆",
     memoryCountLabel: "条关联记忆，点击查看",
-    goHome: "返回 Apiapia 助理对话页",
   },
 
   /** 消息气泡内的操作与元信息 */
@@ -315,14 +312,10 @@ export default {
     grammar: "语法要点 & 提示",
     cardView: "卡片视图",
     codeView: "代码",
-    ttsUnsupported: "浏览器不支持语音合成",
     sourceLabel: "原文:",
     translationLabel: "译文:",
     pronounceSource: "朗读原文",
-    /** 「英语卡片」这类词序在英文/日文里不同，所以卡片名作为完整键 */
-    cardSuffix: "卡片",
-    /** 卡片名整体。{lang} 由 ISO 语言码查出的语言名填入（见 WordCard.tsx）。
-     *  与 cardSuffix 分开是因为英文需要语言名与后缀之间的空格，中日文不需要。 */
+    /** 卡片名整体。{lang} 由 ISO 语言码查出的语言名填入（见 WordCard.tsx）。 */
     cardLabel: "{lang}卡片",
     ttsReady: "点读发音已就绪",
     /** 音标前面的英/美缩写标 */
@@ -367,8 +360,6 @@ export default {
     menuTitle: "智能翻译",
     menuDesc: "全语种双向互译与语法教学，含动词变型剖析、日语平假名片假名及类似例句",
     placeholder: "输入需要翻译的单词、短语或句子…",
-    pickerLabel: "双向互译语种",
-      sourceLangLabel: "{src}",
     /** 语种名。键为 ISO 639-1，值必须是该语言自己的自称 */
     langs: {
       en: "英语",

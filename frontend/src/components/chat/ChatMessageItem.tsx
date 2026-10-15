@@ -87,14 +87,14 @@ function CopyButton({
         {isCopied ? (
           <>
             <Check className="h-4 w-4 text-emerald-500" />
-            <span className="text-2xs font-medium text-emerald-500">
+            <span className="text-xs font-medium text-emerald-500">
               {t("chat.message.copied")}
             </span>
           </>
         ) : (
           <>
             <Copy className="h-4 w-4" />
-            <span className="text-2xs">{t("chat.message.copy")}</span>
+            <span className="text-xs">{t("chat.message.copy")}</span>
           </>
         )}
       </Button>
@@ -147,17 +147,17 @@ function SpeakButton({
         {state === "loading" ? (
           <>
             <Loader2 className="h-4 w-4 animate-spin" />
-            <span className="text-2xs">{t("chat.message.speakSynthesizing")}</span>
+            <span className="text-xs">{t("chat.message.speakSynthesizing")}</span>
           </>
         ) : isBusy ? (
           <>
             <VolumeX className="h-4 w-4" />
-            <span className="text-2xs">{t("chat.message.speakStop")}</span>
+            <span className="text-xs">{t("chat.message.speakStop")}</span>
           </>
         ) : (
           <>
             <Volume2 className="h-4 w-4" />
-            <span className="text-2xs">{t("chat.message.speak")}</span>
+            <span className="text-xs">{t("chat.message.speak")}</span>
           </>
         )}
       </Button>
@@ -282,7 +282,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
               variant="ghost"
               size="sm"
               onClick={() => setEditing(false)}
-              className="h-7 rounded-lg px-2.5 text-2xs"
+              className="h-7 rounded-lg px-2.5 text-xs font-medium"
             >
               {t("chat.message.editCancel")}
             </Button>
@@ -291,7 +291,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
               variant="default"
               size="sm"
               onClick={commitEdit}
-              className="h-7 rounded-lg px-2.5 text-2xs"
+              className="h-7 rounded-lg px-2.5 text-xs font-medium"
             >
               {t("chat.message.editSend")}
             </Button>
@@ -394,7 +394,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                     </span>
                     <span
                       aria-hidden="true"
-                      className="ml-2 shrink-0 text-2xs text-muted-foreground transition-transform group-open:rotate-180"
+                      className="ml-2 shrink-0 text-xs text-muted-foreground transition-transform group-open:rotate-180"
                     >
                       ▼
                     </span>
@@ -426,12 +426,12 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                                 : t("chat.message.toolOther", { name: tool.toolName })}
                             </span>
                           </div>
-                          <span className="font-mono text-2xs text-muted-foreground">
+                          <span className="font-mono text-xs text-muted-foreground">
                             {tool.state === "call" ? t("chat.message.toolRunning") : t("chat.message.toolDone")}
                           </span>
                         </div>
                         {tool.state === "result" && tool.result && (
-                          <div className="mt-1.5 break-words border-t border-border/40 pt-1.5 font-mono text-2xs text-muted-foreground">
+                          <div className="mt-1.5 break-words border-t border-border/40 pt-1.5 font-mono text-xs text-muted-foreground">
                             {typeof tool.result === "string"
                               ? tool.result
                               : JSON.stringify(tool.result)}
@@ -473,7 +473,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
 
         {/* 助手消息：操作栏 + 元信息 */}
         {!isUser && !isErrorMsg && (
-          <div className="mt-2 flex flex-wrap items-center justify-between gap-2 px-0.5 text-2xs text-muted-foreground select-none">
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-2 px-0.5 text-xs text-muted-foreground select-none">
             <div className="flex items-center gap-1">
               <CopyButton
                 isCopied={isCopied}
@@ -493,14 +493,14 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                     className="flex h-7 items-center gap-1.5 rounded-lg px-2 text-muted-foreground transition-colors hover:bg-surface-3/80 hover:text-foreground"
                   >
                     <Quote className="h-4 w-4" />
-<span className="text-2xs">{t("chat.message.quote")}</span>
+                    <span className="text-xs">{t("chat.message.quote")}</span>
                   </Button>
                 </ActionTooltip>
               )}
 
               {msg.finish_reason === "abort" && (
                 <ActionTooltip label={t("chat.message.abortedTip")} side="bottom">
-                  <span className="inline-flex h-7 cursor-default items-center gap-1 rounded-lg border border-amber-500/25 bg-amber-500/10 px-2 text-2xs font-medium text-amber-600 dark:text-amber-400">
+                  <span className="inline-flex h-7 cursor-default items-center gap-1 rounded-lg border border-amber-500/25 bg-amber-500/10 px-2 text-xs font-medium text-amber-600 dark:text-amber-400">
                     <Square className="h-2.5 w-2.5 fill-current" />
                     <span>{t("chat.message.aborted")}</span>
                   </span>
@@ -510,7 +510,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
               {msg.finish_reason === "length" && (
                 <>
                   <ActionTooltip label={t("chat.message.truncatedTip")} side="bottom">
-                    <span className="inline-flex h-7 cursor-default items-center gap-1 rounded-lg border border-amber-500/25 bg-amber-500/10 px-2 text-2xs font-medium text-amber-600 dark:text-amber-400">
+                    <span className="inline-flex h-7 cursor-default items-center gap-1 rounded-lg border border-amber-500/25 bg-amber-500/10 px-2 text-xs font-medium text-amber-600 dark:text-amber-400">
                       <AlertTriangle className="h-2.5 w-2.5" />
                       <span>{t("chat.message.truncated")}</span>
                     </span>
@@ -522,7 +522,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                         variant="ghost"
                         size="sm"
                         onClick={onContinue}
-                        className="flex h-7 items-center gap-1 rounded-lg border border-primary/30 bg-primary/10 px-2 text-2xs font-medium text-primary hover:bg-primary/20"
+                        className="flex h-7 items-center gap-1 rounded-lg border border-primary/30 bg-primary/10 px-2 text-xs font-medium text-primary hover:bg-primary/20"
                       >
                         <Play className="h-4 w-4 fill-current" />
                         <span>{t("chat.message.continue")}</span>
@@ -543,13 +543,13 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                     className="flex h-7 items-center gap-1.5 rounded-lg px-2 text-muted-foreground transition-colors hover:bg-surface-3/80 hover:text-foreground disabled:opacity-50"
                   >
                     <RotateCw className={cn("h-4 w-4", regenerating && "animate-spin")} />
-                    <span className="text-2xs">{t("chat.message.regenerate")}</span>
+                    <span className="text-xs">{t("chat.message.regenerate")}</span>
                   </Button>
                 </ActionTooltip>
               )}
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 font-mono opacity-50 transition-opacity hover:opacity-100">
+            <div className="flex flex-wrap items-center gap-2 font-mono text-xs opacity-75 transition-opacity hover:opacity-100 md:opacity-60">
               {msg.created_at && (
                 <MetaBadge
                   icon={Clock}
@@ -562,9 +562,9 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                 <ActionTooltip label={t("chat.message.replyModel")} side="top">
                   <Badge
                     variant="secondary"
-                    className="h-[18px] cursor-default px-1.5 py-0 font-mono text-2xs font-normal"
+                    className="h-5 cursor-default px-2 py-0 font-mono text-xs font-normal"
                   >
-                    <Cpu className="mr-1 h-2.5 w-2.5 text-primary" />
+                    <Cpu className="mr-1 h-3 w-3 text-primary" />
                     <span>{msg.model}</span>
                   </Badge>
                 </ActionTooltip>
@@ -597,7 +597,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                   icon={Cpu}
                   value={t("chat.message.tokenUsage", { count: totalTokens })}
                   label={t("chat.message.tokenUsageTip")}
-                  className="text-2xs text-slate-500 dark:text-slate-400"
+                  className="text-xs text-slate-500 dark:text-slate-400"
                 />
               ) : null}
             </div>
@@ -606,7 +606,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
 
         {/* 用户消息操作栏：与助手消息同一位置，便于扫读 */}
         {isUser && !editing && msg.id && onEditMessage && (
-          <div className="mt-2 flex flex-wrap items-center justify-end gap-1 px-0.5 text-2xs text-muted-foreground select-none">
+          <div className="mt-2 flex flex-wrap items-center justify-end gap-1 px-0.5 text-xs text-muted-foreground select-none">
             <ActionTooltip label={t("chat.message.editTip")} side="bottom">
               <Button
                 type="button"
@@ -616,7 +616,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                 className="flex h-7 items-center gap-1.5 rounded-lg px-2 text-muted-foreground transition-colors hover:bg-surface-3/80 hover:text-foreground"
               >
                 <PenLine className="h-4 w-4" />
-                <span className="text-2xs">{t("chat.message.edit")}</span>
+                <span className="text-xs">{t("chat.message.edit")}</span>
               </Button>
             </ActionTooltip>
             {onQuote && (
@@ -629,7 +629,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                   className="flex h-7 items-center gap-1.5 rounded-lg px-2 text-muted-foreground transition-colors hover:bg-surface-3/80 hover:text-foreground"
                 >
                   <Quote className="h-4 w-4" />
-                  <span className="text-2xs">{t("chat.message.quote")}</span>
+                  <span className="text-xs">{t("chat.message.quote")}</span>
                 </Button>
               </ActionTooltip>
             )}

@@ -78,7 +78,7 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
             {t("meta.appName")}
           </span>
           {subtitle && (
-            <span className="text-2xs text-muted-foreground truncate">
+            <span className="text-xs text-muted-foreground truncate">
               {subtitle}
             </span>
           )}

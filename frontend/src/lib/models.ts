@@ -4,6 +4,7 @@ import type {
   VideoModelItem,
   ModelCatalogItem,
 } from "@/types";
+import { getModelGuide, normalizeModelId, type ModelGuide } from "@/lib/modelGuide";
 
 /**
  * 模型目录的纯逻辑层。
@@ -36,7 +37,20 @@ export interface ModelOption {
   description?: string;
   isFree: boolean;
   isMultimodal: boolean;
+  /**
+   * 「精选」= 我们为它写过选型说明，即命中 lib/modelGuide.ts 的画像表。
+   *
+   * 此前这里是一整套针对 `claude-3-5` / `gemini-2.5` / `gpt-4o` 的字符串启发式。
+   * 目录早已滚到 `claude-5.5` / `gemini-3.8` / `gpt-6.x`，那套规则一条都匹配不上，
+   * 「精选」分组实际上筛不出任何东西 —— 而用户恰恰最需要在这里看到引导。
+   *
+   * 现在判据只有一条，且判定放在适配器里（见 toChatModelOptions），不再单独
+   * 导出成函数，免得两处实现再次漂移。这样「精选徽章」和「推荐理由 / 需求标签 /
+   * 价格档」必然来自同一份数据，不会出现「有徽章没说明」或「有说明没徽章」的错位。
+   */
   isFeatured: boolean;
+  /** 选型画像；未命中画像表时为 undefined，UI 此时只显示通用徽章。 */
+  guide?: ModelGuide;
   /** 由适配器算好的展示顺序，越小越靠前。排序责任归适配器，不归 UI。 */
   rank: number;
 }
@@ -90,97 +104,6 @@ export function isMultimodalModel(m: ModelLike): boolean {
 }
 
 /**
- * 识别精选精品模型：
- * 涵盖一线知名大厂的主力旗舰与稳定高品质模型，过滤掉数百个冷门测试/小众微调模型。
- */
-export function isFeaturedModel(m: ModelLike): boolean {
-  const id = (m.id || "").toLowerCase();
-  const name = (m.name || "").toLowerCase();
-
-  // 1. 官方免费聚合模型
-  if (id === "openrouter/free" || id.includes("openrouter/free")) return true;
-
-  // 2. OpenAI 核心精品 (GPT-4o, 4o-mini, o1, o3-mini, 4.5)
-  if (
-    id.startsWith("openai/") ||
-    m.provider === "openai" ||
-    id.startsWith("gpt-") ||
-    id.startsWith("o1") ||
-    id.startsWith("o3")
-  ) {
-    if (
-      id.includes("4o") ||
-      id.includes("o1") ||
-      id.includes("o3") ||
-      id.includes("4.5")
-    ) {
-      if (!id.includes("ft:") && !id.includes("realtime") && !id.includes("audio")) {
-        return true;
-      }
-    }
-  }
-
-  // 3. Anthropic Claude 3.5 / 3.7 系列旗舰
-  if (id.startsWith("anthropic/") || m.provider === "anthropic" || id.includes("claude")) {
-    if (
-      id.includes("claude-3-5") ||
-      id.includes("claude-3.5") ||
-      id.includes("claude-3-7") ||
-      id.includes("claude-3.7") ||
-      id.includes("claude-3-opus") ||
-      id.includes("claude-3-haiku")
-    ) {
-      return true;
-    }
-  }
-
-  // 4. Google Gemini 2.5 / 2.0 / 1.5 系列主力
-  if (id.startsWith("google/") || m.provider === "gemini" || id.includes("gemini")) {
-    if (
-      id.includes("gemini-2.5") ||
-      id.includes("gemini-2.0") ||
-      id.includes("gemini-1.5-pro") ||
-      id.includes("gemini-1.5-flash")
-    ) {
-      return true;
-    }
-  }
-
-  // 5. DeepSeek 官方主力 (V3 & R1)
-  if (id.startsWith("deepseek/") || id.includes("deepseek")) {
-    if (
-      id.includes("chat") ||
-      id.includes("reasoner") ||
-      id.includes("v3") ||
-      id.includes("r1")
-    ) {
-      return true;
-    }
-  }
-
-  // 6. Meta Llama 官方主力 (3.3 70B, 3.1 70B/405B)
-  if (id.startsWith("meta-llama/") || id.includes("llama-3.3") || id.includes("llama-3.1-70b")) {
-    if (id.includes("instruct") || id.includes("70b") || id.includes("405b")) {
-      return true;
-    }
-  }
-
-  // 7. Qwen 阿里通义千问 2.5 官方主力
-  if (id.startsWith("qwen/") || id.includes("qwen-2.5") || id.includes("qwq")) {
-    if (id.includes("72b") || id.includes("coder") || id.includes("qwq")) {
-      return true;
-    }
-  }
-
-  // 8. Mistral 官方主力
-  if (id.startsWith("mistralai/") && (id.includes("mistral-large") || id.includes("codestral"))) {
-    return true;
-  }
-
-  return false;
-}
-
-/**
  * 尚未分配 rank 的模型选项 —— 排序期间使用。
  *
  * `rank` 由适配器在排序**之后**回填，因此优先级评分拿不到它，
@@ -192,9 +115,9 @@ export type UnrankedModelOption = Omit<ModelOption, "rank">;
 /**
  * 模型优先级排序评分：越小越靠前。
  *
- * 注意这里接收的是已归一化、并预处理好 isFeatured / isFree 的选项，
+ * 注意这里接收的是已归一化、并预处理好 isFree / guide 的选项，
  * 而不是原始条目 —— 旧实现在 sort 比较函数里每次比较都要重跑
- * isFeaturedModel 与 isFreeModel 两套多分支启发式，1000 条目录时
+ * 免费判定与精选启发式两套多分支字符串匹配，1000 条目录时
  * 单次渲染会产生数万次重复判定。
  */
 export function getModelPriorityScore(m: UnrankedModelOption, isVocabMode = false): number {
@@ -214,62 +137,70 @@ export function getModelPriorityScore(m: UnrankedModelOption, isVocabMode = fals
   // 1. openrouter/free (新用户首选与免费体验)
   if (id === "openrouter/free" || id.includes("openrouter/free")) return 0;
 
-  // 2. Anthropic Claude 顶级旗舰 (3.7 Sonnet / 3.5 Sonnet)
-  if (
-    id.includes("claude-3-7-sonnet") ||
-    id.includes("claude-3.7-sonnet") ||
-    id.includes("claude-3-5-sonnet") ||
-    id.includes("claude-3.5-sonnet")
-  ) {
-    return 1;
+  // 2. 有画像的模型按价格档排序：旗舰(1) → 标准(2) → 免费(3) → 低价(4)。
+  //    价格档是「贵不贵」最直接的代理变量，而用户打开下拉框时最先想知道的
+  //    也正是这一条 —— 先看到顶配，再一路看到便宜档。免费排在付费低价之前，
+  //    因为对预算敏感的用户来说「真不花钱」比「花得少」更值得优先看到。
+  if (m.guide) {
+    switch (m.guide.priceTier) {
+      case "premium":
+        return 1;
+      case "standard":
+        return 2;
+      case "free":
+        return 3;
+      default:
+        return 4;
+    }
   }
 
-  // 3. OpenAI 顶级旗舰 (GPT-4o, o3-mini, o1)
-  if (id.includes("gpt-4o") && !id.includes("mini")) return 2;
-  if (id.includes("o3-mini") || id.includes("o1")) return 3;
-  if (id.includes("gpt-4o-mini")) return 4;
-
-  // 4. DeepSeek 官方主力 (DeepSeek V3 / R1)
-  if (
-    id.includes("deepseek-chat") ||
-    id.includes("deepseek-r1") ||
-    id.includes("deepseek-v3") ||
-    id.includes("deepseek/deepseek-r1")
-  ) {
-    return 5;
-  }
-
-  // 5. Google Gemini 顶级旗舰 (Gemini 2.5 / 2.0 / 1.5 Pro)
-  if (
-    id.includes("gemini-2.5") ||
-    id.includes("gemini-2.0-pro") ||
-    id.includes("gemini-2.0-flash") ||
-    id.includes("gemini-1.5-pro")
-  ) {
-    return 6;
-  }
-
-  // 6. 其他精选模型 (Llama 3.3, Qwen 2.5, Mistral Large, etc.)
-  if (m.isFeatured) return 10;
-
-  // 7. 其他免费模型
+  // 3. 其他免费模型
   if (m.isFree) return 20;
 
-  // 8. 其他海量模型
+  // 4. 其他海量模型
   return 30;
 }
 
-/** 语言模型目录适配：启发式判定免费 / 多模态 / 精选，优先级 + 名称排序。 */
+/**
+ * 分类右侧那个数字：**去重后的真实模型数**，不是列表条目数。
+ *
+ * 目录里 `anthropic/claude-sonnet-5.5` 和 `anthropic/claude-sonnet-5.5:batch` 是
+ * 同一个模型（`:batch` 只是五折投递方式），`-pro`、`~latest` 同理。按条目数计数
+ * 会让「编程」显示成 17，而实际上只有 5 个不同的模型 —— 数字失真，用户会以为
+ * 这个分类很空，反过来也会高估某些分类。
+ */
+export function countDistinctModels(
+  options: readonly ModelOption[],
+  match: (o: ModelOption) => boolean,
+): number {
+  const seen = new Set<string>();
+  for (const o of options) {
+    if (match(o)) seen.add(normalizeModelId(o.id));
+  }
+  return seen.size;
+}
+
+/** 语言模型目录适配：启发式判定免费 / 多模态，画像查表，优先级 + 名称排序。 */
 export function toChatModelOptions(models: ModelCatalogItem[], isVocabMode = false): ModelOption[] {
-  const decorated = models.map((m) => ({
-    id: m.id,
-    name: m.name,
-    provider: m.provider,
-    description: m.description,
-    isFree: isFreeModel(m),
-    isMultimodal: isMultimodalModel(m),
-    isFeatured: isFeaturedModel(m),
-  }));
+  const decorated = models.map((m) => {
+    const isFree = isFreeModel(m);
+    const base = getModelGuide(m.id);
+    // 画像表里的 priceTier 写的是「这条线路付费时的档位」。同一个模型在目录里
+    // 往往同时有付费 id 和 `:free` id（gemma-4 / nemotron-3 / inkling 都是），
+    // 不按实际条目覆盖的话，付费条目会被标成「免费」。
+    const guide = base && isFree ? { ...base, priceTier: "free" as const } : base;
+    return {
+      id: m.id,
+      name: m.name,
+      provider: m.provider,
+      description: m.description,
+      isFree,
+      isMultimodal: isMultimodalModel(m),
+      // 精选 = 命中画像表；判据见上方 isFeatured 的注释
+      isFeatured: guide !== undefined,
+      guide,
+    };
+  });
 
   return decorated
     .map((o) => ({ o, score: getModelPriorityScore(o, isVocabMode) }))
@@ -304,7 +235,9 @@ export function toMediaModelOptions<T extends MediaCatalogItem>(models: readonly
       description: m.description,
       isFree: m.is_free,
       isMultimodal: false,
+      // 多媒体目录（绘图 / 视频 / 语音）不参与语言模型的选型画像
       isFeatured: false,
+      guide: undefined,
     }))
     .sort((a, b) => {
       if (a.isFree !== b.isFree) return a.isFree ? -1 : 1;

@@ -124,27 +124,24 @@ const baseMarkdownComponents: Record<string, any> = {
     </p>
   ),
   h1: ({ node, ...props }: any) => (
-    <h1 {...props} className="mb-2.5 mt-5 text-xl font-bold text-foreground sm:text-2xl" />
+    <h1 {...props} className="mb-3 mt-6 text-2xl font-bold text-foreground sm:text-3xl" />
   ),
   h2: ({ node, ...props }: any) => (
-    <h2 {...props} className="mb-2 mt-4 text-body font-bold text-foreground sm:text-lg" />
+    <h2 {...props} className="mb-2.5 mt-5 text-xl font-bold text-foreground sm:text-2xl" />
   ),
   h3: ({ node, ...props }: any) => (
-    <h3 {...props} className="mb-1 mt-3 text-subhead font-semibold text-foreground sm:text-base" />
+    <h3 {...props} className="mb-2 mt-4 text-lg font-semibold text-foreground sm:text-xl" />
   ),
-  /* h4–h6 此前未覆盖，走浏览器 UA 默认的 `1em bold`，导致标题层级在 h3
-     之后突然与正文同号、同粗细，层级断掉。这里按 Apple 的 Footnote 13pt
-     起逐级递降。 */
   h4: ({ node, ...props }: any) => (
-    <h4 {...props} className="mb-1 mt-3 text-footnote font-semibold text-foreground" />
+    <h4 {...props} className="mb-1.5 mt-3 text-base font-semibold text-foreground sm:text-lg" />
   ),
   h5: ({ node, ...props }: any) => (
-    <h5 {...props} className="mb-1 mt-2 text-footnote font-semibold text-foreground/90" />
+    <h5 {...props} className="mb-1 mt-2.5 text-subhead font-semibold text-foreground sm:text-base" />
   ),
   h6: ({ node, ...props }: any) => (
     <h6
       {...props}
-      className="mb-1 mt-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+      className="mb-1 mt-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground"
     />
   ),
   table: ({ node, ...props }: any) => (
@@ -158,7 +155,7 @@ const baseMarkdownComponents: Record<string, any> = {
   th: ({ node, children, ...props }: any) => (
     <th
       {...props}
-      className="whitespace-nowrap border-b border-border/70 bg-surface-3/60 px-3.5 py-2.5 text-left text-footnote font-semibold text-foreground"
+      className="whitespace-nowrap border-b border-border/70 bg-surface-3/60 px-3.5 py-2.5 text-left text-xs font-semibold text-foreground sm:text-sm"
     >
       {renderWithBreaks(children)}
     </th>
@@ -166,7 +163,7 @@ const baseMarkdownComponents: Record<string, any> = {
   td: ({ node, children, ...props }: any) => (
     <td
       {...props}
-      className="whitespace-nowrap border-b border-border/50 px-3.5 py-2.5 align-top text-footnote text-foreground/90 sm:text-sm"
+      className="whitespace-nowrap border-b border-border/50 px-3.5 py-2.5 align-top text-xs text-foreground/90 sm:text-sm"
     >
       {renderWithBreaks(children)}
     </td>
@@ -179,7 +176,7 @@ const baseMarkdownComponents: Record<string, any> = {
       return (
         <code
           {...props}
-          className="break-all rounded-md bg-surface-3/80 px-1.5 py-0.5 font-mono text-footnote text-primary [overflow-wrap:anywhere]"
+          className="break-all rounded-md bg-surface-3/80 px-1.5 py-0.5 font-mono text-xs sm:text-footnote text-primary [overflow-wrap:anywhere]"
         >
           {children}
         </code>
@@ -289,7 +286,7 @@ function ThinkingBlock({
         </span>
         <span
           aria-hidden="true"
-          className="text-2xs text-muted-foreground transition-transform group-open:rotate-180"
+          className="text-xs text-muted-foreground transition-transform group-open:rotate-180"
         >
           ▼
         </span>

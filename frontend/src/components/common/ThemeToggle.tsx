@@ -98,7 +98,7 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({
         collisionPadding={12}
         className={overlaySurfaceClass}
       >
-        <DropdownMenuLabel className="px-2 py-1 text-2xs font-medium uppercase tracking-wider text-muted-foreground">
+        <DropdownMenuLabel className="px-2 py-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
           {t("settings.themeToggle.heading")}
         </DropdownMenuLabel>
         <DropdownMenuSeparator className={menuSeparatorClass} />

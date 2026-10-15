@@ -178,11 +178,11 @@ export function ConsolidateDialog({
                 </div>
                 <div>
                   <h3 className="text-xs sm:text-sm font-semibold text-foreground">AI 正在全局分析与时序比对</h3>
-                  <p className="text-2xs text-muted-foreground">全景审视记忆库，消除冲突并合并碎片</p>
+                  <p className="text-xs text-muted-foreground">全景审视记忆库，消除冲突并合并碎片</p>
                 </div>
               </div>
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-3/80 border border-border/50 text-2xs font-mono text-muted-foreground shadow-2xs">
-                <Clock className="h-3 w-3 animate-spin text-primary" style={{ animationDuration: "3s" }} />
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-3/80 border border-border/50 text-xs font-mono text-muted-foreground shadow-2xs">
+                <Clock className="h-3.5 w-3.5 animate-spin text-primary" style={{ animationDuration: "3s" }} />
                 <span>已耗时 {elapsed}s</span>
               </div>
             </div>
@@ -220,7 +220,7 @@ export function ConsolidateDialog({
                       ) : isCurrent ? (
                         <Loader2 className="h-4 w-4 animate-spin text-primary" />
                       ) : (
-                        <div className="h-4 w-4 rounded-full border border-muted-foreground/30 flex items-center justify-center text-[10px] text-muted-foreground font-mono">
+                        <div className="h-4 w-4 rounded-full border border-muted-foreground/30 flex items-center justify-center text-2xs leading-none text-muted-foreground font-mono">
                           {i + 1}
                         </div>
                       )}
@@ -240,17 +240,17 @@ export function ConsolidateDialog({
                           {stg.title}
                         </span>
                         {isCurrent && (
-                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-primary/10 text-primary font-medium shrink-0 animate-pulse">
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium shrink-0 animate-pulse">
                             执行中
                           </span>
                         )}
                         {isCompleted && (
-                          <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono shrink-0">
+                          <span className="text-xs text-emerald-600 dark:text-emerald-400 font-mono shrink-0">
                             已完成
                           </span>
                         )}
                       </div>
-                      <p className="text-2xs text-muted-foreground mt-0.5 leading-relaxed">{stg.desc}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{stg.desc}</p>
                     </div>
                   </div>
                 );
@@ -258,7 +258,7 @@ export function ConsolidateDialog({
             </div>
 
             <div className="rounded-xl border border-border/40 bg-surface-3/30 p-2 text-center">
-              <p className="text-2xs text-muted-foreground leading-normal">
+              <p className="text-xs text-muted-foreground leading-normal">
                 💡 记忆条目较多时，大模型全局推理耗时通常约 15~35 秒，请耐心等待
               </p>
             </div>
@@ -272,16 +272,16 @@ export function ConsolidateDialog({
           <div className="flex-1 min-h-0 flex flex-col">
             <Tabs defaultValue={toAddCount > 0 ? "add" : toUpdateCount > 0 ? "update" : "delete"} className="flex-1 min-h-0 flex flex-col">
               <TabsList className="grid grid-cols-4 w-full h-9 bg-surface-3/50 p-0.5 rounded-xl border border-border/40 shrink-0">
-                <TabsTrigger value="add" className="text-2xs sm:text-xs rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-xs">
+                <TabsTrigger value="add" className="text-xs sm:text-sm rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-xs">
                   提炼新增 ({toAddCount})
                 </TabsTrigger>
-                <TabsTrigger value="update" className="text-2xs sm:text-xs rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-xs">
+                <TabsTrigger value="update" className="text-xs sm:text-sm rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-xs">
                   冲突更新 ({toUpdateCount})
                 </TabsTrigger>
-                <TabsTrigger value="delete" className="text-2xs sm:text-xs rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-xs text-destructive/90">
+                <TabsTrigger value="delete" className="text-xs sm:text-sm rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-xs text-destructive/90">
                   剔除过期 ({toDeleteCount})
                 </TabsTrigger>
-                <TabsTrigger value="keep" className="text-2xs sm:text-xs rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-xs">
+                <TabsTrigger value="keep" className="text-xs sm:text-sm rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-xs">
                   保持不变 ({toKeepCount})
                 </TabsTrigger>
               </TabsList>
@@ -312,11 +312,11 @@ export function ConsolidateDialog({
                         />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1 flex-wrap">
-                            <span className="text-2xs font-medium px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                            <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
                               {CATEGORY_LABELS[item.category || "facts"] || "提炼新事实"}
                             </span>
                             {item.reason && (
-                              <span className="text-2xs text-muted-foreground truncate">{item.reason}</span>
+                              <span className="text-xs text-muted-foreground truncate">{item.reason}</span>
                             )}
                           </div>
                           <p className="text-xs sm:text-sm text-foreground leading-relaxed font-normal">{item.text}</p>
@@ -354,15 +354,15 @@ export function ConsolidateDialog({
                         />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1 flex-wrap">
-                            <span className="text-2xs font-medium px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400">
+                            <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-400">
                               {CATEGORY_LABELS[item.category || "facts"] || "时序覆盖更新"}
                             </span>
                             {item.reason && (
-                              <span className="text-2xs text-muted-foreground truncate">{item.reason}</span>
+                              <span className="text-xs text-muted-foreground truncate">{item.reason}</span>
                             )}
                           </div>
                           {item.old_text && (
-                            <div className="text-2xs text-muted-foreground/80 line-through mb-1 bg-surface-3/40 px-2 py-1 rounded-md">
+                            <div className="text-xs text-muted-foreground/80 line-through mb-1 bg-surface-3/40 px-2 py-1 rounded-md">
                               原记录：{item.old_text}
                             </div>
                           )}
@@ -401,11 +401,11 @@ export function ConsolidateDialog({
                         />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1 flex-wrap">
-                            <span className="text-2xs font-medium px-1.5 py-0.5 rounded bg-destructive/15 text-destructive">
+                            <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-destructive/15 text-destructive">
                               建议剔除
                             </span>
                             {item.reason && (
-                              <span className="text-2xs text-muted-foreground truncate">{item.reason}</span>
+                              <span className="text-xs text-muted-foreground truncate">{item.reason}</span>
                             )}
                           </div>
                           <p className="text-xs sm:text-sm text-muted-foreground line-through leading-relaxed font-normal">
@@ -426,10 +426,10 @@ export function ConsolidateDialog({
                   plan.to_keep.map((item, idx) => (
                     <div key={idx} className="p-3 rounded-xl border border-border/40 bg-surface-2/30 text-left">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-2xs font-medium px-1.5 py-0.5 rounded bg-surface-4 text-muted-foreground">
+                        <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-surface-4 text-muted-foreground">
                           保持有效
                         </span>
-                        {item.reason && <span className="text-2xs text-muted-foreground truncate">{item.reason}</span>}
+                        {item.reason && <span className="text-xs text-muted-foreground truncate">{item.reason}</span>}
                       </div>
                       <p className="text-xs sm:text-sm text-foreground/85 leading-relaxed font-normal">{item.text}</p>
                     </div>
@@ -441,7 +441,7 @@ export function ConsolidateDialog({
         )}
 
         <DialogFooter className="flex-row justify-between items-center gap-2 pt-3 border-t border-border/40 shrink-0 sm:space-x-0">
-          <div className="text-2xs text-muted-foreground hidden sm:block">
+          <div className="text-xs text-muted-foreground hidden sm:block">
             {plan && (
               <span>
                 将应用：+{selectedAdds.size} 提炼，~{selectedUpdates.size} 更新，-{selectedDeletes.size} 删除

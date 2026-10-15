@@ -143,7 +143,7 @@ async def lifespan(app: FastAPI):
             from app.services.video_gen import video_gen_service
             from app.services.speech.service import speech_service
 
-            logger.info("Auto-syncing chat models, image models, video models, and audio models from configured providers on startup...")
+            logger.info("Initializing models catalog from configured provider APIs on startup...")
             await sync_chat_models()
             if image_gen_service.active_providers():
                 await image_gen_service.sync_models()
@@ -151,11 +151,11 @@ async def lifespan(app: FastAPI):
                 await video_gen_service.sync_models()
             if speech_service.active_providers():
                 await speech_service.sync_models()
+            logger.info("Startup model sync completed successfully.")
         except Exception as e:
             logger.warning("Startup model sync skipped or failed: %s", e)
 
-    import asyncio
-    asyncio.create_task(_startup_sync_models())
+    await _startup_sync_models()
 
     yield
     logger.info("Shutting down Apiapia assistant backend.")

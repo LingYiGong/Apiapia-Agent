@@ -172,7 +172,7 @@ export const UpdatePrompt: React.FC = () => {
 
               {updateInfo?.changelog && updateInfo.changelog.length > 0 ? (
                 <div className="space-y-2">
-                  <p className="text-2xs font-bold text-muted-foreground uppercase tracking-wider">
+                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                     {t("meta.update.changelog")}
                   </p>
                   <div className="space-y-1.5 bg-muted rounded-xl p-3 border">
@@ -187,12 +187,12 @@ export const UpdatePrompt: React.FC = () => {
               ) : (
                 // 服务端没给 changelog 时留一行说明，而不是留一块空白 ——
                 // 空白会让用户以为是加载失败了。
-                <p className="text-2xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   {t("meta.update.noChangelog")}
                 </p>
               )}
 
-              <p className="text-2xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 {t("meta.update.cacheWarning")}
               </p>
             </div>

@@ -115,8 +115,8 @@ const config: Config = {
        * letter-spacing 的根因）。下限为 11px = Apple iOS 最小字号。
        */
       fontSize: {
-        "2xs": ["11px", { lineHeight: "13px", letterSpacing: "0.06px" }], // Caption 2
-        xs: ["12px", { lineHeight: "16px", letterSpacing: "0px" }], //      Caption 1
+        "2xs": ["11px", { lineHeight: "15px", letterSpacing: "0.06px" }], // Caption 2
+        xs: ["12px", { lineHeight: "17px", letterSpacing: "0px" }], //      Caption 1
         footnote: ["13px", { lineHeight: "18px", letterSpacing: "-0.08px" }], // Footnote
         sm: ["14px", { lineHeight: "20px", letterSpacing: "-0.15px" }],
         subhead: ["15px", { lineHeight: "20px", letterSpacing: "-0.23px" }], // Subhead

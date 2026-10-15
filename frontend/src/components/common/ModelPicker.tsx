@@ -3,10 +3,10 @@
 import React, { useMemo, useRef, useState, useEffect } from "react";
 import {
   ChevronDown,
+  ChevronRight,
   Search,
   Check,
   X,
-  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,7 @@ import {
   PopoverTrigger,
   PopoverContent,
 } from "@/components/ui/popover";
+import { ModelPriceTag, ModelUseCaseTags } from "@/components/common/ModelGuideTags";
 import { overlaySurfaceClass } from "@/components/common/surfaces";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n";
@@ -35,9 +36,21 @@ export interface ModelFilterGroup {
   key: string;
   label: string;
   /** 该分组命中全部选项时的提示色 */
-  tone: "free" | "featured" | "all";
+  tone: "free" | "featured" | "accent" | "all";
   icon?: LucideIcon;
   count: number;
+  /**
+   * 分类右侧显示的数字。缺省时用 `count`（列表条目数）。
+   * 传去重后的模型数会让「编程 (5)」这种数字如实反映有多少个**不同**的模型，
+   * 而不是被 `:batch` / `-pro` 变体灌大。列表本身仍按条目渲染。
+   */
+  distinctCount?: number;
+  /**
+   * 所属区块的小标题（如「按用途」「按价格」）。区块标题只在**非空**时渲染，
+   * 且同一区块的第一行会自动带上标题 —— 所以调用方只要把 section 填好，
+   * 组件负责画标题行与分隔线。
+   */
+  section?: string;
   /** 是否命中任何一条选项；为 false 时该分组不渲染 */
   available: boolean;
   match: (o: ModelOption) => boolean;
@@ -74,19 +87,21 @@ export interface ModelPickerProps {
   emptyState?: React.ReactNode;
 }
 
-const TONE_CLASS: Record<ModelFilterGroup["tone"], { active: string; idle: string }> = {
-  free: {
-    active: "bg-emerald-600 font-semibold text-white shadow-xs",
-    idle: "border border-emerald-500/20 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-400",
-  },
-  featured: {
-    active: "bg-amber-500 font-semibold text-white shadow-xs",
-    idle: "border border-amber-500/20 bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 dark:text-amber-400",
-  },
-  all: {
-    active: "bg-foreground font-semibold text-background shadow-xs",
-    idle: "bg-surface-3/60 text-muted-foreground hover:text-foreground",
-  },
+/**
+ * 分类行的**选中态**配色。
+ *
+ * 以前分类是一排胶囊，未选中时也要靠边框色区分是免费 / 精选 / 需求，所以存了
+ * active + idle 两套。现在改成竖排整行，未选中统一走 `text-muted-foreground +
+ * hover:bg-surface-3`，颜色只在选中时出现 —— idle 那半套就是死代码了。
+ *
+ * `free` 绿 / `featured` 琥珀 / `accent` 主色 / `all` 中性：选中哪一类，
+ * 一眼就能从颜色上分出来。
+ */
+const TONE_ACTIVE: Record<ModelFilterGroup["tone"], string> = {
+  free: "bg-emerald-600 font-semibold text-white shadow-xs",
+  featured: "bg-amber-500 font-semibold text-white shadow-xs",
+  accent: "bg-primary font-semibold text-primary-foreground shadow-xs",
+  all: "bg-foreground font-semibold text-background shadow-xs",
 };
 
 export const ModelPicker: React.FC<ModelPickerProps> = ({
@@ -304,10 +319,12 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
           // 材质来自 overlaySurfaceClass，此前这里是手写的同一套值（连两档
           // 阴影都相同，只是主档透明度写成 0.2 而非 0.22）。这里只保留弹层
           // 特有的部分：面板自身的 flex 布局、高度上限、内距，以及宽度策略。
+          // dvh 而非 vh：移动端地址栏展开收起时 vh 不变，弹层会顶到地址栏底下，
+          // 而 collisionPadding 只让开了 12px。
           overlaySurfaceClass,
-          "flex max-h-[75vh] flex-col p-3 pt-3.5",
+          "flex max-h-[78dvh] flex-col p-3 pt-3.5",
           width === "wide"
-            ? "w-[calc(100vw-24px)] max-w-[500px]"
+            ? "w-[calc(100vw-24px)] max-w-[560px]"
             : "w-[calc(100vw-24px)] max-w-[390px] sm:w-[420px]"
         )}
       >
@@ -316,22 +333,31 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
             <span className="text-xs font-semibold text-foreground">
               {t("settings.picker.title", { kind: kindLabel })}
             </span>
-            <span className="rounded-full bg-surface-3/60 px-1.5 py-0.5 font-mono text-2xs text-muted-foreground">
-              {visible.length}
+            <span
+              title={
+                search.trim() || (filterKey && filterKey !== "all")
+                  ? `${visible.length} / ${options.length}`
+                  : `${options.length}`
+              }
+              className="rounded-full bg-surface-3/60 px-1.5 py-0.5 font-mono text-xs text-muted-foreground"
+            >
+              {search.trim() || (filterKey && filterKey !== "all")
+                ? `${visible.length} / ${options.length}`
+                : options.length}
             </span>
             {isTrialMode && (
               // 不可聚焦：纯展示信息。徽章本身是 div，套 Tooltip 会造出一个
               // 可聚焦的 div（违反 WCAG 2.1.1）。
               <span
                 title={t("settings.picker.trialTitle", { kind: kindLabel })}
-                className="shrink-0 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0 text-2xs text-emerald-600 dark:text-emerald-400"
+                className="shrink-0 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-600 dark:text-emerald-400"
               >
                 {t("settings.picker.trialBadge")}
               </span>
             )}
           </div>
           {selectedOption && (
-            <span className="max-w-[170px] truncate font-mono text-2xs text-muted-foreground">
+            <span className="max-w-[170px] truncate font-mono text-xs text-muted-foreground">
               {t("settings.picker.current", { name: selectedOption.name })}
             </span>
           )}
@@ -374,27 +400,81 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
         </div>
 
         {availableGroups.length > 0 && (
-          <div className="flex shrink-0 items-center gap-1.5 overflow-x-auto no-scrollbar pb-2.5 pt-0.5">
-            {availableGroups.map((group) => {
+          /* 一级：分类。竖排成行而不是横向排布成胶囊 —— 分类一多横向必然溢出，
+             而隐藏滚动条的横向滚动在 PC 上等于「滚不到」。
+
+             二级：下方就是模型列表（下面那个 listbox，代码未动）。
+
+             区块标题把「按用途」和「按价格」两条轴分开摆。同一个区块里才是
+             可比的：拿「编程开发」和「免费」横向比较是没有意义的，它们量的
+             不是同一件事（依据见 lib/modelGuide.ts 顶部的分类说明）。
+
+             分隔线的条件是「上一行的 section 与这行不同」，**不要求这一行自己
+             有 section** —— 于是没有 section 的「推荐」（排在最前）和「全部」
+             （排在最后）各自也会拿到一条分隔线，不会被误并进相邻区块。
+
+             高度上限用 vh 而不是 %：父容器只有 max-h、height 是 auto，包含块
+             高度不确定，按 CSS 规范 % 的 max-height 会算成 none（形同虚设）。
+             实测内容高：10 行 × 28px + 2 个区块标题 ≈ 38px + 3 条分隔线 ≈ 39px
+             ≈ 335px。38dvh 在 800px 视口下是 304px，会轻微滚动；更矮的屏幕滚
+             动更多。下方列表是 flex-1 min-h-0，会自动吸收差额，不会被压没。 */
+          <div className="max-h-[38dvh] shrink-0 overflow-y-auto overscroll-contain pb-1 pr-0.5">
+            {availableGroups.map((group, idx) => {
               const Icon = group.icon;
-              const isOn = filterKey === group.key;
+              // 搜索时列表会跨全部分类（见上面 visible 的 query 分支），
+              // 此时若还把某个分类高亮成「当前」，用户会以为结果被限制在那一类里。
+              const isOn = !search.trim() && filterKey === group.key;
+              // 标题只画在这一区块的第一行；换了区块就先画一条分隔线。
+              const prev = idx > 0 ? availableGroups[idx - 1] : undefined;
+              const sectionChanged = !!prev && prev.section !== group.section;
+              const startsSection = sectionChanged && !!group.section;
               return (
-                <button
-                  key={group.key}
-                  type="button"
-                  aria-pressed={isOn}
-                  onClick={() => setFilterKey(group.key)}
-                  className={cn(
-                    "h-7 shrink-0 rounded-full px-2.5 text-2xs font-medium transition-colors active:scale-95",
-                    Icon && "flex items-center gap-1",
-                    isOn ? TONE_CLASS[group.tone].active : TONE_CLASS[group.tone].idle
+                <React.Fragment key={group.key}>
+                  {sectionChanged && <div className="mx-2 my-1.5 border-t border-border/40" />}
+                  {startsSection && (
+                    <div className="px-2 pb-1 pt-0.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground/80">
+                      {group.section}
+                    </div>
                   )}
-                >
-                  {Icon && <Icon className="h-3 w-3" />}
-                  <span>
-                    {group.label} ({group.count})
-                  </span>
-                </button>
+                  <button
+                    type="button"
+                    // 这是切换筛选的 toggle，不是折叠面板：下面的 listbox 一直都在，
+                    // 从来没被隐藏过，所以 aria-expanded 是错的语义，用 aria-pressed。
+                    aria-pressed={isOn}
+                    // 分类是原生 button，鼠标点它会把焦点从搜索框抢走 —— 而
+                    // ↑↓/Home/End/Enter 全绑在搜索框上，抢走就等于键盘操作全废。
+                    // preventDefault 掉 pointerdown 的默认焦点转移即可留在原地。
+                    // touch 必须放行：移动端点分类本来就不该弹软键盘。
+                    onPointerDown={(e) => {
+                      if (e.pointerType !== "touch") e.preventDefault();
+                    }}
+                    onClick={() => {
+                      // 切换分类后旧的高亮下标可能超出新列表长度（新高亮直接消失，
+                      // ↓ 一下又会跳回 0）。直接清零更干净：等用户自己开始移动。
+                      setFilterKey(group.key);
+                      setActiveIndex(-1);
+                    }}
+                    className={cn(
+                      "flex h-8 w-full shrink-0 items-center gap-2 rounded-lg px-2.5 text-footnote font-medium transition-colors active:scale-[0.99]",
+                      isOn
+                        ? TONE_ACTIVE[group.tone]
+                        : "text-muted-foreground hover:bg-surface-3/60 hover:text-foreground"
+                    )}
+                  >
+                    {Icon && <Icon className="h-4 w-4 shrink-0 opacity-80" />}
+                    <span className="min-w-0 flex-1 truncate text-left">{group.label}</span>
+                    <span className="shrink-0 font-mono text-xs opacity-75">
+                      {group.distinctCount ?? group.count}
+                    </span>
+                    <ChevronRight
+                      aria-hidden="true"
+                      className={cn(
+                        "h-3.5 w-3.5 shrink-0 opacity-60 transition-transform duration-200",
+                        isOn && "rotate-90"
+                      )}
+                    />
+                  </button>
+                </React.Fragment>
               );
             })}
           </div>
@@ -410,21 +490,21 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
           role="listbox"
           aria-label={t("settings.picker.listAria", { kind: a11yLabel })}
           onWheel={(e) => e.stopPropagation()}
-          className="min-h-0 max-h-[50vh] flex-1 space-y-1 overflow-y-auto overscroll-contain pr-1 touch-pan-y"
+          className="min-h-0 max-h-[38dvh] flex-1 space-y-1 overflow-y-auto overscroll-contain pr-1 touch-pan-y"
         >
           {visible.length === 0 ? (
             emptyState ?? (
+              /* 这里原先还有一个「在全部 N 个模型中查找」的按钮，指向
+                 setFilterKey(null)。现在删掉，三个原因：
+                 1. 它是死按钮 —— 空状态只可能出现在「有搜索词」时（分类组的
+                    count 与 match 同源，非空分类永远有结果），而有搜索词时
+                    visible 本来就无视分组、搜的是全量，点了界面纹丝不动。
+                 2. 它是可聚焦的 <button>，落在 role="listbox" 内部 —— 与本文件
+                    顶部「listbox 后代只能是 option」的约定冲突。
+                 3. 分类行就在正上方，「换一个分类 / 回到全部」有唯一且明显的入口，
+                    这里再来一个纯属冗余。 */
               <div className="px-3 py-10 text-center text-xs leading-relaxed text-muted-foreground">
                 {t("settings.picker.noMatch", { kind: kindLabel })}
-                {filterKey && (
-                  <button
-                    type="button"
-                    onClick={() => setFilterKey(null)}
-                    className="mx-auto mt-2 block cursor-pointer text-xs text-primary underline hover:opacity-80 active:scale-95"
-                  >
-                    {t("settings.picker.searchAll", { count: options.length })}
-                  </button>
-                )}
               </div>
             )
           ) : (
@@ -457,41 +537,50 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
                     <div className="flex flex-wrap items-center gap-1.5">
                       <span
                         className={cn(
-                          "font-semibold tracking-tight",
+                          "text-sm font-semibold tracking-tight",
                           isSelected ? "text-primary" : "text-foreground"
                         )}
                       >
                         {o.name}
                       </span>
-                      {o.isFeatured && (
-                        <span className="flex items-center gap-0.5 rounded-md border border-amber-500/25 bg-amber-500/10 px-1.5 py-0.5 text-2xs font-medium text-amber-600 dark:text-amber-400">
-                          <Sparkles className="h-2.5 w-2.5" />
-                          {t("settings.picker.featuredBadge")}
-                        </span>
-                      )}
-                      {o.isFree && (
-                        <span className="rounded-md border border-emerald-500/25 bg-emerald-500/10 px-1.5 py-0.5 text-2xs font-medium text-emerald-600 dark:text-emerald-400">
+                      {o.guide && <ModelPriceTag tier={o.guide.priceTier} />}
+                      {/* 价格档已经是「免费」时不再重复挂一个免费徽章 */}
+                      {o.isFree && o.guide?.priceTier !== "free" && (
+                        <span className="rounded-md border border-emerald-500/25 bg-emerald-500/10 px-1.5 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
                           {t("settings.picker.freeBadge")}
                         </span>
                       )}
                       {o.isMultimodal && (
-                        <span className="rounded-md border border-violet-500/25 bg-violet-500/10 px-1.5 py-0.5 text-2xs font-medium text-violet-600 dark:text-violet-400">
+                        <span className="rounded-md border border-violet-500/25 bg-violet-500/10 px-1.5 py-0.5 text-xs font-medium text-violet-600 dark:text-violet-400">
                           {t("settings.picker.multimodalBadge")}
                         </span>
                       )}
                       {o.provider && (
-                        <span className="rounded bg-surface-3/80 px-1 py-0.5 font-mono text-2xs uppercase text-muted-foreground">
+                        <span className="rounded bg-surface-3/80 px-1 py-0.5 font-mono text-xs uppercase text-muted-foreground">
                           {o.provider}
                         </span>
                       )}
                     </div>
-                    <p className="mt-0.5 truncate font-mono text-2xs text-muted-foreground">
+
+                    {/* 需求标签：这一行就是「根据自己的需求选模型」的落点 */}
+                    {o.guide && <ModelUseCaseTags useCases={o.guide.useCases} className="mt-1" />}
+
+                    <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">
                       {o.id}
                     </p>
-                    {o.description && (
-                      <p className="mt-0.5 line-clamp-1 text-2xs leading-relaxed text-muted-foreground">
-                        {o.description}
+
+                    {/* 命中画像时用中文推荐理由替代厂商的英文原描述 ——
+                        后者是 truncated 到一行的营销文案，对选型几乎没有帮助。 */}
+                    {o.guide ? (
+                      <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+                        {t(o.guide.reasonKey)}
                       </p>
+                    ) : (
+                      o.description && (
+                        <p className="mt-1 line-clamp-1 text-xs leading-relaxed text-muted-foreground">
+                          {o.description}
+                        </p>
+                      )
                     )}
                   </div>
 

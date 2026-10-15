@@ -65,7 +65,7 @@ export function StatCard({
       {footer && (
         <div
           className={cn(
-            "flex items-center gap-1.5 truncate border-t border-border/30 pt-2 font-mono text-2xs text-muted-foreground/90",
+            "flex items-center gap-1.5 truncate border-t border-border/30 pt-2 font-mono text-xs text-muted-foreground/90",
             footerClassName
           )}
         >
@@ -79,7 +79,7 @@ export function StatCard({
 /** 「xx 正常」之类的绿点状态条。 */
 export function LiveDotStat({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-1.5 border-t border-border/30 pt-2 text-2xs font-medium text-emerald-600 dark:text-emerald-400">
+    <div className="flex items-center gap-1.5 border-t border-border/30 pt-2 text-xs font-medium text-emerald-600 dark:text-emerald-400">
       <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
       <span className="truncate">{children}</span>
     </div>
@@ -97,7 +97,7 @@ export function StatusPill({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-2xs font-medium",
+        "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-medium",
         tone === "success"
           ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
           : "border-destructive/20 bg-destructive/10 text-destructive"
@@ -118,7 +118,7 @@ export function StatusPill({
 export function FreeBadge() {
   const { t } = useI18n();
   return (
-    <span className="shrink-0 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0 text-2xs font-medium text-emerald-600 shadow-none dark:text-emerald-400">
+    <span className="shrink-0 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-xs font-medium text-emerald-600 shadow-none dark:text-emerald-400">
       {t("usage.cards.freeBadge")}
     </span>
   );
@@ -156,7 +156,7 @@ export function CostValue({
       >
         ¥{cny.toFixed(2)}
       </span>
-      <span className="block font-mono text-2xs text-muted-foreground">
+      <span className="block font-mono text-xs text-muted-foreground">
         {fmt.currency(usd)}
       </span>
     </div>

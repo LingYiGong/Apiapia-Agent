@@ -65,7 +65,7 @@ export function SectionLabel({
   return (
     <div
       className={cn(
-        "px-1 pb-1.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground select-none",
+        "px-1 pb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground select-none",
         className
       )}
       {...props}

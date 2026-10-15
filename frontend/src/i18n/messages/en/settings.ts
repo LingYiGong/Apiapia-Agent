@@ -52,8 +52,6 @@ export default {
     modelIdPlaceholder: "e.g. openai/gpt-4o-mini",
     consolidationModelLabel: "Consolidation model (Consolidation LLM)",
     consolidationModelPlaceholder: "Choose a memory consolidation model",
-    consolidationModelIdLabel: "Memory consolidation model ID",
-    consolidationModelIdPlaceholder: "e.g. openrouter/free",
     manualModel: "✍️ Enter another model ID…",
   },
 
@@ -134,11 +132,7 @@ export default {
     clearSearch: "Clear search",
     listAria: "{kind} list",
     noMatch: "No matching {kind}",
-    searchAll: "Search all {count} models",
-    featuredBadge: "Featured",
     multimodalBadge: "Multimodal",
-    freeGroup: "Free",
-    featuredGroup: "Featured",
     allGroup: "All",
     freeBadge: "Free",
     trialBadge: "Trial mode",
@@ -151,6 +145,67 @@ export default {
     notSynced: "The {kind} list hasn't been synced yet. Use the “Sync list” button above.",
     trialNoFree: "No free {kind} are available. Ask an administrator to register them in {env}.",
     syncedButEmpty: "The backend synced but found no models. Check that the credentials in .env are valid.",
+  },
+
+  /** Model selection guidance: need tags, price tiers, reasons and gotchas */
+  modelGuide: {
+    /** The "Picks" filter group in ModelPicker */
+    groupRecommend: "Recommended",
+
+    /** Section headers in ModelPicker's category list */
+    sectionUseCase: "By scenario",
+
+    /** Task tags; also used as the ModelPicker category labels */
+    useCase: {
+      writing: "Writing & Translation",
+      reasoning: "Deep Reasoning",
+      coding: "Coding & Dev",
+      visionDocs: "Vision & Docs",
+      fastFree: "Fast & Free",
+    },
+
+    /** Price tier, bucketed roughly by published list price. Answers "is it expensive?" */
+    price: {
+      free: "Free",
+      budget: "Cheap",
+      standard: "Standard",
+      premium: "Flagship",
+    },
+
+    /** The eighteen picks. Keys mirror the constants in lib/modelGuide.ts. */
+    reason: {
+      sonnet: "[All-Round SOTA] Excels at general Q&A, writing, and coding with top-tier intelligence.",
+      gptSol61: "[Flagship Power] Near-flagship intelligence and blazing fast; ideal for complex workflows.",
+      gemini38: "[Speedy Vision & Docs] Fast analysis of images, charts, and 1M+ token documents at high value.",
+      glm53: "[Bilingual Workhorse] Strong deep reasoning, Chinese & English articulation, and reliable coding.",
+      gptLuna: "[Everyday Value] Fast, affordable, and ideal as your default model for daily questions.",
+      glm53Flash: "[Ultra-Fast Multimodal] Rock-bottom cost, takes images, and handles quick coding tasks smoothly.",
+      opus55: "[Intelligence Ceiling] Built for the hardest math, scientific reasoning, and large-scale refactors.",
+      freeRouter: "[Completely Free] Routes to the best available free models; zero cost for experimentation.",
+      deepseekPro: "[Code & Logic Specialist] Solid math, algorithm design, and dependable multi-step software engineering.",
+      grok47: "[High-Speed STEM] Lightning-fast reasoning and code execution at a fraction of premier cost.",
+      qwenMax: "[Premier Writing & Nuance] Rich vocabulary and cultural depth; great for long-form creative writing.",
+      gptAstra: "[Frontier Solver] OpenAI's most capable model, engineered for intricate end-to-end tasks.",
+      kimiK3: "[Massive Context Power] Designed for deep-dive analysis across giant codebases and full-length books.",
+      deepseekFlash: "[Top-Traffic Workhorse] Reads long text accurately, strictly follows JSON instructions, dirt cheap.",
+      qwen38Flash: "[Budget Multimodal] Lightweight vision model for image recognition, tables, and quick chat.",
+      minimaxM3: "[Affordable Multimodal] Handles images and video smoothly with 1M context at low cost.",
+      mimoFlash: "[Lightweight Vision] Minimal inference cost with dependable everyday visual and text QA.",
+      haiku55: "[Instant & Nimble] Millisecond response times, perfect for summaries, categorisation, and quick tasks.",
+    },
+
+    /** Only written where there is a real gotcha. Models without a caveatKey skip this line. */
+    caveat: {
+      longPrompt: "Notice: Inputs exceeding hundreds of thousands of tokens scale to a higher price bracket.",
+      priceRise: "Notice: Scheduled for a price adjustment in 2027; plan ahead for long-term production use.",
+      thinking: "Notice: Always engages deep chain-of-thought reasoning, which adds processing time and cost.",
+      freeUnstable: "Notice: Routed through public free pools; response quality and availability may fluctuate.",
+      shortContext: "Notice: Context window is 500K tokens (shorter than 1M models); verify large document sizes.",
+      primeVariant: "Notice: -prime accelerated variants are priced higher; use standard models for maximum value.",
+      kimiPrice: "Notice: Output token pricing is higher for verbose long-form generations.",
+      peakPricing: "Notice: Dynamic peak pricing applies during UTC 01:00-04:00 and 06:00-10:00.",
+      haikuLongPrompt: "Notice: Single requests exceeding 100K tokens step up to the next pricing tier.",
+    },
   },
 
   errors: {

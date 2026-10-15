@@ -131,15 +131,12 @@ export default {
     renameTitle: "会話名を変更",
     renameLabel: "新しいタイトル",
     renamePh: "新しいタイトルを入力",
-    deleteDisabled: "アカウントを無効化",
-    restoreActive: "有効に戻す",
   },
 
   header: {
     currentModel: "現在のモデル: ",
     memoryCountTip: "この会話で使われた {count} 件の記憶を表示",
     memoryCountLabel: "件の関連記憶（タップで表示）",
-    goHome: "Apiapia アシスタントのチャットに戻る",
   },
 
   message: {
@@ -220,7 +217,7 @@ export default {
     disabledDesc: "有効にすると、アシスタントがあなたの好みを参照し記録します。",
     emptyTitle: "参照された記憶はありません",
     emptyDesc:
-      "好み、経歴や習慣について話すと、システムが 자동으로抽出してここに表示します。",
+      "好み、経歴や習慣について話すと、システムが自動で抽出してここに表示します。",
     disclaimer: "このやり取りでシステムが参照した長期的な個人事実です:",
     vectorized: "ベクトル化済み",
     toggleLabel: "長期記憶",
@@ -280,11 +277,9 @@ export default {
     grammar: "文法の要点",
     cardView: "カード",
     codeView: "コード",
-    ttsUnsupported: "このブラウザは音声合成に対応していません",
     sourceLabel: "原文:",
     translationLabel: "訳文:",
     pronounceSource: "原文を読み上げ",
-    cardSuffix: "カード",
     cardLabel: "{lang}カード",
     ttsReady: "タップで読み上げ",
     phoneticUk: "英",
@@ -327,8 +322,6 @@ export default {
     menuDesc:
       "あらゆる言語の双方向翻訳と文法指導。動詞の変化の分析、日本語の仮名と漢字読み、類似の例文を含みます",
     placeholder: "翻訳したい単語・フレーズ・文を入力…",
-    pickerLabel: "双方向翻訳の言語",
-      sourceLangLabel: "{src}",
     /** 言語名。キーは ISO 639-1、値はその言語自身の呼び方 */
     langs: {
       en: "英語",

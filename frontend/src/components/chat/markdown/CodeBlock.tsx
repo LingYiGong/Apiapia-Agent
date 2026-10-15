@@ -124,7 +124,7 @@ export function SvgRenderer({ svgCode }: { svgCode: string }) {
           <span>{t("chat.markdown.svgTitle")}</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="flex rounded-lg border border-border/60 bg-background/80 p-0.5 text-2xs">
+          <div className="flex rounded-lg border border-border/60 bg-background/80 p-0.5 text-xs">
             {modeButton("preview", t("chat.markdown.svgPreviewToggle"))}
             {modeButton("code", t("chat.markdown.svgCodeToggle"))}
           </div>
@@ -133,7 +133,7 @@ export function SvgRenderer({ svgCode }: { svgCode: string }) {
             variant="ghost"
             size="sm"
             onClick={() => copy(svgCode)}
-            className="h-7 gap-1 rounded-lg px-2 text-2xs text-muted-foreground hover:bg-surface-3 hover:text-foreground"
+            className="h-7 gap-1 rounded-lg px-2 text-xs text-muted-foreground hover:bg-surface-3 hover:text-foreground"
           >
             {copied ? (
               <Check className="h-4 w-4 text-emerald-500" />
@@ -147,7 +147,7 @@ export function SvgRenderer({ svgCode }: { svgCode: string }) {
             variant="ghost"
             size="sm"
             onClick={() => downloadTextFile(`vector-artwork-${Date.now()}.svg`, svgCode, "image/svg+xml;charset=utf-8")}
-            className="h-7 gap-1 rounded-lg bg-primary/10 px-2 text-2xs font-medium text-primary transition-colors hover:bg-primary/20"
+            className="h-7 gap-1 rounded-lg bg-primary/10 px-2 text-xs font-medium text-primary transition-colors hover:bg-primary/20"
           >
             <Download className="h-4 w-4" />
             <span>{t("chat.markdown.downloadSvg")}</span>
@@ -169,7 +169,7 @@ export function SvgRenderer({ svgCode }: { svgCode: string }) {
           />
         </div>
       ) : (
-        <div className="overflow-x-auto bg-[#0d0d0d] p-4 font-mono text-footnote leading-[1.65] text-[#ececec]">
+        <div className="overflow-x-auto bg-[#0d0d0d] p-4 font-mono text-xs sm:text-sm leading-[1.65] text-[#ececec]">
           <code className="block whitespace-pre font-mono">{svgCode}</code>
         </div>
       )}
@@ -231,11 +231,11 @@ export function CodeBlock({ children, className }: any) {
     <div className="my-3.5 overflow-hidden rounded-2xl border border-border/70 bg-[#0d0d0d] shadow-xs">
       <div className="flex items-center justify-between border-b border-white/5 bg-[#1f1f23] px-4 py-2 text-xs text-muted-foreground select-none">
         <div className="flex items-center gap-2">
-          <span className="font-mono text-2xs font-medium uppercase tracking-wide text-slate-300">
+          <span className="font-mono text-xs font-medium uppercase tracking-wide text-slate-300">
             {lang || t("chat.markdown.codeFallback")}
           </span>
           {isMermaid && (
-            <span className="rounded-md bg-primary/20 px-1.5 py-0.5 text-2xs font-medium text-primary">
+            <span className="rounded-md bg-primary/20 px-1.5 py-0.5 text-xs font-medium text-primary">
               {t("chat.markdown.mermaid")}
             </span>
           )}
@@ -244,7 +244,7 @@ export function CodeBlock({ children, className }: any) {
           <button
             type="button"
             onClick={() => copy(codeText)}
-            className="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-2xs font-medium text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
+            className="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
           >
             {copied ? (
               <Check className="h-3.5 w-3.5 text-emerald-400" />
@@ -262,14 +262,14 @@ export function CodeBlock({ children, className }: any) {
                 "text/plain;charset=utf-8"
               )
             }
-            className="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-2xs font-medium text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
+            className="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
           >
             <Download className="h-3.5 w-3.5" />
             <span>{t("chat.markdown.download")}</span>
           </button>
         </div>
       </div>
-      <div className="overflow-x-auto p-4 font-mono text-footnote leading-[1.65] text-[#ececec]">
+      <div className="overflow-x-auto p-4 font-mono text-xs sm:text-sm leading-[1.65] text-[#ececec]">
         <code className="block whitespace-pre font-mono">{children}</code>
       </div>
     </div>

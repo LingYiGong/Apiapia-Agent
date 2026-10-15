@@ -218,7 +218,7 @@ title={c.title || t("chat.history.untitled")}
             </button>
           )}
           {timeDisplay && (
-            <span className="mt-0.5 truncate font-mono text-2xs text-muted-foreground select-none">
+            <span className="mt-0.5 truncate font-mono text-xs text-muted-foreground select-none">
               {timeDisplay}
             </span>
           )}
@@ -381,9 +381,9 @@ title={c.title || t("chat.history.untitled")}
             <div className="space-y-4">
               {groupedSections.map((sec, secIdx) => (
                 <div key={sec.key} className={cn("space-y-1", secIdx > 0 && "pt-3")}>
-                  <div className="flex items-center justify-between px-3 pb-1 text-2xs font-semibold tracking-wider text-muted-foreground select-none">
+                  <div className="flex items-center justify-between px-3 pb-1 text-xs font-semibold tracking-wider text-muted-foreground select-none">
                     <span className="flex items-center gap-1">
-                      {sec.key === "pinned" && <Pin className="h-3 w-3 text-primary" />}
+                      {sec.key === "pinned" && <Pin className="h-3.5 w-3.5 text-primary" />}
                       <span>
                         {sec.key === "pinned"
                           ? isSearching
@@ -393,7 +393,7 @@ title={c.title || t("chat.history.untitled")}
                       </span>
                     </span>
                     {(sec.key !== "pinned" || isSearching) && (
-                      <span className="font-mono text-2xs opacity-60">({sec.items.length})</span>
+                      <span className="font-mono text-xs opacity-75">({sec.items.length})</span>
                     )}
                   </div>
                   {sec.items.map((c, idx) =>

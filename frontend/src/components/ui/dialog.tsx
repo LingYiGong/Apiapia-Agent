@@ -53,7 +53,15 @@ const DialogContent = React.forwardRef<
       <DialogPrimitive.Content
         ref={ref}
         className={cn(
-          "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-border/80 bg-card p-6 dark:bg-surface-2 shadow-2xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] rounded-2xl",
+          // 矮屏/横屏保护：此前这里只有 `fixed top-[50%] translate-y-[-50%] p-6`，
+          // 既没有 max-h 也没有 overflow。横屏手机可用高度约 430px，
+          // MemoryView 的编辑弹窗（min-h-[100px] 的 textarea）会被
+          // **上下对称裁掉且滚不出来** —— 居中定位 + 溢出即裁切。
+          // dvh 而非 vh：iOS Safari 展开地址栏时 vh 不收缩。
+          //
+          // pt/pb 用 max() 让开状态栏与 home indicator，避免弹窗底边
+          // 压在 iOS 的手势条上。
+          "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 overflow-y-auto overscroll-contain border border-border/80 bg-card p-6 pt-[max(1.5rem,var(--sat))] pb-[max(1.5rem,var(--sab))] max-h-[calc(100dvh-2rem)] dark:bg-surface-2 shadow-2xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] rounded-overlay",
           className
         )}
         {...props}

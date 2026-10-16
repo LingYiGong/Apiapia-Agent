@@ -16,6 +16,8 @@ import {
   MoreHorizontal,
   Edit2,
   RefreshCw,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -77,12 +79,17 @@ export interface MobileChatHeaderProps extends ChatHeaderBaseProps {
   onDelete?: (id: string) => void;
 }
 
-/** 桌面端会话操作：置顶、重命名、删除 */
+/** 桌面端会话操作：置顶、重命名、删除、侧栏收起/展开、记忆库折叠 */
 export interface DesktopChatHeaderProps extends ChatHeaderBaseProps {
   activeConversation?: Conversation | null;
   onTogglePin?: (id: string, nextPinned: boolean) => void;
   onRename?: (id: string, newTitle: string) => void;
   onDelete?: (id: string) => void;
+  isSidebarOpen?: boolean;
+  onToggleSidebar?: () => void;
+  isMemoryOpen?: boolean;
+  onToggleMemory?: () => void;
+  memoriesCount?: number;
 }
 
 /**
@@ -336,6 +343,11 @@ export const DesktopChatHeader: React.FC<DesktopChatHeaderProps> = ({
   onDelete,
   className,
   isVocabMode = false,
+  isSidebarOpen = true,
+  onToggleSidebar,
+  isMemoryOpen = false,
+  onToggleMemory,
+  memoriesCount = 0,
 }) => {
   const { t } = useI18n();
   const [isRenaming, setIsRenaming] = React.useState(false);
@@ -361,11 +373,33 @@ export const DesktopChatHeader: React.FC<DesktopChatHeaderProps> = ({
     <>
       <header
         className={cn(
-          "z-20 hidden h-[var(--toolbar-h)] shrink-0 select-none flex-nowrap items-center justify-between gap-2 border-b border-border/40 bg-background/80 px-4 backdrop-blur-xl md:flex md:min-w-0",
+          "z-20 hidden h-[var(--toolbar-h)] shrink-0 select-none flex-nowrap items-center justify-between gap-2 border-b border-border/40 bg-background/80 px-3.5 backdrop-blur-xl md:flex md:min-w-0",
           className
         )}
       >
         <div className="flex min-w-0 flex-1 items-center gap-2">
+          {onToggleSidebar && (
+            <ActionTooltip
+              label={isSidebarOpen ? t("chat.sidebar.collapse") : t("chat.sidebar.expand")}
+              shortcut="⌘B"
+            >
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={onToggleSidebar}
+                className="h-8 w-8 shrink-0 rounded-lg text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground active:scale-95"
+                aria-label={isSidebarOpen ? t("chat.sidebar.collapse") : t("chat.sidebar.expand")}
+              >
+                {isSidebarOpen ? (
+                  <PanelLeftClose className="h-4 w-4" />
+                ) : (
+                  <PanelLeftOpen className="h-4 w-4" />
+                )}
+              </Button>
+            </ActionTooltip>
+          )}
+
           <span className="hidden shrink-0 whitespace-nowrap text-xs font-medium text-muted-foreground lg:inline">
             {t("chat.header.currentModel")}
           </span>
@@ -407,10 +441,36 @@ export const DesktopChatHeader: React.FC<DesktopChatHeaderProps> = ({
           </div>
         </div>
 
-        {/* 右上角操作区：置顶、重命名、删除 */}
-        {activeConversation && (
-          <div className="flex shrink-0 items-center gap-1.5">
-            {onTogglePin && (
+        {/* 右上角操作区：记忆侧栏开关 + 会话操作（置顶、重命名、删除） */}
+        <div className="flex shrink-0 items-center gap-1.5">
+          {onToggleMemory && (
+            <ActionTooltip
+              label={isMemoryOpen ? t("chat.recall.collapse") : t("chat.recall.expand")}
+            >
+              <Button
+                type="button"
+                variant={isMemoryOpen ? "secondary" : "ghost"}
+                size="sm"
+                onClick={onToggleMemory}
+                className={cn(
+                  "h-8 gap-1.5 rounded-lg px-2.5 text-xs text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground active:scale-95",
+                  isMemoryOpen && "bg-surface-3 font-semibold text-primary"
+                )}
+              >
+                <Brain className="h-3.5 w-3.5 text-primary" />
+                <span className="hidden lg:inline">{t("chat.recall.title")}</span>
+                {memoriesCount > 0 && (
+                  <span className="font-mono text-2xs rounded-full bg-primary/15 text-primary px-1.5 py-0.5 leading-none font-semibold">
+                    {memoriesCount}
+                  </span>
+                )}
+              </Button>
+            </ActionTooltip>
+          )}
+
+          {activeConversation && (
+            <>
+              {onTogglePin && (
               <ActionTooltip label={isPinned ? t("chat.history.unpin") : t("chat.history.pin")}>
                 <Button
                   type="button"
@@ -471,9 +531,10 @@ export const DesktopChatHeader: React.FC<DesktopChatHeaderProps> = ({
                 </Button>
               </ActionTooltip>
             )}
-          </div>
+          </>
         )}
-      </header>
+      </div>
+    </header>
 
       {/* 重命名弹窗 */}
       {isRenaming && (

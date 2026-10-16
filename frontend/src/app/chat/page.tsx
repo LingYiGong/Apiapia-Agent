@@ -21,6 +21,8 @@ import { useWakeLock } from "@/hooks/useWakeLock";
 import { useWebSearchMode } from "@/hooks/useWebSearchMode";
 import { messageEditGuardFlag } from "@/lib/messageEditGuard";
 import { hydrateMessages } from "@/lib/message";
+import { useIsKeyboardOpen } from "@/hooks/useIsKeyboardOpen";
+import { cn } from "@/lib/utils";
 import { FullPageSkeleton } from "@/components/common/PageSkeleton";
 import {
   Conversation,
@@ -157,6 +159,50 @@ export default function ChatPage({
 
   // Mobile SPA Tab State
   const [mobileTab, setMobileTab] = useState<MobileTab>("chat");
+
+  // 移动端软键盘检测：输入时自动隐藏 TabBar 避让可视面积
+  const isKeyboardOpen = useIsKeyboardOpen();
+
+  // 桌面端侧栏可折叠状态（记住本地偏好，支持快捷键 ⌘B / Ctrl+B）
+  const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true);
+  const [isDesktopMemoryOpen, setIsDesktopMemoryOpen] = useState(false);
+
+  useEffect(() => {
+    try {
+      const savedSidebar = localStorage.getItem("apiapia_desktop_sidebar_open");
+      if (savedSidebar !== null) setIsDesktopSidebarOpen(savedSidebar === "true");
+      const savedMemory = localStorage.getItem("apiapia_desktop_memory_open");
+      if (savedMemory !== null) setIsDesktopMemoryOpen(savedMemory === "true");
+    } catch (_) {}
+  }, []);
+
+  const handleToggleDesktopSidebar = useCallback(() => {
+    setIsDesktopSidebarOpen((prev) => {
+      const next = !prev;
+      try { localStorage.setItem("apiapia_desktop_sidebar_open", String(next)); } catch (_) {}
+      return next;
+    });
+  }, []);
+
+  const handleToggleDesktopMemory = useCallback(() => {
+    setIsDesktopMemoryOpen((prev) => {
+      const next = !prev;
+      try { localStorage.setItem("apiapia_desktop_memory_open", String(next)); } catch (_) {}
+      return next;
+    });
+  }, []);
+
+  // 快捷键监听：⌘B / Ctrl+B 一键开合左侧历史侧栏
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") {
+        e.preventDefault();
+        handleToggleDesktopSidebar();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [handleToggleDesktopSidebar]);
 
   // Conversation Input States (会话输入框状态：翻译模式、目标语种、创作模式)
   const [isTranslateMode, setIsTranslateMode] = useState<boolean>(false);
@@ -1345,6 +1391,8 @@ export default function ChatPage({
 
       <div className="relative flex min-h-0 flex-1 overflow-hidden">
         <Sidebar
+          isOpen={isDesktopSidebarOpen}
+          onToggleOpen={handleToggleDesktopSidebar}
           conversations={conversations}
           activeId={activeId}
           onRename={handleRenameConversation}
@@ -1415,6 +1463,11 @@ export default function ChatPage({
               />
 
               <DesktopChatHeader
+                isSidebarOpen={isDesktopSidebarOpen}
+                onToggleSidebar={handleToggleDesktopSidebar}
+                isMemoryOpen={isDesktopMemoryOpen}
+                onToggleMemory={handleToggleDesktopMemory}
+                memoriesCount={retrievedMemories.length}
                 currentModel={activeModelId}
                 onModelChange={handleModelChange}
                 availableModels={activeModelCatalog}
@@ -1509,6 +1562,7 @@ export default function ChatPage({
         )}
 
         <MemorySidebar
+          isDesktopOpen={isDesktopMemoryOpen}
           memories={retrievedMemories}
           memoryEnabled={memoryEnabled}
           onToggleMemory={handleToggleMemoryEnabled}
@@ -1518,11 +1572,12 @@ export default function ChatPage({
         />
       </div>
 
-      {/* 移动端底部标签栏：自然流式排布在容器最底端，零 fixed、零重叠遮挡 */}
+      {/* 移动端底部标签栏：自然流式排布在容器最底端，零 fixed、零重叠遮挡；软键盘弹出时隐藏 */}
       <MobileTabBar
         activeMobileTab={mobileTab}
         onSelectMobileTab={handleSelectMobileTab}
         onNewChat={handleNewChat}
+        className={cn(isKeyboardOpen && "hidden")}
       />
     </div>
   );

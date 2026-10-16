@@ -21,10 +21,22 @@ ghost: "hover:bg-accent hover:text-accent-foreground",
           // variant `link` 原先在此，全站 0 处引用，已删。
         },
         size: {
-          default: "h-9 px-4 py-2",
-          sm: "h-8 rounded-md px-3 text-xs",
-          // size `lg`（h-10 px-8）原先在此，全站 0 处引用，已删。
-          icon: "h-9 w-9",
+          /**
+           * 触控目标高度。
+           *
+           * 此前 default/icon 是 `h-9`(36px)、sm 是 `h-8`(32px)，全站
+           * 没有任何一个按钮达到 44×44 —— globals.css 早先把
+           * `.apple-touch-target` 删掉时注释写的是「靠 h-9/h-10 手工保证」，
+           * 但 h-9 只有 36px。
+           *
+           * 这里改成**触屏给足 44px、大屏才收紧**：断点用 `mdup`
+           * （宽 ≥768 **且** 高 ≥600）而不是 `md`，因为横屏手机
+           * （iPhone 15 Pro Max 932×430）也必须拿到大号热区。
+           * 这样桌面端的视觉密度一字不变，风险被限制在触屏侧。
+           */
+          default: "h-11 px-4 py-2 mdup:h-9",
+          sm: "h-11 rounded-md px-3 text-xs mdup:h-8",
+          icon: "h-11 w-11 mdup:h-9 mdup:w-9",
         },
     },
     defaultVariants: {

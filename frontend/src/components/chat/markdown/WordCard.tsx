@@ -536,7 +536,7 @@ export function WordCard({
       </div>
 
       {viewMode === "code" ? (
-        <div className="overflow-x-auto bg-[#0d0d0d] p-4 font-mono text-footnote leading-relaxed text-[#ececec]">
+        <div className="overflow-x-auto bg-code p-4 font-mono text-footnote leading-relaxed text-code-foreground">
           <pre className="whitespace-pre-wrap">{rawContent}</pre>
         </div>
       ) : (

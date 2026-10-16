@@ -781,6 +781,22 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       }
     }
 
+    // 空输入框按「上箭头」：一键将上一条提问召回输入框以便微调重发（对齐 ChatGPT / Discord 体验）
+    if (e.key === "ArrowUp" && !input && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
+      const lastUserMsg = [...messages].reverse().find((m) => m.role === "user");
+      if (lastUserMsg && lastUserMsg.content) {
+        e.preventDefault();
+        updateInput(lastUserMsg.content);
+        requestAnimationFrame(() => {
+          growTextarea();
+          if (textareaRef.current) {
+            textareaRef.current.setSelectionRange(lastUserMsg.content.length, lastUserMsg.content.length);
+          }
+        });
+        return;
+      }
+    }
+
     if (e.key !== "Enter") return;
     // 输入法组字过程中的回车属于候选上屏，绝不能当作发送。
     if (e.nativeEvent.isComposing || e.keyCode === 229) return;

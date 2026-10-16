@@ -169,7 +169,7 @@ export function SvgRenderer({ svgCode }: { svgCode: string }) {
           />
         </div>
       ) : (
-        <div className="overflow-x-auto bg-[#0d0d0d] p-4 font-mono text-xs sm:text-sm leading-[1.65] text-[#ececec]">
+        <div className="overflow-x-auto bg-code p-4 font-mono text-xs sm:text-sm leading-[1.65] text-code-foreground">
           <code className="block whitespace-pre font-mono">{svgCode}</code>
         </div>
       )}
@@ -194,13 +194,66 @@ class WordCardSafe extends React.Component<
   render() {
     if (this.state.hasError) {
       return (
-        <pre className="my-3 overflow-x-auto rounded-xl border border-border/70 bg-[#0d0d0d] p-3 font-mono text-xs text-muted-foreground">
+        <pre className="my-3 overflow-x-auto rounded-xl border border-border/70 bg-code p-3 font-mono text-xs text-muted-foreground">
           {this.props.rawContent}
         </pre>
       );
     }
     return <WordCard rawContent={this.props.rawContent} />;
   }
+}
+
+/**
+ * 现代化轻量语法着色函数（零依赖、无额外体积、流式响应无卡顿）
+ * 覆盖关键字、字符串、数字、注释、函数名、布尔值与常用类型
+ */
+function highlightSyntax(code: string, lang: string): React.ReactNode {
+  if (!code) return null;
+  const l = (lang || "").toLowerCase();
+  if (!l || ["text", "txt", "plain", "plaintext", "raw"].includes(l)) {
+    return code;
+  }
+
+  const tokenRegex = /(\/\/[^\n]*|\/\*[\s\S]*?\*\/|#[^\n]*|<!--[\s\S]*?-->|--[^\n]*)|("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`)|(\b(?:const|let|var|function|return|if|else|for|while|do|switch|case|break|continue|default|import|from|export|as|class|extends|implements|interface|type|new|this|super|try|catch|finally|throw|async|await|yield|def|elif|lambda|pass|with|in|is|not|and|or|struct|enum|pub|fn|mut|impl|trait|select|insert|update|delete|where|group|by|order|limit|join|left|right|inner|outer|create|table|drop|alter)\b)|(\b(?:true|false|null|undefined|None|True|False|nil)\b)|(\b\d+(?:\.\d+)?\b)|(\b[a-zA-Z_$][a-zA-Z0-9_$]*(?=\s*\())|(\b[A-Z][a-zA-Z0-9_$]*\b)/g;
+
+  const elements: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = tokenRegex.exec(code)) !== null) {
+    if (match.index > lastIndex) {
+      elements.push(code.slice(lastIndex, match.index));
+    }
+
+    const [full, comment, str, kw, boolVal, num, funcName, typeName] = match;
+    const key = `${match.index}-${full.slice(0, 5)}`;
+
+    if (comment) {
+      elements.push(<span key={key} className="text-slate-400 dark:text-slate-500 italic">{comment}</span>);
+    } else if (str) {
+      elements.push(<span key={key} className="text-emerald-400 dark:text-emerald-300">{str}</span>);
+    } else if (kw) {
+      elements.push(<span key={key} className="text-purple-400 dark:text-purple-300 font-medium">{kw}</span>);
+    } else if (boolVal) {
+      elements.push(<span key={key} className="text-amber-400 dark:text-amber-300">{boolVal}</span>);
+    } else if (num) {
+      elements.push(<span key={key} className="text-amber-300 dark:text-amber-200">{num}</span>);
+    } else if (funcName) {
+      elements.push(<span key={key} className="text-sky-400 dark:text-sky-300">{funcName}</span>);
+    } else if (typeName) {
+      elements.push(<span key={key} className="text-cyan-300 dark:text-cyan-200">{typeName}</span>);
+    } else {
+      elements.push(full);
+    }
+
+    lastIndex = match.index + full.length;
+  }
+
+  if (lastIndex < code.length) {
+    elements.push(code.slice(lastIndex));
+  }
+
+  return elements;
 }
 
 export function CodeBlock({ children, className }: any) {
@@ -228,8 +281,8 @@ export function CodeBlock({ children, className }: any) {
   const isMermaid = lang === "mermaid";
 
   return (
-    <div className="my-3.5 overflow-hidden rounded-2xl border border-border/70 bg-[#0d0d0d] shadow-xs">
-      <div className="flex items-center justify-between border-b border-white/5 bg-[#1f1f23] px-4 py-2 text-xs text-muted-foreground select-none">
+    <div className="my-3.5 overflow-hidden rounded-2xl border border-border/70 bg-code shadow-xs">
+      <div className="flex items-center justify-between border-b border-border/40 bg-code-header px-4 py-2 text-xs text-muted-foreground select-none">
         <div className="flex items-center gap-2">
           <span className="font-mono text-xs font-medium uppercase tracking-wide text-slate-300">
             {lang || t("chat.markdown.codeFallback")}
@@ -269,8 +322,10 @@ export function CodeBlock({ children, className }: any) {
           </button>
         </div>
       </div>
-      <div className="overflow-x-auto p-4 font-mono text-xs sm:text-sm leading-[1.65] text-[#ececec]">
-        <code className="block whitespace-pre font-mono">{children}</code>
+      <div className="overflow-x-auto p-4 font-mono text-xs sm:text-sm leading-[1.65] text-code-foreground">
+        <code className="block whitespace-pre font-mono">
+          {highlightSyntax(codeText, lang)}
+        </code>
       </div>
     </div>
   );

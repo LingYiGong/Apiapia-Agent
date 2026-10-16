@@ -133,6 +133,11 @@ export default {
     renamePh: "新しいタイトルを入力",
   },
 
+  sidebar: {
+    collapse: "サイドバーを折りたたむ",
+    expand: "サイドバーを展開",
+  },
+
   header: {
     currentModel: "現在のモデル: ",
     memoryCountTip: "この会話で使われた {count} 件の記憶を表示",
@@ -223,6 +228,8 @@ export default {
     toggleLabel: "長期記憶",
     toggleAria: "長期記憶を切り替える",
     gotoLibrary: "記憶庫を開く",
+    collapse: "記憶を折りたたむ",
+    expand: "記憶を表示",
   },
 
 

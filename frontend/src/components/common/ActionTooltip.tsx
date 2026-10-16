@@ -9,6 +9,7 @@ interface ActionTooltipProps {
   side?: "top" | "right" | "bottom" | "left";
   align?: "start" | "center" | "end";
   className?: string;
+  shortcut?: string;
 }
 
 /**
@@ -34,6 +35,7 @@ export function ActionTooltip({
   side = "top",
   align = "center",
   className,
+  shortcut,
 }: ActionTooltipProps) {
   if (!label) return <>{children}</>;
 
@@ -42,6 +44,7 @@ export function ActionTooltip({
       <TooltipTrigger asChild>{children}</TooltipTrigger>
       <TooltipContent side={side} align={align} className={className}>
         {label}
+        {shortcut ? ` (${shortcut})` : null}
       </TooltipContent>
     </Tooltip>
   );

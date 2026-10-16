@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.27.0-indigo?style=flat-square" alt="Version"></a>
+  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.28.0-indigo?style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
@@ -193,7 +193,37 @@ cat backup_xxx.sql | docker exec -i apiapia_postgres psql -U postgres -d apiapia
 
 ## 📜 Releases & Changelog
 
-### 🚀 Latest Release: v2.27.0 (2026-10-16)
+### 🚀 Latest Release: v2.28.0 (2026-10-16)
+
+This release focuses on **Mobile & Desktop Core UX Optimizations**: iOS safe area notch/Dynamic Island content resilience, virtual keyboard viewport avoidance, collapsible dual sidebars with keyboard shortcuts, rapid prompt recall, and modern developer typography standards.
+
+#### 1. iOS Safe Area & Dynamic Island Resilience
+- **Outer Header Padding Lift**: Moved top safe-area padding (`pt-[var(--sat)]`) to the outer `<header>` element so the toolbar expands naturally on notch/island devices while inner action items maintain an unconstrained 48px height with centered alignment, completely eliminating content squishing and bottom border clipping.
+
+#### 2. Mobile Soft Keyboard Detection & TabBar Viewport Avoidance
+- **Zero-Accidental-Tab-Switching**: Implemented `useIsKeyboardOpen` leveraging the Visual Viewport API and focus listeners. When the virtual keyboard pops up on mobile, `<MobileTabBar>` automatically hides (`hidden`), freeing 50–80px of vertical space and preventing accidental tab jumps while typing.
+
+#### 3. Desktop Collapsible Dual Sidebars & Global ⌘B / Ctrl+B Shortcut
+- **100% Screen Space Reclaim**: Desktop history and memory sidebars can now be toggled independently. Added a collapse button to the sidebar header and dual toggle buttons in the desktop toolbar with memory item badges. Sidebar open/collapsed state is persisted to `localStorage` and toggleable via `⌘B` / `Ctrl+B`.
+
+#### 4. Prompt History Recall on Empty Input (ArrowUp)
+- **ChatGPT / Discord-Style Prompt Recall**: Pressing the `↑` (ArrowUp) key on an empty composer instantly retrieves the last user message and sets the cursor at the end for rapid prompt tweaking and resending.
+
+#### 5. Developer Monospace Font Stack & CJK Han Unification Standards
+- **Modern Monospace Stack**: Enhanced `--font-mono` prioritizing `SF Mono`, `JetBrains Mono`, `Cascadia Code`, and `Fira Code`.
+- **CJK Han Unification Glyph Fix**: Added `:root:lang(ja), [data-locale="ja"]` and `:root:lang(zh-TW), [data-locale="zh-TW"]` font overrides to ensure Japanese and Traditional Chinese glyphs render according to native typographic norms rather than falling back to Simplified Chinese glyph variants.
+
+#### 6. CodeBlock Design Tokens & Zero-Dependency Streaming Syntax Highlighting
+- **Token Convergence**: Replaced hardcoded `#0d0d0d` and `#1f1f23` with design tokens `bg-code`, `bg-code-header`, and `text-code-foreground`.
+- **Zero-Dependency Highlighting**: Implemented a lightweight, synchronous regex-based tokenizer covering keywords, strings, comments, numbers, booleans, and functions with zero external bundle overhead and smooth streaming performance.
+
+#### 7. Strict i18n Dictionary Alignment & ActionTooltip Shortcuts
+- **Complete Four-Language Keys**: Wired `chat.sidebar` and `chat.recall` toggle keys across all 4 locales (zh-CN, zh-TW, en, ja).
+- **Shortcut Badge Support**: Added optional `shortcut` prop to `ActionTooltip` for elegant shortcut rendering.
+
+---
+
+### v2.27.0 (2026-10-16)
 
 This release rebuilds the **model selector for mobile**. The picker no longer floats as a cramped panel pinned to a narrow trigger in the top bar: on phones it now opens as a **full-width bottom sheet**, and the category filter — which previously consumed roughly half the screen height — is **compressed into a single row of chips**. Along the way we corrected a real defect in the "Free" filter and removed a layer of dead code.
 

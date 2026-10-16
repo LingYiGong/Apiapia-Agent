@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.27.0-indigo?style=flat-square" alt="Version"></a>
+  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.28.0-indigo?style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
@@ -192,7 +192,36 @@ cat backup_xxx.sql | docker exec -i apiapia_postgres psql -U postgres -d apiapia
 
 ## 📜 版本发布与更新说明 (Release Notes)
 
-### 🚀 最新版本：v2.27.0 (2026-10-16)
+### 🚀 最新版本：v2.28.0 (2026-10-16)
+
+本版本是一次聚焦于**移动端与桌面端全场景核心交互与体验优化**的重要版本。全面修复了异形屏顶栏裁切与移动端软键盘遮挡底栏的顽疾，落地桌面端全屏双侧栏伸缩与提问快捷召回，升级现代化代码字体与 CJK 语种渲染标准，并重构了代码块 Token 体系与轻量流式语法高亮。
+
+#### 1. iOS 刘海与灵动岛安全区防裁切
+- **顶栏内边距外提自适应**：将安全区 padding `pt-[var(--sat)]` 移至外层 `<header>` 自动撑高顶栏，内部 48px 内容行保持标准垂直居中，彻底消除异形屏机型上内容与底边框受挤压裁切的问题。
+
+#### 2. 移动端软键盘智能避让与 TabBar 自动隐藏
+- **打字误触切页彻底杜绝**：新增 `useIsKeyboardOpen` 监听器，毫秒级响应移动端虚拟键盘的弹起与收起；打字时 `<MobileTabBar>` 自动隐藏，释放 50~80px 宝贵的屏幕垂直空间，收起键盘后即刻平滑恢复。
+
+#### 3. 桌面端双侧栏独立折叠与 ⌘B / Ctrl+B 快捷键
+- **对话区 100% 沉浸铺展**：桌面端历史侧栏与右侧记忆侧栏全面支持独立折叠/展开，并持久化至本地存储；侧栏顶部新增折叠按钮，桌面顶栏新增记忆侧栏入口与命中计数徽标，全局绑定 `⌘B` / `Ctrl+B` 一键开合。
+
+#### 4. 输入框提问历史快捷召回（ArrowUp）
+- **对齐 ChatGPT / Discord 体验**：当输入框为空且未处于斜杠指令菜单时，按下键盘 `↑`（ArrowUp）键直接一键将上一条用户提问召回至输入框并将光标置于末尾，便于快速微调参数重发。
+
+#### 5. 现代化等宽编程字体栈与 CJK 字形渲染规范
+- **代码字体辨识度升级**：`--font-mono` 优先匹配 SF Mono、JetBrains Mono、Cascadia Code、Fira Code 等高可读性现代等宽编程字体。
+- **消灭 Han Unification 汉字字形混淆**：在 CSS 层级新增 `:root:lang(ja), [data-locale="ja"]` 与 `:root:lang(zh-TW), [data-locale="zh-TW"]` 专用字族声明，日文与繁体中文优先匹配对应母语字形，告别日文汉字被渲染成简体字形的违和感。
+
+#### 6. 代码块语义设计 Token 与零依赖流式语法着色
+- **硬编码色值彻底收拢**：全站代码块统一收拢至 Tailwind 语义设计 Token（`bg-code`、`bg-code-header`、`text-code-foreground`）。
+- **零依赖流式轻量语法高亮**：在不增加任何额外 npm 依赖包的前提下，自研基于正则词法的轻量语法高亮引擎，覆盖关键字、字符串、数字、注释、函数名与布尔值，兼顾流畅度与美观度。
+
+#### 7. 严格四语字典补齐与 ActionTooltip 快捷键支持
+- **多语言类型安全**：在简中、繁中、英文、日文四语字典中全量补齐 `chat.sidebar` 与 `chat.recall` 折叠强类型词条，杜绝 `tsc` 构建报错；`ActionTooltip` 新增 `shortcut` 属性，规范化呈现快捷键气泡。
+
+---
+
+### v2.27.0 (2026-10-16)
 
 本版本是一次聚焦于**模型选择器移动端交互重构**的重要更新。针对移动端「面板太窄、点选不便」的长期痛点，选择器在手机端改为**通栏底部抽屉**，分类筛选由占掉近半屏的竖排列表**压缩为单行胶囊**，并借机修正了「免费」分组把低价付费模型混入其中的语义缺陷，同时完成一轮死代码清理。
 

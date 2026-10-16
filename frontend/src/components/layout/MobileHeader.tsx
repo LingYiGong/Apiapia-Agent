@@ -57,15 +57,14 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
   return (
     <header
       className={cn(
-        "z-30 w-full shrink-0 select-none border-b border-border/40 bg-background/90 backdrop-blur-xl md:hidden",
+        "z-30 w-full shrink-0 select-none border-b border-border/40 bg-background/90 pt-[var(--sat)] backdrop-blur-xl md:hidden",
         className
       )}
     >
-      {/* pt-[var(--sat)] 让内容行避开 iOS 状态栏 / 灵动岛。padding 在
-          border-box 内，因此 border-b 仍然贴着内容行的下沿而不是头部顶端。
-          pl/pr 跟随 --sal/--sar，横屏刘海与 Android edge-to-edge 都不会裁到
-          logo 或头像。 */}
-      <div className="flex h-[var(--header-h)] min-w-0 items-center justify-between gap-2.5 pl-[max(0.75rem,var(--sal))] pr-[max(0.75rem,var(--sar))] pt-[var(--sat)] sm:pl-[max(1rem,var(--sal))] sm:pr-[max(1rem,var(--sar))]">
+      {/* pt-[var(--sat)] 移至外层 header，使顶栏自适应增高（48px + 安全区高度）；
+          内部内容行维持 48px 高度并居中对齐，避免在刘海屏/灵动岛机型上因 border-box 导致内容被裁切压缩。
+          pl/pr 跟随 --sal/--sar，横屏刘海与 Android edge-to-edge 都不会裁到 logo 或头像。 */}
+      <div className="flex h-[var(--header-h)] min-w-0 items-center justify-between gap-2.5 pl-[max(0.75rem,var(--sal))] pr-[max(0.75rem,var(--sar))] sm:pl-[max(1rem,var(--sal))] sm:pr-[max(1rem,var(--sar))]">
         <button
           type="button"
           onClick={() => {

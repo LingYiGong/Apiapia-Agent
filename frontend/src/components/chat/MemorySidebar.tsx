@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { EmptyState } from "@/components/common/EmptyState";
 import { MemoryCard } from "@/components/memory/MemoryCard";
 import { normalizeMemories } from "@/lib/memory";
+import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n";
 import {
   Sheet,
@@ -23,6 +24,7 @@ interface MemorySidebarProps {
   memoryEnabled: boolean;
   onToggleMemory: () => void;
   isOpen?: boolean;
+  isDesktopOpen?: boolean;
   onClose?: () => void;
   onSelectMobileTab?: (tab: MobileTab) => void;
 }
@@ -40,6 +42,7 @@ export function MemorySidebar({
   memoryEnabled,
   onToggleMemory,
   isOpen = false,
+  isDesktopOpen = true,
   onClose,
   onSelectMobileTab,
 }: MemorySidebarProps) {
@@ -183,7 +186,12 @@ export function MemorySidebar({
           移进一个 `hidden md:hidden` 的父级里，在任何宽度都点不到，于是
           这个侧栏既关不掉也开不了。现在桌面端不再有开关，直接常驻，
           isOpen 只驱动下方的移动端抽屉。 */}
-      <aside className="hidden h-full w-[var(--sidebar-w)] shrink-0 flex-col border-l border-border/70 bg-surface-1 md:flex lg:w-[var(--sidebar-w-lg)]">
+      <aside
+        className={cn(
+          "hidden h-full w-[var(--sidebar-w)] shrink-0 flex-col border-l border-border/70 bg-surface-1 md:flex lg:w-[var(--sidebar-w-lg)] transition-all duration-200",
+          !isDesktopOpen && "md:hidden"
+        )}
+      >
         {renderMemoryContent({ bottomInset: false })}
       </aside>
 

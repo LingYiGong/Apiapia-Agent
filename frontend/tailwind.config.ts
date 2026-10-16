@@ -13,6 +13,15 @@ const config: Config = {
     // 全站 0 处使用 `container` 类 —— 布局宽度一律由各视图的
     // `max-w-*` + `mx-auto` 自己控制，因此整段删除。
     extend: {
+      /* ── 断点 ────────────────────────────────────────────────
+         `mdup` = 「宽度够 AND 高度够」，用来单独表达**桌面外壳**。
+         只有 md: 时横屏手机（iPhone 15 Pro Max 932×430）会命中全套
+         桌面规则，导致 512px 侧栏挤掉聊天区、移动标签栏消失。
+         凡是决定「用桌面外壳还是移动外壳」的地方一律改用 mdup；
+         纯排版微调（如 md:p-8 内边距）继续用 md。 */
+      screens: {
+        mdup: { raw: "(min-width: 768px) and (min-height: 600px)" },
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -66,12 +75,30 @@ const config: Config = {
           "3": "hsl(var(--surface-3))",
           "4": "hsl(var(--surface-4))",
         },
+        /**
+         * 代码块表面。此前 CodeBlock / WordCard 各自硬编码
+         * `bg-[#0d0d0d]` / `bg-[#1f1f23]` / `text-[#ececec]`，
+         * 四个字面量散在两个文件里；现在统一引用 globals.css 的
+         * --code-* 变量。
+         */
+        code: {
+          DEFAULT: "hsl(var(--code-bg))",
+          header: "hsl(var(--code-header))",
+          foreground: "hsl(var(--code-fg))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
         xs: "calc(var(--radius) - 6px)",
+        /**
+         * 两种「大体量」圆角。此前分别是 rounded-[22px]（弹层，
+         * 5 处）与 rounded-[24px]（抽屉 / 气泡，3 处），属于同一套
+         * Apple 连续曲率语言却各写各的任意值。统一成刻度。
+         */
+        sheet: "24px",
+        overlay: "22px",
       },
       /**
        * 字体栈全部 var() 引用 globals.css 的 --font-sans / --font-mono。
@@ -92,6 +119,37 @@ const config: Config = {
       boxShadow: {
         "2xs": "0 1px 1px 0 rgb(0 0 0 / 0.04)",
         xs: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
+        /**
+         * 大面积浮层的投影。此前 6 处 `shadow-[0_20px_50px_rgba(0,0,0,0.22)]`
+         * 之类的任意值散落在 surfaces.ts / ChatArea.tsx 里，且各自带一份
+         * `dark:` 覆盖。命名后由调用方用 dark: 切换。
+         */
+        overlay: "0 20px 50px 0 rgb(0 0 0 / 0.22)",
+        "overlay-lg": "0 24px 60px 0 rgb(0 0 0 / 0.6)",
+      },
+      /**
+       * 正文行高。此前正文有 1.5 / 1.62 / 1.65 / 1.75 / leading-relaxed
+       * 五个值，其中 1.62 与 1.75 描述的是**同一段 AI 回复**（markdown
+       * 渲染器 vs 消息气泡），改一处就出现行距跳变。
+       */
+      lineHeight: {
+        /** AI 回复正文，兼作全局长文默认值 */
+        prose: "1.62",
+        /** 气泡内文字：略松，容纳用户随手输入的短句 */
+        bubble: "1.7",
+      },
+      /**
+       * z 轴刻度。此前全站只有 z-10/20/30/40/50 五个裸数字在用，
+       * 其中 z-30 同时被 MobileHeader、MobileTabBar、滚动按钮、
+       * 斜杠命令弹层四层不同用途占用；拖拽中的会话卡片还写了一个
+       * 内联 zIndex: 40，数值上压过 z-30 的头部栏。
+       */
+      zIndex: {
+        content: "10",
+        chrome: "20",
+        sticky: "30",
+        bar: "40",
+        overlay: "50",
       },
       dropShadow: {
         xs: "0 1px 1px 0 rgb(0 0 0 / 0.06)",

@@ -68,9 +68,21 @@
     --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
       "SF Pro", system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial,
       "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC",
+      "Hiragino Sans", "Yu Gothic", "Meiryo", "Noto Sans JP",
       sans-serif;
+    /* 现代化等宽字体栈：优先 SF Mono / JetBrains Mono / Cascadia Code，保证代码符号与对齐清晰 */
     --font-mono: -apple-system-monospaced, "SF Mono", SFMono-Regular, ui-monospace,
-      Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      "JetBrains Mono", "Cascadia Code", "Fira Code", Menlo, Monaco, Consolas, "Liberation Mono",
+      "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC",
+      monospace;
+
+    /* ── 代码块表面 ────────────────────────────────────────────
+       CodeBlock / WordCard 此前各自硬编码 #0d0d0d（正文）/ #1f1f23
+       （标题条）/ #ececec（前景）/ white/5（描边）。四种值散在
+       两个文件里，改主题要同时记得改两处。 */
+    --code-bg: 0 0% 5%;
+    --code-header: 240 4% 12%;
+    --code-fg: 0 0% 92.5%;
 
     /* ── 布局常量 ────────────────────────────────────────────
        跨文件复用的固定高度。此前同一数值在 Navbar 的页签高度、
@@ -80,6 +92,14 @@
     --header-h-desktop: 56px; /* DesktopNavbar 行高 (md:h-14) */
     --toolbar-h: 48px; /* DesktopChatHeader 行高 (h-12) */
     --tabbar-h: 49px; /* MobileTabBar 内容行 (Apple HIG 49pt) */
+
+    /* 判定「桌面外壳」所需的最小高度。与 tailwind.config.ts 的 `mdup`
+       断点（`(min-width: 768px) and (min-height: 600px)`）一一对应。
+       只有宽度条件时，iPhone 15 Pro Max 横屏（932×430）会命中全套
+       md: 规则：两个 256px 侧栏 + 桌面导航 + 桌面工具条，而移动标签栏
+       被隐藏、底部安全区无人处理。加上高度条件后横屏手机继续走移动
+       端外壳。改这里必须同步改 tailwind.config.ts 的 mdup。 */
+    --desktop-min-h: 600px;
 
     /* 侧栏宽度：Sidebar / MemorySidebar / 骨架屏三处共用。
        骨架屏此前写死 `w-64 lg:w-72` 而真实侧栏写 `md:w-64 lg:w-72`，
@@ -92,6 +112,24 @@
     --sab: env(safe-area-inset-bottom, 0px);
     --sal: env(safe-area-inset-left, 0px);
     --sar: env(safe-area-inset-right, 0px);
+  }
+
+  /* CJK 多语言排版规范：针对日文及繁体中文优先匹配对应字形，
+     彻底解决 CJK 汉字同位异形体（Han Unification）导致的字形渲染混淆 */
+  :root:lang(ja),
+  [data-locale="ja"] {
+    --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro", system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+      "Hiragino Sans", "Yu Gothic", "Meiryo", "Noto Sans JP",
+      "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+
+  :root:lang(zh-TW),
+  :root:lang(zh-HK),
+  [data-locale="zh-TW"],
+  [data-locale="zh-HK"] {
+    --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro", system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+      "PingFang TC", "PingFang HK", "Microsoft JhengHei", "Noto Sans TC",
+      "PingFang SC", "Microsoft YaHei", sans-serif;
   }
 
   .light {
@@ -130,12 +168,48 @@
     --success: 134 76% 60%; /* #30D158 */
     --success-foreground: 0 0% 0%;
   }
+
+  /* 日文环境：优先日文字形，杜绝中日汉字字形混淆（Han Unification 歧义） */
+  :root:lang(ja),
+  [data-locale="ja"] {
+    --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro", system-ui,
+      "Segoe UI", Roboto, "Helvetica Neue", Arial,
+      "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", "Noto Sans JP",
+      "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+
+  /* 繁体中文环境：优先台湾/香港标准字形 */
+  :root:lang(zh-TW),
+  [data-locale="zh-TW"] {
+    --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro", system-ui,
+      "Segoe UI", Roboto, "Helvetica Neue", Arial,
+      "PingFang TC", "Microsoft JhengHei", "Noto Sans TC",
+      "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
 }
 
 @layer base {
   * {
     @apply border-border;
   }
+
+  /* 全局键盘焦点兜底。
+     ------------------------------------------------------------------
+     此前 globals.css 里没有任何 :focus-visible 规则，键盘焦点完全依赖
+     每个组件自觉加 ring —— 而有几处没加：
+       - Sidebar.tsx 的行内重命名 input 是 `outline-none` 且无替代
+       - dropdown-menu / select 的键盘高亮是 `bg-accent`，在白底上仅 1.07:1
+     一旦某个新组件忘了写 focus 样式，键盘用户就彻底失去位置提示
+     （WCAG 2.4.7 Focus Visible）。
+
+     这里给出下限：2px ring 色 + 2px 偏移。组件自己写的 ring 依然生效
+     （Tailwind 的 focus-visible:ring-* 用 box-shadow，不与 outline 冲突），
+     只有「完全没写」的地方才落到这条兜底上。 */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+
   html,
   body {
     @apply bg-background text-foreground;
@@ -320,7 +394,11 @@ input[type="search"]::-webkit-search-results-decoration {
 
 /* 确保顶部 Toast 提示框永远位于头部栏下方，绝不遮挡头部栏。
    取值需与 components/ui/sonner.tsx 的 TOASTER_TOP_OFFSET 保持一致，
-   两者共同引用 --header-h / --sat，避免第三份字面量。 */
+   两者共同引用 --header-h / --sat，避免第三份字面量。
+
+   用 max() 取两个头部高度里较大的那个：此前固定用 --header-h(48px)，
+   而 md+ 上真正可见的是 DesktopNavbar 的 --header-h-desktop(56px)，
+   于是 toast 顶边落在 48+9.6 = 57.6px，正好扎进 56px 高的桌面工具条里 1.6px。 */
 [data-sonner-toaster][data-y-position="top"] {
-  top: calc(var(--header-h) + var(--sat) + 0.6rem) !important;
+  top: calc(max(var(--header-h), var(--header-h-desktop)) + var(--sat) + 0.6rem) !important;
 }

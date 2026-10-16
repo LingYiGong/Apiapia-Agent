@@ -131,6 +131,11 @@ export default {
     renamePh: "請輸入新標題",
   },
 
+  sidebar: {
+    collapse: "收起側欄",
+    expand: "展開側欄",
+  },
+
   header: {
     currentModel: "目前模型：",
     memoryCountTip: "檢視目前對話使用的 {count} 筆關聯記憶",
@@ -221,6 +226,8 @@ export default {
     toggleLabel: "長期記憶檢索",
     toggleAria: "長期記憶開關",
     gotoLibrary: "前往長期記憶庫",
+    collapse: "收起記憶",
+    expand: "檢視記憶",
   },
 
 

@@ -140,6 +140,12 @@ export default {
     renamePh: "请输入新标题",
   },
 
+  /** 侧栏折叠与控制 */
+  sidebar: {
+    collapse: "收起侧栏",
+    expand: "展开侧栏",
+  },
+
   /** 移动端头部 */
   header: {
     currentModel: "当前模型：",
@@ -234,6 +240,8 @@ export default {
     toggleLabel: "长期记忆检索",
     toggleAria: "长期记忆开关",
     gotoLibrary: "前往长期记忆库",
+    collapse: "收起记忆",
+    expand: "查看记忆",
   },
 
 

@@ -133,6 +133,11 @@ export default {
     renamePh: "Enter a new title",
   },
 
+  sidebar: {
+    collapse: "Collapse sidebar",
+    expand: "Expand sidebar",
+  },
+
   header: {
     currentModel: "Model: ",
     memoryCountTip: "View the {count} memories used in this conversation",
@@ -223,6 +228,8 @@ export default {
     toggleLabel: "Long-term memory",
     toggleAria: "Toggle long-term memory",
     gotoLibrary: "Open the memory library",
+    collapse: "Collapse memories",
+    expand: "View memories",
   },
 
 

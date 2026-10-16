@@ -24,6 +24,7 @@ import {
   Pencil,
   MessageSquare,
   MoreHorizontal,
+  PanelLeftClose,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -50,6 +51,8 @@ interface SidebarProps {
   onReorderPinned: (orderedIds: string[]) => void;
   onRename: (id: string, newTitle: string) => void;
   loading?: boolean;
+  isOpen?: boolean;
+  onToggleOpen?: () => void;
 }
 
 /** 会话的最后活跃时间（排序与分组的唯一时间口径）。 */
@@ -67,6 +70,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onReorderPinned,
   onRename,
   loading = false,
+  isOpen = true,
+  onToggleOpen,
 }) => {
   const [search, setSearch] = useState("");
   const { t, fmt } = useI18n();
@@ -337,13 +342,34 @@ title={c.title || t("chat.history.untitled")}
           移动端历史是独立的全屏页签（MobileHistoryView），不再走 Sheet 抽屉 ——
           之前那条分支的 isOpen 被 chat/page.tsx 硬编码成 false，永远打不开，
           连同里面的抓手与关闭按钮一起都是不可达代码。 */}
-      <aside className="hidden h-full w-[var(--sidebar-w)] shrink-0 flex-col border-r border-border/70 bg-surface-1 md:flex lg:w-[var(--sidebar-w-lg)]">
+      <aside
+        className={cn(
+          "hidden h-full w-[var(--sidebar-w)] shrink-0 flex-col border-r border-border/70 bg-surface-1 md:flex lg:w-[var(--sidebar-w-lg)] transition-all duration-200",
+          !isOpen && "md:hidden"
+        )}
+      >
         {/* Header with Search */}
         <div className="flex flex-col gap-2 border-b border-border/50 p-3">
-          <Button type="button" onClick={onNewChat} className="w-full">
-            <Plus className="h-4 w-4" />
-            <span>{t("chat.history.newChat")}</span>
-          </Button>
+          <div className="flex items-center gap-1.5">
+            <Button type="button" onClick={onNewChat} className="flex-1">
+              <Plus className="h-4 w-4" />
+              <span>{t("chat.history.newChat")}</span>
+            </Button>
+            {onToggleOpen && (
+              <ActionTooltip label={t("chat.sidebar.collapse")} shortcut="⌘B">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={onToggleOpen}
+                  className="h-9 w-9 shrink-0 rounded-xl text-muted-foreground hover:bg-surface-3 hover:text-foreground active:scale-95"
+                  aria-label={t("chat.sidebar.collapse")}
+                >
+                  <PanelLeftClose className="h-4 w-4" />
+                </Button>
+              </ActionTooltip>
+            )}
+          </div>
 
           <div className="relative">
             <Label htmlFor="sidebar-search" className="sr-only">

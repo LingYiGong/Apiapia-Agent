@@ -126,11 +126,15 @@ export default {
     selectAria: "Choose {kind}",
     selectAriaCurrent: ", currently {name}",
     title: "Choose {kind}",
+    /** A11y description for the mobile bottom sheet (visually hidden). */
+    sheetDesc: "Pick a {kind} by scenario, or search by name and vendor.",
     current: "Current: {name}",
     searchAria: "Search {kind}",
     searchPh: "Search {kind}",
     clearSearch: "Clear search",
     listAria: "{kind} list",
+    /** A11y name for the filter-chip row (role="group"). */
+    filterGroupAria: "{kind} category filters",
     noMatch: "No matching {kind}",
     multimodalBadge: "Multimodal",
     allGroup: "All",

@@ -241,11 +241,3 @@ export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
     </DropdownMenu>
   );
 };
-
-/**
- * 移动端头部的头像入口。保留这个薄包装是因为 5 个视图都在用它，
- * 直接透传可读性更好，也留出将来做「未读角标」的位置。
- */
-export const UserAvatarDropdown = UserAvatarMenu;
-
-export type UserAvatarDropdownProps = UserAvatarMenuProps;

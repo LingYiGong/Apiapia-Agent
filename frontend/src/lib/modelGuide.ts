@@ -91,8 +91,8 @@ function guide(
 }
 
 // ── 18 条画像 ─────────────────────────────────────────────────────────────
-// 命名成常量，是因为下面 RECOMMENDED_CHAT_MODELS 还要按「推荐顺序」再引一次；
-// 同一份数据出现两次就该共享引用，而不是复制粘贴。
+// 命名成常量，是为了下面的 GUIDES 命中表按名字引用；同一个模型的对象
+// 字面量只写一次，不复制粘贴。
 
 const SONNET = guide("settings.modelGuide.reason.sonnet", "standard", ["writing", "coding"]);
 const GPT_SOL = guide(
@@ -333,33 +333,6 @@ export function getModelGuide(id: string): ModelGuide | undefined {
   }
   return undefined;
 }
-
-/**
- * 推荐顺序。**从「大多数人该先选哪个」排到「特殊需求专用」**，
- * 便宜的放中间而不是垫底 —— 省钱是硬需求，不该藏在最底下。
- *
- * 设置页的推荐卡片直接按这个顺序渲染，所以顺序变了就是推荐策略变了。
- */
-export const RECOMMENDED_CHAT_MODELS: ReadonlyArray<{ id: string; guide: ModelGuide }> = [
-  { id: "anthropic/claude-sonnet-5.5", guide: SONNET },
-  { id: "openai/gpt-6.1-sol", guide: GPT_SOL },
-  { id: "google/gemini-3.8-flash", guide: GEMINI_FLASH },
-  { id: "z-ai/glm-5.3", guide: GLM },
-  { id: "openai/gpt-6-luna", guide: GPT_LUNA },
-  { id: "z-ai/glm-5.3-flash", guide: GLM_FLASH },
-  { id: "anthropic/claude-opus-5.5", guide: OPUS },
-  { id: "deepseek/deepseek-v4-pro-0813", guide: DEEPSEEK_PRO },
-  { id: "x-ai/grok-4.7", guide: GROK47 },
-  { id: "qwen/qwen3.8-max-0902", guide: QWEN_MAX },
-  { id: "openai/gpt-6-astra", guide: GPT_ASTRA },
-  { id: "moonshotai/kimi-k3", guide: KIMI_K3 },
-  { id: "deepseek/deepseek-v4.1-flash", guide: DEEPSEEK_FLASH },
-  { id: "qwen/qwen3.8-flash", guide: QWEN_FLASH },
-  { id: "minimax/minimax-m3", guide: MINIMAX_M3 },
-  { id: "xiaomi/mimo-v2.6-flash", guide: MIMO_FLASH },
-  { id: "anthropic/claude-haiku-5.5", guide: HAIKU },
-  { id: "openrouter/free", guide: FREE_ROUTER },
-];
 
 /**
  * 场景分类的展示顺序，也就是 ModelPicker「按场景选型」区块的排列顺序。

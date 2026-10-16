@@ -132,11 +132,15 @@ export default {
     selectAria: "选择{kind}{current}",
     selectAriaCurrent: "，当前 {name}",
     title: "选择{kind}",
+    /** 移动端底部抽屉的无障碍描述（视觉隐藏，抽屉没有可见副标题） */
+    sheetDesc: "按场景挑选{kind}，或直接搜索名称与厂商。",
     current: "当前: {name}",
     searchAria: "搜索{kind}",
     searchPh: "搜索{kind}",
     clearSearch: "清除搜索",
     listAria: "{kind}列表",
+    /** 分类胶囊区（role="group"）的无障碍名称 */
+    filterGroupAria: "{kind}分组筛选",
     noMatch: "未找到匹配的{kind}",
     multimodalBadge: "多模态",
     allGroup: "全部",

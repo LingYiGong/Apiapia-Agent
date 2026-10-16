@@ -125,11 +125,15 @@ export default {
     selectAria: "{kind}を選択",
     selectAriaCurrent: "、現在 {name}",
     title: "{kind}を選択",
+    /** モバイル下部のシート用のアクセシビリティ説明（視覚的には非表示） */
+    sheetDesc: "用途で{kind}を選ぶか、名前やメーカーで検索できます。",
     current: "現在: {name}",
     searchAria: "{kind}を検索",
     searchPh: "{kind}を検索",
     clearSearch: "検索条件を消去",
     listAria: "{kind}の一覧",
+    /** 絞り込みチップの列（role="group"）のアクセシブルな名前 */
+    filterGroupAria: "{kind}のカテゴリ絞り込み",
     noMatch: "一致する{kind}がありません",
     multimodalBadge: "マルチモーダル",
     allGroup: "すべて",

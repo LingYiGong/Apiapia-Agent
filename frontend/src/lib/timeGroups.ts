@@ -142,25 +142,3 @@ export function groupByTimeBuckets<T>(
   }
   return sections;
 }
-
-/**
- * 扁平的会话排序：置顶优先 → 置顶内按 pinOrder → 其余按最后活跃时间倒序。
- * 供没有分组小标、只有一列的场景使用（桌面侧栏）。
- */
-export function sortByPinnedThenActivity<T>(
-  items: readonly T[],
-  getTime: (item: T) => number,
-  isPinned: (item: T) => boolean,
-  getPinOrder: (item: T) => number
-): T[] {
-  return [...items].sort((a, b) => {
-    const aPinned = isPinned(a);
-    const bPinned = isPinned(b);
-    if (aPinned !== bPinned) return aPinned ? -1 : 1;
-    if (aPinned && bPinned) {
-      const diff = getPinOrder(a) - getPinOrder(b);
-      if (diff !== 0) return diff;
-    }
-    return getTime(b) - getTime(a);
-  });
-}

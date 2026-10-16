@@ -2,13 +2,13 @@
 
 import React, { useMemo } from "react";
 import { Sparkles, List } from "lucide-react";
+import { ModelPicker } from "@/components/common/ModelPicker";
 import {
-  ModelPicker,
   allFilterMatch,
   featuredFilterMatch,
   freeFilterMatch,
   type ModelFilterGroup,
-} from "@/components/common/ModelPicker";
+} from "@/components/common/modelFilterGroups";
 import {
   USE_CASE_ICONS,
   USE_CASE_LABEL_KEYS,
@@ -72,7 +72,6 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
       return {
         key: `use:${key}`,
         label: t(USE_CASE_LABEL_KEYS[key]),
-        tone: key === "fastFree" ? "free" : "accent",
         icon: Icon,
         count: matched.length,
         // 右侧显示去重后的真实模型数。`:batch` / `-pro` / `~latest` 变体不该让数字虚高。
@@ -87,7 +86,6 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
       {
         key: "recommended",
         label: t("settings.modelGuide.groupRecommend"),
-        tone: "featured",
         icon: Sparkles,
         count: recommended.length,
         distinctCount: countDistinctModels(options, featuredFilterMatch),
@@ -98,7 +96,6 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
       {
         key: "all",
         label: t("settings.picker.allGroup"),
-        tone: "all",
         icon: List,
         count: options.length,
         distinctCount: countDistinctModels(options, () => true),

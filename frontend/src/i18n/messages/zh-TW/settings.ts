@@ -125,11 +125,15 @@ export default {
     selectAria: "選擇{kind}",
     selectAriaCurrent: "，目前 {name}",
     title: "選擇{kind}",
+    /** 行動版底部抽屜的無障礙描述（視覺隱藏，抽屜沒有可見副標題） */
+    sheetDesc: "按場景挑選{kind}，或直接搜尋名稱與廠商。",
     current: "目前: {name}",
     searchAria: "搜尋{kind}",
     searchPh: "搜尋{kind}",
     clearSearch: "清除搜尋",
     listAria: "{kind}清單",
+    /** 分類膠囊區（role="group"）的無障礙名稱 */
+    filterGroupAria: "{kind}分類篩選",
     noMatch: "找不到符合的{kind}",
     multimodalBadge: "多模態",
     allGroup: "全部",

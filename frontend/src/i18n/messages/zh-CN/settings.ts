@@ -164,15 +164,18 @@ export default {
     /** ModelPicker 分组筛选里的「推荐」一档 */
     groupRecommend: "综合推荐",
 
+    /** ModelPicker 分组筛选里的「免费」一档：目录里所有免费模型 */
+    groupFree: "免费",
+
     /** ModelPicker 一级分类区的小标题 */
     sectionUseCase: "按场景选型",
 
     /** 场景标签：既作模型行的徽章，也作 ModelPicker 的分类名 */
     useCase: {
-      writing: "写作与翻译",
+      writing: "写作翻译",
       reasoning: "深度思考",
       coding: "编程开发",
-      visionDocs: "看图与识文",
+      visionDocs: "看图识文",
       fastFree: "极速与免费",
     },
 

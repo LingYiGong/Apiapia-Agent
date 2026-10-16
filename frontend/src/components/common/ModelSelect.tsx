@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { Sparkles, List } from "lucide-react";
+import { Coins, Sparkles, List } from "lucide-react";
 import { ModelPicker } from "@/components/common/ModelPicker";
 import {
   allFilterMatch,
@@ -33,10 +33,12 @@ interface ModelSelectProps {
  * 语言模型选择器。实现已收敛到共享的 <ModelPicker>；
  * 本文件只负责把后端目录归一化，并组装分组筛选。
  *
- * 分组以普通用户的直觉场景为核心：
- * 1. 综合推荐（最聪明全能）
- * 2. 5 个高频日常场景（写作翻译 / 深度思考 / 编程开发 / 看图识文 / 极速免费）
- * 3. 全部模型
+ * 分组按「先价格、后场景、再兜底」排列：
+ * 1. 免费（价格维度：目录里所有 is_free 的模型）
+ * 2. 综合推荐（最聪明全能）
+ * 3. 4 个高频日常场景（深度思考 / 写作翻译 / 看图识文 / 编程开发），
+ *    顺序由 lib/modelGuide.ts 的 USE_CASE_ORDER 决定
+ * 4. 全部模型
  */
 export const ModelSelect: React.FC<ModelSelectProps> = ({
   value,
@@ -58,16 +60,16 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
     if (options.length === 0) return [];
 
     const recommended = options.filter(featuredFilterMatch);
+    const freeModels = options.filter(freeFilterMatch);
     const useCaseSection = t("settings.modelGuide.sectionUseCase");
 
     const byUseCase: ModelFilterGroup[] = USE_CASE_ORDER.map((key) => {
       const Icon = USE_CASE_ICONS[key];
-      const match = (o: ModelOption) => {
-        if (key === "fastFree") {
-          return o.guide?.useCases.includes("fastFree") === true || freeFilterMatch(o);
-        }
-        return o.guide?.useCases.includes(key) === true;
-      };
+      // 场景谓词只看画像标签，不掺价格条件。
+      // 此前 fastFree 那一档在这里额外 `|| o.isFree`，把免费模型也算进
+      // 「极速与免费」；现在免费有自己的分组（纯 isFree），这里回到纯粹的
+      // 「这个模型是不是擅长这件事」。
+      const match = (o: ModelOption) => o.guide?.useCases.includes(key) === true;
       const matched = options.filter(match);
       return {
         key: `use:${key}`,
@@ -83,6 +85,21 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
     });
 
     return [
+      /* 免费排在最前，且谓词是纯 `isFree` —— 「免费」这一档要的就是
+         目录里所有免费的模型，一档不多一档不少。
+         此前这里挂的是「极速与免费」（use:fastFree），谓词是
+         「带 fastFree 画像 或 isFree」：那既不是纯免费，也会把一批
+         低价付费模型（GLM-Flash / Qwen-Flash 等画像档都是 budget）
+         混进来，用户按「免费」筛完却要为用不了的东西付费。 */
+      {
+        key: "free",
+        label: t("settings.modelGuide.groupFree"),
+        icon: Coins,
+        count: freeModels.length,
+        distinctCount: countDistinctModels(options, freeFilterMatch),
+        available: freeModels.length > 0,
+        match: freeFilterMatch,
+      },
       {
         key: "recommended",
         label: t("settings.modelGuide.groupRecommend"),

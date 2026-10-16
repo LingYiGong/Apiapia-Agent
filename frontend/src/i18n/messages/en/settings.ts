@@ -156,6 +156,9 @@ export default {
     /** The "Picks" filter group in ModelPicker */
     groupRecommend: "Recommended",
 
+    /** The "Free" chip in the ModelPicker: every free model in the catalog. */
+    groupFree: "Free",
+
     /** Section headers in ModelPicker's category list */
     sectionUseCase: "By scenario",
 

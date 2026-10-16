@@ -155,15 +155,18 @@ export default {
     /** ModelPicker 分組篩選裡的「推薦」一檔 */
     groupRecommend: "綜合推薦",
 
+    /** ModelPicker 分組篩選裡的「免費」一檔：目錄裡所有免費模型 */
+    groupFree: "免費",
+
     /** ModelPicker 一級分類區的小標題 */
     sectionUseCase: "按場景選型",
 
     /** 需求標籤：既作模型行的徽章，也作 ModelPicker 的分類名 */
     useCase: {
-      writing: "寫作與翻譯",
+      writing: "寫作翻譯",
       reasoning: "深度思考",
       coding: "程式開發",
-      visionDocs: "看圖與識文",
+      visionDocs: "看圖識文",
       fastFree: "極速與免費",
     },
 

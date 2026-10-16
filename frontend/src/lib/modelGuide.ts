@@ -335,14 +335,17 @@ export function getModelGuide(id: string): ModelGuide | undefined {
 }
 
 /**
- * 场景分类的展示顺序，也就是 ModelPicker「按场景选型」区块的排列顺序。
+ * 场景分类的展示顺序，也就是 ModelPicker 场景筛选那一行的排列顺序。
  *
- * 覆盖普通用户 5 个最核心的日常使用场景。
+ * 覆盖普通用户 4 个最核心的日常使用场景。
+ *
+ * 「免费」不在这张表里：它是**价格维度**而不是使用场景，和「深度思考」
+ * 这几个不是同一类东西。混在一张表里排序，就没法表达「先按价格、再按
+ * 场景」的两段结构。它由 ModelSelect 作为第一个分组单独提供。
  */
 export const USE_CASE_ORDER: readonly UseCaseKey[] = [
-  "fastFree",
   "reasoning",
-  "coding",
   "writing",
   "visionDocs",
+  "coding",
 ] as const;

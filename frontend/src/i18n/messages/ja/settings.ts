@@ -155,6 +155,9 @@ export default {
     /** ModelPicker の絞り込み行にある「おすすめ」タブ */
     groupRecommend: "おすすめ",
 
+    /** ModelPicker の「無料」チップ：カタログ内のすべての無料モデル */
+    groupFree: "無料",
+
     /** ModelPicker の分類リストの区分見出し */
     sectionUseCase: "利用シーン別",
 

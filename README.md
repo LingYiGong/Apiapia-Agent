@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.26.0-indigo?style=flat-square" alt="Version"></a>
+  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.27.0-indigo?style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
@@ -193,7 +193,37 @@ cat backup_xxx.sql | docker exec -i apiapia_postgres psql -U postgres -d apiapia
 
 ## 📜 Releases & Changelog
 
-### 🚀 Latest Release: v2.26.0 (2026-10-16)
+### 🚀 Latest Release: v2.27.0 (2026-10-16)
+
+This release rebuilds the **model selector for mobile**. The picker no longer floats as a cramped panel pinned to a narrow trigger in the top bar: on phones it now opens as a **full-width bottom sheet**, and the category filter — which previously consumed roughly half the screen height — is **compressed into a single row of chips**. Along the way we corrected a real defect in the "Free" filter and removed a layer of dead code.
+
+#### 1. Mobile Form Refactor: Bottom Sheet Replaces the Top Sliver
+- **Full-width bottom sheet**: below the `md` breakpoint the picker opens as a bottom sheet (`86dvh` fixed height, rounded top, drag handle, `env(safe-area-inset-bottom)` inset). It used to be anchored to a narrow trigger inside the top bar and float above the conversation, reading as "a thin board stuck to the top of the screen" while most of the phone's vertical space sat unused.
+- **Desktop keeps the popover; both share one panel**: search, filtering, keyboard handling and ARIA wiring are literally the same markup, so the two forms cannot drift apart.
+- **The soft keyboard no longer appears on open**: the dialog's default auto-focus is intercepted, which previously summoned the keyboard straight over the model list. Per-model use-case badges were reduced from three to two to stop them wrapping on narrow screens.
+
+#### 2. Category Filter Compressed Into a Single Row
+- **~335px → 32px**: the seven groups now render as one row of chips — horizontally scrollable and snapping per chip on phones, auto-wrapping on desktop (a hidden-scrollbar horizontal scroll on desktop amounts to "you can't reach it").
+- **Nested scrolling eliminated**: the panel previously had *two* scroll areas, each capped at `38dvh`, so every single opening meant scrolling a tiny inner list just to reach "All". There is now **exactly one scroll area** in the whole panel, and the reclaimed height goes entirely to the model list — roughly 40% more room on a phone.
+- **Opens already positioned**: the selected category is scrolled into view on open, so a choice parked at the far end of the row is never mistaken for a lost selection.
+
+#### 3. Reordered Filters & a Corrected "Free" Group
+- **New order**: Free → Recommended → Deep Reasoning → Writing & Translation → Vision & Docs → Coding & Dev → All.
+- **"Fast & Free" → "Free"**: the predicate was tightened to plain `is_free`. The old one was "tagged `fastFree` **or** `is_free`", which swept in paid models whose price tier is merely *budget* (`GLM-Flash`, `Qwen-Flash`, `MiniMax-M3`, `MiMo`) — a user filtering for "Free" would still have had to pay.
+- **Trimmed names**: `Writing & Translation` and `Vision & Docs` lost a word each in the Chinese locales.
+- **No more guessing a default filter**: when the requested default group is unavailable the picker now shows the full list instead of silently landing in some category.
+
+#### 4. Removed Misleading Colour Coding & the Fake Hierarchy Arrow
+- **Dropped the green/amber/primary palette**: the seven groups span four *different* kinds — a price constraint (Free), four capability dimensions, a ranking (Recommended) and a fallback (All). Colour-coding them claimed they were mutually comparable, which is precisely the unscientific part. Selection is now a single primary-filled style; group semantics are carried by block dividers instead (Free / Recommended ｜ scenarios ｜ All).
+- **Removed the rotating chevron**: it implied a disclosure hierarchy that does not exist — tapping it just swaps the result set.
+
+#### 5. Dead Code Removal
+- **Dropped uncalled implementations**: `sortByPinnedThenActivity` (all three call sites had moved to the grouped `groupByTimeBuckets`), the `UserAvatarDropdown` compatibility aliases (leftovers from the rename to `UserAvatarMenu`, whose comment claimed "5 views use it" while 0 did), and `RECOMMENDED_CHAT_MODELS` — an ordered recommendation list whose only consumer, the settings recommendation cards, had already been removed, leaving its own comment describing a UI that no longer exists.
+- **Full import-graph audit**: every source file was checked for references, confirming no unused files, components or dependencies. `@radix-ui/react-slider` was never installed in the first place (the slider is hand-rolled) and stays that way.
+
+---
+
+### v2.26.0 (2026-10-16)
 
 This release brings a comprehensive refactor of **site-wide typography and reading hierarchy across Mobile and PC**, systematic readability improvements for high-DPI screens, and a zero-redundancy audit of the multi-language (i18n) codebase.
 

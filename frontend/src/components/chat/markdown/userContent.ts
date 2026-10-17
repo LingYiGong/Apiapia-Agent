@@ -6,8 +6,7 @@ import { getTranslator, resolveStoredLocale } from "@/i18n";
  * 用户消息正文的解析。
  *
  * 后端把图片以 markdown 内联图语法、文档以「📄 附件文件：xxx」文本存进
- * `content`，前端需要把它们从正文里拆出来单独渲染，否则正文里会出现一整串
- * base64。这些纯函数此前住在 ChatMessageItem 里，与气泡样式混在一起。
+ * `content`，前端需要把它们从正文里拆出来单独渲染。
  */
 
 /**

@@ -68,7 +68,6 @@ export const MobileHistoryView = ({
     onSelect(id);
   };
 
-  // 搜索过滤
   const filteredList = useMemo(() => {
     if (!search.trim()) return conversations;
     const query = search.toLowerCase().trim();
@@ -79,7 +78,6 @@ export const MobileHistoryView = ({
     );
   }, [conversations, search]);
 
-  // 置顶 / 最近 24 小时 / 最近 3 天 / 最近 7 天 / 更早 —— 与桌面侧栏、记忆库共用 lib/timeGroups
   const groupedSections = useMemo(
     () =>
       groupByTimeBuckets<Conversation>(filteredList, {
@@ -104,7 +102,6 @@ export const MobileHistoryView = ({
     cancel: cancelDrag,
   } = usePinnedDragReorder(pinnedItems, onReorderPinned);
 
-  // 离开面板时全面复位滑动/拖拽状态，杜绝样式卡死
   useEffect(() => {
     if (!isVisible) {
       setActiveOpenId(null);
@@ -163,7 +160,6 @@ export const MobileHistoryView = ({
         }
       />
 
-      {/* 搜索栏 */}
       <div className="shrink-0 border-b border-border/30 bg-background/50 px-3.5 py-2 backdrop-blur-md">
         <div className="relative">
           <Label htmlFor="history-search" className="sr-only">
@@ -176,8 +172,6 @@ export const MobileHistoryView = ({
             placeholder={t("chat.history.searchMobilePh")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            // pl-9/pr-9 与图标（left-3，14px）和清除键（right-2.5）对齐；
-            // 此前 pl-8/pr-8 配 14px 图标，输入的文字会压到图标上。
             className="h-9 rounded-xl border-border/40 bg-surface-3/50 pl-9 pr-9 text-footnote focus-visible:bg-background"
           />
           {search && (
@@ -193,7 +187,6 @@ export const MobileHistoryView = ({
         </div>
       </div>
 
-      {/* 列表 */}
       <div
         onScroll={() => {
           if (activeOpenId) setActiveOpenId(null);
@@ -225,8 +218,6 @@ export const MobileHistoryView = ({
                   </span>
                 </div>
 
-                {/* space-y-1.5（6px）必须与 usePinnedDragReorder 的 ITEM_STEP
-                    里扣掉的 LIST_GAP 一致，否则拖拽位移会错位。 */}
                 <div className="space-y-1.5">
                   {sec.items.map((c, idx) => (
                     <SwipeableConversationCard
@@ -267,7 +258,6 @@ export const MobileHistoryView = ({
         )}
       </div>
 
-      {/* 重命名对话框 */}
       {editingConv && (
         <Dialog open onOpenChange={(open) => !open && setEditingConv(null)}>
           <DialogContent className="max-w-sm rounded-2xl">

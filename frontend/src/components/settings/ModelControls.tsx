@@ -9,12 +9,7 @@ import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n";
 import type { MessageKey } from "@/i18n";
 
-/**
- * 「同步列表」按钮。
- *
- * 设置页的语言、绘图、视频与语音模型各有一个此前逐字相同的按钮，只差 handler
- * 与文案。现在只有这一份。
- */
+/** 「同步列表」按钮 */
 
 /** 四类模型各自的小标文案键 —— 与 notifyModelSyncResult 的 scope 用同一组词。 */
 const SYNC_SCOPE_LABEL_KEY = {
@@ -64,12 +59,7 @@ export function SyncModelsButton({
   );
 }
 
-/**
- * 模型详情面板：provider / 计费方式 / 能力徽章 + ID + 描述。
- *
- * 此前设置页里语言模型与绘图模型各有一个结构一致的 IIFE（连 badge 的 className
- * 都抄了一遍），现在共用本组件。
- */
+/** 模型详情面板：provider / 计费方式 / 能力徽章 + ID + 描述 */
 export function ModelInfoPanel({
   model,
   isMultimodal,

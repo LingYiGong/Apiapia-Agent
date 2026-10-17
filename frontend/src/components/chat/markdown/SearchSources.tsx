@@ -6,17 +6,6 @@ import type { SearchResultItem } from "@/types";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n";
 
-/**
- * 「参考了 N 个网页来源」折叠面板。
- *
- * 此前同一段 JSX 写了两遍，约 50 行 × 2：
- *   - components/chat/ChatArea.tsx:494-542        （流式输出中的实时来源）
- *   - components/chat/ChatMessageItem.tsx:947-996（历史消息里的来源）
- *
- * 两份连「从 URL 里抠 hostname 并去掉 www.」那个 IIFE 都一样，而后者在每次
- * 渲染时对每条结果重新 new 一次 URL。现在只有这一份实现。
- */
-
 /** 从 URL 里提取可读域名；无法解析时退回原串。 */
 export function hostnameOf(url?: string): string {
   if (!url) return "";
@@ -30,7 +19,6 @@ export function hostnameOf(url?: string): string {
 export function SearchSources({
   results,
   className,
-  /** 默认折叠，与思考过程一致；只有显式指定 defaultOpen 为 true 时才展开 */
   defaultOpen = false,
 }: {
   results: readonly SearchResultItem[];
@@ -57,8 +45,6 @@ export function SearchSources({
           <Globe className="h-3.5 w-3.5 shrink-0 text-primary" />
           <span className="truncate">{t("chat.markdown.sourcesSummary", { count: items.length })}</span>
         </span>
-        {/* ▼ 是纯装饰：折叠状态已由 <details> 的语义与浏览器默认标记传达，
-            这里只保留一个视觉箭头，并对其 aria-hidden。 */}
         <span
           aria-hidden="true"
           className="ml-2 shrink-0 text-xs text-muted-foreground transition-transform group-open:rotate-180"

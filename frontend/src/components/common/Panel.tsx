@@ -3,18 +3,7 @@ import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
-/**
- * 全应用统一的表面容器。
- *
- * 项目真正的卡片风格此前是这一串手写 class：
- *   `rounded-2xl border border-border/50 bg-card/80 dark:bg-[#1C1C1E]/80
- *    backdrop-blur-md shadow-2xs`
- * 它在用量页出现 14 次、设置页与记忆库若干次，而 shadcn 的 `ui/card.tsx`
- * （`rounded-xl border bg-card shadow`）全站只被用了 1 次 —— 组件库里躺着
- * 一个没人用的标准件，真正的标准件却散落成 21 份字面量。改一次圆角要动 21 个地方。
- *
- * 现在这份风格由 <Panel> 承载，各处不再自行拼字符串。
- */
+/** 全应用统一的表面卡片容器 */
 
 const panelVariants = cva(
   "relative rounded-2xl border backdrop-blur-md shadow-2xs transition-colors",
@@ -54,9 +43,7 @@ export const Panel = React.forwardRef<HTMLDivElement, PanelProps>(
 );
 Panel.displayName = "Panel";
 
-/**
- * 分组小标题。用量页与设置页里这一行 class 出现了 6 次。
- */
+/** 分组小标题 */
 export function SectionLabel({
   className,
   children,
@@ -75,10 +62,7 @@ export function SectionLabel({
   );
 }
 
-/**
- * 「图标方块 + 标题 + 说明 + 操作」的列表小标题（用量页 4 处、记忆库 1 处）。
- * 与 SectionLabel 的区别是左侧带一个 tinted 图标块。
- */
+/** 图标方块 + 标题 + 说明 + 操作的列表小标题 */
 export function SectionHeader({
   icon: Icon,
   tone = "bg-primary/10 text-primary",

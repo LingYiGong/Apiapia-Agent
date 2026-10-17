@@ -1,17 +1,5 @@
 /**
  * 与语言绑定的日期 / 时间 / 数字格式化。
- *
- * 全站日期时间格式化此前散在五处（lib/format.ts、MemoryView、MemorySidebar、
- * MobileHistoryView、ChatMessageItem 各写一份），且**只有一份是中文化的** ——
- * 「刚刚 / 12分钟前」在时间线里出现频率最高，却也最需要按语言变。
- *
- * 这里收口成 `createFormatters(locale)`：一次性产出一组绑定了语言的函数，
- * 组件通过 `useI18n().fmt` 拿到（已 memo，身份稳定，可以安全进依赖数组）。
- * 保持函数身份稳定很重要 —— 否则每次渲染都换新对象，任何依赖它的
- * useCallback / useMemo 都会被无谓地打散。
- *
- * 无法解析的时间戳一律返回空串（统一口径），而不是原始 ISO 原文 ——
- * 后者会在窄小的时间戳位置里塞进一整串 ISO，既挤又对用户没有意义。
  */
 
 import { LOCALE_META, getTranslator } from "./runtime";
@@ -146,16 +134,11 @@ export function createFormatters(locale: Locale): Formatters {
 
     number(value, options) {
       if (!Number.isFinite(value)) return "—";
-      // 格式选项只能在**构造**时传入 —— Intl.NumberFormat.prototype.format
-      // 只接受一个值。之前写成 format(value, options) 在 ES5 lib 下直接编译不过，
-      // 而且即便某些 lib 放宽了签名，那种写法每次调用都会新建一个 formatter。
       return options ? new Intl.NumberFormat(intlTag, options).format(value) : intl().format(value);
     },
 
     percent(ratio, digits = 1) {
       if (!Number.isFinite(ratio)) return "—";
-      // style: "percent" 本身就会把 0.42 渲染成 42%，不要再手工 ×100 ——
-      // 那会让 0.42 变成 4200%。
       return new Intl.NumberFormat(intlTag, {
         style: "percent",
         minimumFractionDigits: digits,
@@ -163,12 +146,7 @@ export function createFormatters(locale: Locale): Formatters {
       }).format(ratio);
     },
 
-    /**
-     * 美元金额。
-     *
-     * 刻意硬编码 $ 而不用用户所在地区的 `style: "currency"` —— 后端统一以
-     * 美元计价结算，跟随地区显示成日元/欧元会让人误以为账单被换算了。
-     */
+    /** 美元金额 */
     currency(value, maxDigits = 4) {
       if (!Number.isFinite(value)) return "—";
       // 小额花费（单次调用可能只有 0.00002 美元）四舍五入成 0 会让整列看着都是 0，

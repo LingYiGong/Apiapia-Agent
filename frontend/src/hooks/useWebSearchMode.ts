@@ -17,15 +17,7 @@ const NEXT: Record<WebSearchMode, WebSearchMode> = {
   off: "auto",
 };
 
-/**
- * 三档模式的 toast 文案。存的是**键**，不是字符串 ——
- * 此前这里写死中文，于是切到英文界面点一下联网检索开关，
- * 弹出来的还是一句中文，而它在同一个 hook 里、和界面上其他文案挨着。
- *
- * 读取走 getTranslator(resolveStoredLocale()) 而不是 hook：这个 hook 的
- * toggle 是事件回调，拿不到 React 上下文，而这两条文案不在渲染期，
- * 因此不需要订阅语言变化。
- */
+/** 三档模式的 toast 文案键 */
 const FEEDBACK_KEYS: Record<WebSearchMode, { title: string; description: string }> = {
   on: { title: "chat.webSearch.toastOnTitle", description: "chat.webSearch.toastOnDesc" },
   off: { title: "chat.webSearch.toastOffTitle", description: "chat.webSearch.toastOffDesc" },
@@ -37,17 +29,7 @@ function feedbackFor(mode: WebSearchMode, t: Translator) {
   return { title: t(keys.title as never), description: t(keys.description as never) };
 }
 
-/**
- * 联网检索模式（auto / on / off）。
- *
- * 此前这段逻辑内联在 chat/page.tsx 里，含 localStorage 读写、服务端 PATCH 与
- * 三段 toast 文案。抽出来后有两处实质收益：
- *   1. **首屏不再有 hydration 风险**：原来用 useState 的初始化函数读
- *      localStorage，服务端渲染时它返回默认值、客户端首帧返回本地值，
- *      同一个按钮在不同环境下渲染出不同字样。
- *   2. updater 保持纯函数：React StrictMode 会把 updater 调两次，
- *      副作用（写 localStorage、发 PATCH、弹 toast）必须留在 handler 里。
- */
+/** 联网检索模式（auto / on / off）管理 hook */
 export function useWebSearchMode() {
   const [mode, setMode] = useState<WebSearchMode>("auto");
   const modeRef = useRef<WebSearchMode>("auto");

@@ -35,14 +35,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const userData = await apiRequest<User>("/auth/me");
       setUser(userData);
     } catch (err) {
-      // 只有明确的鉴权失败才清除凭据。此前这里无条件 `removeToken()`，
-      // 一次后端 5xx、网关超时或瞬时断网就会永久登出——token 被删除后
-      // 登录页无法解释原因，用户只能重新输密码，且没有任何恢复路径。
-      //
-      // 其他情况（5xx / 断网 / 超时）保留 token：
-      // - 首次挂载时 user 本就是 null，视图照常跳登录页；
-      // - 已有登录态时保留旧 user，避免网络抖动把正在使用的人踢下线；
-      //   下次刷新或重新进入应用会静默重试。
+      // 仅在明确鉴权失败时清除凭据，网络抖动或服务端异常时保留 token
       if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
         removeToken();
         setUser(null);

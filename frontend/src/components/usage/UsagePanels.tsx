@@ -67,13 +67,7 @@ import type {
 } from "@/types";
 import { cn } from "@/lib/utils";
 
-/**
- * 用量页的展示层。
- *
- * 从 UsageView（1363 行）里拆出。原先这个文件里有 8 份逐字相同的 KPI 卡片、
- * 一整张 9 列的管理员表格、以及两个各自维护筛选/加载状态的审计弹窗。
- * 现在按职责分成 StatCard / UsersTable / ModelBreakdown / TrendGrid / AuditDialog。
- */
+/** 用量页的展示层组件。 */
 
 const TONE = {
   indigo: "bg-indigo-500/10 text-indigo-500 dark:text-indigo-400",
@@ -81,8 +75,6 @@ const TONE = {
   amber: "bg-amber-500/10 text-amber-500 dark:text-amber-400",
   emerald: "bg-emerald-500/10 text-emerald-500 dark:text-emerald-400",
 } as const;
-
-/* ─────────────────────────── 平台总览 KPI ─────────────────────────── */
 
 export function AdminOverviewCards({ stats }: { stats: AdminOverviewStats }) {
   const { t, fmt } = useI18n();
@@ -136,8 +128,6 @@ export function AdminOverviewCards({ stats }: { stats: AdminOverviewStats }) {
   );
 }
 
-/* ─────────────────────────── 个人用量 KPI ─────────────────────────── */
-
 export function MyUsageCards({ stats }: { stats: MyUsageStats }) {
   const { t, fmt } = useI18n();
   return (
@@ -181,8 +171,6 @@ export function MyUsageCards({ stats }: { stats: MyUsageStats }) {
   );
 }
 
-/* ─────────────────────────── 模型分布 ─────────────────────────── */
-
 export function ModelBreakdown({
   items,
   sortKey,
@@ -220,8 +208,6 @@ export function ModelBreakdown({
           title={t("usage.models.breakdownTitle", { period: periodName })}
           description={t("usage.models.breakdownDesc")}
         />
-        {/* 排序是一个 radio group（选一个），此前误用了 Tabs：
-            读屏会播报成「选项卡」，方向键会把焦点移到没有关联面板的选项上。 */}
         <SegmentedControl
           size="sm"
           ariaLabel={t("usage.models.sortAria")}
@@ -284,7 +270,6 @@ export function ModelBreakdown({
                   />
                 </div>
 
-                {/* Apple Screen-time 风格细进度条 */}
                 <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-4/60">
                   <div
                     className="h-full rounded-full bg-primary/70 transition-[width] duration-300"
@@ -299,8 +284,6 @@ export function ModelBreakdown({
     </Panel>
   );
 }
-
-/* ─────────────────────────── 趋势网格 ─────────────────────────── */
 
 export function TrendGrid({
   items,
@@ -331,8 +314,6 @@ export function TrendGrid({
             tone="muted"
             className="space-y-1 p-3 text-center transition-all hover:bg-surface-4/40"
           >
-            {/* date 是后端已经按区间切好的桶标签（HH:00 / YYYY-MM / YYYY-MM-DD），
-                不是 ISO 时间戳 —— 交给 fmt.longDate 会解析失败变成空串，原样输出。 */}
             <div className="font-mono text-xs font-medium text-muted-foreground">
               {d.date}
             </div>
@@ -352,8 +333,6 @@ export function TrendGrid({
     </Panel>
   );
 }
-
-/* ─────────────────────────── 个人模型明细表 ─────────────────────────── */
 
 export function MyModelsTable({ items }: { items: MyUsageStats["model_breakdown"] }) {
   const { t, fmt } = useI18n();
@@ -380,8 +359,6 @@ export function MyModelsTable({ items }: { items: MyUsageStats["model_breakdown"
           <Table className="text-xs">
             <TableHeader className="bg-surface-3/30">
               <TableRow className="border-b border-border/40">
-                {/* 最后一列表头右对齐。此前写的是 `i === items.length` ——
-                    拿**表头下标**去比**数据行数**，行数恰好等于 6 时才会碰巧生效。 */}
                 {columns.map((key, i, all) => (
                   <TableHead
                     key={key}
@@ -433,8 +410,6 @@ export function MyModelsTable({ items }: { items: MyUsageStats["model_breakdown"
   );
 }
 
-/* ─────────────────────── 管理员用户明细（表格 / 卡片）─────────────────────── */
-
 export interface UserActions {
   onToggleAllModels: (userId: string, current: boolean, username: string) => void;
   onToggleActive: (userId: string, current: boolean, username: string) => void;
@@ -456,8 +431,6 @@ function ModelAccessCell({ user, actions }: { user: AdminUserUsageItem; actions:
   const on = !!user.can_access_all_models;
   return (
     <div className="flex items-center gap-2">
-      {/* 用 <label> 而非可点击的 <span>：span 不可聚焦、不是语义控件，
-          键盘用户根本够不到这个开关。 */}
       <Label
         htmlFor={`model-access-${user.user_id}`}
         className="flex cursor-pointer items-center gap-2"
@@ -502,9 +475,6 @@ function UserRowMenu({ user, isMe, actions }: { user: AdminUserUsageItem; isMe: 
           <span className="sr-only">{t("usage.admin.actionMenu")}</span>
         </Button>
       </DropdownMenuTrigger>
-      {/* w-44 固定宽在多语言下会截断：英文 "Switch to trial mode" 约 130px，
-          容器扣掉内边距和图标后标签只剩 116px，必然折行。四个问题的根因见
-          components/common/surfaces.ts。 */}
       <DropdownMenuContent
         align="end"
         sideOffset={8}
@@ -765,7 +735,6 @@ export function UsersTable({
             </Table>
           </div>
 
-          {/* 移动端：卡片列表。9 列表格塞进手机只能横向滚动，功能上等于不可用。 */}
           <div className="space-y-2.5 p-3 md:hidden">
             {users.map((u) => (
               <UserCard
@@ -781,8 +750,6 @@ export function UsersTable({
     </Panel>
   );
 }
-
-/* ─────────────────────────── 审计 / 查阅弹窗 ─────────────────────────── */
 
 type AuditConv = {
   id: string;

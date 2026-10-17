@@ -3,15 +3,7 @@ import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-/**
- * 全应用统一的空状态。
- *
- * 此前「圆角图标块 + 标题 + 说明 + 按钮」这一结构在三个地方各写一遍：
- *   - components/memory/MemoryView.tsx:399
- *   - components/chat/MobileHistoryView.tsx:736
- *   - components/chat/ChatArea.tsx:439（无按钮的变体）
- * 三份的间距、字号、图标容器样式各不相同，改一次要动三处。
- */
+/** 全应用统一的空状态组件 */
 export function EmptyState({
   icon: Icon,
   iconClassName,

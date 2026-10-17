@@ -9,10 +9,6 @@ import { WordCard, parseWordData } from "./WordCard";
 
 /**
  * 代码块 / SVG 矢量画作 的渲染。
- *
- * 从 ChatMessageItem 中拆出：该文件 1199 行，其中 markdown 相关（SvgRenderer、
- * AiImageCard、CodeBlock、markdownComponents、renderMessageBody、parseUserMessage）
- * 占了约 600 行，与「一条消息气泡长什么样」是两件事。
  */
 
 /** 把纯文本写进剪贴板，并把按钮切成「已复制」2 秒。 */

@@ -74,14 +74,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onToggleOpen,
 }) => {
   const [search, setSearch] = useState("");
-  const { t, fmt } = useI18n();
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropId, setDropId] = useState<string | null>(null);
-  // 行内重命名的目标 id
   const [renamingId, setRenamingId] = useState<string | null>(null);
-
-  // 删除确认走统一的 useConfirm —— 此前这里是内联的一段 pendingDelete +
-  // <ConfirmDialog> 样板，与 MobileHistoryView 的那份逐字相同。
   const { ask, dialog } = useConfirm();
 
   const query = search.trim().toLowerCase();
@@ -175,9 +170,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         )}
       >
         {opts.showSortControls && (
-          // 不包 ActionTooltip：TooltipTrigger asChild 会给这个 span 加上
-          // tabindex，于是产生一个可聚焦却没有任何键盘行为的元素（违反 WCAG 2.1.1），
-          // 键盘用户会 Tab 到这里然后不知道该按什么。装饰性元素改用原生 title。
           <span
             title={t("chat.history.dragHint")}
             onClick={(e) => e.stopPropagation()}
@@ -229,7 +221,6 @@ title={c.title || t("chat.history.untitled")}
           )}
         </div>
 
-        {/* 右侧操作区：三点菜单，仅在鼠标悬停当前行或菜单展开时显示 */}
         <div className="relative z-10 ml-1 flex shrink-0 items-center gap-0.5">
           {opts.showSortControls && (
             <span
@@ -338,17 +329,12 @@ title={c.title || t("chat.history.untitled")}
 
   return (
     <>
-      {/* Desktop Persistent Sidebar.
-          移动端历史是独立的全屏页签（MobileHistoryView），不再走 Sheet 抽屉 ——
-          之前那条分支的 isOpen 被 chat/page.tsx 硬编码成 false，永远打不开，
-          连同里面的抓手与关闭按钮一起都是不可达代码。 */}
       <aside
         className={cn(
           "hidden h-full w-[var(--sidebar-w)] shrink-0 flex-col border-r border-border/70 bg-surface-1 md:flex lg:w-[var(--sidebar-w-lg)] transition-all duration-200",
           !isOpen && "md:hidden"
         )}
       >
-        {/* Header with Search */}
         <div className="flex flex-col gap-2 border-b border-border/50 p-3">
           <div className="flex items-center gap-1.5">
             <Button type="button" onClick={onNewChat} className="flex-1">
@@ -382,14 +368,11 @@ title={c.title || t("chat.history.untitled")}
               placeholder={t("chat.history.searchMobilePh")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              // pr-9：给浏览器内置清除按钮（本项目已在 globals.css 隐藏）
-              // 留位。桌面侧栏此前没有自绘清除键，输入后无法一键清空。
               className="border-border/60 bg-background pl-9 text-xs dark:bg-surface-2"
             />
           </div>
         </div>
 
-        {/* 历史列表：原生滚动容器 */}
         <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain p-2">
           {loading ? (
             <ConversationListSkeleton rows={8} />

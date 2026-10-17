@@ -76,26 +76,6 @@ const DropdownMenuSeparator = React.forwardRef<
 ));
 DropdownMenuSeparator.displayName = DropdownMenuPrimitive.Separator.displayName;
 
-/*
- * 这里此前还导出着 9 个 shadcn 默认组件，全站 0 处引用，已删：
- *
- *   DropdownMenuCheckboxItem / DropdownMenuRadioItem   多选型菜单项
- *   DropdownMenuSubTrigger / SubContent / Sub          二级子菜单
- *   DropdownMenuRadioGroup / Group / Portal            分组与门户
- *   DropdownMenuShortcut                               快捷键提示位
- *
- * 其中 DropdownMenuSubTrigger 上挂着 `[&_svg]:size-4` —— 正是
- * components/common/surfaces.ts 注释里记的那个坑：编译成
- * `.\[\&_svg\]\:size-4 svg`（specificity 0,1,1），会静默压掉调用方写在
- * 图标上的裸 `h-N w-N`。留着它等于留一个陷阱：将来谁加了子菜单，
- * 会发现自己写的图标尺寸「不生效」却查不到原因。
- *
- * 删除它们不是「阉割组件库」：本项目对 shadcn 默认值的既定做法就是
- * 按实际用量裁剪 —— 同样被删掉的还有 @tailwindcss/accordion 的
- * accordion-down/up 动画（tailwind.config.ts 注释）、
- * 50..900 的 indigo 阶梯色、以及 globals.css 里的 .apple-* 排版类，
- * 理由都是「全站 0 处引用」。真要用二级菜单时从 shadcn 上游再取即可。
- */
 
 export {
   DropdownMenu,

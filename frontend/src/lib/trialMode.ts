@@ -1,16 +1,7 @@
 import type { User } from "@/types";
 
 /**
- * 「体验模式」的唯一定义。
- *
- * 此前有两套判定：
- *   - components/settings/SettingsView.tsx:159
- *       `!user?.is_superuser && !user?.can_access_all_models`   —— 权限语义
- *   - components/common/ModelSelect.tsx:74
- *       `options.every(o => o.isFree)`                          —— 目录语义
- *
- * 后端实际按权限拦截（403），所以**权限是权威**，目录只是「恰好一个付费模型都没有」
- * 的表象。两者在管理员把自己的模型目录筛成全免费时就会不一致，导致徽章闪没。
+ * 「体验模式」判定（仅允许使用免费模型）。
  */
 
 /** 判定所需的最小用户字段，便于测试与复用。 */

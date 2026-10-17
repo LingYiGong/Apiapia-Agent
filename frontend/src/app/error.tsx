@@ -4,13 +4,6 @@ import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/i18n";
 
-/**
- * 路由级错误边界。
- *
- * 在此之前 `src/app/` 下没有任何 error.tsx —— 聊天页有 30+ 处 setState 和手写
- * 的 SSE 解析，任何一处渲染期抛错都会让整个应用变成白屏，既没有恢复入口，
- * 也没有错误上报。
- */
 export default function Error({
   error,
   reset,
@@ -19,7 +12,6 @@ export default function Error({
   reset: () => void;
 }) {
   useEffect(() => {
-    // 没有接 Sentry 之前，至少保证线上问题在控制台可见。
     console.error("Route error:", error);
   }, [error]);
 

@@ -4,19 +4,6 @@ import Link from "next/link";
 import { Cat } from "lucide-react";
 import { useI18n } from "@/i18n";
 
-/**
- * 404 页面。
- *
- * 这一点在静态导出（`output: "export"`，见 next.config.mjs）下尤其重要：
- * 任何未预渲染的路径都会落到这里，而此前 Next 默认的 404 既没有应用外壳，
- * 也没有「回首页」的入口。
- *
- * 圆角/字号沿用全站语言（rounded-2xl 而非 shadcn 默认的 rounded-md），
- * 避免这个页面看起来像另一个产品。
- *
- * 用客户端组件而不是服务端组件，是为了能取 useI18n —— 404 页面没有自己的
- * 布局包裹，必须自己挂在 root layout 的 provider 之下。
- */
 export default function NotFound() {
   const { t } = useI18n();
 

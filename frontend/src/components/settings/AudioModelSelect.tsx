@@ -15,13 +15,7 @@ interface AudioModelSelectProps {
   onChange: (modelId: string) => void;
   /** 整份语音目录；组件按 capability 自行过滤 */
   models: AudioModelItem[];
-  /**
-   * 选择哪一族模型。
-   *
-   * 这不是可选的装饰参数：语音识别与语音合成在上游是两族互不相交的模型，
-   * 混在一个下拉里必然有一半选项用不了。这里强制调用方声明意图，父组件
-   * 也因此无法忘记分流。
-   */
+  /** 选择哪一族模型（stt 或 tts） */
   capability: Capability;
   /** 决定 kindLabel / placeholder / 空状态文案 */
   kindLabel: string;
@@ -33,12 +27,7 @@ interface AudioModelSelectProps {
   isTrialMode: boolean;
 }
 
-/**
- * 语音模型选择器（识别 / 合成共用）。
- *
- * 基于共享的 <ModelPicker>，负责按 capability 从同一份目录里切出对应的一族，
- * 并提供语音场景专属的空状态文案。
- */
+/** 语音模型选择器（识别 / 合成共用） */
 export const AudioModelSelect: React.FC<AudioModelSelectProps> = ({
   value,
   onChange,

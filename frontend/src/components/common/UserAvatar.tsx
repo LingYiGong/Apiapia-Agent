@@ -3,14 +3,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n";
 
-/**
- * 用户头像 + 管理员徽章。
- *
- * 此前「取用户名首字母做大写」这一行在四处各写一遍（Navbar、UserAvatarDropdown ×2、
- * UsageView 的表格），其中两处还各自带 `uppercase` 而调用点没有 —— 结果是
- * 表格里显示小写而菜单里显示大写。管理员徽章同样散落五处，尺寸分三种、
- * 文案混着「管理员」与「ADMIN」两种。
- */
+/** 用户头像与管理员徽章 */
 
 export interface UserAvatarProps {
   username: string;
@@ -51,18 +44,13 @@ export function UserAvatar({
 
 export type AdminBadgeSize = "sm" | "md" | "lg";
 
-/* 三档字号统一为 Apple iOS 最小字号 11px（`text-2xs`）—— 分辨度改由
-   内边距承担。此前 sm/md/lg 分别是 9/10/10px，md 与 lg 完全同值却占着
-   两档，且 9px 在 3x 屏上已低于可读阈值。 */
 const ADMIN_BADGE_SIZE: Record<AdminBadgeSize, string> = {
   sm: "text-2xs leading-[14px] px-1.5 py-0",
   md: "text-xs px-2 py-0.5",
   lg: "text-xs px-2.5 py-1",
 };
 
-/**
- * 管理员徽章。文案统一为「管理员」—— 移动端此前用英文 ADMIN，与全站中文不一致。
- */
+/** 管理员徽章 */
 export function AdminBadge({
   size = "md",
   label,

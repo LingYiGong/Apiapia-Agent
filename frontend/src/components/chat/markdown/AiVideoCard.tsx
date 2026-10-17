@@ -11,11 +11,6 @@ import { useI18n } from "@/i18n";
 
 /**
  * AI 生成视频播放卡片。
- *
- * 参照 AiImageCard 架构规范：
- *  - 优先使用媒体接口 getMediaVideoUrl(video.id) 进行同源持久化播放与下载
- *  - IntersectionObserver 视口懒加载
- *  - 提供 HTML5 播放器控件以及一键下载
  */
 export function AiVideoCard({
   video,

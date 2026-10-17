@@ -62,7 +62,6 @@ interface ChatMessageItemProps {
 }
 
 
-/** 「复制」按钮。助手与用户两处原本各写了一遍，结构完全相同。 */
 function CopyButton({
   isCopied,
   onClick,
@@ -204,26 +203,17 @@ export const ChatMessageItem = memo(function ChatMessageItem({
 }: ChatMessageItemProps) {
   const { t, fmt } = useI18n();
   const isUser = msg.role === "user";
-  // 错误判定用后端下发的 finish_reason，不再靠内容里是否含 "HTTP 500" 之类的
-  // 字符串嗅探 —— 那种做法会把用户正常引用这些字样的消息也渲染成红色错误卡片。
   const isErrorMsg = !isUser && msg.finish_reason === "error";
 
   const [editing, setEditing] = React.useState(false);
   const [draft, setDraft] = React.useState("");
 
-  /**
-   * 用户消息里的图片/附件解析。
-   *
-   * parseUserMessage 要扫全文，而带内联 base64 图片时 content 可达数 MB ——
-   * 每帧重扫足以让整页掉帧，所以只在 content / attachments 真正变化时算一次。
-   */
   const parsedUserMedia = React.useMemo(() => {
-    // 附件已结构化存在时不需要再从正文里抠
     if (msg.attachments && msg.attachments.length > 0) return null;
     return parseUserMessage(msg.content);
   }, [msg.content, msg.attachments]);
 
-  // 编辑期间告诉页面别用服务端数据覆盖 messages（切后台/切页签刷新会冲掉草稿）
+  // 编辑期间告诉页面别用服务端数据覆盖 messages
   React.useEffect(() => {
     if (!editing) return;
     messageEditingRef.current = true;
@@ -377,7 +367,6 @@ export const ChatMessageItem = memo(function ChatMessageItem({
             </div>
           ) : (
             <>
-              {/* 参考网页：列在思考过程与正文内容上方 */}
               {searchResults.length > 0 && (
                 <SearchSources results={searchResults} className="mb-2.5" />
               )}
@@ -471,7 +460,6 @@ export const ChatMessageItem = memo(function ChatMessageItem({
           )}
         </div>
 
-        {/* 助手消息：操作栏 + 元信息 */}
         {!isUser && !isErrorMsg && (
           <div className="mt-2 flex flex-wrap items-center justify-between gap-2 px-0.5 text-xs text-muted-foreground select-none">
             <div className="flex items-center gap-1">
@@ -604,7 +592,6 @@ export const ChatMessageItem = memo(function ChatMessageItem({
           </div>
         )}
 
-        {/* 用户消息操作栏：与助手消息同一位置，便于扫读 */}
         {isUser && !editing && msg.id && onEditMessage && (
           <div className="mt-2 flex flex-wrap items-center justify-end gap-1 px-0.5 text-xs text-muted-foreground select-none">
             <ActionTooltip label={t("chat.message.editTip")} side="bottom">
@@ -638,9 +625,6 @@ export const ChatMessageItem = memo(function ChatMessageItem({
               onClick={() => onCopy(stripAttachmentMarkup(msg.content || "").trim(), idx)}
               copyLabel={t("chat.message.copyQuestion")}
             />
-            {/* stripAttachmentMarkup 是必须的，不是顺手：用户消息里可能嵌着附件的
-                base64 data URL 和附件标记，不过滤的话 TTS 会把一整串编码念出来。
-                和上面的复制、引用保持同一套取文逻辑。 */}
             <SpeakButton
               text={stripAttachmentMarkup(msg.content || "")}
               tooltip={t("chat.message.speakQuestion")}

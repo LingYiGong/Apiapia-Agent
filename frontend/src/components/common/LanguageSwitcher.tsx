@@ -21,22 +21,7 @@ import { ActionTooltip } from "@/components/common/ActionTooltip";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-/**
- * 界面语言切换（简体中文 / 繁體中文 / English / 日本語）。
- *
- * **为什么是下拉而不是分段控件。** 四个分段按钮在 320px 的窄栏里每个只剩
- * ~62px，而「简体中文」四个字加上内边距就已经接近这个宽度了 —— 剩下的三种
- * 语言都会被 truncate 成「简体…」。而且语言数量是可增长的：再加一种语言，
- * 分段控件必须重排，下拉不用。
- *
- * 形态与 ThemeToggle 对齐（同一个项目里两处「外观/语言」入口，一处用分段
- * 一处用下拉会显得是两个产品），但内容比主题多一行副标题 ——
- * 母语名 + 英文名，帮那些认得两种语言的人交叉确认。
- *
- * **选项标签一律用母语自称。** 一个不懂英语的用户在英文界面里看到
- * "Japanese" 未必认得出那是日语，但一定认得出「日本語」。这是语言选择器
- * 与语言列表（`<html lang>`、Accept-Language）最重要的区别。
- */
+/** 界面语言切换下拉菜单 */
 export function LanguageDropdown({
   className,
   showLabel = false,
@@ -96,9 +81,6 @@ export function LanguageDropdown({
             <DropdownMenuItem
               key={value}
               onClick={() => setLocale(value)}
-              // 行内容是两行（母语名 + 英文名），所以额外保留 py-2 与居中对齐。
-              // 选中行必须同时覆盖 hover / data-[highlighted]，否则高亮的灰底会
-              // 盖掉 bg-primary/10。容器宽度交给 w-max 自适应，不再写死 w-52。
               className={cn(
                 menuItemClass,
                 "items-center py-2",
@@ -129,12 +111,7 @@ export function LanguageButton({ className }: { className?: string }) {
   return <LanguageDropdown className={className} />;
 }
 
-/**
- * 设置页里的整行：标题 + 说明 + 触发器。
- *
- * 语言与外观放在同一组是有意的 —— 两者都是「这台设备上的显示偏好」，
- * 都不写服务端、不参与脏检查、不需要点保存。
- */
+/** 设置页语言配置行 */
 export function LanguageRow({ className }: { className?: string }) {
   const { t } = useI18n();
   return (

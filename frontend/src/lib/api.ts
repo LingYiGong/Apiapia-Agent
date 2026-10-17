@@ -6,30 +6,12 @@ export function getApiBase(): string {
     return process.env.INTERNAL_API_URL || "http://backend:8000/api";
   }
 
-  /*
-   * 浏览器端 base URL 的选择 —— 两种部署形态，取决于有没有同源代理。
-   *
-   * A. 有 Node 服务（Docker / next start，`output: "standalone"`）
-   *    src/app/api/backend/[...path]/route.ts 这个代理路由存在，
-   *    走同源 /api/backend。后端地址不暴露在产物里，且天然无 CORS。
-   *
-   * B. 纯静态（Cloudflare Pages，`output: "export"`）
-   *    scripts/build-runner.js 在导出前会把整个 src/app/api 改名移走
-   *    （日志："Temporarily bypassed server-side route handlers"），
-   *    所以代理路由**不存在**，同源 /api/backend 必然 404。
-   *    此时必须直连后端绝对地址，并依赖后端的 CORS 放行前端域名。
-   *
-   * 此前无论哪种部署都返回 "/api/backend"，于是 Cloudflare 上的部署
-   * 整体不可用 —— 而它此前是能用的，因为那时这段代码还会读
-   * NEXT_PUBLIC_API_URL。
-   *
-   * 判定用「trim 后非空」：docker-compose 默认注入的是空串占位
-   * （${NEXT_PUBLIC_API_URL:-}），空串会被当成「没配置」而正确回退到代理。
-   */
+  // 浏览器端 base URL 选择：
+  // 1. 配置了 NEXT_PUBLIC_API_URL（如纯静态导出）时直连后端地址
+  // 2. 否则走同源代理路由 /api/backend
   const directUrl = process.env.NEXT_PUBLIC_API_URL || "";
 
   if (directUrl.trim()) {
-    // 去掉尾部斜杠，避免拼出 //api/xxx
     return directUrl.trim().replace(/\/+$/, "");
   }
 
@@ -101,13 +83,7 @@ export class ApiError extends Error {
   }
 }
 
-/**
- * 会话失效的统一处理。
- *
- * apiRequest 与 streamChatResponse 都必须在 401 时走这里。此前只有 apiRequest
- * 做了，于是**流式请求期间的会话过期**不会跳登录，而是让页面弹一个红色错误
- * 气泡、把用户困在一个已经无法工作的界面里。
- */
+/** 会话失效统一处理：清理 token 并重定向至登录页。 */
 function handleUnauthorized() {
   removeToken();
   if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
@@ -115,18 +91,8 @@ function handleUnauthorized() {
   }
 }
 
-/**
- * 后端错误消息的本地化靠标准请求头完成。
- *
- * 必须**每次请求都带**：语言存在 localStorage，不在 URL 里，所以后端无从
- * 得知，只能由客户端声明。用 `Accept-Language` 而不是自定义头，是为了让
- * 搜索引擎、CDN，以及任何将来绕过本项目前端的调用方都能得到正确语言，
- * 而不是默认落回中文。
- */
+/** 注入当前语言偏好的 Accept-Language 请求头。 */
 function localeHeaders(headers: Headers): void {
-  // 无 token 时不要发空的 Authorization 头 —— 空字符串会被 /api/backend 代理
-  // 原样转发给后端，某些网关会把 "" 当成一个格式非法的凭据而直接 400。
-  // （这条判断原本散在两个函数里，各写一遍；这里统一收口。）
   headers.set("Accept-Language", acceptLanguageHeader());
 }
 
@@ -161,9 +127,6 @@ export async function apiRequest<T = any>(
     let errorMsg = `API request failed with status ${response.status}`;
     try {
       const err = await response.json();
-      // 后端按 Accept-Language 查好的文案就在 detail 里，直接展示即可。
-      // code 仅用于日志与错误聚类 —— 前端**不**再维护一份错误文案表，
-      // 两边各存一份必然漂移，而漂移出来的表现是「英文界面弹出一条中文错误」。
       if (err.code) {
         console.warn(`[api] ${response.status} ${err.code}: ${errorMsg}`);
       }
@@ -263,13 +226,6 @@ export async function streamChatResponse(
     signal: opts?.signal,
   });
 
-  // 与 apiRequest 对齐：HTTP 失败必须抛，而不是「回调 onError 后静默 return」。
-  //
-  // 此前这里是 onError + return，Promise 正常 resolve，于是调用方的 catch 分支
-  // 对任何 HTTP 错误都不可达 —— 错误只能靠 onError 回调这一条路走；而 onError 的
-  // 实现（chat/page.tsx）又会往消息列表里插一条错误气泡，和 catch 里的处理
-  // 职责重叠。抛出来之后，统一的 catch 能同时负责「插错误气泡 + 复位流式状态」，
-  // 401 也能统一跳登录。
   if (response.status === 401) {
     handleUnauthorized();
     throw new ApiError("Unauthorized", 401);

@@ -102,11 +102,6 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   // Delete Confirm State
-  //
-  // 「待确认的目标」和「请求正在飞行」必须是两个状态。此前只有一个 deletingId，
-  // 而弹窗又只在 deletingId 非空时渲染，于是 `loading={!!deletingId}` 在弹窗
-  // 挂载的第一帧就为 true，ConfirmDialog 把确认/取消按钮一起 disabled 并显示
-  // 「处理中…」—— onConfirm 永远不触发，删除功能从 UI 完全不可达。
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const deletingRef = useRef(false);
@@ -120,13 +115,12 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
   const [showRollbackConfirm, setShowRollbackConfirm] = useState(false);
   const [isRollingBack, setIsRollingBack] = useState(false);
 
-
 /**
  * 时间分组小标（最近 24 小时 / 最近 3 天 / 最近 7 天 / 更早）。
  *
  * 浏览态与检索态**用同一套分组**：向量搜索只负责挑出「哪些记忆相关」，
  * 挑出来之后按时间摆放，与浏览态的口径一致 —— 否则用户在同一页面里会看到
-   * 两种排序规则，检索一次位置就全变了。
+ * 两种排序规则，检索一次位置就全变了。
  *
  * 缺时间的条目（后端拿不到 created_at/updated_at 时会返回空），
  * getTime 得到 0，落进「更早」；<MemoryCard> 同时不渲染时间行，
@@ -142,7 +136,6 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
     [memories, t]
   );
 
-  // 视图内部守卫（此前与 UsageView / SettingsView 逐字相同的三份之一）
   useRequireAuth();
 
   /**
@@ -192,10 +185,6 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
     } catch (err) {
       console.error("Failed to load memories:", err);
       if (!append) {
-        // 首屏失败。若是检索，就退回浏览态的完整列表 —— 此前 catch 只弹
-        // toast 而不动 memories，列表会停留在**上一次**的检索结果上，
-        // 用户以为搜索失败后看到的却是一屏与关键词无关的旧结果，
-        // 看起来像「搜索坏了」。
         if (isSearch) {
           toast.error(t("memory.errors.searchFallback"));
           setIsSearching(false);
@@ -332,13 +321,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
   };
 
 
-  // 切后台 / 切回本页签时刷新，避免看到别的设备写入的旧记忆。
-  // 正在编辑某条记忆时必须跳过，否则会丢掉未保存的改动。
-  // 检索态也跳过：此刻页面展示的是搜索结果，刷新会把它换成完整列表。
-  //
-  // 注意 fetchMemories 现在是**重置到第一页**（分页后不再是「替换整份数据」）。
-  // 若在已加载 3 页时切回前台，用户会退回第 1 页 —— 这是刻意的：数据变了就
-  // 重新开始，比在一半陈旧的分页上续接更不容易出错。
+  // 切后台 / 切回本页签时刷新，避免看到别的设备写入的旧记忆
   useRefreshOnResume(fetchMemories, {
     enabled: !editingItem && !isSearching,
     visible: active,
@@ -351,7 +334,6 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
       handleResetSearch();
       return;
     }
-    // 先置位再请求：fetchPage 内部的失败分支要靠它决定是否回退到浏览态
     setIsSearching(true);
     await fetchPage({ query, offset: 0, append: false });
   };
@@ -391,17 +373,12 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
   };
 
   const handleDelete = async (id: string) => {
-    // ref 单飞：确认弹窗的 loading 态能挡住「下一帧」的点击，但挡不住同一帧内的
-    // 双击（state 尚未提交），所以真正的闸门是这个 ref。
     if (deletingRef.current) return;
     deletingRef.current = true;
     setIsDeleting(true);
     try {
       await apiRequest(`/memories/${id}`, { method: "DELETE" });
       setMemories((prev) => prev.filter((m) => m.id !== id));
-      // 分页下 total 是服务端报告的总数，删掉一条后本地减一，
-      // 否则「共 N 条」和「加载更多（还有 N 条）」会一直差 1。
-      // hasMore 不动：删掉的只是已加载范围内的一条，不影响「服务端还有没有更多」。
       setTotalCount((prev) => Math.max(0, prev - 1));
       toast.success(t("memory.remove.done"));
     } catch (err: any) {
@@ -409,7 +386,6 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
     } finally {
       deletingRef.current = false;
       setIsDeleting(false);
-      // 成功与否都关掉弹窗：失败时用户已经看到 toast，留在原地反而挡住列表。
       setDeletingId(null);
     }
   };
@@ -434,9 +410,6 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      // 报告实际导出的条数而不是 totalCount：后端 list_all_memories 是
-      // 分块累加的，末页出错时会返回部分数据（并已写告警日志）。让用户
-      // 知道自己拿到的文件里到底有多少条，比报一个可能对不上的数字诚实。
       const exported = Array.isArray(data?.memories) ? data.memories.length : 0;
       const partial = exported > 0 && exported < totalCount;
       if (partial) {
@@ -558,23 +531,12 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
         </form>
       </Panel>
 
-      {/* ── 状态与统计小标 ──
-          px-1 让这里的内容与上方搜索框、下方卡片的左边缘对齐（搜索框有
-          pl-9 的图标内边距，但 Input 自身的 border 与卡片一致）。 */}
       <div className="flex items-center justify-between gap-3 px-1">
         <SectionLabel className="flex min-w-0 items-center gap-1.5 pb-0">
           <Brain className="h-3.5 w-3.5 shrink-0 text-primary" />
           <span className="truncate">
             {isSearching ? t("memory.section.searchResults") : t("memory.section.all")}
           </span>
-          {/* totalCount 是服务端报告的总条数，不是 memories.length ——
-              分页后后者只是「已加载多少」。两者不等时补一个进度提示，
-              让用户知道下面还有。 */}
-          {/*
-            浏览态的 total 是精确总数；检索态的 total 只能给出下界
-            （向量检索没有 count 接口），所以还有下一页时用「N+」表示
-            「至少 N 条」，不谎报一个具体数字。
-          */}
           <span className="shrink-0 font-mono text-xs opacity-75">
             {hasMore
               ? isSearching
@@ -805,16 +767,10 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
         </DialogContent>
       </Dialog>
 
-      {/* ── 删除确认弹窗 ──
-          loading 必须绑定「请求在途」的 isDeleting，而不是「待确认目标」deletingId：
-          弹窗正是由 deletingId 派生的，用它当 loading 会让弹窗一挂载就显示
-          「处理中…」并禁用确认键，删除操作永远无法触发。 */}
       {deletingId && (
         <ConfirmDialog
           open
           onOpenChange={(open) => {
-            // 请求飞行中不允许关闭，否则用户会在 DELETE 还在途时把弹窗撤掉，
-            // 失去 loading 反馈也失去防连点的视觉提示。
             if (!open && !isDeleting) setDeletingId(null);
           }}
           title={t("memory.remove.title")}

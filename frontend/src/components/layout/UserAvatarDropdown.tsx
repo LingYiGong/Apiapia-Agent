@@ -108,13 +108,8 @@ export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
         align="end"
         sideOffset={8}
         collisionPadding={12}
-        // 材质全部来自 overlaySurfaceClass，这里只追加头像菜单独有的两点：
-        // 固定宽度（账户卡 + 带箭头的导航项需要恒定宽度），以及把默认的
-        // w-max 顶掉。此前那 6 个 animate-in / zoom-in-95 是基础类
-        // DropdownMenuContent 已经提供过的（data-[state=open]: 前缀版），属冗余。
         className={cn(overlaySurfaceClass, "w-[270px]")}
       >
-        {/* 1. 账户卡片 */}
         <div className="flex items-center gap-3 p-2 pb-2.5">
           <UserAvatar
             username={user.username}
@@ -141,12 +136,6 @@ export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
 
         <DropdownMenuSeparator className="mx-1 my-1 opacity-60" />
 
-        {/* 2. 外观三档
-            桌面端仍不渲染：桌面顶栏在触发器左侧已有一个独立的 <ThemeToggle>，
-            两处都放会让用户在同一屏看到两个主题入口。
-
-            这里不一致是**有意的**，与上面的菜单项不同 —— 菜单项不一致纯粹是
-            历史遗留（两种视觉语言），而这里是同一屏里避免重复入口。 */}
         {!isDesktop && (
           <>
             <div className="px-2 py-1.5">
@@ -161,14 +150,10 @@ export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
           </>
         )}
 
-        {/* 3. 导航入口（由 ACCOUNT_MENU_ITEMS 驱动，带 active 指示） */}
         <div className="space-y-0.5">
           {ACCOUNT_MENU_ITEMS.map((item) => {
             const Icon = item.Icon;
             const active = isActive(item.id);
-            // 两端共用同一套行样式。此前桌面端渲染「裸图标 + 文字」而移动端
-            // 渲染「色调图标方块 + 右箭头」，同一个菜单在两个端上是两种视觉
-            // 语言，桌面端看起来像没做完。这里统一为移动端那套。
             const rowClass = cn(
               "group flex w-full cursor-pointer items-center justify-between rounded-xl transition-all active:scale-[0.98]",
               "px-2.5 py-2",
@@ -227,7 +212,6 @@ export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
 
         <DropdownMenuSeparator className="mx-1 my-1 opacity-60" />
 
-        {/* 4. 退出登录 */}
         <DropdownMenuItem
           onClick={logout}
           className="flex w-full cursor-pointer items-center gap-2.5 rounded-xl px-2.5 py-2 text-footnote font-medium text-destructive transition-all hover:bg-destructive/10 focus:bg-destructive/10 active:scale-[0.98] dark:text-destructive"

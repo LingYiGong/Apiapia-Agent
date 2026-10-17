@@ -94,9 +94,6 @@ function extensionForMimeType(mimeType?: string): string {
 function authHeaders(extra?: Record<string, string>): Record<string, string> {
   const headers: Record<string, string> = { ...(extra || {}) };
   const token = getToken();
-  // Same reason streamChatResponse omits it: an empty Authorization header is
-  // forwarded verbatim by the /api/backend proxy, and some gateways reject ""
-  // as a malformed credential with a 400 that reads as a network fault.
   if (token) headers.Authorization = `Bearer ${token}`;
   return headers;
 }
@@ -230,11 +227,6 @@ export async function speakText(text: string, opts: SpeakOptions = {}): Promise<
       voice: opts.voice,
       speed: opts.speed,
       instructions: opts.instructions,
-      // mp3 is a *preference*, not a guarantee. Gemini TTS accepts only pcm and
-      // Mistral Voxtral only mp3, so the backend negotiates and returns whatever
-      // is actually playable — audio/mpeg, or audio/wav when it had to wrap raw
-      // pcm in a container. Either way this receives a blob an <audio> element
-      // can play, so there is nothing to handle here.
       response_format: "mp3",
     }),
     signal: opts.signal,

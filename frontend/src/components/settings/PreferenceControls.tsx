@@ -33,7 +33,6 @@ export function TemperatureControl({
 
       <Panel className="space-y-3 p-3.5 sm:p-4">
         <div className="space-y-1.5 px-1">
-          {/* aria-label 与 aria-valutext 由 Slider 强制要求 */}
           <Slider
             aria-label={t("settings.persona.temperatureAria")}
             formatValueText={(v) =>
@@ -53,8 +52,6 @@ export function TemperatureControl({
             step={0.05}
             value={[value]}
             onValueChange={(vals) => {
-              // Radix 语义上 value 至少一项，但解构拿到的是 number | undefined。
-              // 不判空的话 Math.round(undefined) → NaN，温度会直接变成 NaN 并被保存。
               const val = vals?.[0];
               if (typeof val === "number" && Number.isFinite(val)) {
                 onChange(Math.round(val * 100) / 100);

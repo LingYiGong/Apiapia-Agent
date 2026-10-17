@@ -49,14 +49,6 @@ const DialogContent = React.forwardRef<
       <DialogPrimitive.Content
         ref={ref}
         className={cn(
-          // 矮屏/横屏保护：此前这里只有 `fixed top-[50%] translate-y-[-50%] p-6`，
-          // 既没有 max-h 也没有 overflow。横屏手机可用高度约 430px，
-          // MemoryView 的编辑弹窗（min-h-[100px] 的 textarea）会被
-          // **上下对称裁掉且滚不出来** —— 居中定位 + 溢出即裁切。
-          // dvh 而非 vh：iOS Safari 展开地址栏时 vh 不收缩。
-          //
-          // pt/pb 用 max() 让开状态栏与 home indicator，避免弹窗底边
-          // 压在 iOS 的手势条上。
           "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 overflow-y-auto overscroll-contain border border-border/80 bg-card p-6 pt-[max(1.5rem,var(--sat))] pb-[max(1.5rem,var(--sab))] max-h-[calc(100dvh-2rem)] dark:bg-surface-2 shadow-2xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] rounded-overlay",
           className
         )}
@@ -65,12 +57,6 @@ const DialogContent = React.forwardRef<
         {children}
         {showCloseButton && (
           <>
-            {/* 此前这个关闭键既没有 padding 也没有任何尺寸类，而 DialogPrimitive.Close
-                渲染出来就是一个 <button>，于是按钮的实际热区等于里面那个 h-4 的 <X>
-                —— 16×16px。全项目 9 处 DialogContent 都带它，其中移动端会话重命名、
-                删除确认、图片灯箱都是手指点按，16px 远远不够。
-                这里补 h-9 w-9 + flex 居中，落在 globals.css 自述的触控目标下限；
-                right/top 由 right-4 top-4 收到 right-3 top-3，图标中心基本不动。 */}
             <DialogPrimitive.Close
               className="absolute right-3 top-3 flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
             >

@@ -65,9 +65,7 @@ const PERIOD_HINT_KEYS: Record<PeriodType, MessageKey> = {
   all: "usage.period.hintAll",
 };
 
-/** 时间区间筛选器。上一版是 Tab，一度用 Tabs 组件（role=tablist）实现，
- *  但它不是选项卡而是「一组单选」，现在改为 SegmentedControl（radiogroup）。
- *  模块级只存**键**，文案在渲染时经 t() 查 —— 否则换语言时这里必然留下中文。 */
+/** 时间区间筛选配置。 */
 const PERIOD_OPTIONS: readonly {
   value: PeriodType;
   labelKey: MessageKey;
@@ -104,18 +102,14 @@ export const UsageView: React.FC<UsageViewProps> = ({
   const [restoreLoading, setRestoreLoading] = useState<string | null>(null);
   const [modelSortKey, setModelSortKey] = useState<"cost" | "tokens">("cost");
 
-  // 统一确认框 + 写操作状态机（原先三处管理员操作各自维护一份 try/catch/finally）
   const { ask: askConfirm, dialog: confirmDialog } = useConfirm();
   const { pendingKey: actionLoading, isPending: isActionPendingFor, run: runAction } = useAsyncAction();
 
-  // 该行任一管理动作在途（启用/停用、授予/取消管理员、开通/限制模型）。
-  // 三个动作的 key 都以 user_id 为后缀，所以统一前缀匹配即可覆盖整行。
   const isActionPending = (userId: string) =>
     isActionPendingFor(`active-${userId}`) ||
     isActionPendingFor(`admin-${userId}`) ||
     isActionPendingFor(`model-${userId}`);
 
-  // 视图内部守卫（此前与 SettingsView / MemoryView 逐字相同的三份之一）
   useRequireAuth();
 
   const isSuperuser = !!user?.is_superuser;
@@ -167,8 +161,6 @@ export const UsageView: React.FC<UsageViewProps> = ({
     fetchStats(newPeriod);
   };
 
-  /* ── 三个管理员操作（结构同构，收口到 runAction）── */
-
   const handleToggleActive = (userId: string, currentStatus: boolean, username: string) => {
     askConfirm({
       title: currentStatus ? t("usage.admin.disableConfirmTitle") : t("usage.admin.enableConfirmTitle"),
@@ -178,9 +170,6 @@ export const UsageView: React.FC<UsageViewProps> = ({
       confirmText: currentStatus ? t("usage.admin.disable") : t("usage.admin.enable"),
       danger: currentStatus,
       onConfirm: () =>
-        // key 必须带上动作名。三个操作原本都用裸 userId，于是「设为管理员」在
-        // 「启用/停用」在途时被单飞守卫直接 return undefined —— 无 toast、无
-        // 任何 UI 变化，用户点了永远没反应。
         runAction(
           `active-${userId}`,
           async () => {
@@ -252,8 +241,6 @@ export const UsageView: React.FC<UsageViewProps> = ({
     });
   };
 
-  /* ── 审计 ── */
-
   const fetchAuditList = async (userId: string) => {
     setAuditLoading(true);
     try {
@@ -291,9 +278,6 @@ export const UsageView: React.FC<UsageViewProps> = ({
     if (!auditUser) return;
     setRestoreLoading(convId);
     try {
-      // Restore lives at the conversation resource, not under /stats. There used to
-      // be a second copy here that forwarded to it purely to reshape the response;
-      // this call never used that response, so the duplicate could go.
       await apiRequest(`/conversations/${convId}/restore`, { method: "POST" });
       await fetchAuditList(auditUser.id);
       await fetchStats();
@@ -305,18 +289,6 @@ export const UsageView: React.FC<UsageViewProps> = ({
     }
   };
 
-  /**
-   * 表格的操作回调。
-   *
-   * 刻意**不做 useMemo**。此前它被 `useMemo([isActionPendingFor])` 锁住，而
-   * `isActionPendingFor` 是稳定引用 —— 于是这个对象永远停在首轮，里面捕获的
-   * `fetchStats` 也停在首轮，`fetchStats` 又闭包了当时的 `period`。
-   * 后果：用户切了时间区间，再去操作某个用户的模型权限，刷新回来的仍是旧区间
-   * 的数据（表格和 KPI 一起跳回）。
-   *
-   * 每次渲染重建的代价为零：UsersTable 不是 memo 组件，稳定引用没有任何收益，
-   * 而错误的缓存会直接显示错数据。
-   */
   const userActions: UserActions = {
     onToggleAllModels: handleToggleAllModels,
     onToggleActive: handleToggleActive,
@@ -362,7 +334,6 @@ export const UsageView: React.FC<UsageViewProps> = ({
       onSelectMobileTab={onSelectMobileTab}
       maxWidth="6xl"
     >
-      {/* ── 桌面头部 ── */}
       <div className="hidden flex-row items-center justify-between gap-4 border-b border-border/40 pb-5 md:flex">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
@@ -383,7 +354,6 @@ export const UsageView: React.FC<UsageViewProps> = ({
         <RefreshButton onClick={() => fetchStats()} loading={isLoading} />
       </div>
 
-      {/* ── 移动端子栏 ── */}
       <div className="flex items-center justify-between gap-2 pb-0.5 md:hidden">
         <div className="flex items-center gap-1.5">
           <span className="text-xs font-medium text-muted-foreground">
@@ -394,7 +364,6 @@ export const UsageView: React.FC<UsageViewProps> = ({
         <RefreshButton onClick={() => fetchStats()} loading={isLoading} compact />
       </div>
 
-      {/* ── 时间区间筛选 ── */}
       <div className="flex flex-col gap-2.5 rounded-2xl border border-border/50 bg-card/80 p-2 shadow-2xs backdrop-blur-md sm:flex-row sm:items-center sm:justify-between sm:p-2.5">
         <div className="flex shrink-0 items-center gap-2 overflow-x-auto py-0.5 no-scrollbar">
           <span className="shrink-0 whitespace-nowrap pl-1 text-xs font-medium text-muted-foreground">
@@ -415,7 +384,6 @@ export const UsageView: React.FC<UsageViewProps> = ({
         </span>
       </div>
 
-      {/* ── 管理员 / 我的 切换：这一处确实是选项卡，保留 Tabs 语义 ── */}
       {isSuperuser && (
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "overview" | "my")}>
           <TabsList className="inline-flex h-9 gap-1 rounded-xl border border-border/40 bg-surface-3/60 p-1 backdrop-blur-sm">
@@ -509,7 +477,6 @@ export const UsageView: React.FC<UsageViewProps> = ({
         <InspectMessagesDialog data={inspectData} onClose={() => setInspectData(null)} />
       )}
 
-      {/* 查阅中的加载态：inspecting 期间在弹窗标题栏给一个转圈 */}
       {inspectLoading && (
         <span className="sr-only" role="status" aria-live="polite">
           {t("usage.refresh.loadingAudit")}

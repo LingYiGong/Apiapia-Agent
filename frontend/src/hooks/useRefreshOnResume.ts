@@ -36,11 +36,6 @@ export function useRefreshOnResume(
   enabledRef.current = enabled;
 
   const run = () => {
-    // Both triggers funnel through here so `enabled` can never be bypassed.
-    // This used to be checked only in the listener effect below, which left the
-    // visibility path unguarded: with `enabled: !isStreaming`, switching back to
-    // the chat tab mid-stream ran the refresh and overwrote `messages` under the
-    // in-flight response.
     if (!enabledRef.current) return;
     const now = Date.now();
     if (now - lastRunRef.current < minIntervalMs) return;

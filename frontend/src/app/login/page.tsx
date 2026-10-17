@@ -121,8 +121,6 @@ export default function LoginPage() {
 
   return (
     <div className="relative flex-1 flex h-full min-h-full w-full flex-col justify-between overflow-x-hidden overflow-y-auto overscroll-contain bg-surface-1 px-4 pb-4 text-foreground selection:bg-primary/20 selection:text-primary sm:px-6 sm:pb-6">
-
-      {/* Top Floating Bar */}
       <header className="relative z-10 flex w-full max-w-5xl items-center justify-between mx-auto pt-[max(0.75rem,env(safe-area-inset-top,0px))] pb-2 sm:pt-4 sm:pb-3 shrink-0">
         <div className="flex items-center gap-2">
           <BrandLogo size={28} className="shadow-xs" />
@@ -131,19 +129,14 @@ export default function LoginPage() {
           </span>
         </div>
 
-        {/* Single-layer Apple Theme Toggle */}
         <div className="flex items-center gap-2">
-          {/* 语言切换放在登录页是因为这是所有人的必经之路：设置页在登录之后，
-              而一个英文用户最需要的就是在**看到错误提示之前**就能换语言。 */}
           <LanguageButton />
           <ThemeToggle variant="apple" />
         </div>
       </header>
 
-      {/* Apple Frosted Glass Sign-in Card */}
       <main className="relative z-10 flex-1 w-full flex items-center justify-center py-4 sm:py-8 my-auto shrink-0">
         <div className="relative w-full max-w-[390px] sm:max-w-[420px] rounded-[26px] sm:rounded-[28px] border border-border/60 bg-card/80 p-5 shadow-[0_16px_40px_rgba(0,0,0,0.05)] backdrop-blur-2xl sm:p-7 dark:shadow-[0_24px_64px_rgba(0,0,0,0.65)] transition-all">
-          {/* Brand Header */}
           <div className="flex flex-col items-center text-center mb-4 sm:mb-5">
             <BrandLogo size={64} className="mb-2.5 drop-shadow-md transition-transform hover:scale-105" />
             <h1 className="text-2xl sm:text-3xl font-semibold text-foreground">
@@ -154,7 +147,6 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {/* Apple Segmented Control */}
           <div className="mb-4 sm:mb-5 flex rounded-full bg-surface-3/60 p-1 relative">
             <button
               type="button"
@@ -180,9 +172,6 @@ export default function LoginPage() {
             </button>
           </div>
 
-          {/* Error Message
-              此前这里手写了一段与 ui/alert.tsx 结构完全一致的红色提示框，
-              而 Alert 组件全站 0 引用。现在直接用组件。 */}
           {error && (
             <Alert
               variant="destructive"
@@ -195,9 +184,7 @@ export default function LoginPage() {
             </Alert>
           )}
 
-          {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-3.5">
-            {/* Username / Account */}
             <div className="space-y-1">
               <label
                 htmlFor="account-input"
@@ -239,7 +226,6 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Email (Register Only) */}
             {isRegister && (
               <div className="space-y-1 animate-in fade-in slide-in-from-top-1 duration-200">
                 <label
@@ -278,7 +264,6 @@ export default function LoginPage() {
               </div>
             )}
 
-            {/* Password */}
             <div className="space-y-1">
               <label
                 htmlFor="password-input"
@@ -321,7 +306,6 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Confirm Password (Register Only) */}
             {isRegister && (
               <div className="space-y-1 animate-in fade-in slide-in-from-top-1 duration-200">
                 <label
@@ -347,8 +331,8 @@ export default function LoginPage() {
                     tabIndex={-1}
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     className="ml-1 rounded-lg p-1.5 text-muted-foreground/50 hover:bg-surface-3 hover:text-muted-foreground"
-title={showConfirmPassword ? t("auth.field.hidePassword") : t("auth.field.showPassword")}
-                  aria-label={showConfirmPassword ? t("auth.field.hidePassword") : t("auth.field.showPassword")}
+                    title={showConfirmPassword ? t("auth.field.hidePassword") : t("auth.field.showPassword")}
+                    aria-label={showConfirmPassword ? t("auth.field.hidePassword") : t("auth.field.showPassword")}
                     aria-pressed={showConfirmPassword}
                   >
                     {showConfirmPassword ? (
@@ -361,7 +345,6 @@ title={showConfirmPassword ? t("auth.field.hidePassword") : t("auth.field.showPa
               </div>
             )}
 
-            {/* Submit Button */}
             <Button
               type="submit"
               disabled={submitting}
@@ -383,7 +366,6 @@ title={showConfirmPassword ? t("auth.field.hidePassword") : t("auth.field.showPa
             </Button>
           </form>
 
-          {/* Privacy & Trust Badge */}
           <div className="mt-5 border-t border-border/60 pt-3 text-center">
             <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
               <ShieldCheck className="h-4 w-4 text-primary/70 shrink-0" />
@@ -393,7 +375,6 @@ title={showConfirmPassword ? t("auth.field.hidePassword") : t("auth.field.showPa
         </div>
       </main>
 
-      {/* Apple Minimalist Footer */}
       <footer className="relative z-10 w-full max-w-5xl py-1 sm:py-2 text-center mx-auto">
         <p className="text-xs text-muted-foreground/60">
           {t("auth.footer", { version: CURRENT_VERSION })}

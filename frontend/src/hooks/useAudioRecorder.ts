@@ -5,13 +5,6 @@ import { pickRecorderMimeType } from "@/lib/speech";
 import { getTranslator, resolveStoredLocale } from "@/i18n/runtime";
 import type { MessageKey, TranslateValues } from "@/i18n";
 
-/**
- * 按**调用时**解析翻译器，而不是在 hook 渲染时抓一份。
- *
- * 这两处 setError 都在 useCallback 里，而回调的依赖数组里没有语言 ——
- * 若在 hook 体顶部算好 t 再让闭包捕获，用户切语言后录制失败仍会弹旧语言的
- * 提示。一行函数调用换来「总是当前语言」，代价可以忽略。
- */
 function tr(key: MessageKey, values?: TranslateValues): string {
   return getTranslator(resolveStoredLocale())(key, values);
 }
@@ -100,10 +93,6 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}): AudioRe
   const analyserRef = useRef<AnalyserNode | null>(null);
   const stopTimerRef = useRef<number | null>(null);
 
-  // The auto-stop timer fires from inside setTimeout, where it must not close
-  // over the `stop` from the render that created it. A ref keeps it pointed at
-  // the current one without making `start` depend on `stop` (which depends on
-  // `release`, which `start` also uses — a cycle if taken literally).
   const stopRef = useRef<(() => Promise<RecordedAudio | null>) | null>(null);
   const onAutoStopRef = useRef<((audio: RecordedAudio) => void) | undefined>(undefined);
   onAutoStopRef.current = onAutoStop;

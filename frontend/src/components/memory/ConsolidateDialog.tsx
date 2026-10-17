@@ -66,7 +66,6 @@ export function ConsolidateDialog({
   const [selectedAdds, setSelectedAdds] = useState<Set<number>>(new Set());
   const [elapsed, setElapsed] = useState(0);
 
-  // Timer for analyzing progress
   useEffect(() => {
     if (!isAnalyzing) {
       setElapsed(0);
@@ -92,7 +91,6 @@ export function ConsolidateDialog({
     return Math.min(96, 88 + Math.round((elapsed - 28) * 0.4));
   }, [elapsed]);
 
-  // Reset selections when new plan loads
   useEffect(() => {
     if (plan) {
       setSelectedDeletes(new Set(plan.to_delete.map((item) => item.id!).filter(Boolean)));
@@ -187,7 +185,6 @@ export function ConsolidateDialog({
               </div>
             </div>
 
-            {/* 动态进度条 */}
             <div className="space-y-1">
               <div className="h-1.5 w-full bg-surface-3/80 rounded-full overflow-hidden border border-border/30">
                 <div
@@ -197,7 +194,6 @@ export function ConsolidateDialog({
               </div>
             </div>
 
-            {/* 步骤时间线 */}
             <div className="space-y-2">
               {CONSOLIDATION_STAGES.map((stg, i) => {
                 const isCompleted = i < currentStageIndex;
@@ -286,7 +282,6 @@ export function ConsolidateDialog({
                 </TabsTrigger>
               </TabsList>
 
-              {/* 提炼新增 */}
               <TabsContent value="add" className="flex-1 min-h-0 overflow-y-auto mt-3 pr-1 space-y-2.5">
                 {toAddCount === 0 ? (
                   <p className="text-center text-xs text-muted-foreground py-8">无新合成提炼的条目</p>
@@ -327,7 +322,6 @@ export function ConsolidateDialog({
                 )}
               </TabsContent>
 
-              {/* 冲突更新 */}
               <TabsContent value="update" className="flex-1 min-h-0 overflow-y-auto mt-3 pr-1 space-y-2.5">
                 {toUpdateCount === 0 ? (
                   <p className="text-center text-xs text-muted-foreground py-8">无需要消除冲突与更新的条目</p>
@@ -374,7 +368,6 @@ export function ConsolidateDialog({
                 )}
               </TabsContent>
 
-              {/* 剔除过期 */}
               <TabsContent value="delete" className="flex-1 min-h-0 overflow-y-auto mt-3 pr-1 space-y-2.5">
                 {toDeleteCount === 0 ? (
                   <p className="text-center text-xs text-muted-foreground py-8">无建议淘汰的过期记录</p>
@@ -418,7 +411,6 @@ export function ConsolidateDialog({
                 )}
               </TabsContent>
 
-              {/* 保持不变 */}
               <TabsContent value="keep" className="flex-1 min-h-0 overflow-y-auto mt-3 pr-1 space-y-2.5">
                 {toKeepCount === 0 ? (
                   <p className="text-center text-xs text-muted-foreground py-8">无记录</p>

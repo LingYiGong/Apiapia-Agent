@@ -27,14 +27,6 @@ export interface UseConfirmResult {
 
 /**
  * 破坏性操作的「先确认再执行」状态机。
- *
- * 此前 UsageView（3 处）与 MemoryView（1 处）各自维护一个 pending 状态 +
- * 一段 ConfirmDialog 渲染样板。这里把两者合成一对 ask / dialog。
- *
- * 与旧实现的一个**行为差异**：确认后对话框不再立即消失，而是保持打开
- * 并进入 loading 态，直到 onConfirm 结束。旧代码在 onConfirm 第一行就
- * `setPending(null)`，弹窗先消失、随后请求还在飞，用户看不到任何进行中
- * 反馈，连点两下会发出两个请求。现在 loading 期间确认按钮禁用。
  */
 export function useConfirm(): UseConfirmResult {
   const [pending, setPending] = useState<ConfirmRequest | null>(null);

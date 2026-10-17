@@ -34,9 +34,7 @@ import {
  */
 
 const BUTTON_WIDTH = 76;
-/** 满滑触发阈值。比 BUTTON_WIDTH 大一截，避免「轻轻一动就误删」。 */
 const FULL_SWIPE_THRESHOLD = 135;
-/** 部分滑动的吸附阈值。 */
 const SNAP_THRESHOLD = 36;
 
 export interface SwipeableConversationCardProps {
@@ -90,7 +88,6 @@ export const SwipeableConversationCard = ({
   const isSwipingRef = React.useRef(false);
   const swipeTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // 其它项被打开或关闭时复位自己的偏移
   React.useEffect(() => {
     if (!isOpen && offset !== 0) {
       setOffset(0);
@@ -118,7 +115,6 @@ export const SwipeableConversationCard = ({
     const diffX = touch.clientX - startXRef.current;
     const diffY = touch.clientY - startYRef.current;
 
-    // 先判定横向还是纵向；判为纵向就彻底退出，此后不再接管这次手势
     if (isHorizontalRef.current === null) {
       if (Math.abs(diffY) > 8 && Math.abs(diffY) > Math.abs(diffX)) {
         isHorizontalRef.current = false;
@@ -132,7 +128,6 @@ export const SwipeableConversationCard = ({
     isSwipingRef.current = true;
 
     let target = currentOffsetRef.current + diffX;
-    // 超出按钮宽度后加阻尼，给出「已经到底了」的物理反馈
     if (target > BUTTON_WIDTH) {
       target = BUTTON_WIDTH + (target - BUTTON_WIDTH) * 0.35;
     } else if (target < -BUTTON_WIDTH) {
@@ -145,7 +140,6 @@ export const SwipeableConversationCard = ({
     setIsDragging(false);
     if (isHorizontalRef.current !== true) return;
 
-    // 刚滑完的一小段时间内拦截 click，否则松手会顺带触发「打开会话」
     if (isSwipingRef.current) {
       if (swipeTimeoutRef.current) clearTimeout(swipeTimeoutRef.current);
       swipeTimeoutRef.current = setTimeout(() => {
@@ -184,7 +178,6 @@ export const SwipeableConversationCard = ({
   };
 
   const handleCardClick = () => {
-    // 滑动过程中或卡片还开着时，拦截点击，不进入会话
     if (isSwipingRef.current || offset !== 0) {
       if (offset !== 0) {
         setOffset(0);
@@ -212,7 +205,6 @@ export const SwipeableConversationCard = ({
         isDraggingThis && "shadow-2xl ring-2 ring-primary/50"
       )}
     >
-      {/* Leading action: 右滑 → 置顶 / 取消置顶 */}
       <div
         style={{ width: `${BUTTON_WIDTH}px` }}
         onClick={(e) => {
@@ -234,7 +226,6 @@ export const SwipeableConversationCard = ({
         </span>
       </div>
 
-      {/* Trailing action: 左滑 → 删除 */}
       <div
         style={{ width: `${BUTTON_WIDTH}px` }}
         onClick={(e) => {
@@ -253,7 +244,6 @@ export const SwipeableConversationCard = ({
         <span className="text-xs font-semibold">{t("chat.history.delete")}</span>
       </div>
 
-      {/* 前景卡片 */}
       <div
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -273,7 +263,6 @@ export const SwipeableConversationCard = ({
           isDraggingThis && "border-primary/50 shadow-lg"
         )}
       >
-        {/* 选中态蒙层：压在不透明卡片之上，不会穿透到底层按钮 */}
         {isSelected && (
           <div className="pointer-events-none absolute inset-0 z-0 rounded-2xl bg-primary/10" />
         )}
@@ -293,8 +282,6 @@ export const SwipeableConversationCard = ({
           </div>
 
           <div className="min-w-0 flex-1">
-            {/* 整卡 onClick 只服务鼠标与滑动；这里给标题一个真正的 <button>，
-                让 Enter / Space 也能打开会话，并用 aria-current 标记当前会话。 */}
             <button
               type="button"
               onClick={(e) => {
@@ -329,7 +316,6 @@ export const SwipeableConversationCard = ({
           </div>
         </div>
 
-        {/* 操作菜单与拖拽把手 */}
         <div className="flex shrink-0 items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -392,10 +378,6 @@ export const SwipeableConversationCard = ({
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* 置顶项的拖拽把手。刻意不包 ActionTooltip：拖拽只支持指针操作，
-              让 TooltipTrigger 把它变成可聚焦元素会造出「能 Tab 到、但按不出
-              任何效果」的死点（WCAG 2.1.1）。改用原生 title 提示。
-              键盘用户用上方菜单里的「上移一位 / 下移一位」完成同样的排序。 */}
           {c.is_pinned && onStartDrag ? (
             <div
               title={t("chat.history.dragHintKeyboard")}

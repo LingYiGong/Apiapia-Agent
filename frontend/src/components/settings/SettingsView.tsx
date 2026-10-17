@@ -68,14 +68,7 @@ export interface SettingsViewProps {
   active?: boolean;
 }
 
-/**
- * 「记忆提炼模型」的推荐项。
- *
- * 关键改动：这些 id **不再**与语言模型目录无关地硬编码。此前这份 5 项列表写死，
- * 用户只有 DeepSeek key 时下拉里照样列出 openai/gpt-4o-mini 等他调不通的模型。
- * 现在推荐项从 /models/configured 的真实目录里挑（见 buildMemoryModelOptions），
- * 并且允许手动输入任意 id。
- */
+/** 「记忆提炼模型」的预设候选项。 */
 const MEMORY_MODEL_PRESET_IDS = [
   "openai/gpt-4o-mini",
   "deepseek/deepseek-chat",
@@ -191,24 +184,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const { user, loading } = useAuth();
   const isAdmin = Boolean(user?.is_superuser);
 
-  // User Settings State
   const [defaultModel, setDefaultModel] = useState("openrouter/free");
   const [memoryModel, setMemoryModel] = useState("openai/gpt-4o-mini");
   const [consolidationModel, setConsolidationModel] = useState("openrouter/free");
   const [imageModel, setImageModel] = useState<string | null>(null);
   const [videoModel, setVideoModel] = useState<string | null>(null);
-  // 语音识别与语音合成各一个选择，各存一个字段。两者在上游是互不相交的模型族，
-  // 所以不共用一个 state。
   const [sttModel, setSttModel] = useState<string | null>(null);
   const [ttsModel, setTtsModel] = useState<string | null>(null);
   const [systemPrompt, setSystemPrompt] = useState("");
   const [temperature, setTemperature] = useState(0.7);
   const [memoryEnabled, setMemoryEnabled] = useState(true);
 
-  // Baseline state for dirty checking & reset (Apple HIG)
   const [initialSettings, setInitialSettings] = useState<InitialSettings | null>(null);
 
-  // Model Catalog State
   const [availableModels, setAvailableModels] = useState<ModelCatalogItem[]>([]);
   const [imageModels, setImageModels] = useState<ImageModelItem[]>([]);
   const [imageModelsSynced, setImageModelsSynced] = useState(false);
@@ -228,10 +216,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [loadingSettings, setLoadingSettings] = useState(true);
 
-  // Accounts without full model access only ever see zero-cost options.
   const isTrialMode = useIsTrialMode();
 
-  // Apple HIG Dirty Check: Has user changed any settings?
   const isDirty = useMemo(() => {
     if (!initialSettings) return false;
     return (
@@ -377,8 +363,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         scope: "speech",
         newCount: res.new_count || 0,
         message: res.message,
-        // 语音目录空着就一定是哪里不对了：要么查询写错、要么凭证没生效。
-        // 不加这一条的话 toast 报成功、下拉框空着，用户完全无从判断。
         emptyResult: (audioRes?.models?.length ?? 0) === 0,
       });
     } catch (err: any) {
@@ -388,7 +372,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
   };
 
-  // 视图内部守卫（此前与 UsageView / MemoryView 逐字相同的三份之一）
   useRequireAuth();
 
   const fetchSettingsAndConfigs = async () => {
@@ -640,16 +623,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <SectionLabel>{t("settings.appearance.label")}</SectionLabel>
             <Panel className="p-2 sm:p-2.5">
               <ThemeSegments />
-              {/* 界面语言与主题并排成组：两者都是「这台设备上的显示偏好」，
-                  都不写服务端、不参与脏检查、不需要点保存 —— 放在一起
-                  正好回答「我该去哪里改」，而不是散进别处。 */}
               <div className="mt-2 border-t border-border/60 pt-2 sm:mt-2.5 sm:pt-2.5">
                 <LanguageRow />
               </div>
             </Panel>
           </div>
 
-          {/* ── GROUP 2: 默认模型设置（语言 + 绘图 + 视频 + 语音）── */}
           <div>
             <div className="flex items-center justify-between gap-2 px-1 pb-1.5">
               <SectionLabel className="pb-0">{t("settings.modelGroup.default")}</SectionLabel>
@@ -672,7 +651,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
 
             <Panel className="p-3 sm:p-3.5">
-              {/* 语言模型 */}
               <div className="flex items-center gap-2 px-0.5">
                 <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-primary/25 bg-primary/10 text-primary">
                   <Brain className="h-3.5 w-3.5" />
@@ -713,7 +691,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <ModelMissingNotice id={defaultModel} />
               )}
 
-              {/* 绘图模型 */}
               <div className="mt-1 pt-4">
                 <div className="flex items-center gap-2 px-0.5">
                   <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-violet-500/25 bg-violet-500/10 text-violet-600 dark:text-violet-400">
@@ -753,7 +730,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 )}
               </div>
 
-              {/* 视频模型 */}
               <div className="mt-1 pt-4 border-t border-border/30">
                 <div className="flex items-center gap-2 px-0.5">
                   <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-sky-500/25 bg-sky-500/10 text-sky-600 dark:text-sky-400">
@@ -793,10 +769,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 )}
               </div>
 
-              {/* 语音模型：一个同步按钮 + 两个下拉。
-                  两个下拉而非一个是必须的 —— OpenRouter 的语音识别
-                  (output_modalities=transcription) 与语音合成 (=speech) 是两族
-                  互不相交的模型，放进同一个列表就必然有一半选项用不了。 */}
               <div className="mt-1 pt-4 border-t border-border/30">
                 <div className="flex items-center gap-2 px-0.5">
                   <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-teal-500/25 bg-teal-500/10 text-teal-600 dark:text-teal-400">
@@ -876,9 +848,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     })}
                   </p>
                 ) : currentTtsItem ? (
-                  /* 不公布音色列表的模型（Fish Audio / Seed Audio 系）：后端会省略
-                     voice 字段，由 provider 用自己的默认音色。这里说清楚，免得
-                     用户以为功能坏了。 */
                   <p className="mt-2 px-0.5 font-mono text-xs leading-relaxed text-muted-foreground">
                     {t("settings.modelGroup.voiceNoteNoList")}
                   </p>
@@ -887,10 +856,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </Panel>
           </div>
 
-          {/* ── GROUP 3: 采样温度 ── */}
           <TemperatureControl value={temperature} onChange={setTemperature} />
 
-          {/* ── GROUP 4: 默认提示词 ── */}
           <div>
             <SectionLabel>{t("settings.persona.groupLabel")}</SectionLabel>
             <Panel className="p-3 sm:p-4 space-y-2">
@@ -930,7 +897,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </Panel>
           </div>
 
-          {/* ── GROUP 5: 长期记忆 ── */}
           <div>
             <SectionLabel>{t("settings.memoryGroup.label")}</SectionLabel>
             <Panel className="divide-y divide-border/40">
@@ -949,10 +915,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 />
               </div>
 
-              {/* 记忆提炼与整理合并模型：仅超管可见（普通用户的字段后端不接收）*/}
               {memoryEnabled && user.is_superuser && (
                 <div className="space-y-4 bg-surface-3/20 p-3.5 sm:p-4">
-                  {/* 记忆提炼模型 */}
                   <div className="space-y-2.5">
                     <Label
                       htmlFor="memory-model-select"
@@ -1002,7 +966,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     </div>
                   </div>
 
-                  {/* 记忆整理合并模型 */}
                   <div className="space-y-2.5 pt-3 border-t border-border/40">
                     <Label className="text-xs font-medium text-muted-foreground">
                       {t("settings.memoryGroup.consolidationModelLabel")}
@@ -1015,7 +978,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       placeholder={t("settings.memoryGroup.consolidationModelPlaceholder")}
                     />
 
-                    {/* 推荐整理模型说明卡片列表 */}
                     <div className="mt-2 space-y-1.5 rounded-xl border border-border/40 bg-surface-2/40 p-3">
                       <div className="flex items-center gap-1.5 px-0.5 text-xs font-semibold text-foreground">
                         <Sparkles className="h-3.5 w-3.5 text-primary" />
@@ -1075,7 +1037,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </Panel>
           </div>
 
-          {/* ── GROUP 6: 关于系统与版本 ── */}
           <div>
             <SectionLabel>{t("settings.about.label")}</SectionLabel>
             <Panel className="divide-y divide-border/40">
@@ -1125,8 +1086,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </Panel>
           </div>
 
-          {/* 移动端没有头部保存控件时，表单内留一个提交入口，
-              保证「回车提交表单」与可见按钮行为一致。 */}
           <div className="flex justify-end md:hidden">
             <Button
               type="submit"
@@ -1140,7 +1099,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </form>
       )}
 
-      {/* 浮动保存条：仅 < md（与桌面头部的 SaveStatus 由断点互斥）*/}
       <SaveActionBar
         state={saveState}
         onReset={handleResetSettings}

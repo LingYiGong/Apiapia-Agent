@@ -12,11 +12,9 @@ const badgeVariants = cva(
           "border-transparent bg-primary text-primary-foreground shadow hover:bg-primary/80",
         secondary:
           "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
-destructive:
-            "border-transparent bg-destructive text-destructive-foreground shadow hover:bg-destructive/80",
-          // variant `outline` 原先在此，全站 0 处引用（14 处 variant="outline"
-          // 经核实全部属于 Button），已删。
-        },
+        destructive:
+          "border-transparent bg-destructive text-destructive-foreground shadow hover:bg-destructive/80",
+      },
     },
     defaultVariants: {
       variant: "default",

@@ -49,12 +49,7 @@ import {
   menuSeparatorClass,
 } from "@/components/common/surfaces";
 
-/**
- * 聊天页两个头部真正共有的 props：模型选择 + 同步 + 新建对话。
- *
- * 「关联记忆」相关的两个字段（onToggleMemory / memoriesCount）只属于移动端 ——
- * 桌面端右侧记忆侧栏常驻，没有开关也没有角标，所以不放进这个共用接口。
- */
+/** 聊天页头部共用 props */
 export interface ChatHeaderBaseProps {
   currentModel: string;
   onModelChange: (model: string) => void;
@@ -92,10 +87,7 @@ export interface DesktopChatHeaderProps extends ChatHeaderBaseProps {
   memoriesCount?: number;
 }
 
-/**
- * ── Mobile Chat Navigation Bar (48px + Safe Area Top) ──
- * Unified with standard MobileHeader across all SPA tabs.
- */
+/** 移动端聊天顶栏 */
 export const MobileChatHeader: React.FC<MobileChatHeaderProps> = ({
   currentModel,
   onModelChange,
@@ -140,8 +132,6 @@ export const MobileChatHeader: React.FC<MobileChatHeaderProps> = ({
       <MobileHeader
         className={className}
         onSelectMobileTab={onSelectMobileTab}
-        // logo 在聊天页的语义是「新建对话」，而不是「回首页」——
-        // MobileHeader 据此生成正确的 aria-label。
         logoAction="new-chat"
         onLogoClick={onNewChat}
         right={
@@ -201,8 +191,6 @@ export const MobileChatHeader: React.FC<MobileChatHeaderProps> = ({
                     <span className="sr-only">{t("chat.history.actionMenu")}</span>
                   </Button>
                 </DropdownMenuTrigger>
-                {/* 样式收敛到 components/common/surfaces.ts —— 与下方相邻的头像
-                    菜单同一套刻度，四个问题的根因见那里的注释。 */}
                 <DropdownMenuContent
                   align="end"
                   sideOffset={8}
@@ -325,12 +313,7 @@ export const MobileChatHeader: React.FC<MobileChatHeaderProps> = ({
   );
 };
 
-/**
- * ── Desktop Chat Toolbar (48px) ──
- * Dedicated toolbar for desktop / tablet view inside workspace.
- *
- * 右上角提供当前会话的操作：置顶、重命名、删除。
- */
+/** 桌面端聊天工具栏 */
 export const DesktopChatHeader: React.FC<DesktopChatHeaderProps> = ({
   currentModel,
   onModelChange,

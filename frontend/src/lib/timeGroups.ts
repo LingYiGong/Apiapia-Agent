@@ -1,20 +1,5 @@
 /**
- * 按时间把列表切成 Apple HIG 的分组小标。
- *
- * 历史会话（桌面侧栏 Sidebar、移动端 MobileHistoryView）与记忆库（MemoryView）
- * 全站统一四段分组：**最近 24 小时 / 最近 3 天 / 最近 7 天 / 更早**。
- *
- * 两个关键设计：
- *
- * 1. **以「此刻」为基准的滚动窗口，不是自然日。**
- *    早上一条 08:00 的记忆、下午两点看时只有 6 小时，它属于「最近 24 小时」；
- *    而按自然日（今天 00:00 起算）的旧口径它在「今天」—— 但同一句话在
- *    昨晚 23:00 看又落在「昨天」。会话/记忆这类高频时间线用滚动窗口更符合
- *    直觉：用户关心的是「多久之前」，不是「跨过了哪个零点」。
- *
- * 2. **每条记忆只落进一个桶。** 判定自新到旧短路，命中即停。所以
- *    「最近 24 小时」里不会出现同时满足 3 天窗口的条目，各段互斥、条数之和
- *    等于总数（此前「过去 7 天」与「今天」存在重叠，需要靠文案解释才不歧义）。
+ * 时间分组工具函数与类型定义。
  */
 
 /**
@@ -44,43 +29,27 @@ import type { MessageKey, Translator } from "@/i18n";
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
 
-/**
- * 各桶的跨度（毫秒），按新→旧排列。
- *
- * 这里是**滚动窗口**的长度，不是「含今天在内的天数」—— 那种按自然日对齐的
- * 写法无法表达「最近 24 小时」这种非零点对齐的窗口。
- */
+/** 各桶的跨度（毫秒），按新→旧排列 */
 export const TIME_BUCKET_SPANS: { key: TimeBucketKey; spanMs: number }[] = [
   { key: "last24h", spanMs: 1 * DAY_MS },
   { key: "last3d", spanMs: 3 * DAY_MS },
   { key: "last7d", spanMs: 7 * DAY_MS },
 ];
 
-/** 分组小标文案。与滚动窗口语义一一对应，用户可自行推算边界。 */
+/** 分组配置参数 */
 export interface GroupOptions<T> {
-  /**
-   * 翻译函数。
-   *
-   * 显式传入而不是内部调 getTranslator：分组是在**渲染期**发生的，
-   * 必须跟着当前语言重渲染，而模块级的 getTranslator 做不到这一点。
-   */
   t: Translator;
-  /** 取每项的时间戳（毫秒）。无法解析时返回 0，会落进「更早」。 */
+  /** 取每项的时间戳（毫秒） */
   getTime: (item: T) => number;
-  /** 可选的置顶判定。传入后才会在最前面产出 pinned 组。 */
+  /** 可选的置顶判定 */
   isPinned?: (item: T) => boolean;
-  /** 置顶项内部的排序键（通常是 pin_order）。不传则沿用传入顺序。 */
+  /** 置顶项内部的排序键 */
   getPinOrder?: (item: T) => number;
-  /** 置顶组的小标文案键，默认「置顶对话」。 */
+  /** 置顶组的小标文案键，默认「置顶对话」 */
   pinnedTitleKey?: MessageKey;
 }
 
-/**
- * 判定一条时间戳落进哪个桶。
- *
- * 暴露出来是为了让调用方（以及将来的测试）能复用同一套判定，而不必各自重写
- * 一遍 `if (t >= x) ... else if (t >= y)` 的链。
- */
+/** 判定一条时间戳落进哪个桶 */
 export function bucketOf(timestampMs: number, now: number = Date.now()): TimeBucketKey {
   for (const { key, spanMs } of TIME_BUCKET_SPANS) {
     if (timestampMs >= now - spanMs) return key;
@@ -90,9 +59,7 @@ export function bucketOf(timestampMs: number, now: number = Date.now()): TimeBuc
 
 /**
  * 分组并按时间倒序排列（置顶组按 pinOrder 升序）。
- * 空分组不产出，因此返回值可以直接 map 渲染，无需再判长度。
- *
- * 产出顺序：置顶（若有）→ 最近 24 小时 → 最近 3 天 → 最近 7 天 → 更早。
+ * 空分组不产出。
  */
 export function groupByTimeBuckets<T>(
   items: readonly T[],
@@ -112,8 +79,6 @@ export function groupByTimeBuckets<T>(
     earlier: [],
   };
 
-  // 单次取用：一次分组只用同一个「此刻」，否则跨零点的长列表会在同一次
-  // 渲染里把某些条目算进 24h、另一些算进 3d，边界看起来毫无规律。
   const now = Date.now();
 
   for (const item of items) {

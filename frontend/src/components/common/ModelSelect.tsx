@@ -64,11 +64,6 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
     const useCaseSection = t("settings.modelGuide.sectionUseCase");
 
     const byUseCase: ModelFilterGroup[] = USE_CASE_ORDER.map((key) => {
-      const Icon = USE_CASE_ICONS[key];
-      // 场景谓词只看画像标签，不掺价格条件。
-      // 此前 fastFree 那一档在这里额外 `|| o.isFree`，把免费模型也算进
-      // 「极速与免费」；现在免费有自己的分组（纯 isFree），这里回到纯粹的
-      // 「这个模型是不是擅长这件事」。
       const match = (o: ModelOption) => o.guide?.useCases.includes(key) === true;
       const matched = options.filter(match);
       return {
@@ -76,7 +71,6 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
         label: t(USE_CASE_LABEL_KEYS[key]),
         icon: Icon,
         count: matched.length,
-        // 右侧显示去重后的真实模型数。`:batch` / `-pro` / `~latest` 变体不该让数字虚高。
         distinctCount: countDistinctModels(options, match),
         section: useCaseSection,
         available: matched.length > 0,
@@ -85,12 +79,6 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
     });
 
     return [
-      /* 免费排在最前，且谓词是纯 `isFree` —— 「免费」这一档要的就是
-         目录里所有免费的模型，一档不多一档不少。
-         此前这里挂的是「极速与免费」（use:fastFree），谓词是
-         「带 fastFree 画像 或 isFree」：那既不是纯免费，也会把一批
-         低价付费模型（GLM-Flash / Qwen-Flash 等画像档都是 budget）
-         混进来，用户按「免费」筛完却要为用不了的东西付费。 */
       {
         key: "free",
         label: t("settings.modelGuide.groupFree"),
@@ -122,9 +110,6 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
     ];
   }, [options, t]);
 
-  // 体验模式改由 useIsTrialMode 按**权限**判定（后端权威），目录仅在用户对象
-  // 尚未加载时兜底。此前这里是 `options.every(isFree)`，与设置页的
-  // `!is_superuser && !can_access_all_models` 是两套判定，可能互相矛盾。
   const isTrialMode = useIsTrialMode(options);
 
   return (

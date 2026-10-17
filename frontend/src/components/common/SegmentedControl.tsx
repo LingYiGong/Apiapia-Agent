@@ -5,25 +5,7 @@ import type { LucideIcon } from "lucide-react";
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
-/**
- * 分段控件（iOS segmented control 的语义版）。
- *
- * 为什么不用 Radix <Tabs>：
- * Tabs 渲染的是 `role="tablist"` + `role="tab"`，并**要求**每个 trigger 关联一个
- * `tabpanel`。它的键盘模型是「方向键在标签页之间跳」，读屏也会 announced 成
- * 「选项卡」。而全站有多处根本不是选项卡：
- *   - UsageView：时间区间筛选（今天 / 本月 / 今年 / 全部）
- *   - UsageView：模型分布排序（按花费 / 按 Token）
- *   - UsageView：审计状态筛选（全部 / 正常 / 已删除）
- *   - SettingsView：外观三档（跟随系统 / 浅色 / 深色）
- *
- * 这些是「一组选项里选一个」，正确的角色是 radio。滥用 Tabs 会让读屏用户听到
- * 「选项卡」，并且方向键会把焦点移到视野之外没有对应内容的选项上。
- *
- * 现在统一为 `role="radiogroup"` + `role="radio"` + roving tabindex，
- * 方向键在组内移动并即时选中，与原生 radio group 的行为一致。
- * 真正需要 tab/panel 语义的地方（全站仅管理员 / 我的用量切换）继续用 <Tabs>。
- */
+/** 分段单选控件（role="radiogroup" + role="radio" + roving tabindex） */
 
 export interface SegmentedOption<T extends string> {
   value: T;
@@ -115,8 +97,6 @@ export function SegmentedControl<T extends string>({
             className={cn(
               "inline-flex items-center justify-center gap-1.5 rounded-lg font-medium transition-all",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-surface-3",
-              // 轨道外层已设 h-8（32px）/ h-9（36px）并带 p-1（4px 内边距），
-              // 内部按钮对应应为 h-6（24px）/ h-7（28px），避免高度溢出导致超出轨道边框错乱。
               isSm ? "h-6 px-2.5 text-xs" : "h-7 px-3 text-xs",
               active
                 ? opt.activeClassName ??

@@ -79,13 +79,8 @@ export const DesktopNavbar: React.FC<DesktopNavbarProps> = ({ className }) => {
       </div>
 
       <div className="flex shrink-0 items-center gap-1.5 sm:gap-2 lg:gap-3">
-        {/* 语言与主题并排：两者都是「这台设备上的显示偏好」，都不写服务端。
-            语言在左、主题在右 —— 语言决定界面能不能读，主题决定看不看得清，
-            顺序按「前者影响更大」排。图标形态与 ThemeToggle 对齐。 */}
         <LanguageButton />
         <ThemeToggle />
-        {/* 主题与退出登录都收在头像菜单里（UserAvatarMenu 的单一实现），
-            顶栏不再额外放第二个退出按钮 —— 同一屏出现两个退出入口不是精简。 */}
         {user && <UserAvatarMenu variant="desktop" />}
       </div>
     </header>
@@ -146,10 +141,6 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
       )}
     >
       <div className="flex h-[var(--tabbar-h)] w-full items-center justify-around pl-[max(0.5rem,var(--sal))] pr-[max(0.5rem,var(--sar))]">
-        {/* 由 MOBILE_TAB_ITEMS 统一驱动。5 个页签在 320px 下每个约 62px，
-            配合 text-2xs（11px = Apple iOS 最小字号）仍然放得下。
-            Apple Tab Bar 规范是 10pt，我们取 11px —— 高于规范下限，
-            且与全站其它辅助文字对齐，避免标签栏成为全站最小的字。 */}
         {MOBILE_TAB_ITEMS.map((item) => {
           const active = activeMobileTab === item.id;
           // 对话页激活时换成「新建」图标 + 文案，点击即新建；

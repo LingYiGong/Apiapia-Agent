@@ -11,11 +11,6 @@ import { useI18n } from "@/i18n";
 
 /**
  * AI 生成图片卡片。
- *
- * 从 ChatMessageItem 拆出。三个值得记住的点：
- *  - 优先用 id 换来的持久化地址，url 只在「刚流式出来、还没回读」时才有
- *  - IntersectionObserver 懒加载：打开一个长对话不会一次性拉全部图片
- *  - 下载分三种情况：同源资源 / data URI / 外链
  */
 export function AiImageCard({
   image,

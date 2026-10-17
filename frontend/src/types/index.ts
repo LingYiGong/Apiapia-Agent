@@ -182,13 +182,7 @@ export interface VideoModelsResponse {
   synced: boolean;
 }
 
-/**
- * 一条语音模型目录项。
- *
- * `capability` 是关键字段：OpenRouter 的语音识别与语音合成是两族互不相交的
- * 模型（`output_modalities=transcription` 与 `=speech` 返回的集合没有交集），
- * 所以一份目录里两类模型混在一起，由这个字段区分，设置页据此拆成两个下拉。
- */
+/** 语音模型目录项 */
 export interface AudioModelItem {
   id: string;
   name: string;

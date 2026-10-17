@@ -7,12 +7,7 @@ import { Panel } from "@/components/common/Panel";
 import { useI18n } from "@/i18n";
 import { cn } from "@/lib/utils";
 
-/**
- * KPI 指标卡。
- *
- * 用量页此前有 **8 份**逐字相同的卡片 markup（管理员 tab 4 张 + 我的 tab 4 张），
- * 只差 label / 图标 / 数值 / 脚注。现在只有这一份。
- */
+/** KPI 指标卡组件。 */
 export function StatCard({
   label,
   icon: Icon,

@@ -50,13 +50,7 @@ export interface WordCardData {
   grammar_tips?: string;
 }
 
-/**
- * ISO 639-1 语言码 → 文案键。
- *
- * 此前这里是一张硬编码的中文常量表（en→英语、ja→日语 …），切到英文或日文界面后
- * 卡片标题仍然是中文。现在只保留「码 → 键」的映射，值交给 i18n 按当前界面语言
- * 给出（`chat.wordCard.lang<Code>`）。未收录的语种仍回退大写语言码。
- */
+/** ISO 639-1 语言码 → 文案键。 */
 const LANGUAGE_NAME_KEYS = {
   en: "chat.wordCard.langEn",
   ja: "chat.wordCard.langJa",
@@ -478,7 +472,6 @@ export function WordCard({
 
   return (
     <div className="my-4 overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm transition-all">
-      {/* 顶部标题栏 */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 bg-surface-3/50 px-4 py-2.5 text-xs select-none">
         <div className="flex items-center gap-2">
           <div className="flex h-6 items-center gap-1.5 rounded-md bg-primary/10 px-2 font-medium text-primary">
@@ -541,7 +534,6 @@ export function WordCard({
         </div>
       ) : (
         <div className="p-4 sm:p-5 space-y-4">
-          {/* 单词主区域：单词标题 + 发音按钮 + 音标 */}
           <div className="flex flex-wrap items-baseline justify-between gap-3 border-b border-border/40 pb-3.5">
             <div className="space-y-1.5">
               {data.query && (
@@ -585,7 +577,6 @@ export function WordCard({
                   {renderFuriganaText(safeString(data.word))}
                 </h2>
 
-                {/* 主发音按钮 */}
                 <button
                   type="button"
                   onClick={() => handlePlay("word", data.word, langCode)}
@@ -616,7 +607,6 @@ export function WordCard({
                 </button>
               </div>
 
-              {/* 音标展示（支持单音标或英美分列音标） */}
               <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground font-mono">
                 {data.phonetic_uk && (
                   <span className="inline-flex items-center gap-1 rounded bg-surface-3/80 px-1.5 py-0.5">
@@ -639,7 +629,6 @@ export function WordCard({
             </div>
           </div>
 
-          {/* 释义列表 */}
           {data.definitions && data.definitions.length > 0 && (
             <div className="space-y-1.5">
               <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground/80">
@@ -666,7 +655,6 @@ export function WordCard({
             </div>
           )}
 
-          {/* 经典例句与例句点读 */}
           {data.examples && data.examples.length > 0 && (
             <div className="space-y-2 pt-1">
               <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground/80">
@@ -686,17 +674,14 @@ export function WordCard({
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="space-y-1 flex-1">
-                          {/* 外语原句 */}
                           <div className="text-sm font-medium text-foreground leading-snug">
                             {renderFuriganaText(safeString(ex.original))}
                           </div>
-                          {/* 中文翻译 */}
                           {ex.translation && (
                             <div className="text-xs text-muted-foreground leading-normal">
                               {safeString(ex.translation)}
                             </div>
                           )}
-                          {/* 语法点说明 */}
                           {ex.note && (
                             <div className="text-xs text-primary/80 pt-0.5">
                               💡 {safeString(ex.note)}
@@ -704,7 +689,6 @@ export function WordCard({
                           )}
                         </div>
 
-                        {/* 例句点读小喇叭 */}
                         <button
                           type="button"
                           onClick={() => handlePlay(exKey, ex.original, langCode)}
@@ -734,7 +718,6 @@ export function WordCard({
             </div>
           )}
 
-          {/* 重点短语 / 常用搭配 */}
           {data.phrases && data.phrases.length > 0 && (
             <div className="space-y-1.5 pt-1">
               <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground/80">
@@ -761,7 +744,6 @@ export function WordCard({
             </div>
           )}
 
-          {/* 语法与易错点提示 */}
           {data.grammar_tips && (
             <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-900 dark:text-amber-200/90 leading-relaxed space-y-1">
               <div className="flex items-center gap-1.5 font-semibold text-amber-600 dark:text-amber-400">

@@ -7,14 +7,7 @@ import memory from "./memory";
 import settings from "./settings";
 import usage from "./usage";
 
-/**
- * English copy tree.
- *
- * Annotated as `Messages` so the compiler checks it against zh-CN key for key:
- * a missing key, a typo, or a stray extra key all fail `tsc --noEmit`.
- * Only the **structure** is checked — values are widened to `string`, so this
- * file is free to hold English text where zh-CN holds Chinese.
- */
+/** English copy tree */
 import type { Widen } from "../../types";
 import type { messages as zhCN } from "../zh-CN";
 

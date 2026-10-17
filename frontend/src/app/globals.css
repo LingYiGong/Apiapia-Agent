@@ -6,106 +6,61 @@
   :root {
     color-scheme: light dark;
 
-    /* ── shadcn 语义色 ─────────────────────────────────────────
-       全部经 tailwind.config.ts 的 `colors` 暴露为工具类
-       （bg-background / text-foreground / bg-card …）。
-       值取自 Apple HIG 系统色板。 */
-    --background: 0 0% 100%; /* System Gray 6 之外的白底 */
-    --foreground: 0 0% 0%; /* Primary Label */
+    /* ── shadcn 语义色 ── */
+    --background: 0 0% 100%;
+    --foreground: 0 0% 0%;
     --card: 0 0% 100%;
     --card-foreground: 0 0% 0%;
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 0%;
-    --primary: 241 62% 59%; /* System Indigo Light #5856D6 */
+    --primary: 241 62% 59%;
     --primary-foreground: 0 0% 100%;
     --secondary: 240 4.8% 95.9%;
     --secondary-foreground: 240 5.9% 10%;
     --muted: 240 4.8% 95.9%;
-    /* Secondary Label。这里刻意**不**使用 Apple 的 #8E8E93：
-       它在白底上只有 3.4:1，达不到 WCAG AA 正文对比度；
-       往下压到 ~55% 明度后仍有 5:1，既保持灰阶观感又合规。 */
     --muted-foreground: 240 3.8% 46.1%;
     --accent: 240 4.8% 93%;
     --accent-foreground: 240 5.9% 10%;
-    --destructive: 4 100% 59%; /* System Red Light #FF3B30 */
+    --destructive: 4 100% 59%;
     --destructive-foreground: 0 0% 100%;
-    /* Separator Light #E5E5EA */
     --border: 240 5.9% 90%;
     --input: 240 5.9% 90%;
     --ring: 241 62% 59%;
     --radius: 0.75rem;
 
-    /* ── Surface 层叠 ─────────────────────────────────────────
-       Apple HIG 的四层表面语义。此前散落着 40+ 处
-       `dark:bg-[#1c1c1e]` / `#2c2c2e` / `#121214` 硬编码，
-       每处都自带 opacity 后缀。现在统一成 4 个 token：
-         surface-1  页面级底色（侧栏、底部标签栏）
-         surface-2  卡片 / 浮层
-         surface-3  抬升层（选中行、输入槽、附件条）
-         surface-4  最高层（分段控件槽、骨架块） */
+    /* ── Surface 层叠 ── */
     --surface-1: 0 0% 100%;
     --surface-2: 0 0% 100%;
-    --surface-3: 240 4.8% 95.9%; /* #F2F2F7 */
-    --surface-4: 240 5% 91%; /* #E5E5EA */
+    --surface-3: 240 4.8% 95.9%;
+    --surface-4: 240 5% 91%;
 
-    /* System Green：开关、滑块以外的「已开启」语义色。
-       此前只有 ui/switch.tsx 一处硬编码 #34C759，
-       而记忆侧栏又硬编码了 #34C759 / #30D158 两个值。 */
-    --success: 142 72% 45%; /* #34C759 */
+    --success: 142 72% 45%;
     --success-foreground: 0 0% 100%;
 
-    /* ── 字体栈（唯一事实来源）───────────────────────────────
-       tailwind.config.ts 的 fontFamily 全部 var() 引用这里，
-       不再各自抄一份字面量。
-
-       顺序原则：**拉丁字体在前，CJK 字体在后**。
-       CSS 字体回退是逐字符进行的 —— 拉丁字形命中前面的 SF Pro /
-       Segoe UI，汉字因缺字自动落到后面的 PingFang SC / 微软雅黑 /
-       Noto Sans SC。此前把 system-ui 放在所有 CJK 字体之后，导致
-       Firefox / Safari on Windows 上 `-apple-system` 与
-       `BlinkMacSystemFont` 双双失效后，整段拉丁文字直接落到
-       Microsoft YaHei（其拉丁字形明显劣于 Segoe UI）。 */
+    /* ── 字体栈 ── */
     --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
       "SF Pro", system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial,
       "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC",
       "Hiragino Sans", "Yu Gothic", "Meiryo", "Noto Sans JP",
       sans-serif;
-    /* 现代化等宽字体栈：优先 SF Mono / JetBrains Mono / Cascadia Code，保证代码符号与对齐清晰 */
     --font-mono: -apple-system-monospaced, "SF Mono", SFMono-Regular, ui-monospace,
       "JetBrains Mono", "Cascadia Code", "Fira Code", Menlo, Monaco, Consolas, "Liberation Mono",
       "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC",
       monospace;
 
-    /* ── 代码块表面 ────────────────────────────────────────────
-       CodeBlock / WordCard 此前各自硬编码 #0d0d0d（正文）/ #1f1f23
-       （标题条）/ #ececec（前景）/ white/5（描边）。四种值散在
-       两个文件里，改主题要同时记得改两处。 */
+    /* ── 代码块表面 ── */
     --code-bg: 0 0% 5%;
     --code-header: 240 4% 12%;
     --code-fg: 0 0% 92.5%;
 
-    /* ── 布局常量 ────────────────────────────────────────────
-       跨文件复用的固定高度。此前同一数值在 Navbar 的页签高度、
-       SettingsView 浮动条的 bottom 偏移、MemorySidebar 的
-       padding 里各写一遍，改一处必漂移。 */
-    --header-h: 48px; /* MobileHeader 行高 (h-12) */
-    --header-h-desktop: 56px; /* DesktopNavbar 行高 (md:h-14) */
-    --toolbar-h: 48px; /* DesktopChatHeader 行高 (h-12) */
-    --tabbar-h: 49px; /* MobileTabBar 内容行 (Apple HIG 49pt) */
-
-    /* 判定「桌面外壳」所需的最小高度。与 tailwind.config.ts 的 `mdup`
-       断点（`(min-width: 768px) and (min-height: 600px)`）一一对应。
-       只有宽度条件时，iPhone 15 Pro Max 横屏（932×430）会命中全套
-       md: 规则：两个 256px 侧栏 + 桌面导航 + 桌面工具条，而移动标签栏
-       被隐藏、底部安全区无人处理。加上高度条件后横屏手机继续走移动
-       端外壳。改这里必须同步改 tailwind.config.ts 的 mdup。 */
+    /* ── 布局常量 ── */
+    --header-h: 48px;
+    --header-h-desktop: 56px;
+    --toolbar-h: 48px;
+    --tabbar-h: 49px;
     --desktop-min-h: 600px;
-
-    /* 侧栏宽度：Sidebar / MemorySidebar / 骨架屏三处共用。
-       骨架屏此前写死 `w-64 lg:w-72` 而真实侧栏写 `md:w-64 lg:w-72`，
-       两处独立维护，改一边另一边就错位。 */
-    --sidebar-w: 16rem; /* 256px */
-    --sidebar-w-lg: 18rem; /* 288px */
+    --sidebar-w: 16rem;
+    --sidebar-w-lg: 18rem;
 
     /* iOS 安全区 */
     --sat: env(safe-area-inset-top, 0px);
@@ -193,18 +148,7 @@
     @apply border-border;
   }
 
-  /* 全局键盘焦点兜底。
-     ------------------------------------------------------------------
-     此前 globals.css 里没有任何 :focus-visible 规则，键盘焦点完全依赖
-     每个组件自觉加 ring —— 而有几处没加：
-       - Sidebar.tsx 的行内重命名 input 是 `outline-none` 且无替代
-       - dropdown-menu / select 的键盘高亮是 `bg-accent`，在白底上仅 1.07:1
-     一旦某个新组件忘了写 focus 样式，键盘用户就彻底失去位置提示
-     （WCAG 2.4.7 Focus Visible）。
-
-     这里给出下限：2px ring 色 + 2px 偏移。组件自己写的 ring 依然生效
-     （Tailwind 的 focus-visible:ring-* 用 box-shadow，不与 outline 冲突），
-     只有「完全没写」的地方才落到这条兜底上。 */
+  /* 全局键盘焦点兜底 */
   :focus-visible {
     outline: 2px solid hsl(var(--ring));
     outline-offset: 2px;
@@ -225,47 +169,11 @@
   }
   body {
     font-family: var(--font-sans);
-    /* 字距**不在这里设**。Apple 的 SF Pro tracking 表随字号变化
-       （10/11pt 为正值 +12/+6‰，12pt 为 0，16pt 为 -20‰，24pt 越过零点
-       转为 +3‰，34pt 为 +12‰，80pt 回到 0），单一常量必然在两端都错。
-       此前的 `letter-spacing: -0.014em` 会作用到所有**没有** Tailwind
-       字号工具类的元素 —— 也就是全站约 170 处 text-[Npx] 任意值：
-       9/10/11px 上它把 Apple 要求的正字距变成了负字距（符号反了），
-       13px 上紧了 2.3 倍。现在字距唯一来源是 tailwind.config.ts 的
-       fontSize 刻度，每档都直接标注了对应的 Apple tracking 值。 */
-    line-height: 1.5; /* 中文正文节奏；Apple iOS Body 为 22/17 = 1.294，
-                        中文方块字需要比拉丁更松的行距，1.5 是网页通用值。 */
-    /* 这里此前还有一行 `transition: background-color 0.2s ease, color 0.2s
-       ease`，看起来是想让主题切换淡入，但它**从未生效过**：
-       lib/theme.tsx 给 next-themes 传了 disableTransitionOnChange，它会在
-       切换那一帧往 <head> 注入 `*,*::before,*::after{transition:none!important}`，
-       恰好在 --background / --foreground 唯一变化的瞬间把它抵消。
-       而且即使不抵消它也只是半淡入：--background 定义在 :root 上而非 body，
-       body 的底色是继承来的；而 transition 不继承，所以每个自带 bg-* /
-       border-* / shadow-* 的后代依然瞬切 —— 那才是最糟的半吊子。
-       主题瞬时切换是**正确**的行为（shadcn 选 disableTransitionOnChange
-       正是为了避开半淡入），故此处删掉这行误导性的声明，不做替代。 */
+    line-height: 1.5;
   }
 }
 
-/* 尊重系统「减弱动态效果」。
-   ------------------------------------------------------------------
-   iOS 的「减弱动态效果」/ macOS 的「减少动态」/ Windows 的「动画效果」
-   都会通过 prefers-reduced-motion 告知页面。本项目此前 0 处响应它，而弹层
-   是 `zoom-in-95` + `slide-in-from-top-[48%]` 这种位移加缩放的组合，对前庭
-   功能障碍用户会引发恶心 —— 系统已经明确表态了，页面却完全无视。
-
-   为什么用全局覆写而不是 motion-reduce: 变体逐点改：全站有 146 处
-   transition-*、19 处 animate-in/out、23 处 animate-spin，加上 Radix 组件
-   内部的动画，逐个加变体既改不完也会漏。这里一处解决，且能覆盖第三方库。
-
-   两个取值说明：
-   - duration 用 0.01ms 而非 0，是为了让 animationend 事件仍然照常触发
-     （直接写 0 有些浏览器会跳过事件，依赖它的逻辑就卡住了）。
-   - iteration-count 必须一起压到 1：只压 duration 的话，animate-spin 会在
-     0.01ms 内无限循环，等于高速频闪，比原来的旋转更糟。代价是转圈类加载
-     指示器会静止 —— 但本项目每一处 spinner 旁边都有文字（"思考中"、模型名、
-     已耗时几秒），状态语义仍由文字承载，不依赖动画本身。 */
+/* 减弱动态效果支持 */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -277,20 +185,6 @@
   }
 }
 
-/* Apple HIG iOS Layout Utilities
-   ------------------------------------------------------------------
-   这里此前有两块内容：
-   1. `.apple-*` 排版类 —— 从未被引用（全站 0 处），已删；字号改由
-      tailwind.config.ts 的 Apple 校准刻度统一治理。
-   2. `.apple-touch-target`（min 44×44）—— 同样 0 处引用，已删。
-      触控目标尺寸目前是靠各组件的 `h-9` / `h-10` / `size-11` 等刻度
-      手工保证的，没有统一工具类。若将来要收敛，应先落地使用方再补类，
-      而不是留一个从不生效的声明。
-   若日后确需工具类，注意 @layer utilities 内的规则必须真正被引用，
-   否则它和不存在等价。 */
-
-/* Clean root height & lock window-level scroll to prevent iOS upward shift.
-   h-dvh / min-h-dvh 由 Tailwind 3.4 自带，此处不再重复定义。 */
 html,
 body {
   width: 100%;
@@ -300,17 +194,12 @@ body {
   background-color: hsl(var(--background));
 }
 
-/* 滚动容器兜住橡皮筋：阻止滚动穿透到 document。
-   此前写作 `.overflow-y-auto, [class*="overflow-y-auto"]` —— 后者靠
-   属性子串匹配，等价于前者的超集，纯属冗余（任何含 overflow-y-auto
-   的元素都已被前者命中），且将来出现 `overflow-y-auto-fancy` 这类
-   类名时会被意外命中。 */
 .overflow-y-auto {
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
 }
 
-/* Touch responsiveness & Native Web App Feel */
+/* Touch responsiveness */
 button,
 a,
 input,
@@ -319,19 +208,7 @@ select {
   touch-action: manipulation;
 }
 
-/* Prevent iOS auto-zoom on input focus.
-   iOS zooms whenever a text field computes to < 16px, so every *typable* input
-   must be forced up — this has to cover email/password too, and inputs with no
-   explicit `type` attribute. Controls that are not text entry (checkbox, radio,
-   button, file, range, color, image) are excluded so their sizing is untouched.
-
-   查询条件用 `(any-pointer: coarse)` 而非 `(max-width: 640px)`：
-   1. 后者在 iPhone 15 Pro Max 等机型**横屏时失效** —— 逻辑宽度 932px
-      已超过 640px 断点，但 iOS 依然会对 < 16px 的输入框自动放大。
-   2. `any-pointer` 而非 `pointer`：iPad 接入妙控键盘/触控板后主指针会变成
-      `fine`，但触屏仍在，auto-zoom 行为依旧存在；`any-pointer` 只要存在
-      任何粗指针就命中，与外接设备无关。
-   粗指针才是 iOS 真正触发该行为的判据，与屏幕方向和尺寸无关。 */
+/* Prevent iOS auto-zoom on input focus */
 @media (any-pointer: coarse) {
   input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="file"]):not([type="range"]):not([type="color"]):not([type="image"]),
   textarea {
@@ -339,12 +216,7 @@ select {
   }
 }
 
-/* 隐藏 <input type="search"> 浏览器内置的清除按钮。
-   WebKit/Blink 会在输入框右侧画一个原生 ✕，而我们的输入框已经自绘了一个
-   （MemoryView / MobileHistoryView / ModelPicker），两者叠加就是**两个叉**。
-   Firefox 的清除按钮同样来自这个伪元素。
-   保留它主要是为了让桌面端的「清除搜索」可发现 —— 但它与设计不符且重复，
-   所以在这里一次性去掉，行为只由自绘按钮负责。 */
+/* 隐藏 search 类型 input 的原生清除按钮 */
 input[type="search"]::-webkit-search-cancel-button,
 input[type="search"]::-webkit-search-decoration,
 input[type="search"]::-webkit-search-results-button,
@@ -363,7 +235,7 @@ input[type="search"]::-webkit-search-results-decoration {
   scrollbar-width: none;
 }
 
-/* Apple HIG Custom scrollbar */
+/* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -386,19 +258,13 @@ input[type="search"]::-webkit-search-results-decoration {
   background-clip: padding-box;
 }
 
-/* Apple HIG Selection Highlighting */
+/* Selection Highlighting */
 ::selection {
   background-color: hsl(var(--primary) / 0.35);
   color: inherit;
 }
 
-/* 确保顶部 Toast 提示框永远位于头部栏下方，绝不遮挡头部栏。
-   取值需与 components/ui/sonner.tsx 的 TOASTER_TOP_OFFSET 保持一致，
-   两者共同引用 --header-h / --sat，避免第三份字面量。
-
-   用 max() 取两个头部高度里较大的那个：此前固定用 --header-h(48px)，
-   而 md+ 上真正可见的是 DesktopNavbar 的 --header-h-desktop(56px)，
-   于是 toast 顶边落在 48+9.6 = 57.6px，正好扎进 56px 高的桌面工具条里 1.6px。 */
+/* 确保顶部 Toast 提示框位于头部栏下方 */
 [data-sonner-toaster][data-y-position="top"] {
   top: calc(max(var(--header-h), var(--header-h-desktop)) + var(--sat) + 0.6rem) !important;
 }

@@ -8,16 +8,9 @@ import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n";
 
 /**
- * 偏好设置的「保存」控件。
- *
- * 此前同一件事在设置页里存在**三份**：桌面头部一套、移动端子栏一套、底部浮动
- * 玻璃条一套，className 几乎逐字相同，而且桌面端会**同时**出现头部按钮和浮动
- * 条（两者都由同一个 isDirty 控制）—— 同一屏两个保存入口。
- *
- * 现在职责清晰分开：
- *   - <SaveStatus>   桌面头部（md+）：状态文案 + 还原 + 保存
- *   - <SaveActionBar> 仅 < md：底部浮动玻璃条
- * 二者由调用方按断点二选一渲染，不再同时出现。
+ * 偏好设置的「保存」控件：
+ * - SaveStatus: 桌面头部（md+）：状态文案 + 还原 + 保存
+ * - SaveActionBar: 移动端底部浮动玻璃条
  */
 
 export interface SaveState {
@@ -94,8 +87,6 @@ function SaveButton({
       <Button
         type="button"
         onClick={onSave}
-        // 已保存过的那一刻（justSaved）仍允许再次点击，避免用户看不到「已保存」
-        // 就以为按钮坏了
         disabled={saving || (!dirty && !justSaved)}
         size="sm"
         className={cn(

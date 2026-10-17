@@ -11,14 +11,6 @@ import { CodeBlock } from "@/components/chat/markdown/CodeBlock";
 
 /**
  * 助手消息正文的 markdown 渲染。
- *
- * 从 ChatMessageItem 拆出。文件里保留了三条此前被详细注释过的性能/正确性决策，
- * 它们很容易在重构时被「顺手改掉」，所以原注释一并带过来了：
- *   1. remarkPlugins 与 components 必须是模块级常量 —— 每次渲染新建数组/对象
- *      会让 react-markdown 认为配置变了，从而整段重新解析。流式输出时
- *      这个函数每秒被调用 50 次，等于每秒全量重解析 50 次。
- *   2. components 表按 onImageClick 引用缓存（见 getMessageComponents）。
- *   3. 错误消息的判定用后端下发的 finish_reason，不靠嗅探内容字符串。
  */
 
 export type ImageClickHandler = (src: string, alt?: string) => void;
@@ -78,22 +70,8 @@ const remarkPlugins = [remarkGfm, remarkMath];
 const rehypePlugins = [rehypeKatex];
 
 
-/**
- * markdown 排版基准：Apple iOS Body = 17pt / 22pt leading（tracking -0.43px）。
- * 移动端取 16px（网页最小可读字号，同时也是 iOS 输入框防缩放阈值），
- * 桌面端升到 17px 与 Apple Body 对齐。leading 用 1.62 而非 Apple 的
- * 22/17 = 1.294 —— 那个比值是给 SF 拉丁字形调的，中文方块字需要更松
- * 的行距才不显拥挤。
- */
 const BODY_TEXT = "text-base sm:text-body leading-[1.62] text-foreground/95";
 
-/**
- * components 表里的渲染函数由 react-markdown 用 createElement 当**组件**渲染，
- * 所以它们本身可以调 hook —— 这正是把文案留在本模块内的最小改动：既不用给
- * renderMessageBody 加第四个参数让 ChatArea / ChatMessageItem 先查一遍文案，
- * 也不必把 t 一路透传下来。而且它们是模块级稳定引用，正好满足上面那条
- * 「components 必须是模块级常量」的约束。
- */
 function MarkdownImage({ node, ...props }: any) {
   const { t } = useI18n();
   return (

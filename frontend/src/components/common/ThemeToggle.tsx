@@ -33,13 +33,7 @@ export interface ThemeToggleProps {
   variant?: "outline" | "ghost" | "apple";
 }
 
-/**
- * 紧凑的主题切换入口（下拉列表形态）。
- *
- * 与 <ThemeSegments> 的分工：分段控件放不下窄栏（顶栏、登录页），用这个；
- * 有整行空间的地方（头像菜单、设置页）用分段控件。文案统一取自
- * THEME_LABEL_KEYS_LONG（存的是词典键，不是字符串），档位定义不再各写一份。
- */
+/** 紧凑的主题切换入口（下拉列表形态） */
 export const ThemeToggle: React.FC<ThemeToggleProps> = ({
   className,
   variant = "outline",
@@ -89,9 +83,6 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({
       <ActionTooltip label={triggerLabel}>
         <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
       </ActionTooltip>
-      {/* w-36 固定宽在日文下必折行：「システムに合わせる」9 个全角字约 108px，
-          容器扣掉内边距和图标后标签只剩 92px。四个问题的根因见
-          components/common/surfaces.ts。 */}
       <DropdownMenuContent
         align="end"
         sideOffset={8}
@@ -111,8 +102,6 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({
               onClick={() => setTheme(value)}
               className={cn(
                 menuItemClass,
-                // 选中行必须同时覆盖 hover / data-[highlighted]，否则高亮的灰底
-                // 会盖掉下面的 bg-primary/10，主题一变就看不出选中的是哪一项。
                 isSelected
                   ? "bg-primary/10 font-semibold text-primary hover:bg-primary/15 data-[highlighted]:bg-primary/15"
                   : "text-foreground/80"

@@ -8,10 +8,7 @@ import { useI18n } from "@/i18n";
 import type { VideoModelItem } from "@/types";
 
 interface VideoModelSelectProps {
-  /**
-   * 允许为 null —— UserSetting.video_model 本身就是 `string | null`，
-   * 表示用户尚未选择视频模型。
-   */
+  /** 允许为 null，表示用户尚未选择视频模型 */
   value: string | null;
   onChange: (modelId: string) => void;
   models: VideoModelItem[];
@@ -23,10 +20,7 @@ interface VideoModelSelectProps {
   isTrialMode: boolean;
 }
 
-/**
- * 视频模型选择器。基于共享的 <ModelPicker>，
- * 负责归一化后端返回体，并提供视频模型场景专属的空状态文案。
- */
+/** 视频模型选择器 */
 export const VideoModelSelect: React.FC<VideoModelSelectProps> = ({
   value,
   onChange,

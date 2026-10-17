@@ -6,25 +6,7 @@ import { MobileHeader } from "@/components/layout/MobileHeader";
 import type { MobileTab } from "@/config/navigation";
 import { cn } from "@/lib/utils";
 
-/**
- * 顶层视图的统一外壳。
- *
- * MemoryView / UsageView / SettingsView 三个文件开头是逐字相同的一段：
- *
- *   <div className="flex flex-col h-full overflow-hidden bg-background w-full
- *                  {h-full | h-dvh}">
- *     {!isMobileSpa && <Navbar />}
- *     <MobileHeader title="…" onSelectMobileTab={…} />
- *     <div className="flex-1 overflow-y-auto overscroll-contain">
- *       <main className="max-w-… p-4 sm:p-6 md:p-8 pb-…">
- *
- * 三份各自维护，而 `max-w-3xl` / `max-w-6xl`、底部留白（为了给浮动保存条 /
- * 移动底栏让位）等数值又各不相同。现在由本组件统一。
- *
- * 另一处收益：移动端 **MobileHeader 只在需要时渲染**。此前它虽然带 `md:hidden`，
- * 但在桌面路由下依然会挂载 —— 连带把 UserAvatarMenu（Radix Menu + Portal）也
- * 挂上，白白多一份 DOM 与一层浮层容器。
- */
+/** 顶层视图的统一外壳 */
 
 export interface ViewShellProps {
   /** 移动端头部标题 */

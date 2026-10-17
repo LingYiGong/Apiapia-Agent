@@ -6,24 +6,12 @@ import { speakText, splitForSpeech, textForSpeech } from "@/lib/speech";
 import { getTranslator, resolveStoredLocale } from "@/i18n/runtime";
 import type { MessageKey, TranslateValues } from "@/i18n";
 
-/**
- * 按**调用时**解析翻译器。
- *
- * 这几条消息都在事件回调里产生，不在渲染期，所以不需要订阅语言变化；
- * 而在 hook 体顶部抓一份 t 反而会让 useCallback 闭包捕获到旧语言。
- */
 function tr(key: MessageKey, values?: TranslateValues): string {
   return getTranslator(resolveStoredLocale())(key, values);
 }
 
 export type SpeechPlayerState = "idle" | "loading" | "playing" | "error";
 
-// ── Global playback slot ──
-// Voice mode's automatic read-aloud and the per-message 朗读 button are separate
-// hook instances, each with its own <audio> element. Without coordination they
-// happily talk over each other the moment a user clicks 朗读 while a reply is
-// still being read. One module-level slot makes starting a playback cancel
-// whichever one was running, whichever component it belonged to.
 let playerSeq = 0;
 let activePlayerId: number | null = null;
 let activeStopFn: (() => void) | null = null;

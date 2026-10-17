@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.28.0-indigo?style=flat-square" alt="Version"></a>
+  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.29.0-indigo?style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
@@ -86,13 +86,21 @@ TAVILY_API_KEY=
 ### 2. 一鍵啟動 Docker 叢集
 
 ```bash
+# 本機開發：會自動載入 docker-compose.override.yml（熱重載 + 獨立開發資料卷）
 docker compose up --build -d
+
+# 正式部署：明確指定檔案，不載入任何開發覆寫
+docker compose -f docker-compose.yml up --build -d
 ```
 
 Compose 將按序拉起並協同三個服務：
 - `postgres`: 帶有 pgvector 擴充套件的 PostgreSQL 17 容器。
 - `backend`: FastAPI 後端服務（自動完成資料表結構同步與 Mem0 初始化）。
 - `frontend`: Next.js 獨立執行容器（等待後端健康檢查通過後監聽 `3000` 連接埠）。
+
+> **部署注意**：只要沒有明確指定 `-f`，Compose 就會自動讀取同目錄下的 `docker-compose.override.yml`（本機開發層）。
+> 正式部署請務必使用 `-f docker-compose.yml`，否則會意外帶上開發用的熱重載設定與獨立的資料卷。
+> （發佈壓縮檔不會包含這個 override 檔，因此在解壓後的目錄中直接執行 `docker compose up` 仍是安全的。）
 
 ### 3. 存取應用
 

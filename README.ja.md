@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.28.0-indigo?style=flat-square" alt="Version"></a>
+  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.29.0-indigo?style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
@@ -86,13 +86,22 @@ TAVILY_API_KEY=
 ### 2. Docker Compose での一括起動
 
 ```bash
+# ローカル開発: docker-compose.override.yml が自動的に読み込まれます
+# (ホットリロード + 開発専用のボリューム)
 docker compose up --build -d
+
+# 本番デプロイ: ファイルを明示し、開発用の上書きを読み込まない
+docker compose -f docker-compose.yml up --build -d
 ```
 
 Compose は 3 つのサービスを自動で連携起動します：
 - `postgres`: pgvector 拡張を組み込んだ PostgreSQL 17 コンテナ。
 - `backend`: FastAPI Python バックエンド（DB スキーマ同期と Mem0 初期化を自動実行）。
 - `frontend`: Next.js コンテナ（バックエンドの健全性を確認後、ポート `3000` で待受）。
+
+> **デプロイ時の注意**: `-f` を明示しない限り、Compose は同じディレクトリの `docker-compose.override.yml`（ローカル開発レイヤー）を自動的に読み込みます。
+> 本番デプロイでは必ず `-f docker-compose.yml` を使用してください。指定しないと開発用のホットリロード設定と開発専用ボリュームが適用されます。
+> （リリース ZIP にはこの override ファイルは含まれないため、解凍後に `docker compose up` を実行しても安全です。）
 
 ### 3. アプリケーションへのアクセス
 

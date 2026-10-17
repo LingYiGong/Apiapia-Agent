@@ -9,10 +9,6 @@ import { useI18n } from "@/i18n";
 
 const Dialog = DialogPrimitive.Root;
 
-const DialogTrigger = DialogPrimitive.Trigger;
-
-const DialogPortal = DialogPrimitive.Portal;
-
 const DialogClose = DialogPrimitive.Close;
 
 const DialogOverlay = React.forwardRef<
@@ -48,7 +44,7 @@ const DialogContent = React.forwardRef<
   const { t } = useI18n();
 
   return (
-    <DialogPortal>
+    <DialogPrimitive.Portal>
       <DialogOverlay />
       <DialogPrimitive.Content
         ref={ref}
@@ -84,7 +80,7 @@ const DialogContent = React.forwardRef<
           </>
         )}
       </DialogPrimitive.Content>
-    </DialogPortal>
+    </DialogPrimitive.Portal>
   );
 });
 DialogContent.displayName = DialogPrimitive.Content.displayName;
@@ -146,9 +142,6 @@ DialogDescription.displayName = DialogPrimitive.Description.displayName;
 
 export {
   Dialog,
-  DialogPortal,
-  DialogOverlay,
-  DialogTrigger,
   DialogClose,
   DialogContent,
   DialogHeader,

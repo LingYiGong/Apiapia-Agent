@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.28.0-indigo?style=flat-square" alt="Version"></a>
+  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.29.0-indigo?style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
@@ -86,13 +86,20 @@ TAVILY_API_KEY=
 ### 2. 一键启动 Docker 集群
 
 ```bash
+# 本地开发：会自动加载 docker-compose.override.yml（热重载 + 独立开发数据卷）
 docker compose up --build -d
+
+# 正式部署：显式指定文件，不加载任何开发覆盖
+docker compose -f docker-compose.yml up --build -d
 ```
 
 Compose 将按序拉起并协同三个服务：
 - `postgres`: 带有 pgvector 扩展的 PostgreSQL 17 容器。
 - `backend`: FastAPI 后端服务（自动完成数据表结构同步与 Mem0 初始化）。
 - `frontend`: Next.js 独立运行容器（等待后端健康检查通过后监听 `3000` 端口）。
+
+> **部署注意**：只要不显式指定 `-f`，Compose 就会自动读取同目录下的 `docker-compose.override.yml`（本地开发层）。
+> 正式部署请务必使用 `-f docker-compose.yml`，否则会意外带上开发用的热重载配置和独立的数据卷。
 
 ### 3. 访问应用
 
@@ -105,6 +112,29 @@ Compose 将按序拉起并协同三个服务：
 ## 🛠️ 本地开发指南
 
 如果您希望在本地进行二次开发或调试代码：
+
+### 本地与正式环境的隔离
+
+仓库根目录下的 `docker-compose.override.yml` 是**本地开发层**，机制只有一条：只要不显式指定 `-f`，Compose 就会自动加载它。
+
+| | 本地开发 | 正式部署 |
+|---|---|---|
+| 启动命令 | `docker compose up` | `docker compose -f docker-compose.yml up -d` |
+| 加载 override | 是 | 否 |
+| 后端热重载 | 是（`--reload --reload-dir=/app/app`） | 否 |
+| 数据库卷 | `apiapia_postgres_dev_data` | `apiapia_postgres_data` |
+| 记忆/媒体卷 | `*_dev_data` | `apiapia_mem0_data` / `apiapia_media` |
+| `SECRET_KEY` | 覆盖为一次性开发密钥 | 取自 `.env` |
+| `API_KEY_ENCRYPTION_KEY` | 覆盖为一次性开发密钥 | 取自 `.env` |
+| `POSTGRES_PASSWORD` | 覆盖为 `local-dev-password-not-a-secret` | 取自 `.env` |
+
+几个要点：
+
+- **密钥隔离**：override 通过 `environment` 覆盖 `.env`，所以即使把正式服的 `.env` 拷到本地机器，正式服的签名密钥、加密密钥和数据库密码也不会被本地环境真正使用。
+- **数据隔离**：本地使用独立命名的卷，本地清库或做实验不会碰到部署环境的数据。
+- **热重载不会误触发**：uvicorn 默认监听工作目录 `/app`，而该目录同时挂载了 `/app/data/mem0` 和 `/app/data/media`。Mem0 写快照、生成图片时都会触发文件变化，因此 override 显式指定 `--reload-dir=/app/app` 收窄监听范围。
+- **Windows 上的热重载限制**：`--reload` 依赖 `watchfiles` 监听内核文件系统事件，而 Docker Desktop 的 bind mount 不会可靠地把宿主机文件变更事件传进 Linux 容器。因此在 Windows 上编辑 `backend/app` 可能不会触发自动重载——这是 Docker Desktop 的限制，不是配置错误，Linux 主机上表现正常。Windows 上请用 `docker compose restart backend`，或按下方「后端开发」一节在本地 venv 里原生运行。
+- **同一台机器同时跑两套**：override 不改动 `ports`，因为 `ports` 在 override 中的合并语义（追加还是替换）随 Compose 版本而异，容易变成同时监听两个端口。本地与正式服是不同机器时本无冲突；若确需同机并行，请改用 `.env` 中既有的 `POSTGRES_HOST_PORT` / `BACKEND_HOST_PORT` / `FRONTEND_HOST_PORT` 三个变量。
 
 ### 前端开发 (Next.js)
 
@@ -178,6 +208,8 @@ uvicorn app.main:app --reload --port 8000
 - `postgres_data`: 存储 PostgreSQL 核心数据表与 Mem0 pgvector 向量库。
 - `mem0_data`: 存储 Mem0 本地历史索引。
 
+本地开发（`docker compose up`，会加载 override）使用另一组独立的数据卷：`apiapia_postgres_dev_data`、`apiapia_mem0_dev_data`、`apiapia_media_dev_data`。备份请针对上面 `docker-compose.yml` 中定义的数据卷，`_dev_data` 里只是一次性的本地数据。
+
 数据备份示例命令：
 ```bash
 docker exec -t apiapia_postgres pg_dump -U postgres apiapia > backup_$(date +%Y%m%d).sql
@@ -192,7 +224,28 @@ cat backup_xxx.sql | docker exec -i apiapia_postgres psql -U postgres -d apiapia
 
 ## 📜 版本发布与更新说明 (Release Notes)
 
-### 🚀 最新版本：v2.28.0 (2026-10-16)
+### 🚀 最新版本：v2.29.0 (2026-10-17)
+
+本版本将**移动端「+」面板重构为底部抽屉**，并完成一轮组件库死代码清理。此前该面板以浮层形式盖在对话区之上，实测近 300px 高、六个入口，在 360px 宽的屏上遮住大半个对话区且最下面两行够不着；现已改为贴底升起，与记忆抽屉、模型选择器共用同一套视觉语言，宽屏则沿用原上弹浮层。两种形态渲染同一份面板定义，不会各自漂移。
+
+#### 1. 移动端「+」面板：底部抽屉取代上弹浮层
+- **拇指可达、点遮罩即收**：窄于 `md` 时从底部升起（圆角顶边、拖拽指示条、安全区内边距），点击遮罩关闭；桌面端仍为输入框上方的浮层。
+- **一份内容两种外壳**：面板的点击逻辑与状态全部集中在 `renderCreationPanel` 一处，仅容器与每一行渲染出的元素类型不同。
+- **刻意区分关闭行为**：相册 / 相机 / 文件 / 音频 / 生图 / 生视频 / 翻译等一次性动作点完即收；**唯独联网检索保持打开** —— 它是三档循环且行内带实时状态，桌面端是靠 `e.preventDefault()` 挡住 Radix 的 select 达到同一效果。
+
+#### 2. 修复移动端说明文字居中
+- **介绍文字不再跑到中间**：UA 样式表给 `<button>` 设了 `text-align: center`，而继承来的 `text-align` 永远输给元素自身的声明 —— 把 `text-left` 写在外层容器上完全无效，每段介绍会静默变成居中。现已把 `text-left` 移入行组件内部。桌面端一直正常，因为 `DropdownMenuItem` 渲染的是 `div`，没有这个默认值。
+
+#### 3. 四语文案压缩至单行
+- **共 28 条文案**（简中 / 繁中 / 英 / 日）收敛至单行以内（360px 屏上文字可用宽度约 240px，12px 汉字一行约 20 个）。此前 27 字的两行文案把单行高度从 63px 顶到 80px，五行累加超出抽屉一屏高度，最后一行「智能翻译」被底部安全区压住。
+
+#### 4. 命中区与死代码清理
+- **「恢复默认对话」按钮命中区**：纯内边距调整，高度由 17px 提升至 29px，补足 WCAG 2.2 最小目标尺寸。
+- **移除 18 项无用导出**：`SelectGroup` / `SelectLabel` / `SelectSeparator`、`TableFooter` / `TableCaption`、`DialogPortal` / `DialogOverlay` / `DialogTrigger`、`SheetPortal` / `SheetOverlay` / `SheetClose` / `SheetFooter`、`AvatarImage`、`PopoverAnchor`、`AlertTitle` 以及 `badgeVariants` / `buttonVariants` 等全站零引用的 shadcn 导出，另清理 `ChatArea` 中一处死 import。
+
+---
+
+### v2.28.0 (2026-10-16)
 
 本版本是一次聚焦于**移动端与桌面端全场景核心交互与体验优化**的重要版本。全面修复了异形屏顶栏裁切与移动端软键盘遮挡底栏的顽疾，落地桌面端全屏双侧栏伸缩与提问快捷召回，升级现代化代码字体与 CJK 语种渲染标准，并重构了代码块 Token 体系与轻量流式语法高亮。
 

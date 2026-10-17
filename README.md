@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.28.0-indigo?style=flat-square" alt="Version"></a>
+  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.29.0-indigo?style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
@@ -87,13 +87,20 @@ TAVILY_API_KEY=
 ### 2. Start Services via Docker Compose
 
 ```bash
+# Local development: picks up docker-compose.override.yml (hot reload + separate dev volumes)
 docker compose up --build -d
+
+# Production deploy: name the file explicitly so no dev overrides are loaded
+docker compose -f docker-compose.yml up --build -d
 ```
 
 Compose launches three synchronized services:
 - `postgres`: PostgreSQL 17 with the pgvector extension.
 - `backend`: FastAPI Python backend with automatic migrations and Mem0 initialization.
 - `frontend`: Next.js standalone container listening on port `3000`.
+
+> **Deployment note**: unless you pass `-f`, Compose auto-loads `docker-compose.override.yml` from the same directory (the local development layer).
+> Always deploy with `-f docker-compose.yml`, otherwise the stack picks up development hot reload and separate dev volumes.
 
 ### 3. Access the Application
 
@@ -106,6 +113,29 @@ Compose launches three synchronized services:
 ## 🛠️ Local Development Guide
 
 For contributors and local developers:
+
+### Separating Local from Production
+
+The `docker-compose.override.yml` file at the repo root is the **local development layer**, and it rests on a single rule: Compose auto-loads it whenever you do not name your files with `-f`.
+
+| | Local development | Production deploy |
+|---|---|---|
+| Command | `docker compose up` | `docker compose -f docker-compose.yml up -d` |
+| Loads override | Yes | No |
+| Backend hot reload | Yes (`--reload --reload-dir=/app/app`) | No |
+| Database volume | `apiapia_postgres_dev_data` | `apiapia_postgres_data` |
+| Memory / media volumes | `*_dev_data` | `apiapia_mem0_data` / `apiapia_media` |
+| `SECRET_KEY` | Overridden with a throwaway dev key | From `.env` |
+| `API_KEY_ENCRYPTION_KEY` | Overridden with a throwaway dev key | From `.env` |
+| `POSTGRES_PASSWORD` | Overridden with `local-dev-password-not-a-secret` | From `.env` |
+
+Worth knowing:
+
+- **Secret isolation.** The override uses `environment`, which takes precedence over `env_file`. Copying a production `.env` onto a developer machine therefore never puts the production signing key, encryption key, or database password into actual use.
+- **Data isolation.** Local runs on separately named volumes, so wiping or experimenting with the local database cannot reach deployment data.
+- **Hot reload does not misfire.** Uvicorn watches its working directory by default, and that is `/app`, which also has `/app/data/mem0` and `/app/data/media` mounted. Mem0 writing snapshots and the app writing generated media both touch files there, so the override narrows the watch explicitly with `--reload-dir=/app/app`.
+- **Hot reload on Windows.** `--reload` relies on `watchfiles` listening for kernel filesystem events, and a Docker Desktop bind mount does not reliably propagate host file-change events into the Linux container. Editing `backend/app` on a Windows host may therefore not trigger an automatic reload. That is a Docker Desktop limitation, not a misconfiguration — it behaves normally on a Linux host. On Windows, use `docker compose restart backend`, or run the backend natively in a venv as described under "Backend (FastAPI)" below.
+- **Running both stacks on one machine.** The override leaves `ports` alone on purpose: a port's merge behaviour in an override file (appended on some Compose versions, replaced on others) can silently leave a service listening on two host ports. There is no clash when local and production are different machines. If you do need both on one host, use the `POSTGRES_HOST_PORT` / `BACKEND_HOST_PORT` / `FRONTEND_HOST_PORT` variables already present in `.env`.
 
 ### Frontend (Next.js)
 
@@ -179,6 +209,8 @@ Defined volumes in `docker-compose.yml`:
 - `postgres_data`: user data, conversation history, and Mem0 pgvector collections.
 - `mem0_data`: local Mem0 history index.
 
+A local development run (`docker compose up`, with the override) uses a separate set of volumes named `apiapia_postgres_dev_data`, `apiapia_mem0_dev_data` and `apiapia_media_dev_data`. Back up the `docker-compose.yml` volumes shown above; the `_dev_data` ones hold throwaway local data.
+
 Backup command:
 ```bash
 docker exec -t apiapia_postgres pg_dump -U postgres apiapia > backup_$(date +%Y%m%d).sql
@@ -193,7 +225,28 @@ cat backup_xxx.sql | docker exec -i apiapia_postgres psql -U postgres -d apiapia
 
 ## 📜 Releases & Changelog
 
-### 🚀 Latest Release: v2.28.0 (2026-10-16)
+### 🚀 Latest Release: v2.29.0 (2026-10-17)
+
+This release reworks the **mobile "+" panel into a bottom sheet** and cleans up dead code across the component library. On narrow screens the creation panel used to pop up over the conversation — nearly 300px tall with six entry points, covering most of a 360px-wide screen and putting the bottom rows out of thumb reach. It now rises from the bottom edge, matching the visual language of the memory drawer and the model picker, while wide screens keep the original dropdown. Both forms render one shared panel definition, so they cannot drift apart.
+
+#### 1. Mobile "+" Panel: Bottom Sheet Instead of Dropdown
+- **Thumb-reachable, tap-to-dismiss**: below the `md` breakpoint the panel opens as a bottom sheet (rounded top, drag handle, safe-area bottom padding) and closes by tapping the scrim. Desktop keeps the popover above the composer.
+- **One shared panel body**: search/filter markup, click handlers and state live in a single `renderCreationPanel`; only the container and each row's element type differ.
+- **Deliberate close behavior**: every one-off action (camera / gallery / file / audio / image / video / translate) dismisses the sheet on tap, while **web search stays open** because it cycles through three modes with live state in the row — on desktop the same effect comes from `e.preventDefault()` blocking Radix's select.
+
+#### 2. Mobile Text Alignment Fix
+- **Descriptions no longer drift to the center**: the UA stylesheet sets `text-align: center` on `<button>`, and an inherited `text-align` always loses to an element's own declaration. Writing `text-left` on an ancestor container therefore did nothing, and the description text under each feature silently centered itself. The `text-left` now lives on the row component itself. Desktop was never affected — `DropdownMenuItem` renders a `div`, which has no such default.
+
+#### 3. Copy Trimmed to Single Lines
+- **28 strings across four locales** reduced to fit one line (~20 CJK characters at the ~240px available on a 360px screen). Longer copy doubled each row's height; five rows pushed the sheet past one screen and the last row — **Smart translate** — was clipped by the bottom safe area.
+
+#### 4. Touch Target & Dead Code
+- **"Back to plain chat" hit area**: a pure-padding change lifts the target from 17px to 29px tall, meeting the WCAG 2.2 minimum target size.
+- **18 unused exports removed**: shadcn primitives with zero references across the app (`SelectGroup` / `SelectLabel` / `SelectSeparator`, `TableFooter` / `TableCaption`, `DialogPortal` / `DialogOverlay` / `DialogTrigger`, `SheetPortal` / `SheetOverlay` / `SheetClose` / `SheetFooter`, `AvatarImage`, `PopoverAnchor`, `AlertTitle`, and the `badgeVariants` / `buttonVariants` cva handles), plus one dead import in `ChatArea`.
+
+---
+
+### v2.28.0 (2026-10-16)
 
 This release focuses on **Mobile & Desktop Core UX Optimizations**: iOS safe area notch/Dynamic Island content resilience, virtual keyboard viewport avoidance, collapsible dual sidebars with keyboard shortcuts, rapid prompt recall, and modern developer typography standards.
 

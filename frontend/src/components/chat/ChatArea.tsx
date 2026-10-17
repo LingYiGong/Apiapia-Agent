@@ -19,6 +19,7 @@ import { transcribeAudio } from "@/lib/speech";
 import { useI18n, LOCALE_META } from "@/i18n";
 import { useAudioRecorder, MAX_RECORDING_SECONDS } from "@/hooks/useAudioRecorder";
 import { useIsTrialMode } from "@/hooks/useIsTrialMode";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import { ChatMessageItem } from "./ChatMessageItem";
 import { renderMessageBody, SearchSources } from "./markdown";
 import {
@@ -52,9 +53,16 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Sheet,
+  SheetTrigger,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 import { overlaySurfaceClass } from "@/components/common/surfaces";
 import { BrandLogo } from "@/components/common/BrandLogo";
 import { EmptyState } from "@/components/common/EmptyState";
@@ -112,6 +120,44 @@ function ElapsedSeconds({
     <span className={className}>
       {Math.max(0, elapsed).toFixed(digits)}s
     </span>
+  );
+}
+
+/** 「+」面板的一行。抽屉里是 Dialog，没有 menu 语义的高亮与自动关闭，
+ *  所以退化成 button，关闭由调用方在 onActivate 里显式写出来。
+ *  定义在模块作用域：写在组件内会让每次 render 产生新组件类型，React
+ *  视为整棵树换型而重建，抽屉里的焦点与滚动位置全丢。 */
+function CreationMenuRow({
+  asMenuItem,
+  onActivate,
+  className,
+  children,
+}: {
+  asMenuItem: boolean;
+  onActivate: (e: React.MouseEvent<HTMLElement>) => void;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  if (asMenuItem) {
+    return (
+      <DropdownMenuItem onClick={onActivate} className={className}>
+        {children}
+      </DropdownMenuItem>
+    );
+  }
+
+  // text-left 必须写在这里：UA 样式表给 button 设了 text-align:center，
+  // 继承值压不过元素自身声明。DropdownMenuItem 是 div，没有这个默认值，
+  // 所以桌面端一直正常，只有换 button 的移动端会暴露。
+  // w-full 补上 DropdownMenuItem 自带的 flex 撑满效果。
+  return (
+    <button
+      type="button"
+      onClick={onActivate}
+      className={cn("w-full text-left", className)}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -270,6 +316,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 }) => {
   const { t, fmt, locale } = useI18n();
   const isTouchPrimary = useIsTouchPrimary();
+  // 「+」面板：窄于 md 用底部抽屉，其余宽度沿用上弹的下拉。
+  const isMobile = useIsMobile();
   const isTrialMode = useIsTrialMode();
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -289,6 +337,12 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   const composerContainerRef = useRef<HTMLDivElement>(null);
   const [composerWidth, setComposerWidth] = useState<number | undefined>(undefined);
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [creationSheetOpen, setCreationSheetOpen] = useState(false);
+
+  // 转回宽屏时 Sheet 整块卸载但 open 会留在 true，下次转回窄屏会凭空弹回。
+  useEffect(() => {
+    if (!isMobile) setCreationSheetOpen(false);
+  }, [isMobile]);
 
   // 智能翻译模式状态（优先使用外部传入，也可以内部管理）
   const [internalTranslateMode, setInternalTranslateMode] = useState<boolean>(() => {
@@ -866,6 +920,326 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     }
   };
 
+  // 除「联网检索」外每个动作点完都收抽屉；检索是三档循环且行内有实时状态，
+  // 保持打开（桌面端靠 e.preventDefault() 挡住 Radix 的 select，同一效果）。
+  const closeCreationSheet = () => setCreationSheetOpen(false);
+
+  const renderCreationPanel = (asMenuItem: boolean) => (
+    <>
+      <div className="px-3 pt-1 pb-2.5 border-b border-border/40 mb-2 flex items-center justify-between">
+        <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground font-mono">
+          {t("chat.creation.sectionTitle")}
+        </span>
+        {(creationMode !== "chat" || isTranslateMode) && (
+          <button
+            type="button"
+            onClick={() => {
+              onChangeCreationMode?.("chat");
+              handleSetTranslateMode(false);
+            }}
+            className="-my-1.5 cursor-pointer py-1.5 text-xs font-semibold text-primary hover:underline"
+          >
+            {t("chat.creation.restoreChat")}
+          </button>
+        )}
+      </div>
+
+      {/* 顶部横排 3 按钮：相册、相机、文件 (加大尺寸与呼吸感) */}
+      <div className="grid grid-cols-3 gap-2 px-0.5 mb-2.5">
+        <CreationMenuRow
+          asMenuItem={asMenuItem}
+          onActivate={() => {
+            // 先 .click() 再 setState：iOS Safari 要求仍在这次点击的手势内
+            galleryInputRef.current?.click();
+            closeCreationSheet();
+          }}
+          className="flex flex-col items-center justify-center gap-2 py-3 px-2 rounded-2xl border border-border/50 bg-surface-3/50 hover:bg-surface-3 focus:bg-surface-3 focus:outline-none transition-all active:scale-95 group text-center cursor-pointer select-none"
+        >
+          <div className="h-10 w-10 rounded-2xl bg-blue-500/15 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform shadow-xs">
+            <ImageIcon className="h-5 w-5" />
+          </div>
+          <span className="text-sm font-semibold text-foreground tracking-tight">
+            {t("chat.creation.gallery")}
+          </span>
+        </CreationMenuRow>
+
+        <CreationMenuRow
+          asMenuItem={asMenuItem}
+          onActivate={() => {
+            cameraInputRef.current?.click();
+            closeCreationSheet();
+          }}
+          className="flex flex-col items-center justify-center gap-2 py-3 px-2 rounded-2xl border border-border/50 bg-surface-3/50 hover:bg-surface-3 focus:bg-surface-3 focus:outline-none transition-all active:scale-95 group text-center cursor-pointer select-none"
+        >
+          <div className="h-10 w-10 rounded-2xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform shadow-xs">
+            <Camera className="h-5 w-5" />
+          </div>
+          <span className="text-sm font-semibold text-foreground tracking-tight">
+            {t("chat.creation.camera")}
+          </span>
+        </CreationMenuRow>
+
+        <CreationMenuRow
+          asMenuItem={asMenuItem}
+          onActivate={() => {
+            fileInputRef.current?.click();
+            closeCreationSheet();
+          }}
+          className="flex flex-col items-center justify-center gap-2 py-3 px-2 rounded-2xl border border-border/50 bg-surface-3/50 hover:bg-surface-3 focus:bg-surface-3 focus:outline-none transition-all active:scale-95 group text-center cursor-pointer select-none"
+        >
+          <div className="h-10 w-10 rounded-2xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform shadow-xs">
+            <FileText className="h-5 w-5" />
+          </div>
+          <span className="text-sm font-semibold text-foreground tracking-tight">
+            {t("chat.creation.file")}
+          </span>
+        </CreationMenuRow>
+      </div>
+
+      <div className="space-y-1.5">
+        {/* 2. 联网检索 */}
+        {onToggleWebSearchMode && (
+          <CreationMenuRow
+            asMenuItem={asMenuItem}
+            onActivate={(e) => {
+              // 三档循环，保持面板打开（抽屉本就不会自动关，只为桌面端）
+              e.preventDefault();
+              onToggleWebSearchMode();
+            }}
+            className="flex items-center gap-3.5 rounded-2xl p-3 cursor-pointer transition-colors hover:bg-surface-3 focus:bg-surface-3 data-[highlighted]:bg-surface-3 active:scale-[0.99]"
+          >
+            <div className={cn(
+              "h-10 w-10 rounded-2xl flex items-center justify-center shrink-0 transition-colors shadow-xs",
+              webSearchMode === "on"
+                ? "bg-sky-500/15 text-sky-600 dark:text-sky-400"
+                : webSearchMode === "auto"
+                ? "bg-primary/10 text-primary"
+                : "bg-surface-3 text-muted-foreground"
+            )}>
+              <Globe className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-semibold text-foreground tracking-tight truncate">
+                  {t("chat.webSearch.title")}
+                </span>
+                <span
+                  className={cn(
+                    "font-mono text-xs px-2 py-0.5 rounded-lg shrink-0",
+                    webSearchMode === "on"
+                      ? "bg-sky-500/15 text-sky-600 dark:text-sky-400 font-semibold"
+                      : webSearchMode === "auto"
+                      ? "bg-primary/10 text-primary font-semibold"
+                      : "text-muted-foreground bg-surface-3"
+                  )}
+                >
+                  {webSearchMode === "auto"
+                    ? t("chat.webSearch.modeAuto")
+                    : webSearchMode === "on"
+                    ? t("chat.webSearch.modeOn")
+                    : t("chat.webSearch.modeOff")}
+                </span>
+              </div>
+              <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                {webSearchMode === "auto"
+                  ? t("chat.webSearch.descAuto")
+                  : webSearchMode === "on"
+                  ? t("chat.webSearch.descOn")
+                  : t("chat.webSearch.descOff")}
+              </p>
+            </div>
+          </CreationMenuRow>
+        )}
+
+        {/* 3. 音频转文字 */}
+        <CreationMenuRow
+          asMenuItem={asMenuItem}
+          onActivate={() => {
+            audioInputRef.current?.click();
+            closeCreationSheet();
+          }}
+          className="flex items-center gap-3.5 rounded-2xl p-3 cursor-pointer transition-colors hover:bg-surface-3 focus:bg-surface-3 data-[highlighted]:bg-surface-3 active:scale-[0.99]"
+        >
+          <div className="h-10 w-10 rounded-2xl bg-teal-500/15 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0 shadow-xs">
+            <AudioLines className="h-5 w-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-semibold text-foreground tracking-tight">
+                {t("chat.speech.audioToText")}
+              </span>
+              {isTranscribing && (
+                <span className="flex items-center gap-1 font-mono text-xs font-semibold text-teal-600 dark:text-teal-400">
+                  <RotateCw className="h-3 w-3 animate-spin" /> {t("chat.speech.transcribing")}
+                </span>
+              )}
+            </div>
+            <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+              {t("chat.speech.audioToTextDesc")}
+            </p>
+          </div>
+        </CreationMenuRow>
+
+        {/* 4. 生成图片 */}
+        <CreationMenuRow
+          asMenuItem={asMenuItem}
+          onActivate={() => {
+            onChangeCreationMode?.(creationMode === "image" ? "chat" : "image");
+            closeCreationSheet();
+          }}
+          className={cn(
+            "flex items-center gap-3.5 rounded-2xl p-3 cursor-pointer transition-colors active:scale-[0.99]",
+            creationMode === "image"
+              ? "bg-amber-500/10 border border-amber-500/30"
+              : "hover:bg-surface-3 focus:bg-surface-3 data-[highlighted]:bg-surface-3"
+          )}
+        >
+          <div className="h-10 w-10 rounded-2xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 shadow-xs">
+            <Palette className="h-5 w-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-semibold text-foreground tracking-tight">
+                {t("chat.creation.imageGen")}
+              </span>
+              {creationMode === "image" && (
+                <span className="flex items-center gap-1 font-mono text-xs font-semibold text-amber-600 dark:text-amber-400">
+                  <Check className="h-3.5 w-3.5 stroke-[3]" /> {t("chat.creation.activeMode")}
+                </span>
+              )}
+            </div>
+            <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+              {t("chat.creation.imageGenDesc")}
+            </p>
+          </div>
+        </CreationMenuRow>
+
+        {/* 5. 生成视频 */}
+        {isTrialMode ? (
+          <CreationMenuRow
+            asMenuItem={asMenuItem}
+            onActivate={() => {
+              toast.info(t("chat.creation.videoBlockedTitle"));
+            }}
+            className="flex items-center gap-3.5 rounded-2xl p-3 opacity-55 cursor-not-allowed hover:bg-transparent focus:bg-transparent data-[highlighted]:bg-transparent"
+          >
+            <div className="h-10 w-10 rounded-2xl bg-surface-3 text-muted-foreground flex items-center justify-center shrink-0 shadow-xs">
+              <Video className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-semibold text-foreground tracking-tight">
+                  {t("chat.creation.videoGen")}
+                </span>
+                <span className="font-mono text-xs text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-lg">
+                  {t("chat.creation.trialRestricted")}
+                </span>
+              </div>
+              <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                {t("chat.creation.videoGenDesc")}
+              </p>
+            </div>
+          </CreationMenuRow>
+        ) : (
+          <CreationMenuRow
+            asMenuItem={asMenuItem}
+            onActivate={() => {
+              onChangeCreationMode?.(creationMode === "video" ? "chat" : "video");
+              closeCreationSheet();
+            }}
+            className={cn(
+              "flex items-center gap-3.5 rounded-2xl p-3 cursor-pointer transition-colors active:scale-[0.99]",
+              creationMode === "video"
+                ? "bg-purple-500/10 border border-purple-500/30"
+                : "hover:bg-surface-3 focus:bg-surface-3 data-[highlighted]:bg-surface-3"
+            )}
+          >
+            <div className="h-10 w-10 rounded-2xl bg-purple-500/15 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0 shadow-xs">
+              <Video className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-semibold text-foreground tracking-tight">
+                  {t("chat.creation.videoGen")}
+                </span>
+                {creationMode === "video" && (
+                  <span className="flex items-center gap-1 font-mono text-xs font-semibold text-purple-600 dark:text-purple-400">
+                    <Check className="h-3.5 w-3.5 stroke-[3]" /> {t("chat.creation.activeMode")}
+                  </span>
+                )}
+              </div>
+              <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                {t("chat.creation.videoGenDesc")}
+              </p>
+            </div>
+          </CreationMenuRow>
+        )}
+
+        {/* 6. 智能翻译 */}
+        <CreationMenuRow
+          asMenuItem={asMenuItem}
+          onActivate={() => {
+            if (creationMode !== "chat") {
+              onChangeCreationMode?.("chat");
+            }
+            handleSetTranslateMode(!isTranslateMode);
+            closeCreationSheet();
+          }}
+          className={cn(
+            "flex items-center gap-3.5 rounded-2xl p-3 cursor-pointer transition-colors active:scale-[0.99]",
+            isTranslateMode && creationMode === "chat"
+              ? "bg-indigo-500/10 border border-indigo-500/30"
+              : "hover:bg-surface-3 focus:bg-surface-3 data-[highlighted]:bg-surface-3"
+          )}
+        >
+          <div className="h-10 w-10 rounded-2xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 shadow-xs">
+            <Languages className="h-5 w-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-semibold text-foreground tracking-tight">
+                {t("chat.translate.menuTitle")}
+              </span>
+              {isTranslateMode && creationMode === "chat" && (
+                <span className="flex items-center gap-1 font-mono text-xs font-semibold text-indigo-600 dark:text-indigo-400">
+                  <Check className="h-3.5 w-3.5 stroke-[3]" /> {t("chat.creation.activeMode")}
+                </span>
+              )}
+            </div>
+            <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+              {t("chat.translate.menuDesc")}
+            </p>
+          </div>
+        </CreationMenuRow>
+      </div>
+    </>
+  );
+
+  const creationTrigger = (
+    <Button
+      variant={creationMode !== "chat" || isTranslateMode ? "outline" : "ghost"}
+      size="icon"
+      disabled={isStreaming || isUploading}
+      className={cn(
+        "h-9 w-9 rounded-full shrink-0 mb-0.5 transition-colors",
+        creationMode === "image" && "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20",
+        creationMode === "video" && "border-purple-500/40 bg-purple-500/10 text-purple-600 dark:text-purple-400 hover:bg-purple-500/20",
+        isTranslateMode && creationMode === "chat" && "border-indigo-500/40 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/20"
+      )}
+      aria-label={t("chat.creation.menuLabel")}
+    >
+      {creationMode === "image" ? (
+        <Palette className="h-4 w-4" />
+      ) : creationMode === "video" ? (
+        <Video className="h-4 w-4" />
+      ) : isTranslateMode ? (
+        <Languages className="h-4 w-4" />
+      ) : (
+        <Plus className="h-4 w-4" />
+      )}
+    </Button>
+  );
+
   return (
     <div className="flex-1 flex flex-col h-full bg-background relative overflow-hidden min-w-0 max-w-full">
 
@@ -1328,315 +1702,47 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 }
               }}
             />
-            {/* Creation Plus Dropdown Button */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant={creationMode !== "chat" || isTranslateMode ? "outline" : "ghost"}
-                  size="icon"
-                  disabled={isStreaming || isUploading}
-                  className={cn(
-                    "h-9 w-9 rounded-full shrink-0 mb-0.5 transition-colors",
-                    creationMode === "image" && "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20",
-                    creationMode === "video" && "border-purple-500/40 bg-purple-500/10 text-purple-600 dark:text-purple-400 hover:bg-purple-500/20",
-                    isTranslateMode && creationMode === "chat" && "border-indigo-500/40 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/20"
-                  )}
-                  aria-label={t("chat.creation.menuLabel")}
+            {isMobile ? (
+              <Sheet open={creationSheetOpen} onOpenChange={setCreationSheetOpen}>
+                <SheetTrigger asChild>{creationTrigger}</SheetTrigger>
+                <SheetContent
+                  side="bottom"
+                  className="flex max-h-[82dvh] w-full flex-col gap-0 overflow-hidden rounded-t-sheet border-t border-border/50 bg-background/95 p-0 shadow-2xl backdrop-blur-2xl sm:mx-auto sm:max-w-xl [&>button]:hidden"
                 >
-                  {creationMode === "image" ? (
-                    <Palette className="h-4 w-4" />
-                  ) : creationMode === "video" ? (
-                    <Video className="h-4 w-4" />
-                  ) : isTranslateMode ? (
-                    <Languages className="h-4 w-4" />
-                  ) : (
-                    <Plus className="h-4 w-4" />
+                  <div className="flex shrink-0 justify-center pb-1 pt-2.5">
+                    <div className="h-1 w-9 rounded-full bg-foreground/20" />
+                  </div>
+
+                  {/* Radix Dialog 必须有标题，否则读屏念不出这是什么面板 */}
+                  <SheetHeader className="sr-only">
+                    <SheetTitle>{t("chat.creation.sectionTitle")}</SheetTitle>
+                    <SheetDescription>{t("chat.creation.sheetDesc")}</SheetDescription>
+                  </SheetHeader>
+
+                  {/* pb 用 safe-area 让开 iPhone 的 Home Indicator，否则最后一行点不到 */}
+                  <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 pb-[max(0.5rem,var(--sab))]">
+                    {renderCreationPanel(false)}
+                  </div>
+                </SheetContent>
+              </Sheet>
+            ) : (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>{creationTrigger}</DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="start"
+                  side="top"
+                  sideOffset={12}
+                  collisionPadding={12}
+                  style={composerWidth ? { width: `${composerWidth}px`, maxWidth: "calc(100vw - 24px)" } : undefined}
+                  className={cn(
+                    overlaySurfaceClass,
+                    "rounded-[26px] p-2.5 sm:p-3 shadow-[0_24px_60px_rgba(0,0,0,0.25)] dark:shadow-[0_28px_70px_rgba(0,0,0,0.65)]"
                   )}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="start"
-                side="top"
-                sideOffset={12}
-                collisionPadding={12}
-                style={composerWidth ? { width: `${composerWidth}px`, maxWidth: "calc(100vw - 24px)" } : undefined}
-                className={cn(
-                  // 材质来自 overlaySurfaceClass，这里只保留这块面板刻意更大的
-                  // 三处：更深的圆角、更宽的内距（内部是三列卡片网格）、更重
-                  // 的阴影。宽度由上面的 inline style 按输入框实际宽度钉死，
-                  // 所以默认的 w-max / min-w 不参与。末尾 6 个 animate-in /
-                  // zoom-in-95 原本是基础类已有的（data-[state=open]: 版），冗余。
-                  overlaySurfaceClass,
-                  "rounded-[26px] p-2.5 sm:p-3 shadow-[0_24px_60px_rgba(0,0,0,0.25)] dark:shadow-[0_28px_70px_rgba(0,0,0,0.65)]"
-                )}
-              >
-                <div className="px-3 pt-1 pb-2.5 border-b border-border/40 mb-2 flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground font-mono">
-                    {t("chat.creation.sectionTitle")}
-                  </span>
-                  {(creationMode !== "chat" || isTranslateMode) && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onChangeCreationMode?.("chat");
-                        handleSetTranslateMode(false);
-                      }}
-                      className="text-xs text-primary hover:underline font-semibold cursor-pointer"
-                    >
-                      {t("chat.creation.restoreChat")}
-                    </button>
-                  )}
-                </div>
-
-                {/* 顶部横排 3 按钮：相册、相机、文件 (加大尺寸与呼吸感) */}
-                <div className="grid grid-cols-3 gap-2 px-0.5 mb-2.5">
-                  <DropdownMenuItem asChild>
-                    <button
-                      type="button"
-                      onClick={() => galleryInputRef.current?.click()}
-                      className="flex flex-col items-center justify-center gap-2 py-3 px-2 rounded-2xl border border-border/50 bg-surface-3/50 hover:bg-surface-3 focus:bg-surface-3 focus:outline-none transition-all active:scale-95 group text-center cursor-pointer select-none"
-                    >
-                      <div className="h-10 w-10 rounded-2xl bg-blue-500/15 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform shadow-xs">
-                        <ImageIcon className="h-5 w-5" />
-                      </div>
-                      <span className="text-sm font-semibold text-foreground tracking-tight">
-                        {t("chat.creation.gallery")}
-                      </span>
-                    </button>
-                  </DropdownMenuItem>
-
-                  <DropdownMenuItem asChild>
-                    <button
-                      type="button"
-                      onClick={() => cameraInputRef.current?.click()}
-                      className="flex flex-col items-center justify-center gap-2 py-3 px-2 rounded-2xl border border-border/50 bg-surface-3/50 hover:bg-surface-3 focus:bg-surface-3 focus:outline-none transition-all active:scale-95 group text-center cursor-pointer select-none"
-                    >
-                      <div className="h-10 w-10 rounded-2xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform shadow-xs">
-                        <Camera className="h-5 w-5" />
-                      </div>
-                      <span className="text-sm font-semibold text-foreground tracking-tight">
-                        {t("chat.creation.camera")}
-                      </span>
-                    </button>
-                  </DropdownMenuItem>
-
-                  <DropdownMenuItem asChild>
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="flex flex-col items-center justify-center gap-2 py-3 px-2 rounded-2xl border border-border/50 bg-surface-3/50 hover:bg-surface-3 focus:bg-surface-3 focus:outline-none transition-all active:scale-95 group text-center cursor-pointer select-none"
-                    >
-                      <div className="h-10 w-10 rounded-2xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform shadow-xs">
-                        <FileText className="h-5 w-5" />
-                      </div>
-                      <span className="text-sm font-semibold text-foreground tracking-tight">
-                        {t("chat.creation.file")}
-                      </span>
-                    </button>
-                  </DropdownMenuItem>
-                </div>
-
-                <div className="space-y-1.5">
-                  {/* 2. 联网检索 */}
-                  {onToggleWebSearchMode && (
-                    <DropdownMenuItem
-                      onClick={(e) => {
-                        e.preventDefault();
-                        onToggleWebSearchMode();
-                      }}
-                      className="flex items-center gap-3.5 rounded-2xl p-3 cursor-pointer transition-colors hover:bg-surface-3 focus:bg-surface-3 data-[highlighted]:bg-surface-3 active:scale-[0.99]"
-                    >
-                      <div className={cn(
-                        "h-10 w-10 rounded-2xl flex items-center justify-center shrink-0 transition-colors shadow-xs",
-                        webSearchMode === "on"
-                          ? "bg-sky-500/15 text-sky-600 dark:text-sky-400"
-                          : webSearchMode === "auto"
-                          ? "bg-primary/10 text-primary"
-                          : "bg-surface-3 text-muted-foreground"
-                      )}>
-                        <Globe className="h-5 w-5" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-sm font-semibold text-foreground tracking-tight">
-                            {t("chat.webSearch.title")}
-                          </span>
-                          <span
-                            className={cn(
-                              "font-mono text-xs px-2 py-0.5 rounded-lg",
-                              webSearchMode === "on"
-                                ? "bg-sky-500/15 text-sky-600 dark:text-sky-400 font-semibold"
-                                : webSearchMode === "auto"
-                                ? "bg-primary/10 text-primary font-semibold"
-                                : "text-muted-foreground bg-surface-3"
-                            )}
-                          >
-                            {webSearchMode === "auto"
-                              ? t("chat.webSearch.modeAuto")
-                              : webSearchMode === "on"
-                              ? t("chat.webSearch.modeOn")
-                              : t("chat.webSearch.modeOff")}
-                          </span>
-                        </div>
-                        <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                          {webSearchMode === "auto"
-                            ? t("chat.webSearch.descAuto")
-                            : webSearchMode === "on"
-                            ? t("chat.webSearch.descOn")
-                            : t("chat.webSearch.descOff")}
-                        </p>
-                      </div>
-                    </DropdownMenuItem>
-                  )}
-
-                  {/* 3. 音频转文字 */}
-                  <DropdownMenuItem
-                    onClick={() => audioInputRef.current?.click()}
-                    className="flex items-center gap-3.5 rounded-2xl p-3 cursor-pointer transition-colors hover:bg-surface-3 focus:bg-surface-3 data-[highlighted]:bg-surface-3 active:scale-[0.99]"
-                  >
-                    <div className="h-10 w-10 rounded-2xl bg-teal-500/15 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0 shadow-xs">
-                      <AudioLines className="h-5 w-5" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-sm font-semibold text-foreground tracking-tight">
-                          {t("chat.speech.audioToText")}
-                        </span>
-                        {isTranscribing && (
-                          <span className="flex items-center gap-1 font-mono text-xs font-semibold text-teal-600 dark:text-teal-400">
-                            <RotateCw className="h-3 w-3 animate-spin" /> {t("chat.speech.transcribing")}
-                          </span>
-                        )}
-                      </div>
-                      <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                        {t("chat.speech.audioToTextDesc")}
-                      </p>
-                    </div>
-                  </DropdownMenuItem>
-
-                  {/* 4. 生成图片 */}
-                  <DropdownMenuItem
-                    onClick={() => onChangeCreationMode?.(creationMode === "image" ? "chat" : "image")}
-                    className={cn(
-                      "flex items-center gap-3.5 rounded-2xl p-3 cursor-pointer transition-colors active:scale-[0.99]",
-                      creationMode === "image"
-                        ? "bg-amber-500/10 border border-amber-500/30"
-                        : "hover:bg-surface-3 focus:bg-surface-3 data-[highlighted]:bg-surface-3"
-                    )}
-                  >
-                    <div className="h-10 w-10 rounded-2xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 shadow-xs">
-                      <Palette className="h-5 w-5" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-sm font-semibold text-foreground tracking-tight">
-                          {t("chat.creation.imageGen")}
-                        </span>
-                        {creationMode === "image" && (
-                          <span className="flex items-center gap-1 font-mono text-xs font-semibold text-amber-600 dark:text-amber-400">
-                            <Check className="h-3.5 w-3.5 stroke-[3]" /> {t("chat.creation.activeMode")}
-                          </span>
-                        )}
-                      </div>
-                      <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                        {t("chat.creation.imageGenDesc")}
-                      </p>
-                    </div>
-                  </DropdownMenuItem>
-
-                  {/* 5. 生成视频 */}
-                  {isTrialMode ? (
-                    <DropdownMenuItem
-                      onClick={() => {
-                        toast.info(t("chat.creation.videoBlockedTitle"));
-                      }}
-                      className="flex items-center gap-3.5 rounded-2xl p-3 opacity-55 cursor-not-allowed hover:bg-transparent focus:bg-transparent data-[highlighted]:bg-transparent"
-                    >
-                      <div className="h-10 w-10 rounded-2xl bg-surface-3 text-muted-foreground flex items-center justify-center shrink-0 shadow-xs">
-                        <Video className="h-5 w-5" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-sm font-semibold text-foreground tracking-tight">
-                            {t("chat.creation.videoGen")}
-                          </span>
-                          <span className="font-mono text-xs text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-lg">
-                            {t("chat.creation.trialRestricted")}
-                          </span>
-                        </div>
-                        <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                          {t("chat.creation.videoGenDesc")}
-                        </p>
-                      </div>
-                    </DropdownMenuItem>
-                  ) : (
-                    <DropdownMenuItem
-                      onClick={() => onChangeCreationMode?.(creationMode === "video" ? "chat" : "video")}
-                      className={cn(
-                        "flex items-center gap-3.5 rounded-2xl p-3 cursor-pointer transition-colors active:scale-[0.99]",
-                        creationMode === "video"
-                          ? "bg-purple-500/10 border border-purple-500/30"
-                          : "hover:bg-surface-3 focus:bg-surface-3 data-[highlighted]:bg-surface-3"
-                      )}
-                    >
-                      <div className="h-10 w-10 rounded-2xl bg-purple-500/15 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0 shadow-xs">
-                        <Video className="h-5 w-5" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-sm font-semibold text-foreground tracking-tight">
-                            {t("chat.creation.videoGen")}
-                          </span>
-                          {creationMode === "video" && (
-                            <span className="flex items-center gap-1 font-mono text-xs font-semibold text-purple-600 dark:text-purple-400">
-                              <Check className="h-3.5 w-3.5 stroke-[3]" /> {t("chat.creation.activeMode")}
-                            </span>
-                          )}
-                        </div>
-                        <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                          {t("chat.creation.videoGenDesc")}
-                        </p>
-                      </div>
-                    </DropdownMenuItem>
-                  )}
-
-                  {/* 6. 智能翻译 */}
-                  <DropdownMenuItem
-                    onClick={() => {
-                      if (creationMode !== "chat") {
-                        onChangeCreationMode?.("chat");
-                      }
-                      handleSetTranslateMode(!isTranslateMode);
-                    }}
-                    className={cn(
-                      "flex items-center gap-3.5 rounded-2xl p-3 cursor-pointer transition-colors active:scale-[0.99]",
-                      isTranslateMode && creationMode === "chat"
-                        ? "bg-indigo-500/10 border border-indigo-500/30"
-                        : "hover:bg-surface-3 focus:bg-surface-3 data-[highlighted]:bg-surface-3"
-                    )}
-                  >
-                    <div className="h-10 w-10 rounded-2xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 shadow-xs">
-                      <Languages className="h-5 w-5" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-sm font-semibold text-foreground tracking-tight">
-                          {t("chat.translate.menuTitle")}
-                        </span>
-                        {isTranslateMode && creationMode === "chat" && (
-                          <span className="flex items-center gap-1 font-mono text-xs font-semibold text-indigo-600 dark:text-indigo-400">
-                            <Check className="h-3.5 w-3.5 stroke-[3]" /> {t("chat.creation.activeMode")}
-                          </span>
-                        )}
-                      </div>
-                      <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                        {t("chat.translate.menuDesc")}
-                      </p>
-                    </div>
-                  </DropdownMenuItem>
-                </div>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                >
+                  {renderCreationPanel(true)}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
 
             {/* 录音状态条：录音时出现，显示时长与实时音量。
 

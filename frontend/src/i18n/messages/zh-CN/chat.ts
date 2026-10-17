@@ -43,14 +43,18 @@ export default {
   creation: {
     menuLabel: "功能与创作菜单",
     sectionTitle: "创作与能力扩展",
+    sheetDesc: "选择要上传的内容，或切换创作模式",
     restoreChat: "恢复默认对话",
     gallery: "相册",
     camera: "相机",
     file: "文件",
     imageGen: "生成图片",
-    imageGenDesc: "调用文生图模型，将你的创意与灵感直接绘制为高清艺术图像",
+    /* 窄屏抽屉里这几行说明文字必须单行（≤20 汉字），否则行高翻倍、
+       抽屉超出一屏、最后一行被安全区压住。改文案前先看 ChatArea 的
+       CreationMenuRow 注释。 */
+    imageGenDesc: "用文生图模型把你的想法画成图片",
     videoGen: "生成视频",
-    videoGenDesc: "输入剧本文案，由 AI 视频大模型生成高清动效与视频",
+    videoGenDesc: "输入剧本，用 AI 视频模型生成动效视频",
     activeMode: "当前模式",
     trialRestricted: "体验账号受限",
     videoBlockedTitle: "当前账号处于体验模式，暂不支持使用 AI 视频生成功能。如需开通，请联系管理员获取完整权限。",
@@ -62,9 +66,9 @@ export default {
     modeAuto: "自动判断",
     modeOn: "强制开启",
     modeOff: "已关闭",
-    descAuto: "智能研判时效意图，结合实时互联网信息与权威来源解答",
-    descOn: "每次提问都强制检索最新网页与网络热点动态",
-    descOff: "仅依赖模型内部知识库回答，不访问外网",
+    descAuto: "自动判断是否需要联网检索",
+    descOn: "每次提问都强制联网检索",
+    descOff: "不联网，仅用模型自身知识",
     toastAutoTitle: "🌐 联网检索：智能自动",
     toastAutoDesc: "系统将根据问题自动判断是否全网搜索",
     toastOnTitle: "🌐 联网检索：强制开启",
@@ -83,7 +87,7 @@ export default {
     unsupported: "当前浏览器不支持录音",
     unsupportedHint: "当前浏览器不支持录音，请改用上传音频文件的方式",
     audioToText: "音频转文字",
-    audioToTextDesc: "上传录音文件，由语音模型转写后填入输入框",
+    audioToTextDesc: "上传录音，转写文字填入输入框",
     noAudioCaptured: "没有录到声音，请检查麦克风权限后重试",
     noSpeechRecognized: "没有识别到语音内容，请重试或改用文字输入",
     transcribeFailed: "语音识别失败，请检查网络后重试",
@@ -366,7 +370,7 @@ export default {
       langChipTip: "开启{src} ⇋ {lang} 双向互译",
     langChipLabel: "{name} ({code})",
     menuTitle: "智能翻译",
-    menuDesc: "全语种双向互译与语法教学，含动词变型剖析、日语平假名片假名及类似例句",
+    menuDesc: "全语种双向互译，附语法讲解",
     placeholder: "输入需要翻译的单词、短语或句子…",
     /** 语种名。键为 ISO 639-1，值必须是该语言自己的自称 */
     langs: {

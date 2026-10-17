@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
  * 本项目的 Label 一律**包住**控件，因此 `peer-disabled:*` 一律匹配不到
  * （`peer-*` 需要前置兄弟节点）。别为了迁就它改成兄弟结构 —— 那样就换成
  * 不可聚焦的 span 了，键盘可达性会丢。
+ */
 const labelVariants = cva("text-sm font-medium leading-none");
 
 const Label = React.forwardRef<

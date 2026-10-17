@@ -10,23 +10,13 @@ from app.services.prompt.temporal import get_current_temporal_context
 logger = logging.getLogger("web_search_evaluator")
 
 """
-联网检索的触发判定。
-
-正则里此前只覆盖中文与少量英文。日语用户说「調べて」「検索して」时，
-这些模式一个都命中不了 —— 决策权落到 LLM 语义研判上，等于把一次
-0ms 的确定性短路变成了 200~400ms 的模型调用，而且模型未必判得准。
-
-所以下面每条模式都是**三语并置**而不是按语言分支：用户完全可能用英文
-问一道中文题，反之亦然，全盘接受比「按当前语言挑一组」更稳，
-也省掉了「判定时读到哪种语言」这类边界情况。
+Web search intent evaluation and query generation triggers.
 """
 
 # High-precision intent triggers (commands with inline query or prefix)
 EXPLICIT_SEARCH_PREFIXES = [
     r"^(?:请|请你|你|帮我|麻烦|麻烦你|能否|可以)?\s*(?:去|在|到)?\s*(?:网上|全网|网络上|网络|谷歌|百度|搜索引擎|外网)?\s*(?:去)?\s*(?:搜一下|搜索一下|查一下|搜搜|查查|搜索|查找|检索|查询|打听一下|找找|搜搜看|查查看|搜下|查下|搜一搜|查一查)\s*[:：]?\s*",
     r"^(?:联网|通过网络|通过搜索|用搜索|用搜索引擎)\s*(?:搜一下|搜索一下|查一下|搜索|查找|检索|查询|搜|查|找找)\s*[:：]?\s*",
-    # 日语的助词是「で/に/は」而不是中文的动词重叠；用「調べ」而不是
-    # 「調べる」来匹配，是为了同时覆盖 調べて / 調べたら / 調べると。
     r"^(?:ネット(?:で)?|ウェブ(?:で)?|インターネット(?:で)?|検索エンジン(?:で)?)?\s*(?:で|に|は)?\s*(?:調べて|検索して|調査して|探して|見て)\s*(?:みて)?\s*[:：]?\s*",
     r"^(?:search(?:\s+the\s+web|\s+online)?|google|look\s+up|find\s+out)\s*(?:for\s*)?",
 ]

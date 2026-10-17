@@ -1,14 +1,5 @@
 """
-Generated image storage.
-
-Images are written to disk as their original bytes: never re-encoded, never
-resized. The database keeps only a small metadata record ({id, ext, prompt,
-provider, model, bytes}), which keeps the messages table lean and lets the UI
-lazy-load artwork instead of shipping megabytes inside the message list.
-
-Filenames are derived from a server-generated uuid, and every path is validated
-against the storage root before it is read or written, so a tampered database
-row cannot be used to reach arbitrary files.
+Media storage service for generated images, generated videos, and uploaded images.
 """
 import base64
 import binascii
@@ -49,14 +40,7 @@ REMOTE_VIDEO_FETCH_TIMEOUT_SECONDS = 180.0
 
 
 class MediaStorageError(RuntimeError):
-    """媒体存储层的失败。
-
-    ``code`` 是可选的：给了就说明这条消息**会经由 API 返回给用户**
-    （见 api/v1/media.py 把它转成本地化的 ApiError），于是文案由
-    app/core/messages.py 统一维护。没给就只是内部异常，调用方按
-    ``str(exc)`` 记日志即可 —— 不要为了「顺手」给每条都补码，
-    补了码就等于承诺了用户会看到它。
-    """
+    """媒体存储层异常，可选携带错误代号 code。"""
 
     def __init__(self, message: str, code: str | None = None) -> None:
         super().__init__(message)
@@ -146,10 +130,6 @@ class MediaStorage:
             header, _, payload = url.partition(",")
             if not payload:
                 raise MediaStorageError("非法的 data URI")
-            # Check the encoded length *before* decoding. The remote-URL branch is
-            # capped while streaming; without this the inline path would be the one
-            # way a provider response could still allocate without bound, since a
-            # provider that answers with b64_json hands us the whole image inline.
             estimated_bytes = (len(payload) * 3) // 4
             if estimated_bytes > REMOTE_FETCH_MAX_BYTES:
                 raise MediaStorageError(
@@ -167,12 +147,6 @@ class MediaStorage:
             return data, self.sniff_ext(data, mime)
 
         if url.startswith(("http://", "https://")):
-            # The URL is whatever the provider handed back, so it is one hop further
-            # removed from trust than a user-supplied link — but it is still a URL
-            # this process is about to fetch, so it gets the same public-address
-            # check and the same streaming byte cap. A provider that is MITM'd, or
-            # that simply returns a link into the private network, must not be able
-            # to use this server as its fetch proxy.
             try:
                 fetched = await fetch_public_bytes(
                     url,
@@ -215,9 +189,6 @@ async def store_generated_image(
 ) -> Dict[str, Any]:
     """
     Persist one generated image and return its metadata record.
-
-    Raises MediaStorageError on failure; callers decide whether that should
-    degrade the reply or surface an error to the user.
     """
     data, ext = await media_storage.materialize(url)
     image_id = media_storage.new_image_id()
@@ -236,9 +207,7 @@ async def store_generated_image(
     }
 
 
-#: Path prefix of the authenticated media endpoint, written into messages.content
-#: in place of the old inline data URL. Relative, because the media URL is built
-#: per request (it needs the caller's JWT) — see the frontend's getMediaImageUrl.
+#: Path prefix of the authenticated media endpoints.
 MEDIA_IMAGE_PATH_PREFIX = "/api/media/images/"
 MEDIA_VIDEO_PATH_PREFIX = "/api/media/videos/"
 
@@ -291,18 +260,7 @@ def store_uploaded_image(
     data_url: str,
     name: str,
 ) -> Optional[Dict[str, Any]]:
-    """Persist one user-uploaded image from its inline data URL.
-
-    Returns the same record shape as :func:`store_generated_image` plus ``name``,
-    or ``None`` when the payload cannot be stored. Returning None rather than
-    raising is deliberate: the caller's fallback is to keep the original inline
-    markdown, so a storage hiccup degrades to "bigger row" rather than to a lost
-    attachment the user can no longer see.
-
-    The bytes are the user's own upload, so no network fetch is involved and
-    :func:`materialize`'s remote guards do not apply — but the size ceiling does,
-    since it is the same unbounded-allocation hazard.
-    """
+    """Persist one user-uploaded image from its inline data URL."""
     if not data_url or not data_url.startswith("data:"):
         return None
 

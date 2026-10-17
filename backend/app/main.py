@@ -26,33 +26,12 @@ class HealthCheckFilter(logging.Filter):
 logging.getLogger("uvicorn.access").addFilter(HealthCheckFilter())
 
 
-#: Ceiling on a single request body. A chat message carries attachments as inline
-#: base64 data URLs, so one request is roughly 4/3 of the raw file bytes: the
-#: 40 MB attachment budget in schemas/chat.py lands at ~53 MB on the wire.
-#: This therefore has to sit *above* that budget, not below it — set any lower
-#: and the 40 MB becomes unreachable, because this layer rejects the body before
-#: the schema validator ever runs. 56 MB leaves ~2.5 MB over the worst case,
-#: which covers the JSON envelope and the message text.
+#: Ceiling on a single request body (~56 MB covers the 40 MB attachment budget plus base64/JSON overhead).
 MAX_REQUEST_BODY_BYTES = 56 * 1024 * 1024
 
 
 class MaxBodySizeMiddleware:
-    """Reject oversized request bodies before they are read into memory.
-
-    Written as raw ASGI on purpose. ``@app.middleware("http")`` builds on
-    BaseHTTPMiddleware, which sits between the request and the response — and this
-    application's main job is streaming a long-lived SSE response. A middleware that
-    buffers or re-enters that path is a source of stalls and dropped streams, so
-    this one only inspects the incoming headers and otherwise passes every message
-    through untouched.
-
-    Limitation, stated plainly: it relies on Content-Length. A chunked request with
-    no declared length gets through here and is caught later by ChatRequest's
-    per-attachment budget, at which point the body has already been parsed. Browsers,
-    curl and every JS fetch client set Content-Length for a JSON body of this shape,
-    so in practice this is the layer that does the work; the schema check is the
-    backstop, not the gate.
-    """
+    """Reject oversized request bodies before they are read into memory."""
 
     def __init__(self, app: ASGIApp, max_bytes: int = MAX_REQUEST_BODY_BYTES) -> None:
         self.app = app
@@ -79,10 +58,6 @@ class MaxBodySizeMiddleware:
                         ),
                         "code": "REQUEST_BODY_TOO_LARGE",
                     },
-                    # Literal rather than status.HTTP_413_*: Starlette renamed that
-                    # constant in 2024 (REQUEST_ENTITY_TOO_LARGE → CONTENT_TOO_LARGE)
-                    # and kept the old name as a deprecation alias, so depending on
-                    # it means this file breaks on one upgrade or the other.
                     status_code=413,
                 )(scope, receive, send)
                 return
@@ -91,18 +66,7 @@ class MaxBodySizeMiddleware:
 
 
 class LocaleMiddleware:
-    """把请求的语言解析进 ContextVar，让 tr() 在服务层任意深度都能取到。
-
-    与 MaxBodySizeMiddleware 一样写成裸 ASGI，而不是
-    ``@app.middleware("http")``：后者基于 BaseHTTPMiddleware，
-    本应用最核心的工作是推一条长连接 SSE 响应，包一层会引入缓冲与重入，
-    正是流式卡顿和断流的常见来源。这里只读一次请求头，不碰消息体。
-
-    语言来自标准的 ``Accept-Language`` 头，由前端每次请求显式带上
-    （见 frontend/src/i18n/runtime.ts 的 acceptLanguageHeader）。
-    用标准头而不是自定义头，是为了让搜索引擎、CDN 与任何未来绕过本项目
-    前端的调用方都能得到同样正确的语言，而不是看到一句默认中文。
-    """
+    """把请求的语言解析进 ContextVar，供服务层 tr() 读取。"""
 
     def __init__(self, app: ASGIApp) -> None:
         self.app = app
@@ -122,12 +86,6 @@ async def lifespan(app: FastAPI):
         await init_db()
         logger.info("Database initialized successfully.")
     except Exception:
-        # Deliberately fatal. This used to log and continue, which produced the
-        # worst possible failure mode: the process stayed up, every request 500'd,
-        # and /api/health still answered "database: connected", so Docker never
-        # restarted it. Exiting non-zero lets `restart: unless-stopped` retry,
-        # which recovers from a database that is merely slow to come up, and makes
-        # a genuinely broken schema fail loudly instead of mysteriously.
         logger.critical(
             "Database initialization failed; refusing to start. "
             "If Postgres is healthy, the cause is most likely a missing pgvector "
@@ -169,15 +127,7 @@ app = FastAPI(
 )
 install_error_handler(app)
 
-# Starlette makes the most recently added middleware the outermost.
-# 从外到内是 CORS → Locale → MaxBodySize，顺序是刻意排的：
-#
-#   - CORS 在最外，413 之类的拒绝才会带上 Access-Control-Allow-Origin，
-#     浏览器才能报出「请求体过大」而不是一句看不懂的 CORS 失败。
-#   - Locale 必须在 MaxBodySize **内侧**。反过来的话，MaxBodySize 会在
-#     Locale 跑到之前就返回 413，而那条消息是 tr() 查出来的 ——
-#     结果就是唯一一个必然要显示给用户、又必然被这个网关拦下的错误，
-#     永远是默认语言。
+# Middleware execution order: CORS -> Locale -> MaxBodySize
 app.add_middleware(MaxBodySizeMiddleware, max_bytes=MAX_REQUEST_BODY_BYTES)
 app.add_middleware(LocaleMiddleware)
 
@@ -204,12 +154,7 @@ async def root():
 
 
 async def _probe_database() -> tuple:
-    """Actually talk to Postgres instead of claiming it works.
-
-    Returns ``(ok, detail)``. The detail is the exception *type* only — this
-    endpoint is unauthenticated (Docker's healthcheck has no token), so a driver
-    message could carry the DSN or credentials. The full error goes to the log.
-    """
+    """Probe Postgres connectivity; returns (ok, detail)."""
     from sqlalchemy import text
 
     try:
@@ -223,36 +168,13 @@ async def _probe_database() -> tuple:
 
 @app.get(f"{settings.API_V1_STR}/health", tags=["health"])
 async def health_check():
-    """Liveness/readiness for the container.
-
-    This is what ``docker-compose``'s healthcheck curls, so the values here decide
-    whether the container is reported healthy. Every field used to be a hardcoded
-    string — including ``"database": "connected"`` — which meant a backend whose
-    database was gone still looked perfectly healthy to Docker and to any monitor.
-
-    Returns 503 when the database is unreachable so ``curl -f`` fails and Docker
-    marks the container unhealthy. Docker does not restart on unhealthy, so this
-    reports rather than disrupts.
-    """
-    # Imported here, not at module scope: the health path should not depend on the
-    # memory subsystem's import graph, and is_configured() is a settings lookup.
+    """Liveness/readiness check for container health."""
     from app.services.memory.service import memory_service
-
-    # Same reasoning, and this one matters more: pulling in the speech service at
-    # module scope would make the health check import httpx and the config
-    # singleton, so a broken speech import would take down /api/health — the one
-    # endpoint Docker uses to decide whether the container is alive.
     from app.services.speech.service import speech_service
 
     db_ok, db_detail = await _probe_database()
     memory_ready = memory_service.is_configured()
 
-    # Speech is reported by catalog state, not by naming a model. Which model an
-    # account gets comes from its own user_settings row, so printing the
-    # fallback constants here would advertise a "configured" model that nobody
-    # is actually using. What an operator needs to know is whether the catalog
-    # has been synced — an unsynced catalog is the single most common cause of
-    # speech not working.
     if not speech_service.is_configured():
         speech_status = "no OpenRouter key"
     else:

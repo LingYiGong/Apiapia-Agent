@@ -40,17 +40,7 @@ async def list_memories(
     offset: int = Query(0, ge=0, description="Number of memories to skip"),
     current_user: User = Depends(get_current_user)
 ):
-    """Retrieve long-term memories belonging to current user, paginated.
-
-    默认页大小 50，与前端 PAGE_SIZE 一致。
-
-    排序：按最近变化时间（updated_at 优先，回落 created_at）倒序，在
-    service 层完成；同时间戳用 id 作次级键保证全序，因此 offset 分页不会
-    漏条目或重复。
-
-    ⚠️ 响应体形状是带 items 的对象（此前是裸 list），属破坏性变更。
-    目前唯一的前端调用方是 MemoryView.tsx。
-    """
+    """Retrieve long-term memories belonging to current user, paginated."""
     page = await asyncio.to_thread(
         memory_service.list_memories_page,
         user_id=current_user.id,
@@ -67,15 +57,7 @@ async def search_memories(
     offset: int = Query(0, ge=0, description="Number of results to skip"),
     current_user: User = Depends(get_current_user)
 ):
-    """Semantic vector search across memories for current user, paginated.
-
-    检索只负责决定「哪些记忆相关」；返回给前端后由前端按时间重新分组排序，
-    所以这里的向量排序顺序不影响最终展示顺序 —— 相关度仅用于决定召回哪些。
-
-    分页在此之上切片。切片会破坏跨页的相关度连续性（第 2 页首条可能不如
-    第 1 页末条相关），这是相似度排序下 offset 分页的固有性质；由于前端
-    会重排，这个瑕疵不会出现在界面上。
-    """
+    """Semantic vector search across memories for current user, paginated."""
     page = await asyncio.to_thread(
         memory_service.search_memory_page,
         user_id=current_user.id,
@@ -95,13 +77,7 @@ async def search_memories(
 async def export_memories(
     current_user: User = Depends(get_current_user_allow_query_token)
 ):
-    """Export all user memories as JSON for data ownership and migration (Section 11 & 23).
-
-    ⚠️ 必须导出**全量**。此前这里复用 list_memories（上限 1000），记忆超过
-    1000 条时导出的 JSON 会被静默截断 —— 而这是用户唯一的数据自主出口
-    （README 明确承诺「一键导出 JSON 实现个人数据完全自主」），静默残缺的
-    备份比不提供更糟。现在走 list_all_memories，不设条数上限。
-    """
+    """Export all user memories as JSON."""
     memories = await asyncio.to_thread(
         memory_service.list_all_memories, user_id=current_user.id
     )
@@ -109,9 +85,6 @@ async def export_memories(
         content={
             "user_id": current_user.id,
             "username": current_user.username,
-            # When the export ran. This used to be current_user.updated_at — the
-            # last time the *account row* changed — so an export taken today after
-            # a settings edit six weeks ago was labelled with that edit date.
             "export_time": datetime.now(timezone.utc).isoformat(),
             "total": len(memories),
             "memories": memories

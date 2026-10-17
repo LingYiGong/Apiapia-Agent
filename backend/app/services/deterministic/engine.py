@@ -5,16 +5,7 @@ from typing import Dict, Any, Optional, List
 from app.core.i18n import get_locale
 from app.services.prompt.localized import format_date, weekday_of
 
-# ── 运算符 ────────────────────────────────────────────────────────────
-#
-# 此前这里只认「加 / 减 / 乘 / 除 / 次方」五个中文词，于是「2 plus 3」
-# 与「2 に 3 を足す」都直接返回 None —— 确定性核验静默失效，
-# 模型会退回去用心算，而心算正是这个模块存在的唯一理由。
-# 符号与各种语言的词形全部放进来，哪一种语言的用户都能吃到自己那条。
-#
-# 注意是「或」关系而不是按语言分支：用户完全可能用英文问一道中文题，
-# 反之亦然，全盘接受反而更稳。
-
+# ── 运算符映射 ────────────────────────────────────────────────────────
 OP_ADD = ["+", "加", "加上", "plus", "added", "add", "足す", "足した", "加算", "足し算", "たす"]
 OP_SUB = ["-", "−", "减", "减去", "減", "minus", "subtract", "subtracted", "引く", "引いた", "減算", "引き算", "ひく"]
 OP_MUL = ["*", "×", "x", "乘", "乘以", "times", "multiplied by", "multiply", "掛ける", "掛け", "乗算", "掛け算", "かける"]
@@ -23,16 +14,12 @@ OP_POW = ["^", "**", "次方", "的次方", "的平方", "平方", "power of", "
 
 OP_TABLE: List[List[str]] = [OP_ADD, OP_SUB, OP_MUL, OP_DIV, OP_POW]
 
-#: 归一化后的符号，用于写进给模型看的算式（保持与中文旧行为一致）。
+#: 归一化后的符号，用于写进给模型看的算式
 OP_SYMBOLS = ["+", "-", "×", "÷", "^"]
 
 
 def normalize_operator(raw: str) -> Optional[int]:
-    """把各种词形的运算符归一成 OP_TABLE 的下标；不认识则返回 None。
-
-    比较前统一去空格并转小写：英文用户几乎一定会打出 "2 PLUS 3"，
-    而日文/中文的大小写折叠不影响原有匹配。
-    """
+    """把各种词形的运算符归一成 OP_TABLE 的下标；不认识则返回 None。"""
     token = (raw or "").strip().lower().replace(" ", "")
     if not token:
         return None
@@ -43,11 +30,6 @@ def normalize_operator(raw: str) -> Optional[int]:
 
 
 # ── 说明文案 ──────────────────────────────────────────────────────────
-#
-# 这些 explanation 会原样拼进系统提示词，模型读到什么语言，
-# 就倾向于用什么语言复述结论。所以它们必须跟随请求语言 ——
-# 否则一个英文用户会看到模型在英文回答里插入一句
-# "Mathematical real-number comparison result:"。
 
 EXPLANATIONS: Dict[str, Dict[str, str]] = {
     "zh-CN": {
@@ -238,8 +220,6 @@ def compute_number_comparison(num1_str: str, num2_str: str) -> Optional[Dict[str
                 smaller=smaller,
             ),
             _t("cmp_align", num1=num1_str, a1=aligned1, num2=num2_str, a2=aligned2),
-            # 等值分支下 larger == smaller == num1，所以这句在两种情况下都成立，
-            # 不需要额外分支；上面那行的严格比较结果才是唯一权威。
             _t("cmp_conclusion", larger=larger, smaller=smaller),
         ]
     )
@@ -284,8 +264,6 @@ def compute_arithmetic(
                 return None
             result = d1 / d2
         else:
-            # 指数必须是整数。Decimal ** 接受非整数指数但那已经超出
-            # 「精确」的范畴了，宁可不算。
             result = d1 ** int(d2)
     except Exception:
         return None

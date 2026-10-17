@@ -1,14 +1,6 @@
 """
 Image Generation Service.
-Supports:
-1. OpenRouter (Flux.2 / Flux.3 / SD3.5 unified image endpoint)
-2. OpenAI (DALL-E 3)
-3. SiliconFlow (FLUX.1-schnell)
-
-The image model catalog is persisted to synced_image_models.json and refreshed
-only by an explicit sync request, mirroring how the chat model catalog is
-handled in app/api/v1/models.py. No models are hardcoded and no request path
-performs a live catalog lookup.
+Supports OpenRouter, OpenAI (DALL-E 3), and SiliconFlow (FLUX.1).
 """
 import logging
 from pathlib import Path
@@ -43,13 +35,7 @@ class ImageGenerationService:
         return model_id in self.free_models
 
     def default_image_model(self) -> Optional[str]:
-        """
-        The zero-cost model to use when the user has no explicit selection.
-
-        Mirrors how a new account's chat model defaults to openrouter/free, so an
-        unset image_model never means "whatever the admin happens to run" — it
-        always means the free tier.
-        """
+        """The zero-cost model to use when the user has no explicit selection."""
         if not self.free_models:
             return None
         stored_ids = {m.get("id") for m in self.load_stored_models()}
@@ -57,8 +43,6 @@ class ImageGenerationService:
             for mid in self.free_models:
                 if mid in stored_ids:
                     return mid
-        # Before the first sync the catalog is empty; the configured default is
-        # still the intended target, so the feature works on a fresh deployment.
         return self.free_models[0]
 
     def active_providers(self) -> set:
@@ -73,11 +57,7 @@ class ImageGenerationService:
         return active
 
     def load_stored_models(self) -> List[Dict[str, Any]]:
-        """
-        Read the persisted image catalog from synced_image_models.json.
-        Mirrors load_stored_models() for chat models: nothing is hardcoded, and an
-        absent or corrupt file simply yields an empty catalog.
-        """
+        """Read the persisted image catalog from synced_image_models.json."""
         return read_json_catalog(SYNCED_IMAGE_MODELS_FILE)
 
     def save_stored_models(self, models: List[Dict[str, Any]]) -> None:
@@ -267,9 +247,6 @@ class ImageGenerationService:
                     )
                 provider = entry["provider"]
             elif model:
-                # An explicit selection is missing from the synced catalog.
-                # Distinguish "never synced" from "synced but unavailable", because
-                # the fix is different: sync once versus pick another model.
                 if not self.load_stored_models():
                     raise ValueError(
                         "绘图模型列表尚未同步。请管理员在设置页点击「同步列表」"
@@ -279,8 +256,6 @@ class ImageGenerationService:
                     f"所选绘图模型当前不可用（对应服务未配置或模型已下架）：{model}"
                 )
             else:
-                # Zero-cost default that has not been synced yet. Free models are
-                # declared as OpenRouter ids, so that is the only route to try.
                 provider = (
                     "openrouter" if self.openrouter_key
                     else self.get_effective_provider(free_only=free_only)
@@ -379,8 +354,6 @@ class ImageGenerationService:
 
             if resp.status_code != 200:
                 if free_only:
-                    # Deliberately no fallback retry: every remaining candidate is
-                    # billable, which a restricted account must never trigger.
                     raise RuntimeError(
                         f"免费生图模型不可用 [{resp.status_code}]: {resp.text}"
                     )

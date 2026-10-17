@@ -2,31 +2,17 @@ from pydantic import BaseModel, Field, model_validator
 from typing import Optional, List
 
 
-#: Ceiling on how many files one message may carry. Deliberately looser than the
-#: real constraint (total bytes, below) because the frontend does not cap the count
-#: at all — a strict count limit here would reject a whole message, text included,
-#: for something a total-byte budget would have happily accepted.
+#: Maximum number of attachments per message
 MAX_ATTACHMENTS = 10
 
-#: Per-file ceiling on the *decoded* bytes. The frontend stops at the same 20 MB,
-#: so in practice this only bites a client that skips the check. Must stay in step
-#: with app.services.document_parser.MAX_ATTACHMENT_BYTES, which is the place the
-#: estimate is actually enforced before base64 is decoded.
+#: Per-file attachment ceiling (20 MB decoded)
 MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024
 
-#: Ceiling on the decoded bytes of all attachments combined. The prompt assembly
-#: concatenates every document's extracted text and every image becomes an inline
-#: data URI in the payload, so the real memory ceiling lives further down: the body
-#: middleware (app.main.MAX_REQUEST_BODY_BYTES) rejects the request first, since
-#: base64 inflates these bytes by 4/3. Keep this below the byte budget that
-#: middleware allows through, or it will never be the constraint that fires.
+#: Combined attachment ceiling (40 MB decoded)
 MAX_TOTAL_ATTACHMENT_BYTES = 40 * 1024 * 1024
 
 
 class AttachmentPayload(BaseModel):
-    # No `type` field: the backend infers image-vs-document from mime_type and the
-    # filename extension (document_parser.parse_bytes), so a client-supplied type
-    # was never read. The frontend still sends it and Pydantic ignores extras.
     name: str = Field(max_length=255)
     mime_type: Optional[str] = Field(default="application/octet-stream", max_length=120)
     data_url: str  # base64 data url: "data:...;base64,..."
@@ -35,13 +21,8 @@ class AttachmentPayload(BaseModel):
 class ChatRequest(BaseModel):
     conversation_id: Optional[str] = Field(default=None, max_length=36)
     message: str
-    # 100/50 match the Conversation.model column and the SUPPORTED_PROVIDERS
-    # names. temperature 0-2 matches what every provider accepts.
     model: Optional[str] = Field(default=None, max_length=100)
     provider: Optional[str] = Field(default=None, max_length=50)
-    # No `stream` field: this endpoint is unconditionally an SSE stream, and the
-    # flag was accepted and ignored. Clients that want a one-off answer use the
-    # model adapter's complete() path, not this one.
     temperature: Optional[float] = Field(default=None, ge=0.0, le=2.0)
     max_tokens: Optional[int] = Field(default=None, ge=1, le=128000)
     reasoning_effort: Optional[str] = Field(default=None, max_length=20)  # "low", "medium", "high"
@@ -60,19 +41,7 @@ class ChatRequest(BaseModel):
 
     @model_validator(mode="after")
     def _check_attachment_budget(self) -> "ChatRequest":
-        """Reject an over-budget attachment set before anything is decoded.
-
-        Sizes are derived from the *encoded* length, so this costs a string scan and
-        allocates nothing. It runs at validation time, which is the earliest point
-        that still has the whole request in hand — the alternative (checking inside
-        the handler) would already have paid for the JSON parse of a multi-megabyte
-        data URL.
-
-        Note this is a correctness gate, not the memory gate: the request body has
-        necessarily already been read into memory by the time Pydantic sees it. The
-        body-size middleware in app.main is what actually stops the process from
-        being handed a 500 MB payload.
-        """
+        """Reject an over-budget attachment set before decoding."""
         if not self.attachments:
             return self
 

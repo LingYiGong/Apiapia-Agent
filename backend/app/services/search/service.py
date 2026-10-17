@@ -53,17 +53,7 @@ class WebSearchService:
         }
 
     def _headers_for_request(self) -> dict:
-        """按当前请求的语言组装请求头。
-
-        ``Accept-Language`` 此前硬编码成 ``zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7``，
-        于是不管用户用什么语言，搜回来的都是中文优先的结果 —— 一个英语用户
-        问 "who won the election"，拿回来的可能是中文报道里对同一次选举的
-        转述，还夹着只对中文读者有意义的板块链接。
-
-        DuckDuckGo 会按这个头决定结果的语言，所以它必须跟着请求语言走。
-        裸语言标签放前面、英文兜底放后面：搜索服务对无法识别的地区变体
-        （zh-HK、ja-JP）会直接回落，而不是把这个列表当成「全部都要」。
-        """
+        """按当前请求的语言组装请求头。"""
         locale = get_locale()
         base = locale.split("-")[0]
         return {
@@ -121,13 +111,7 @@ class WebSearchService:
             except Exception as e:
                 logger.warning("Tavily search failed: %s. Falling back to DuckDuckGo.", str(e))
 
-        # 2-4. DuckDuckGo over plain HTTP.
-        #
-        # These run in sequence, so every tier's timeout is added to the user's
-        # wait for a first token when the ones above it fail. Timeouts are
-        # deliberately tight (8s, 8s, 6s) for that reason: a stale answer is
-        # worth less than no answer. When Tavily is configured it normally answers
-        # first and none of this runs.
+        # 2-4. DuckDuckGo fallback tiers
         tiers = (
             ("html", self._search_duckduckgo_html),
             ("lite", self._search_duckduckgo_lite),
@@ -303,13 +287,7 @@ class WebSearchService:
             return results
 
     async def _search_duckduckgo_api(self, query: str, max_results: int = 10) -> List[Dict[str, str]]:
-        """Instant Answer API — the last-resort tier.
-
-        Returns at most a handful of encyclopaedic entries, never a ranked web
-        result list, so it is only useful when the two scraping tiers were blocked.
-        ``max_results`` was ignored and the cap hardcoded at 4; now it is honoured
-        so all three fallback tiers share one signature and one call shape.
-        """
+        """Instant Answer API fallback tier."""
         url = "https://api.duckduckgo.com/"
         params = {"q": query, "format": "json", "no_html": "1", "skip_disambig": "1"}
         async with httpx.AsyncClient(timeout=6.0, headers=self._headers_for_request()) as client:

@@ -7,14 +7,7 @@ from app.services.llm.ollama import OllamaProvider
 from app.services.llm.openrouter import OpenRouterProvider
 from app.core.config import settings
 
-#: Provider names this factory can build. Single source of truth for the
-#: credential endpoints (app.schemas.setting.SUPPORTED_PROVIDERS imports this
-#: tuple) so the two lists cannot drift apart.
-#:
-#: It is a tuple rather than a class registry because the constructors do not
-#: share a signature: GeminiProvider ignores base_url and OllamaProvider ignores
-#: api_key. A uniform registry would have to hide that asymmetry behind per-entry
-#: lambdas, which is harder to read than the explicit dispatch below.
+#: Provider names this factory can build.
 SUPPORTED_PROVIDERS: Tuple[str, ...] = (
     "openai",
     "anthropic",

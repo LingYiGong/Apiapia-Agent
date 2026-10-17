@@ -548,10 +548,7 @@ async def toggle_user_admin(
     if target.is_superuser:
         target.can_access_all_models = True
     else:
-        # Demotion must also revoke the model entitlement. has_full_model_access is
-        # `is_superuser or can_access_all_models`, so flipping only the first flag
-        # left a demoted admin free to keep calling billable models on the server's
-        # own credential — which is exactly what demotion is supposed to stop.
+        # Demotion revokes model entitlement
         target.can_access_all_models = False
     await db.commit()
     await db.refresh(target)
@@ -578,10 +575,7 @@ async def toggle_user_all_models(
     admin_user: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    Switch or set whether a user can access all models (including paid ones).
-    Superusers automatically have access to all models.
-    """
+    """Switch or set whether a user can access all models (including paid ones)."""
     stmt = select(User).where(User.id == user_id)
     target = (await db.execute(stmt)).scalar_one_or_none()
     if not target:
@@ -617,10 +611,7 @@ async def get_admin_user_conversations(
     admin_user: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    CRITICAL AUDIT FEATURE:
-    Admin can view all conversations of a user, including those marked as deleted by the user.
-    """
+    """Admin can view all conversations of a user, including soft-deleted ones."""
     stmt = (
         select(
             Conversation.id,
@@ -694,11 +685,3 @@ async def get_admin_conversation_messages(
             for m in messages
         ]
     }
-
-
-# NOTE: restoring a conversation used to also be reachable at
-# POST /stats/admin/conversations/{id}/restore, a forwarder that imported
-# conversations.restore_conversation and called it directly — bypassing FastAPI's
-# dependency resolution, and existing only to reshape the response for the admin
-# table. POST /conversations/{id}/restore is now the single entry point, and the
-# frontend calls that.

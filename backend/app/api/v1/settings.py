@@ -26,44 +26,18 @@ from app.services.image_gen import image_gen_service
 from app.services.video_gen import video_gen_service
 from app.services.speech.service import CAPABILITY_STT, CAPABILITY_TTS, speech_service
 
-# resolve_user_llm_credentials used to live here and is imported by the chat
-# endpoint on every turn, which made api.v1.chat import a sibling router. It is
-# now app.services.model_credentials — see that module for the rationale.
 from app.services.model_credentials import resolve_user_llm_credentials  # noqa: F401
 
 logger = logging.getLogger("settings_api")
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
-#: Upper bound on stored credentials per account. These rows are user-created and
-#: nothing in the UI needs more than a handful, so the cap exists to stop the
-#: table being used as free storage.
+#: Upper bound on stored credentials per account.
 MAX_MODEL_CONFIGS_PER_USER = 20
 
 
 async def _validate_base_url(base_url: Optional[str], provider: str) -> Optional[str]:
-    """Reject base_urls that would let a caller reach non-public addresses.
-
-    A base_url makes *this server* issue the request, so a caller-supplied value is
-    a server-side request forgery vector, not a client-side one. The actual checks
-    live in :func:`app.core.net.ensure_public_url` and are shared with every other
-    caller-influenced URL this process fetches — one copy, because when the rule
-    lived only here the two paths that fetch user-supplied links had no checks at
-    all. This wrapper only decides what to do with a rejection and adds the one rule
-    specific to credentials: plaintext http is refused, because the caller's API key
-    travels in the request.
-
-    Together these mean a caller-supplied base_url can only ever address a public
-    HTTPS endpoint. Self-hosted gateways (a private Ollama, an internal
-    OpenAI-compatible proxy) are therefore deliberately out of scope — they belong
-    in the server's own .env, where an operator controls them, via OLLAMA_BASE_URL /
-    OPENAI_BASE_URL and friends.
-
-    Resolution happens once, when the credential is saved, so the chat hot path
-    never blocks on DNS. Known limitation: this cannot stop DNS rebinding, where a
-    name resolves to a public IP now and a private IP by the time httpx connects.
-    Closing that window properly requires the check at connect time.
-    """
+    """Validate that base_url is an allowed public HTTPS address."""
     candidate = (base_url or "").strip()
     if not candidate:
         return None
@@ -86,12 +60,7 @@ async def _validate_visual_model(
     unavailable_code: str,
     forbidden_code: str,
 ) -> None:
-    """Reject visual models (image/video) that are unavailable or outside account entitlement.
-
-    此前这里收一个中文 ``label``（"绘图" / "视频"）再拼进 f-string，于是抛出的
-    ``detail`` 永远是中文。现在改收**错误码**：文案与语序都交给
-    ``core/messages.py``，四种语言各自成句。
-    """
+    """Reject visual models that are unavailable or outside account entitlement."""
     model_id = (model_id or "").strip()
     if not model_id:
         return
@@ -109,11 +78,7 @@ async def _validate_visual_model(
 
 
 async def _validate_image_model(current_user: User, model_id: Optional[str]) -> None:
-    """
-    Reject image models that are unavailable or outside the account entitlement.
-    Mirrors the entitlement rule used for chat models. An empty value clears the
-    selection and is always allowed.
-    """
+    """Reject image models that are unavailable or outside the account entitlement."""
     await _validate_visual_model(
         current_user,
         model_id,
@@ -124,9 +89,7 @@ async def _validate_image_model(current_user: User, model_id: Optional[str]) -> 
 
 
 async def _validate_video_model(current_user: User, model_id: Optional[str]) -> None:
-    """
-    Reject video models that are unavailable or outside the account entitlement.
-    """
+    """Reject video models that are unavailable or outside the account entitlement."""
     await _validate_visual_model(
         current_user,
         model_id,
@@ -139,14 +102,7 @@ async def _validate_video_model(current_user: User, model_id: Optional[str]) -> 
 async def _validate_audio_model(
     current_user: User, model_id: Optional[str], capability: str
 ) -> None:
-    """
-    Reject an audio model that is unavailable, of the wrong capability, or outside
-    the account entitlement.
-
-    One validator for both directions, parameterised by capability, because the
-    only thing that differs between STT and TTS is which catalog entries are
-    legal. Writing it twice would guarantee the two copies drift.
-    """
+    """Reject an audio model that is unavailable, of the wrong capability, or outside entitlement."""
     model_id = (model_id or "").strip()
     if not model_id:
         return
@@ -313,16 +269,11 @@ async def update_user_settings(
             raise ApiError(status.HTTP_403_FORBIDDEN, "TRIAL_DEFAULT_MODEL_FORBIDDEN")
         setting.default_model = update_data.default_model
     if update_data.memory_model is not None:
-        # Memory LLM is admin-only: silently ignore when set by ordinary users
-        # (rejecting outright would break older clients that always submit it)
         if getattr(current_user, "is_superuser", False):
             setting.memory_model = update_data.memory_model
     if update_data.consolidation_model is not None:
         if getattr(current_user, "is_superuser", False):
             setting.consolidation_model = update_data.consolidation_model
-    # model_fields_set distinguishes an omitted field from an explicit null. A null
-    # is normalized to the zero-cost default rather than stored, so image_model
-    # is always concrete.
     if "image_model" in update_data.model_fields_set:
         await _validate_image_model(current_user, update_data.image_model)
         chosen = (update_data.image_model or "").strip()
@@ -362,17 +313,7 @@ async def update_user_settings(
     return setting
 
 
-# ══════════════════════════════════════════════════════════════════════════
 # Caller-supplied provider credentials (BYO API key)
-#
-# Every route here is scoped to current_user.id. No route in the codebase ever
-# returns the plaintext of a stored key — reads expose `has_api_key` instead, and
-# the only place a key is decrypted is
-# app.services.model_credentials.resolve_user_llm_credentials, which hands it
-# straight to the provider constructor.
-# ══════════════════════════════════════════════════════════════════════════
-
-
 def _normalize_provider(raw: str) -> str:
     name = (raw or "").strip().lower()
     if name not in SUPPORTED_PROVIDERS:

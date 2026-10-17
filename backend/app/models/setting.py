@@ -15,10 +15,6 @@ class UserSetting(Base):
     consolidation_model = Column(String(120), default="openrouter/free", nullable=True)
     image_model = Column(String(120), default=None, nullable=True)
     video_model = Column(String(120), default=None, nullable=True)
-    # Two columns rather than one `audio_model`: OpenRouter exposes speech-to-text
-    # and text-to-speech as disjoint model families, so a single value could only
-    # ever be correct for one direction. Both are nullable and both resolve to a
-    # default in GET /settings, same contract as image_model / video_model.
     stt_model = Column(String(120), default=None, nullable=True)
     tts_model = Column(String(120), default=None, nullable=True)
     system_prompt = Column(Text, default="你是一个智能、真诚、有洞察力的个人智能助理。请根据用户提供的历史背景和长期记忆为用户提供高质量服务。", nullable=False)
@@ -42,8 +38,7 @@ class ModelConfig(Base):
 
     __tablename__ = "model_configs"
     __table_args__ = (
-        # One credential per (user, provider, model); the PUT upsert relies on this
-        # to make repeated submits idempotent instead of piling up duplicates.
+        # One credential per (user, provider, model)
         UniqueConstraint("user_id", "provider", "model", name="uq_model_config_user_provider_model"),
     )
 

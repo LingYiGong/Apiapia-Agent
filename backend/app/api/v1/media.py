@@ -40,11 +40,7 @@ async def _stream_media_file(
     download: bool,
     extra_headers: Optional[Dict[str, str]] = None,
 ) -> FileResponse:
-    """Stream a stored media attachment back to its owner after verifying ownership.
-
-    错误码由调用方传入（图片一套、视频一套），文案与语序交给 core/messages.py。
-    此前这里收一个中文 ``type_name`` 再拼进 f-string，抛出的 detail 永远是中文。
-    """
+    """Stream a stored media attachment back to its owner after verifying ownership."""
     conditions = [col.contains(media_id) for col in media_columns]
     stmt = (
         select(Message.id, Message.conversation_id, *media_columns)

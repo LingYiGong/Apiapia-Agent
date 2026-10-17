@@ -1,33 +1,5 @@
 """
-Speech in and out, both through OpenRouter.
-
-OpenRouter exposes two dedicated audio endpoints that are OpenAI-compatible:
-
-* ``POST /audio/transcriptions`` — audio in, text out (STT)
-* ``POST /audio/speech``         — text in, raw audio bytes out (TTS)
-
-Both authenticate with the same ``OPENROUTER_API_KEY`` that chat already uses,
-so there is no new credential to provision.
-
-The audio model catalog is persisted to ``synced_audio_models.json`` and
-refreshed only by an explicit sync request, mirroring how the chat, image and
-video catalogs are handled. No models are hardcoded and no request path performs
-a live catalog lookup.
-
-The two directions are separate model families upstream — OpenRouter filters its
-models endpoint with ``output_modalities=transcription`` and ``=speech``, and the
-two lists do not overlap. Every catalog entry therefore carries a
-``capability`` of ``"stt"`` or ``"tts"``, and a user picks one of each; a single
-combined selector could only ever be right half the time.
-
-Both endpoints are called with plain ``httpx`` rather than the OpenAI SDK. The
-SDK's ``audio.transcriptions``/``audio.speech`` helpers would work against a
-base_url, but reaching for them buys nothing here: the request bodies are one
-JSON object (TTS) or one multipart file (STT), the TTS response is a raw byte
-stream rather than JSON, and the surrounding code in this repo talks to
-OpenRouter over httpx directly (see ``image_gen/service.py`` and
-``video_gen/service.py``). Staying on httpx keeps one HTTP idiom in the codebase
-and makes the non-JSON responses trivial to handle.
+Speech in and out service (STT and TTS) through OpenRouter.
 """
 
 import json
@@ -45,41 +17,22 @@ from app.services.catalog import read_json_catalog, write_json_catalog
 
 logger = logging.getLogger("speech_service")
 
-#: Persistent synced audio models file, sibling of synced_image_models.json and
-#: synced_video_models.json. backend/app is bind-mounted in compose, so writing
-#: here needs no extra volume.
+#: Persistent synced audio models file.
 SYNCED_AUDIO_MODELS_FILE = Path(__file__).resolve().parent.parent.parent / "synced_audio_models.json"
 
-#: The two capabilities an audio model can have. These are internal tags only —
-#: what gets persisted in the catalog, what the frontend filters on, and what the
-#: settings columns imply.
+#: Supported audio model capabilities.
 CAPABILITY_STT = "stt"
 CAPABILITY_TTS = "tts"
 
 #: OpenRouter's ``output_modalities`` query value for each capability.
-#:
-#: Deliberately a separate mapping rather than reusing CAPABILITY_* directly.
-#: They are different vocabularies and conflating them fails silently: querying
-#: ``?output_modalities=stt`` is accepted by the endpoint, matches no model, and
-#: returns a well-formed empty catalog — so a sync reports success and writes an
-#: empty file instead of raising anything.
 MODALITY_QUERY_BY_CAPABILITY: Dict[str, str] = {
     CAPABILITY_STT: "transcription",
     CAPABILITY_TTS: "speech",
 }
 
-#: Both audio endpoints time out upstream at ~60 seconds. Ask for a little more
-#: than that so *our* timeout is never the one that fires — a request that would
-#: have succeeded then reads as a clean gateway timeout instead of being killed
-#: mid-upload.
 UPSTREAM_TIMEOUT_SECONDS = 90.0
 
-#: MIME types we will hand to OpenRouter, keyed by file extension. The STT
-#: endpoint derives the format from the filename or the part's content type, so
-#: an unrecognised upload would otherwise arrive with no format at all and be
-#: rejected. Browsers are inconsistent here — MediaRecorder commonly produces
-#: ``audio/webm;codecs=opus`` on Chrome and a plain ``audio/webm`` elsewhere — so
-#: the extension is the more reliable of the two signals.
+#: MIME types supported for audio uploads, keyed by file extension.
 AUDIO_MIME_BY_EXTENSION: Dict[str, str] = {
     "webm": "audio/webm",
     "mp3": "audio/mpeg",
@@ -93,41 +46,21 @@ AUDIO_MIME_BY_EXTENSION: Dict[str, str] = {
     "flac": "audio/flac",
 }
 
-#: Fallback for uploads whose extension and content type are both unrecognised.
 DEFAULT_AUDIO_MIME = "audio/webm"
 
-#: Formats OpenRouter accepts for the TTS response, as an *upstream* preference.
-#:
-#: Which of the two a given model accepts is not ours to decide and not stable:
-#: Gemini TTS takes pcm only and rejects mp3 with a 400, while Mistral Voxtral
-#: takes mp3 only and rejects pcm. So this is the format we *ask* for, and the
-#: service falls back to the other one when the provider refuses (see
-#: ``_LEARNED_TTS_FORMAT``). pcm is never handed to a browser raw — it is wrapped
-#: in a WAV container first, since bare samples are not playable.
 TTS_CONTENT_TYPES: Dict[str, str] = {
     "mp3": "audio/mpeg",
     "pcm": "audio/pcm",
 }
 
-#: Returned Content-Type when pcm bytes were wrapped into a playable container.
 WAV_CONTENT_TYPE = "audio/wav"
 
-#: Fallbacks for the PCM response header, used only when OpenRouter omits the
-#: parameters. 24 kHz mono 16-bit is what both Gemini and the MAI-Voice family
-#: emit, so these are the values, not convenient guesses.
 DEFAULT_PCM_SAMPLE_RATE = 24000
 DEFAULT_PCM_CHANNELS = 1
 
-#: model id -> the response_format that provider actually accepted.
-#:
-#: Learned from the first request instead of declared, because nothing in the
-#: models API reports it and a hardcoded per-model table would rot with every
-#: new release. Bounded by the number of TTS models a deployment touches.
+#: model id -> response_format cache learned from upstream responses.
 _LEARNED_TTS_FORMAT: Dict[str, str] = {}
 
-#: Phrases that mark a 400 as "wrong format for this model" rather than "bad
-#: request". Checked together with the *other* format's name, so an unrelated 400
-#: (bad voice id, unsupported speed) never triggers a pointless retry.
 _FORMAT_ERROR_MARKERS = ("only supports", "supports only", "accepts", "not supported")
 
 
@@ -141,12 +74,7 @@ def _is_format_mismatch(message: str, attempted: str) -> bool:
 
 
 def _parse_audio_content_type(value: str) -> Tuple[str, int, int]:
-    """Split ``audio/pcm;rate=24000;channels=1`` into type, rate and channels.
-
-    OpenRouter documents the PCM response as carrying the sample rate and channel
-    count in these parameters, which is the only reason raw pcm can be turned into
-    playable audio at all — a guessed rate plays back at the wrong pitch.
-    """
+    """Split ``audio/pcm;rate=24000;channels=1`` into type, rate and channels."""
     parts = [p.strip() for p in (value or "").split(";")]
     base = (parts[0] or "application/octet-stream").lower()
     params: Dict[str, str] = {}
@@ -170,12 +98,7 @@ def _parse_audio_content_type(value: str) -> Tuple[str, int, int]:
 
 
 def _pcm_to_wav(pcm: bytes, sample_rate: int, channels: int) -> bytes:
-    """Wrap raw 16-bit little-endian PCM samples in a 44-byte RIFF/WAVE header.
-
-    Browsers play WAV natively and refuse headerless PCM, so this is what makes
-    a pcm-only model usable from the web at all. Standard canonical WAV: PCM
-    format tag 1, little-endian throughout, no extra chunks.
-    """
+    """Wrap raw 16-bit little-endian PCM samples in a 44-byte RIFF/WAVE header."""
     bits_per_sample = 16
     block_align = channels * bits_per_sample // 8
     byte_rate = sample_rate * block_align
@@ -199,14 +122,7 @@ def _pcm_to_wav(pcm: bytes, sample_rate: int, channels: int) -> bytes:
 
 
 class SpeechError(RuntimeError):
-    """A speech request that failed, tagged with the status to report.
-
-    The other provider services in this repo raise bare ``RuntimeError`` and let
-    the caller discover the failure as a 500. Speech is different in kind: a
-    rejected voice id, an expired key and an over-quota account are all things
-    the user can act on, so the upstream status is carried through to the HTTP
-    layer instead of being flattened into "Internal Server Error".
-    """
+    """A speech request that failed, tagged with the status code to report."""
 
     def __init__(self, message: str, status_code: int = 502) -> None:
         super().__init__(message)
@@ -214,32 +130,19 @@ class SpeechError(RuntimeError):
 
 
 def _resolve_mime(filename: str, content_type: Optional[str]) -> str:
-    """Pick the MIME type to upload with, preferring the filename.
-
-    A browser-supplied ``content_type`` on a ``MediaRecorder`` blob is the
-    unreliable one (it can carry codec parameters or be absent entirely), so the
-    extension wins when we recognise it.
-    """
+    """Pick the MIME type to upload with, preferring the filename."""
     match = re.search(r"\.([A-Za-z0-9]+)$", filename or "")
     if match:
         mapped = AUDIO_MIME_BY_EXTENSION.get(match.group(1).lower())
         if mapped:
             return mapped
     if content_type and content_type.lower().startswith("audio/"):
-        # Strip any `;codecs=opus` parameters — the STT endpoint matches the
-        # base type, and the parameters only add ways for it to disagree.
         return content_type.split(";", 1)[0].strip().lower()
     return DEFAULT_AUDIO_MIME
 
 
 def _describe_upstream_error(response: httpx.Response, action: str) -> str:
-    """Turn an OpenRouter error body into one sentence a user can act on.
-
-    The bodies are JSON with a ``detail``/``error`` carrying the provider's own
-    message ("Voice 'Kore' is not available for this model"), which is far more
-    useful than the status alone. The raw text is truncated because some
-    providers echo the whole request back in the error.
-    """
+    """Turn an OpenRouter error body into a readable message."""
     raw = ""
     try:
         raw = response.text
@@ -269,13 +172,7 @@ def _describe_upstream_error(response: httpx.Response, action: str) -> str:
 
 
 def _as_float(value: Any) -> Optional[float]:
-    """Coerce an upstream numeric field, tolerating strings and nulls.
-
-    OpenRouter reports usage in JSON numbers, but some providers send them as
-    strings and a couple send null for an unpriced field. Anything that is not a
-    real number becomes None rather than propagating into a Pydantic response and
-    failing the request after the billable work already happened.
-    """
+    """Coerce an upstream numeric field to float, returning None on failure."""
     if value is None or isinstance(value, bool):
         return None
     try:
@@ -285,19 +182,7 @@ def _as_float(value: Any) -> Optional[float]:
 
 
 def _map_upstream_status(status_code: int) -> int:
-    """Translate an OpenRouter status into one to show the client.
-
-    The distinction that matters is *whose* problem it is. 4xx codes describing
-    this request (400 for an unknown voice, 413 too large) pass through, because
-    the user can fix them by changing what they asked for. Codes describing the
-    account or the provider (401 bad key, 402 out of credits) become 503, because
-    a client retrying them unchanged fails identically and the actionable fix is a
-    server-side key, not a retry.
-
-    429 is the exception kept at face value: it is transient and retryable, and
-    flattening it to 502 would tell the caller to give up on something that would
-    succeed in a moment.
-    """
+    """Translate an OpenRouter status code into one to show the client."""
     if status_code in (400, 404, 413, 415, 422):
         return status_code
     if status_code in (401, 402, 403):
@@ -565,29 +450,10 @@ class SpeechService:
         return [str(v) for v in voices]
 
     def resolve_voice(self, model_id: str, voice: Optional[str] = None) -> Optional[str]:
-        """
-        Pick the voice to synthesize with, or None to omit the field entirely.
-
-        Preference order: the caller's choice, then the pinned TTS_VOICE when it
-        belongs to this model, then the first voice the catalog reports.
-
-        **None is a valid answer, not a failure.** Some TTS models publish no
-        voice list at all — the catalog entry carries ``supported_voices: null``
-        for the Fish Audio and Seed Audio families. Those are exactly the models
-        whose provider documents its own default voice, and OpenRouter accepts a
-        request with ``voice`` omitted only for those. Treating an empty list as a
-        configuration error locked the user out of synthesis for a whole class of
-        perfectly working models.
-
-        An explicitly requested voice is still validated against the catalog, so
-        a voice belonging to a different provider fails here with a usable
-        message rather than at the provider.
-        """
+        """Pick the voice to synthesize with, or None to omit the field."""
         available = self.voices_for(model_id)
 
         if voice:
-            # An empty list means the model publishes no voices to check against,
-            # so pass it through and let the provider be the judge.
             if available and voice not in available:
                 raise SpeechError(
                     f"音色「{voice}」不适用于当前语音合成模型，请重新选择", 400
@@ -600,7 +466,6 @@ class SpeechService:
         if available:
             return available[0]
 
-        # No published voices: let the provider apply its documented default.
         return None
 
     # ── STT ────────────────────────────────────────────────────────────
@@ -614,28 +479,7 @@ class SpeechService:
         prompt: Optional[str] = None,
         model: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Transcribe ``audio`` to text.
-
-        Args:
-            audio: Raw file bytes. Already size-checked by the caller.
-            filename: Original name, used to derive the audio format.
-            content_type: Browser MIME type, a fallback for ``filename``.
-            language: ISO-639-1 code (``zh``, ``en``, ...). Omitted means
-                auto-detect, which is the right default for a chat app.
-            prompt: Optional vocabulary hint that biases the decoder toward
-                proper nouns and domain terms.
-            model: The account's chosen STT model; falls back to the configured
-                default when unset.
-
-        Returns:
-            ``{"text", "model", "language", "duration", "usage"}``. ``language``
-            and ``duration`` are ``None`` unless the upstream reports them — with
-            the default ``json`` response format they arrive inside ``usage`` or
-            not at all, and this does not invent them.
-
-        Raises:
-            SpeechError: On any upstream failure, with a status worth showing.
-        """
+        """Transcribe ``audio`` to text."""
         self._require_configured()
 
         if not audio:
@@ -645,8 +489,6 @@ class SpeechService:
         if not model_name:
             raise SpeechError("未配置语音识别模型（STT_MODEL）", 503)
 
-        # The multipart endpoint derives the format from the filename extension
-        # or the part's content type, so one of them has to be right.
         name = filename or "recording.webm"
         mime = _resolve_mime(name, content_type)
 
@@ -655,10 +497,6 @@ class SpeechService:
             data["language"] = language
         if prompt:
             data["prompt"] = prompt
-        # Left at the "json" default deliberately. "verbose_json" buys segment
-        # timestamps, which this app has no surface to show, and it is rejected
-        # outright (400) by models that cannot produce them — so asking for it
-        # would trade a feature nobody uses for a class of outright failure.
 
         url = f"{self.base_url}/audio/transcriptions"
         logger.info(
@@ -728,23 +566,7 @@ class SpeechService:
         instructions: Optional[str] = None,
         response_format: str = "mp3",
     ) -> Tuple[bytes, str, str]:
-        """Synthesize ``text`` into speech audio, in a browser-playable format.
-
-        The requested ``response_format`` is a *preference*, not a guarantee.
-        Gemini TTS accepts only pcm and Mistral Voxtral only mp3, so a format the
-        model refuses is retried as the other one and the outcome remembered in
-        ``_LEARNED_TTS_FORMAT`` — one wasted request per model per process, then
-        never again. Raw pcm is wrapped in a WAV container before returning, so
-        the caller always receives something an ``<audio>`` element can play.
-
-        Returns:
-            ``(audio_bytes, content_type, model)``. ``content_type`` reflects what
-            was actually produced: ``audio/mpeg``, or ``audio/wav`` when pcm was
-            wrapped.
-
-        Raises:
-            SpeechError: On any upstream failure, with a status worth showing.
-        """
+        """Synthesize ``text`` into speech audio, in a browser-playable format."""
         self._require_configured()
 
         cleaned = (text or "").strip()
@@ -769,9 +591,6 @@ class SpeechService:
                 f"不支持的音频格式「{response_format}」，仅支持 mp3 / pcm", 400
             )
 
-        # A previously learned format wins over the caller's preference: it is
-        # the one this provider is known to accept, so trying the other first
-        # would burn a request on every single call.
         first_choice = _LEARNED_TTS_FORMAT.get(model_name, requested)
         second_choice = "pcm" if first_choice == "mp3" else "mp3"
 
@@ -789,7 +608,6 @@ class SpeechService:
             except SpeechError as exc:
                 if exc.status_code != 400 or not _is_format_mismatch(str(exc), fmt):
                     raise
-                # The model wants the other format. Remember it and try that.
                 last_error = exc
                 _LEARNED_TTS_FORMAT[model_name] = "pcm" if fmt == "mp3" else "mp3"
                 logger.info(
@@ -801,7 +619,6 @@ class SpeechService:
             _LEARNED_TTS_FORMAT[model_name] = fmt
             return audio, content_type, model_name
 
-        # Both formats refused, so the model accepts neither: this is a real 400.
         if last_error is not None:
             raise last_error
         raise SpeechError("语音合成失败", 400)
@@ -815,19 +632,12 @@ class SpeechService:
         instructions: Optional[str],
         fmt: str,
     ) -> Tuple[bytes, str]:
-        """One upstream synthesis call. Returns playable bytes and their MIME type.
-
-        Raises SpeechError on any failure; the caller decides whether a format
-        mismatch is worth retrying.
-        """
+        """One upstream synthesis call. Returns playable bytes and their MIME type."""
         payload: Dict[str, Any] = {
             "model": model_name,
             "input": text,
             "response_format": fmt,
         }
-        # Omitted rather than sent as null/empty: OpenRouter rejects a request
-        # with an empty voice, and only accepts an absent one — for the models
-        # that document a provider-side default.
         if voice_name:
             payload["voice"] = voice_name
         if speed is not None:

@@ -12,25 +12,14 @@ class OllamaProvider(LLMProvider):
     def __init__(self, base_url: Optional[str] = None):
         raw_base = base_url or settings.OLLAMA_BASE_URL
         if not raw_base or not str(raw_base).strip():
-            # Previously this reached `None.rstrip()` and raised AttributeError,
-            # which surfaced to the user as an opaque 500 from inside the stream.
             raise ValueError(
                 "Ollama service address is not configured. Please set OLLAMA_BASE_URL in .env."
             )
         self.base_url = str(raw_base).rstrip("/")
-        # Ollama reports token counts on its final NDJSON object. Without capturing
-        # them the chat endpoint fell back to estimate_token_count() and every local
-        # model's usage was invented rather than measured.
         self.last_usage: Optional[Dict[str, int]] = None
 
     def _record_usage(self, data: Dict[str, Any]) -> None:
-        """Capture prompt_eval_count / eval_count from an Ollama response object.
-
-        Ollama keeps eval counts running in a background chunked object even after
-        the message stream ends, so the counts reported when ``done`` flips are
-        provisional and can rise on later objects. Keeping the highest seen avoids
-        recording a total that is smaller than what was already streamed.
-        """
+        """Capture prompt_eval_count and eval_count from an Ollama response object."""
         prompt_tokens = data.get("prompt_eval_count")
         completion_tokens = data.get("eval_count")
         if prompt_tokens is None and completion_tokens is None:

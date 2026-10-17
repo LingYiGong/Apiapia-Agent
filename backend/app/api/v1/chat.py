@@ -559,8 +559,6 @@ async def chat_stream(
                 f"![{stored['name']}]({MEDIA_IMAGE_PATH_PREFIX}{stored['id']})"
             )
         else:
-            # Storage unavailable. Keep the inline form so the attachment stays
-            # visible — a fat row is strictly better than a silently missing image.
             saved_content_parts.append(f"![{img['name']}]({img['data_url']})")
     saved_user_content = "\n\n".join(saved_content_parts) if saved_content_parts else (chat_req.message or "附件")
 
@@ -590,8 +588,6 @@ async def chat_stream(
         provider = None
 
         search_results = []
-        # Tavily-only synthesized answer (see WebSearchOutcome.answer). None on
-        # every DuckDuckGo fallback tier.
         search_answer: Optional[str] = None
         generated_images = []
         generated_videos = []
@@ -629,12 +625,8 @@ async def chat_stream(
         # If both match, let video take precedence if it explicitly mentioned video/短视频
         if need_video_gen and need_image_gen:
             need_image_gen = False
-        # 'stop' | 'abort' | 'error' — persisted so the UI can tell a complete
-        # reply apart from one the user cut short or that failed.
-        finish_reason = "stop"
+        finish_reason = "stop"  # 'stop' | 'abort' | 'error'
         error_text: Optional[str] = None
-        # Flipped off when the iterator itself is being torn down, where any
-        # further yield would raise "async generator ignored GeneratorExit".
         yield_allowed = True
 
         try:
@@ -1060,16 +1052,10 @@ async def chat_stream(
 
 
         except asyncio.CancelledError:
-            # The browser aborted the stream (stop button or navigation).
-            # Keep whatever was produced so the partial answer is not lost.
-            # Deliberately not re-raised: falling through lets the persist block
-            # below save the partial reply with finish_reason='abort'.
             finish_reason = "abort"
             logger.info("Stream cancelled by client for conversation %s; persisting partial reply", conv_id)
 
         except GeneratorExit:
-            # The response iterator itself is being closed. Persist the partial
-            # reply as above, but never yield again from this path.
             finish_reason = "abort"
             yield_allowed = False
             logger.info("Stream iterator closing for conversation %s; persisting partial reply", conv_id)
@@ -1113,17 +1099,7 @@ async def chat_stream(
         prompt_tokens = usage.get("prompt_tokens")
         completion_tokens = usage.get("completion_tokens")
 
-        # Fallback estimation when the provider did not report usage.
-        #
-        # Two things this block must not do:
-        #
-        # 1. Assume every content is a string. With an image attached the current
-        #    turn's content is a LIST of multimodal parts (see the payload assembly
-        #    above), and joining a list raises TypeError. That would abort the
-        #    response right here — past the try/except, so with no "done" event
-        #    and therefore a truncated reply on screen.
-        # 2. Let a bookkeeping failure kill the stream. Token counts feed a stats
-        #    table; they are not worth losing the user's answer over.
+        # Fallback estimation when provider did not report usage
         try:
             if not prompt_tokens:
                 prompt_text = " ".join(
@@ -1141,8 +1117,7 @@ async def chat_stream(
         completion_tokens = int(completion_tokens or 0)
         total_tokens = prompt_tokens + completion_tokens
 
-        # A failed or empty turn still deserves a durable record,
-        # otherwise the conversation silently loses the attempt on reload.
+        # Persist error or refusal if content is empty
         if not assistant_content.strip():
             if error_text:
                 assistant_content = error_text
@@ -1155,14 +1130,10 @@ async def chat_stream(
         actual_model_id = getattr(provider, "last_model", None)
         recorded_model_name = model_to_use
         if actual_model_id and actual_model_id.lower() != model_to_use.lower():
-            # If model_to_use is an aggregator/router like openrouter/free, format as: openrouter/free (actual-model-short-id)
             clean_sub_model = actual_model_id.split("/")[-1].replace(":free", "")
             recorded_model_name = f"{model_to_use} ({clean_sub_model})"
 
-        # Persist the assistant reply BEFORE signalling completion. The client
-        # needs the row id to enable per-message actions (regenerate / delete)
-        # right away; otherwise those buttons stay hidden until the conversation
-        # is reloaded from the messages endpoint.
+        # Persist assistant reply before emitting done payload
         assistant_message_id = None
         if assistant_content.strip():
             try:
@@ -1226,8 +1197,7 @@ async def chat_stream(
 
         # 10. Background housekeeping: conversation title + memory extraction
         if assistant_content.strip():
-            # ── First turn of a conversation: replace the truncated first
-            #    message with an LLM-written title so the sidebar reads well.
+            # Generate conversation title on first turn
             if is_first_turn:
                 try:
                     new_title = await _generate_conversation_title(
@@ -1248,11 +1218,8 @@ async def chat_stream(
                 except Exception as title_err:
                     logger.warning("Failed to generate conversation title: %s", title_err)
 
-            # Schedule Mem0 extraction in non-blocking background executor.
-            # Skipped for aborted turns: a cut-off answer can be a half-formed
-            # sentence and must not become a long-term fact.
+            # Schedule memory extraction in background if enabled and not aborted
             if use_memory and finish_reason != "abort":
-                # Strip reasoning thoughts (<think>...</think>) so scratchpad does not pollute user memory
                 clean_assistant = assistant_content
                 if "<think>" in clean_assistant:
                     clean_assistant = re.sub(r"<think>[\s\S]*?</think>", "", clean_assistant).strip()
@@ -1277,8 +1244,7 @@ async def chat_stream(
                     memory_model=memory_model_to_use
                 )
 
-                # ── Dreaming: count total messages in this conversation and
-                #    trigger macro-level summarisation every DREAM_INTERVAL turns.
+                # Trigger dreaming summarization if message interval reached
                 try:
                     from sqlalchemy import func
                     async with AsyncSessionLocal() as count_db:

@@ -49,8 +49,7 @@ async def register(user_in: UserCreate, db: AsyncSession = Depends(get_db)):
     # Determine default model: ordinary users default to "openrouter/free"
     default_model = "openrouter/free" if not is_admin else settings.DEFAULT_MODEL
 
-    # Image model mirrors the chat model contract: everyone starts on the
-    # zero-cost default, and only an explicit choice moves them off it.
+    # Default image model
     from app.services.image_gen import image_gen_service
     default_image_model = image_gen_service.default_image_model()
 

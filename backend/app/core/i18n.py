@@ -1,23 +1,4 @@
-"""多语言基础设施：错误消息本地化 + 提示词语言指令。
-
-此前本项目的中文只存在于两个地方：界面（前端硬编码）与**后端返回的
-``detail=`` 字符串**。后者尤其麻烦 —— 它们中英混杂（``"Memory not found"``
-与 ``"图片不存在"`` 同在一个项目里），而且前端是直接把 ``err.message``
-弹进 toast 的，于是英文用户会看到一条中文错误。
-
-解决方式分两层：
-
-1. **错误码 + 参数化文案。** 抛错处不再写死一句话，而是 ``ApiError(404,
-   "CONVERSATION_NOT_FOUND")``。文案集中在本文件，前端拿到的 ``detail``
-   已经按请求头切好语言。
-2. **错误码同时回传给前端。** 响应体多一个 ``code`` 字段，前端可以用它
-   做二次本地化（前端词典里可能还有更贴合上下文的说法），也便于日志与
-   监控按码聚合，而不是按字符串聚合。
-
-请求语言来自 ``Accept-Language``，由前端每次请求显式带上（见
-``frontend/src/i18n/runtime.ts`` 的 ``acceptLanguageHeader``）。用标准头而不是
-自定义头，是因为它同时服务于搜索引擎、CDN 与任何未来绕过本项目前端的调用方。
-"""
+"""多语言基础设施：错误消息本地化 + 提示词语言指令。"""
 
 from __future__ import annotations
 
@@ -25,14 +6,11 @@ import re
 from contextvars import ContextVar
 from typing import Any, Mapping
 
-# 与前端 src/i18n/types.ts 的 LOCALES 保持一致，两边必须同步修改。
+# 与前端 src/i18n/types.ts 的 LOCALES 保持一致
 LOCALES: tuple[str, ...] = ("zh-CN", "zh-TW", "en", "ja")
 
 DEFAULT_LOCALE = "zh-CN"
 
-#: 当前请求的语言。用 ContextVar 而不是逐层传参：tr() 会被 services 层
-#: 深处的代码调用，而那些函数的签名里并不该出现一个纯 UI 概念。
-#: ContextVar 天然按请求隔离，异步任务之间不会串。
 _current_locale: ContextVar[str] = ContextVar("apiapia_locale", default=DEFAULT_LOCALE)
 
 
@@ -126,15 +104,7 @@ def tr(key: str, /, **params: Any) -> str:
     return _interpolate(template, params)
 
 
-# ── 提示词语言指令 ────────────────────────────────────────────────────
-
 #: 注入系统提示词里的「回复语言」指令。
-#:
-#: 为什么必须放在系统提示词里而不是前端：模型只会看到提示词，看不到界面语言。
-#: 英文界面的用户如果得到中文回复，那是模型在按提示词里的中文人设说话。
-#: 措辞刻意写成祈使句并强调「无论提问语言」—— 否则用户在英文界面里用中文提问
-#: 时，模型会跟着提问语言走，这正是绝大多数用户想要的，但默认人设里写着中文，
-#: 不覆盖的话会出现「提问中文、回复中文」而用户其实设的是英文的矛盾状态。
 LANGUAGE_DIRECTIVES: dict[str, str] = {
     "zh-CN": (
         "【回复语言】无论用户使用什么语言提问，都一律使用简体中文作答。"

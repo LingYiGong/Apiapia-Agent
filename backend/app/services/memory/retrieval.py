@@ -118,12 +118,7 @@ def retrieve_relevant_memories(
 ) -> Tuple[List[Dict[str, Any]], str]:
     """
     Retrieve and rerank relevant memories using a composite score:
-
         final_score = semantic_score × recency_weight(importance)
-
-    COMPLIANCE WITH ARCHITECTURE MANDATE 6:
-    Memory injected into LLM MUST be treated as untrusted reference context
-    and cannot override or act as authoritative system directives.
     """
     search_query = query.strip()
     # Guard against OpenAI embedding 8192 token limit error on long queries
@@ -267,7 +262,6 @@ def retrieve_relevant_memories(
     if relevant_lines:
         sections.extend(["<relevant_memories>", *relevant_lines, "</relevant_memories>"])
     sections.append("</user_memory>")
-    # Natural context framing — avoids triggering false safety auditor modes
     prompt_context = "\n\n" + "\n".join(sections) + "\n"
 
     return clean_memories, prompt_context

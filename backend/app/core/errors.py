@@ -1,25 +1,4 @@
-"""带错误码的 HTTP 异常。
-
-此前抛错处写的是 ``HTTPException(detail="图片不存在")`` —— 一句写死的
-中文字符串。带来的问题有三个：
-
-1. **无法本地化。** 前端把 ``err.message`` 直接弹进 toast，英文用户会看到中文。
-2. **无法聚合。** 日志与监控只能按字符串匹配，而字符串里往往带着用户名、
-   模型 id 这类变量，压根匹配不上。
-3. **写死措辞。** 「Memory not found」和「图片不存在」并存，说明这份文案
-   早已没人统一维护过。
-
-现在抛错只声明**码**与**参数**：
-
-    raise ApiError(404, "PINNED_IDS_UNKNOWN", ids=", ".join(missing))
-
-文案在 ``app/core/messages.py`` 里按请求语言查，响应体额外带一个 ``code``
-字段供前端二次本地化与日志聚合。
-
-刻意做成 HTTPException 的子类而不是自定义异常：FastAPI 自带的
-``http_exception_handler`` 会照常把它渲染成 ``{"detail": ...}``，前端
-现有的解析路径一行都不用改，我们只需要在那个 handler 里补一个 ``code``。
-"""
+"""带错误码与本地化文案支持的 HTTP 异常。"""
 
 from __future__ import annotations
 

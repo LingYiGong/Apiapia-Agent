@@ -14,17 +14,10 @@ class AnthropicProvider(LLMProvider):
         if not self.api_key:
             raise ValueError("Anthropic API Key is not configured. Please set it in Settings or .env.")
         self.client = AsyncAnthropic(api_key=self.api_key, base_url=self.base_url)
-        # Populated at the end of a stream. Without this the chat endpoint always
-        # fell back to estimate_token_count(), whose CJK rule (1 char = 1 token)
-        # overstates Claude by roughly a third, so the usage dashboard drifted.
         self.last_usage: Optional[Dict[str, int]] = None
 
     def _record_usage(self, usage: Any) -> None:
-        """Normalise an Anthropic usage object into the chat endpoint's shape.
-
-        Anthropic reports input/output tokens and bills on those two; cache reads
-        and cache writes are already reflected in them, so no extra terms.
-        """
+        """Normalise an Anthropic usage object into standard dictionary format."""
         if usage is None:
             return
         prompt_tokens = getattr(usage, "input_tokens", None)
@@ -76,12 +69,7 @@ class AnthropicProvider(LLMProvider):
         temperature: float,
         kwargs: Dict[str, Any],
     ) -> Dict[str, Any]:
-        """Shape a request for the Messages API.
-
-        Shared by chat() and complete() because the two differ only in how they
-        consume the result — the payload itself must be identical, and it used to
-        be assembled twice.
-        """
+        """Shape a request for the Messages API."""
         system_prompt, formatted_messages = self._prepare_messages(messages)
         request: Dict[str, Any] = {
             "model": model,

@@ -25,19 +25,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/models", tags=["models"])
 
 
-# Two routes used to live here and are gone:
-#
-#   GET /available   — returned the raw catalog. /configured is a strict superset
-#                      for every caller that has a token, and nothing in the
-#                      frontend ever called it.
-#   GET /openrouter  — fetched the live OpenRouter catalog on demand, through a
-#                      separate 10-minute cache. **Neither had auth**, so it was
-#                      also an unauthenticated outbound proxy to a third party,
-#                      with no rate limit. POST /sync covers the same need behind
-#                      a login, and persists the result instead of re-fetching on
-#                      every request.
-
-
 @router.get("/configured")
 async def list_configured_models(
     current_user: User = Depends(get_current_user)
@@ -76,9 +63,7 @@ async def list_configured_models(
         if m.get("provider") in active_providers
     ]
 
-    # Ensure openrouter/free is always present if openrouter provider is active.
-    # The id comes from the shared constant so this injection, the entitlement
-    # check and the display sort cannot name different things.
+    # Ensure openrouter/free is present if openrouter provider is active
     if "openrouter" in active_providers or bool(settings.OPENROUTER_API_KEY):
         if not any(m.get("id") == OPENROUTER_FREE_MODEL_ID for m in configured_models):
             configured_models.insert(0, {

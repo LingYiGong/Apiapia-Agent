@@ -1,30 +1,4 @@
-"""
-Shared guard for every outbound URL this server fetches on a caller's behalf.
-
-A user-supplied ``base_url`` or a URL pasted into a chat message turns this process
-into a proxy: the *server* issues the request, not the browser. Without a check, an
-account could aim traffic at cloud metadata (169.254.169.254), the Postgres
-container, or any internal service, and read the replies back out of a model answer
-or a provider error message. That is server-side request forgery, and because the
-response reaches the user it is a *readable* one.
-
-The rules live here, in one place, so the ``base_url`` path and the "fetch whatever
-the user linked" path cannot drift apart again:
-
-  1. Scheme must be http/https. Whether plaintext http is acceptable is the caller's
-     decision, because only the ``base_url`` path carries a credential.
-  2. No credentials embedded in the URL.
-  3. The host must not be a loopback / metadata alias by name.
-  4. **Every** address the host resolves to must be public. Checking only the first
-     would let a name with one public and one private record slip through.
-
-Known limitation: DNS is resolved once, here, at check time. This cannot stop DNS
-rebinding, where a name resolves to a public IP now and to a private IP by the time
-httpx connects. Closing that window properly requires the check at connect time (a
-custom transport that re-validates the peer address after the handshake).
-``fetch_public_bytes`` below at least re-validates every redirect hop, which is the
-other half of the attack surface.
-"""
+"""Outbound URL security validation to guard against SSRF."""
 
 import asyncio
 import ipaddress
@@ -179,17 +153,7 @@ async def fetch_public_bytes(
     headers: Optional[Mapping[str, str]] = None,
     max_redirects: int = 5,
 ) -> FetchedContent:
-    """Download a URL the caller pointed at, safely.
-
-    Three things this does that a bare ``httpx.get(follow_redirects=True)`` does not:
-
-    1. Re-runs :func:`ensure_public_url` on **every hop**, so a public host cannot
-       bounce us to ``169.254.169.254`` after we validated the first address.
-    2. Streams and aborts once ``max_bytes`` is exceeded, so an oversized or
-       endless response is never fully buffered in memory.
-    3. Returns the bytes and content type together, so callers stop reaching for
-       ``Response.encoding`` and re-sniffing headers themselves.
-    """
+    """Safely download a URL within byte limits, validating each redirect hop."""
     current = url
     async with httpx.AsyncClient(
         timeout=timeout,

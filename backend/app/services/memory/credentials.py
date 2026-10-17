@@ -1,23 +1,4 @@
-"""
-Credential resolution for the long-term memory subsystem.
-
-The memory LLM and the embedding model need a key. Two modules needed one:
-``extraction`` (to extract facts) and ``service`` (to hand Mem0 its config). Each
-implemented "prefer OpenAI, else OpenRouter, else nothing", and they did not
-agree on one detail that matters:
-
-* ``extraction._get_llm_client`` prefixed a bare model name with ``openai/`` when
-  routing through OpenRouter, because OpenRouter rejects ``gpt-4o-mini``.
-* ``service._get_config`` sent the name through unchanged.
-
-So a memory_model of ``"gpt-4o-mini"`` would extract facts successfully (prefixed)
-and then fail to write them (unprefixed), with the write path's error surfacing as
-an opaque Mem0 failure. The default value happens to already carry the prefix,
-which is why this never showed up — the inconsistency only bites when an admin
-types a model name without it.
-
-One resolver now, and the prefixing is unconditional.
-"""
+"""Credential resolution for the long-term memory subsystem."""
 
 import logging
 from typing import Any, Dict, Optional

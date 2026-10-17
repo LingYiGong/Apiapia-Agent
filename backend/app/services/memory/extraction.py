@@ -21,16 +21,7 @@ DEDUP_SIMILARITY_THRESHOLD = 0.88  # cosine similarity above which we consider t
 _client_cache: Dict[Tuple[str, str], Any] = {}
 
 def _get_llm_client(memory_model: str = "gpt-4o-mini") -> Tuple[Optional[Any], str]:
-    """
-    Return (OpenAI-compatible client, resolved_model).
-
-    Credentials come from the shared resolver so this path and the Mem0 config in
-    service.py cannot disagree about which endpoint a model name belongs to — they
-    used to, and a bare ``gpt-4o-mini`` would extract fine and then fail to store.
-
-    The client is cached to keep HTTP connection pooling; OpenAI keys are long
-    lived and few, so the cache cannot grow without bound in practice.
-    """
+    """Return (OpenAI-compatible client, resolved_model) with connection caching."""
     try:
         from openai import OpenAI
 
@@ -82,13 +73,6 @@ def _extract_facts_with_importance(
     subject = memory_text("subject")
     fact_length = memory_text("fact_length")
 
-    # 记忆文本会被原样注入之后每一次对话的上下文。语言一旦在这里
-    # 混进去，后面就再也分不出来了 —— 用户说英文、模型写中文主语，
-    # 于是英文对话的上下文里一直挂着几条中文记忆。所以措辞的语言
-    # 必须显式钉死，而不是指望模型跟着对话内容走。
-    #
-    # 只对需要替换的片段用 f-string：整块字符串再走一次 .format() 的话，
-    # 语言指令里任何 { } 都会被当成占位符解析。
     prompt = (
         language_directive(get_locale())
         + "\n\n"
@@ -401,12 +385,7 @@ async def schedule_memory_extraction(
     metadata: Optional[Dict[str, Any]] = None,
     memory_model: Optional[str] = None,
 ):
-    """Run extraction on the executor so the caller's event loop keeps moving.
-
-    This used to go through an ``extract_memories_task`` wrapper whose only body was
-    a call to ``smart_extract_memories_task``; the wrapper existed to keep a v1
-    signature alive and nothing outside this module imported it.
-    """
+    """Run extraction on the executor so the caller's event loop keeps moving."""
     loop = asyncio.get_running_loop()
     loop.run_in_executor(
         None, smart_extract_memories_task, user_id, messages, metadata, memory_model

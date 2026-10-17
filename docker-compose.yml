@@ -1,15 +1,5 @@
 # ==============================================================================
 # Apiapia — deployment orchestration.
-#
-# This file owns ONLY what Docker needs to know: images, ports, volumes, health
-# checks and service ordering. Every application setting lives in `.env` (copied
-# from `.env.example`) or, when it has a sensible default, in
-# backend/app/core/config.py. Nothing here restates a default that the code
-# already has — that duplication is what let the three copies of the Postgres
-# password drift apart before.
-#
-# Host ports are overridable so a deployment can move off 3000/8000/5432 when
-# something else already owns them.
 # ==============================================================================
 
 # Shared by all three services. Anchored so the rotation policy is stated once
@@ -53,23 +43,15 @@ services:
       dockerfile: Dockerfile
     container_name: apiapia_backend
     restart: unless-stopped
-    # No `command:` override. The Dockerfile CMD runs uvicorn without --reload,
-    # which is what a server should do; --reload plus the bind mount below is a
-    # development setup. For hot reload, put it in docker-compose.override.yml.
     depends_on:
       postgres:
         condition: service_healthy
-    # Every backend setting arrives from `.env` — the file lists the full set of
-    # supported variables, so adding a key there needs no edit here. `required:
-    # false` keeps a default-only deployment working; config.py supplies the same
-    # values when the file is absent.
     env_file:
       - path: .env
         required: false
     ports:
       - "${BACKEND_HOST_PORT:-8000}:8000"
     volumes:
-      # Bind mount: edit ./backend/app on the host, then restart the container.
       - ./backend/app:/app/app
       - apiapia_mem0_data:/app/data/mem0
       - apiapia_media:/app/data/media
@@ -80,9 +62,6 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
-      # Startup runs init_db() then syncs every provider's model catalog over the
-      # network before the first request is served. The grace period has to cover
-      # that, because `frontend` below waits for this to be healthy.
       start_period: 60s
     logging: *default-logging
 
@@ -91,9 +70,6 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        # Only meaningful for the static-export (Cloudflare) path; the Docker
-        # build keeps src/app/api, so the browser uses the same-origin /api/backend
-        # proxy and this stays empty.
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
     container_name: apiapia_frontend
     restart: unless-stopped

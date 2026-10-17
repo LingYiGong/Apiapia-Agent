@@ -33,16 +33,7 @@ async def _load_conversation(
     *,
     include_deleted: bool = False,
 ) -> Conversation:
-    """Fetch one conversation, optionally scoped to its owner.
-
-    Every route here needs the same lookup, and getting the scope subtly wrong is
-    how a cross-account read happens, so it lives in exactly one place:
-
-    * ``user_id`` given → must match, else 404 (never 403: a 403 would confirm the
-      id exists in someone else's account)
-    * ``user_id=None`` → admin path, no owner filter
-    * ``include_deleted=False`` → soft-deleted rows are invisible to non-admins
-    """
+    """Fetch one conversation, optionally scoped to its owner."""
     conditions = [Conversation.id == conversation_id]
     if user_id is not None:
         conditions.append(Conversation.user_id == user_id)
@@ -75,13 +66,7 @@ async def _require_conversation(
 
 
 async def _ensure_last_message_at(db: AsyncSession, conv: Conversation) -> Conversation:
-    """Backfill ``last_message_at`` for rows written before the column existed.
-
-    ``init_db`` migrates and backfills it once, but a conversation created through
-    any path that bypasses that migration can still be null, and the sidebar sorts
-    on it. Kept as a lazy fill rather than trusting the migration, because a null
-    here silently pushes a conversation to the bottom of the list.
-    """
+    """Backfill last_message_at if missing."""
     if conv.last_message_at:
         return conv
     last_msg_time = await db.scalar(
@@ -192,9 +177,6 @@ async def reorder_pinned_conversations(
         found[cid].updated_at = datetime.now(timezone.utc)
 
     await db.commit()
-    # No per-row refresh: the session runs with expire_on_commit=False, so the
-    # instances already carry the new pin_order and a refresh would only add one
-    # round trip per conversation.
     for c in pinned:
         await _ensure_last_message_at(db, c)
     return sorted(pinned, key=lambda c: c.pin_order)
@@ -314,10 +296,7 @@ async def delete_conversation(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    CRITICAL: Perform SOFT DELETE instead of physical purge.
-    Preserves all messages, token counts, and audit logs while hiding it from user's active list.
-    """
+    """Perform soft delete on conversation."""
     conv = await _require_conversation(db, conversation_id, current_user)
 
     conv.is_deleted = True
@@ -332,13 +311,7 @@ async def restore_conversation(
     admin_user: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db)
 ):
-    """Admin-only: restore any user's soft-deleted conversation back to its owner's list.
-
-    This is the only implementation. It used to be reachable at two URLs, one of
-    which was a thin forwarder in stats.py that imported and called this function
-    directly — bypassing FastAPI's dependency resolution — purely to attach a
-    different response shape for the admin console.
-    """
+    """Admin-only: restore any user's soft-deleted conversation back to its owner's list."""
     conv = await _load_conversation(
         db, conversation_id, include_deleted=True
     )
@@ -395,12 +368,7 @@ async def truncate_from_message(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    Delete ``message_id`` and every message after it.
-
-    This is what backs "edit and resend": the edited turn and the assistant reply
-    that followed it are removed so the branch can be rebuilt cleanly.
-    """
+    """Delete message_id and every message after it (edit and resend branch rebuild)."""
     await _require_conversation(db, conversation_id, current_user, require_active=False)
     anchor = await _load_message(db, conversation_id, message_id)
 
@@ -425,11 +393,7 @@ async def truncate_from_message(
 
 
 async def _load_message(db: AsyncSession, conversation_id: str, message_id: str) -> Message:
-    """Fetch a message and prove it belongs to the given conversation.
-
-    Checking both halves is not redundant: without the conversation check, a caller
-    who owns any conversation could delete a message from somebody else's by id.
-    """
+    """Fetch a message and verify it belongs to the given conversation."""
     msg = await db.get(Message, message_id)
     if not msg or msg.conversation_id != conversation_id:
         raise ApiError(status_code=status.HTTP_404_NOT_FOUND, code="MESSAGE_NOT_FOUND")
@@ -437,13 +401,7 @@ async def _load_message(db: AsyncSession, conversation_id: str, message_id: str)
 
 
 def _purge_message_media(msg: Message) -> None:
-    """Delete image files referenced by a message that is being removed.
-
-    Both sources own files under MEDIA_DIR: the generated_images JSON and the
-    user_attachments JSON. chat.py writes them together with the durable reference
-    in `content`, so the JSON records are always in step with the body and there is
-    no third place to look.
-    """
+    """Delete media files referenced by a message that is being removed."""
     for attribute in ("generated_images", "generated_videos", "user_attachments"):
         raw = getattr(msg, attribute, None)
         if not raw:

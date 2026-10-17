@@ -13,22 +13,8 @@ class MemoryService:
     Adapter layer encapsulating Mem0 OSS (mem0ai==2.2.1).
     Explicitly configured with PostgreSQL + pgvector and persistent SQLite history.
 
-    THREADING CONTRACT
-    ------------------
-    Every method here is **synchronous** and uses blocking drivers (psycopg2, the
-    sync OpenAI client), so callers must invoke it through ``asyncio.to_thread``.
-    Doing so from an async endpoint is mandatory, not an optimisation: a single
-    inline call parks the event loop for the whole pgvector round trip and stalls
-    every other request on the same worker.
-
-    ``_memory_instances`` is process-wide, so one Mem0 object is shared by all
-    threads. Concurrent *reads* against it (list / search from a request handler)
-    now overlap with the background extraction and dreaming tasks that were always
-    running in ``run_in_executor``. That is the same exposure as before, only more
-    frequent — worth watching for intermittent connection errors under load. If any
-    show up, the fix is a ``threading.RLock`` around the public methods below, not
-    reverting the ``to_thread`` calls: those are what stop the event loop from
-    stalling, which is the more serious of the two problems.
+    Note: Methods here are synchronous and use blocking drivers, so async callers
+    must invoke them via asyncio.to_thread.
     """
 
     def __init__(self):
@@ -43,9 +29,6 @@ class MemoryService:
         os.makedirs(settings.MEM0_DATA_DIR, exist_ok=True)
         history_db_path = os.path.join(settings.MEM0_DATA_DIR, "mem0_history.db")
 
-        # One resolver for the LLM and the embedder. They used to be resolved
-        # separately here and in extraction.py, and the two copies disagreed on
-        # whether an OpenRouter model id needs the "openai/" prefix.
         credential = resolve_memory_credential(memory_model)
 
         llm_config: Dict[str, Any] = {
@@ -210,12 +193,7 @@ class MemoryService:
         return []
 
     def search_memory(self, user_id: str, query: str, limit: int = 1000) -> List[Dict[str, Any]]:
-        """Search relevant memories for a verified user_id.
-
-        limit 默认 1000 = 不做截断：前端要求「搜到的全部内容一起返回」，
-        而 list_memories 的上限同样是 1000，两处保持一致。此前这里默认 5、
-        路由默认 10，三层默认值互相矛盾，用户搜一个词只看到 5 条。
-        """
+        """Search relevant memories for a verified user_id."""
         if not query or not query.strip():
             return []
         memory = self._ensure_memory()
@@ -230,11 +208,6 @@ class MemoryService:
                 results_fallback = memory.search(query=query, filters={"user_id": user_id}, limit=limit)
                 items = self._extract_results_list(results_fallback)
             items = [self._normalize_memory_item(i) for i in items]
-            # 检索结果是**向量相似度**排序，不是时间排序。前端此前仍按时间
-            # 分组渲染，于是搜一个词得到一堆带「今天」标签的条目，排序与小标
-            # 互相矛盾；同时检索条目常常不带时间字段，会一起掉进「更早之前」，
-            # 形成一个标题与内容对不上的组。前端已改为检索态平铺，这里仅记录
-            # 实际条数便于排查「搜不到」到底是 0 条还是被 limit 截断。
             logger.info(
                 "Search memory for user %s (query: %r, limit=%d) found %d items",
                 user_id, query, limit, len(items),
@@ -278,11 +251,6 @@ class MemoryService:
             created_at = item_copy.get("updated_at")
         if created_at:
             item_copy["created_at"] = str(created_at)
-        # 此前缺失时伪造一个 now() 作为兜底。前端现在按时间分组展示，若条目
-        # 真的缺时间却被填成「此刻」，它会被归进「最近 24 小时」—— 一条来源
-        # 不明的记忆看起来像是刚刚写入的。宁可让它没有时间：前端 formatDateTime
-        # 会返回空串，MemoryCard 不渲染时间行，诚实比看起来完整重要。
-        # 缺失时间的条目在前端按 effectiveAt=0 落入「更早」。
 
         updated_at = item_copy.get("updated_at")
         if not updated_at and isinstance(metadata, dict):
@@ -294,29 +262,14 @@ class MemoryService:
 
     @classmethod
     def _normalize_and_sort_memories(cls, items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Normalize timestamps and sort descending (newest first).
-
-        排序必须是**全序**：键相同时还要有确定性的兜底，否则同一批数据在
-        不同 limit 下会排成不同顺序。
-
-        时间戳相同时必须还有确定性的次级键。缺时间戳的条目键都是空字符串，
-        Python 的 sorted 对相等键保留**输入顺序**，而输入来自数据库、无顺序
-        保证 —— 同一批数据在两次调用里可能排成不同顺序。
-
-        加 id 作次级键后全序唯一，排序结果与输入顺序无关。
-        """
+        """Normalize timestamps and sort descending (newest first, with id tiebreaker)."""
         normalized = [cls._normalize_memory_item(i) for i in items if isinstance(i, dict)]
 
         def sort_key(entry: Dict[str, Any]) -> Tuple[str, str]:
-            # 降序排列：键越大越靠前。
-            #
-            # 时间戳是 ISO 字符串，字典序与时间序一致，故降序即「最新在前」。
-            # 缺时间戳的条目键为空串 —— 空串比任何数字字符都小，在降序里自然
-            # 落到**末尾**，正好符合预期（缺时间的记忆不该占据首屏）。
+            # Sort descending by timestamp, falling back to id or content tiebreaker
             ts = str(entry.get("updated_at") or entry.get("created_at") or "")
             tiebreak = str(entry.get("id") or entry.get("hash") or "")
             if not tiebreak:
-                # 没有 id 的条目用正文兜底，保证键唯一且可重复计算
                 tiebreak = str(entry.get("memory") or "")
             return (ts, tiebreak)
 
@@ -324,56 +277,16 @@ class MemoryService:
 
     #: 单页大小上限。与 API 层 `Query(le=100)` 保持一致。
     PAGE_SIZE_MAX = 100
-    #: 「取全量」的哨兵值。传这个给 list_memories 表示不要截断。
     EXHAUSTIVE = 1_000_000
 
     def _sorted_all(self, user_id: str) -> List[Dict[str, Any]]:
-        """取回该用户的**全部**记忆并完成排序。分页与导出共用此方法。
-
-        排序口径（唯一定义，全应用一致）：
-          1. 主键 = updated_at，回落 created_at（编辑过的记忆按最近变化时间排）
-          2. 同时间戳用 id 作次级键 —— 保证全序唯一
-          3. 降序，即最新在前
-          4. 缺时间戳的条目键为空串，在降序中自然落到末尾
-
-        前端 lib/timeGroups.ts 据此把已加载的条目切成
-        「最近 24 小时 / 3 天 / 7 天 / 更早」四组，组内顺序与此处一致。
-        """
+        """Retrieve and sort all memories for a user."""
         return self.list_memories(user_id=user_id, limit=self.EXHAUSTIVE)
 
     def list_memories_page(
         self, user_id: str, limit: int = 20, offset: int = 0
     ) -> Dict[str, Any]:
-        """分页取记忆，同时给出总条数。
-
-        ⚠️ 必须**取全量再排序再切片**，不能「取前 offset+limit 条再切片」。
-
-        后者看起来等价，实际会漏数据：Mem0 的 get_all(top_k=N) 是在**数据库
-        层**就截断 N 行，之后才交给我们的排序函数。所以
-
-            list_memories(limit=2)  →  DB 随便给 2 行  → 排序 → 2 条
-            list_memories(limit=4)  →  DB 随便给 4 行  → 排序 → 4 条
-
-        这两次的「前 2 条」并不相同 —— DB 给出的行集合本身就不一样，Python
-        侧再怎么加 tiebreaker 也只能对这**已经不同**的两个集合排序，无法让
-        「limit=4 的前 2 条」等于「limit=2 的全部」。落在两次结果差异处的
-        条目就永远切不到。
-
-        表现正是用户报告的现象：导出 JSON（一次取全量、不切片）里有这条记忆，
-        记忆库页面翻遍所有页却找不到它。
-
-        我用 7 条数据 × 5040 种数据库物理顺序枚举验证过：
-            取前 N 条再切片  → 5032/5040 种顺序会漏条目
-            取全量再切片     → 0/5040 种顺序会漏条目
-
-        代价是每次分页都要把该用户的记忆全量取回。这是个人记忆库（数千条
-        量级）可接受的；真要下推到数据库需要给 Mem0 的 vector_store 加
-        带 offset 的接口或 ORDER BY 支持，那超出了本项目对 mem0ai==2.2.1
-        的修改边界。
-
-        取一次全量、排序、切片、算 total —— 四件事共用同一份数据，避免
-        重复查库。
-        """
+        """Paginate memories with total count."""
         limit = max(1, min(int(limit), self.PAGE_SIZE_MAX))
         offset = max(0, int(offset))
 
@@ -389,16 +302,10 @@ class MemoryService:
         }
 
     def list_all_memories(self, user_id: str) -> List[Dict[str, Any]]:
-        """导出用：取回该用户的**全部**记忆，不做条数截断。
-
-        与 list_memories 的区别不是「换个更大的 limit」，而是**明确不设上限**：
-        导出是用户唯一的数据自主出口（README 承诺「一键导出 JSON 实现个人
-        数据完全自主」），静默截断等于给出残缺的备份。
-        """
+        """Retrieve all memories for export."""
         try:
             collected = self._sorted_all(user_id)
         except Exception as e:
-            # 宁可返回部分数据并记录告警，也不要因异常就丢掉整个导出
             logger.warning("list_all_memories failed for user %s: %s", user_id, str(e))
             return []
         logger.info("Export collected %d memories for user %s", len(collected), user_id)
@@ -407,25 +314,14 @@ class MemoryService:
     def search_memory_page(
         self, user_id: str, query: str, limit: int = 20, offset: int = 0
     ) -> Dict[str, Any]:
-        """分页检索记忆。total = 该查询命中的总条数。
-
-        向量检索没有 count 接口，只能把前 offset+limit+1 条取回来判断是否还有
-        更多。代价是 offset 越大单次开销越大（每页重跑一次检索）—— 在记忆库
-        这种规模下可接受；真正的游标式分页需要改 Mem0 的检索接口。
-        """
+        """Paginate memory search results with estimated total count."""
         limit = max(1, min(int(limit), self.PAGE_SIZE_MAX))
         offset = max(0, int(offset))
 
-        # 向量检索每次都返回「最相关的 N 条」，所以要取前 offset+limit+1 条
-        # 才能切出本页并判断是否还有更多（多取一条是标准做法）。
         want = offset + limit + 1
         all_items = self.search_memory(user_id=user_id, query=query, limit=want)
         has_more = len(all_items) > offset + limit
         items = all_items[offset:offset + limit]
-
-        # total 只能是**下界**：向量检索最多返回 want 条，真实命中数未知。
-        # 前端拿它显示「共 N 条」，N 在此是「至少 N 条」。想给精确值就得
-        # 全量取回再计数，代价与收益不成比例。
         total = offset + len(items) + (1 if has_more else 0)
 
         return {
@@ -437,10 +333,7 @@ class MemoryService:
         }
 
     def list_memories(self, user_id: str, limit: int = 1000) -> List[Dict[str, Any]]:
-        """Retrieve memories for a verified user_id, sorted descending by timestamp.
-
-        limit 是读取上限而非存储上限 —— 写入侧无条数限制。
-        """
+        """Retrieve memories for a verified user_id, sorted descending by timestamp."""
         memory = self._ensure_memory()
         if not memory:
             return []

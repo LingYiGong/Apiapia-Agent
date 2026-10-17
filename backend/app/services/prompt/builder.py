@@ -8,13 +8,7 @@ from app.services.prompt.localized import response_language_directive, text
 class SystemPromptBuilder:
     """
     模块化系统提示词构建器。
-    根据 OpenAI / Anthropic 官方 Context Engineering 标准，
-    将物理时基、批判性常识护栏、长期记忆和排版规范进行优雅整合。
-
-    小节顺序不是随意的：**回复语言指令出现两次**，开头一次压住人设与
-    护栏里的中文表述，末尾一次利用近因效应压住最后读到的一小节。
-    只放一份时，放末尾挡不住前面近千字的护栏，放开头则会被后面冲淡。
-    为什么护栏本身不翻译，见 localized.py 的模块头注释。
+    整合物理时基、确定性核验事实、批判性常识护栏、长期记忆和排版规范。
     """
 
     def __init__(self, base_system_prompt: Optional[str] = None):

@@ -19,16 +19,10 @@ logger = logging.getLogger("document_parser")
 
 MAX_DOCUMENT_CHARS = 50000  # Safe boundary for document context injection
 
-#: Hard ceiling on a single remote download. Checked *while streaming*, so an
-#: endless or hostile response is never fully buffered.
+#: Hard ceiling on a single remote download (25MB).
 MAX_REMOTE_FETCH_BYTES = 25 * 1024 * 1024
 
-#: Ceiling on a single decoded attachment. Matches the frontend's own gate
-#: (ChatArea.tsx MAX_ATTACHMENT_BYTES) exactly, so there is **no headroom left**:
-#: this is the layer that has to hold for every client that skips the check —
-#: curl, the Cloudflare build, an older frontend still running 15 MB. The estimate
-#: is taken off the encoded length on purpose, before base64 decoding allocates a
-#: buffer proportional to the payload.
+#: Ceiling on a single decoded attachment (20MB).
 MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024
 
 _FETCH_HEADERS = {
@@ -51,13 +45,7 @@ def extract_urls(text: str) -> List[str]:
 
 
 def decode_data_url(name: str, data_url: str) -> bytes:
-    """Base64-decode an attachment, refusing anything oversized *before* decoding.
-
-    The size check has to come first: base64 decoding allocates roughly as much
-    memory as the payload it is given, so a 200 MB ``data_url`` would be turned into
-    a 150 MB buffer before any code got a chance to reject it. Measuring the encoded
-    length is enough to know the decoded size to within a few bytes.
-    """
+    """Base64-decode an attachment, validating estimated payload size first."""
     if ";base64," in data_url:
         b64_content = data_url.split(";base64,", 1)[1]
     else:
@@ -266,13 +254,6 @@ async def fetch_and_parse_url(url: str) -> Optional[Dict[str, Any]]:
     """
     Download and parse content from a remote URL (PDF, Word, Image, Webpage, etc.).
     Returns standard parsed dictionary or None on failure.
-
-    The URL came out of a chat message, so it is caller-controlled: this must go
-    through fetch_public_bytes, which refuses private / loopback / link-local
-    (cloud metadata) targets, re-validates every redirect hop, and aborts once the
-    byte budget is exceeded. A plain httpx.get here would let any account turn the
-    server into a proxy for the private network and read the replies back out of the
-    model's answer.
     """
     try:
         parsed_url = urllib.parse.urlparse(url)

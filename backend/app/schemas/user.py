@@ -3,13 +3,8 @@ from datetime import datetime
 
 
 class UserCreate(BaseModel):
-    # Widths mirror models/user.py. Unbounded, a 60-character username reached
-    # Postgres and surfaced as a 500 rather than a 422 naming the field.
     username: str = Field(min_length=2, max_length=50)
     email: EmailStr = Field(max_length=255)
-    # Lower bound only; bcrypt silently truncates at 72 *bytes*, so anything past
-    # that is ignored by the hash and two different passwords would authenticate
-    # each other. See core/security.get_password_hash.
     password: str = Field(min_length=6, max_length=72)
 
 

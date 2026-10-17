@@ -19,9 +19,7 @@ class MessageResponse(MessageBase):
     search_results: Optional[str] = None
     generated_images: Optional[str] = None
     generated_videos: Optional[str] = None
-    # JSON record of images the user uploaded, now stored in MEDIA_DIR and
-    # referenced from `content` as /api/media/images/{id}. See
-    # models.conversation.Message.user_attachments.
+    # JSON metadata for uploaded attachments
     user_attachments: Optional[str] = None
     tool_invocations: Optional[str] = None
     thinking_duration_ms: Optional[int] = 0

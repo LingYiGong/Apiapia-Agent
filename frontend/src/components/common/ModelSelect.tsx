@@ -69,7 +69,7 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
       return {
         key: `use:${key}`,
         label: t(USE_CASE_LABEL_KEYS[key]),
-        icon: Icon,
+        icon: USE_CASE_ICONS[key],
         count: matched.length,
         distinctCount: countDistinctModels(options, match),
         section: useCaseSection,

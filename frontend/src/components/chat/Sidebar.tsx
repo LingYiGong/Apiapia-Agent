@@ -78,6 +78,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [dropId, setDropId] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const { ask, dialog } = useConfirm();
+  const { t, fmt } = useI18n();
 
   const query = search.trim().toLowerCase();
   const filtered = useMemo(() => {

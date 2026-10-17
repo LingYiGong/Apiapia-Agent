@@ -63,7 +63,7 @@ export function ModelPriceTag({ tier, className }: { tier: PriceTier; className?
   return (
     <span
       className={cn(
-        "shrink-0 rounded-md border px-1.5 py-0.5 text-xs font-medium",
+        "shrink-0 rounded-lg border px-2 py-0.5 font-mono text-xs font-semibold",
         PRICE_CLASS[tier],
         className
       )}
@@ -98,7 +98,7 @@ export function ModelUseCaseTags({
         return (
           <span
             key={key}
-            className="inline-flex shrink-0 items-center gap-1 rounded border border-border/50 bg-surface-3/70 px-1.5 py-0.5 text-xs font-medium text-muted-foreground"
+            className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border/50 bg-surface-3/70 px-1.5 py-0.5 text-xs font-medium text-muted-foreground"
           >
             <Icon className="h-3 w-3" aria-hidden="true" />
             {t(USE_CASE_LABEL_KEYS[key])}

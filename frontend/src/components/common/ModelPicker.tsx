@@ -36,7 +36,7 @@ import type { ModelOption } from "@/lib/models";
  * 排序由适配器（lib/models.ts）预先算好 `rank`；本组件只负责筛选与渲染。
  *
  * ── 两种形态 ──────────────────────────────────────────────────────
- * 移动端（< md）走**底部抽屉**，桌面端走锚在触发器旁的**浮层**。面板内容
+ * 移动端（< md）走**下拉抽屉**，桌面端走锚在触发器旁的**浮层**。面板内容
  * 是同一个 `panel` 变量，两侧共用，不存在两份实现 —— 面板里的搜索、筛选、
  * 键盘交互、无障碍标记因此天然一致。
  *
@@ -286,9 +286,9 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
    */
   const panel = (
     <div className="flex min-h-0 flex-1 flex-col p-3 pt-3.5">
-      <div className="flex items-center justify-between gap-2 px-1 pb-2.5">
+      <div className="flex items-center justify-between gap-2 px-1 pb-2.5 border-b border-border/40 mb-2.5">
         <div className="flex min-w-0 items-center gap-1.5">
-          <span className="shrink-0 text-xs font-semibold text-foreground">
+          <span className="shrink-0 text-xs font-bold uppercase tracking-wider text-muted-foreground font-mono">
             {t("settings.picker.title", { kind: kindLabel })}
           </span>
           <span
@@ -297,7 +297,7 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
                 ? `${visible.length} / ${options.length}`
                 : `${options.length}`
             }
-            className="shrink-0 rounded-full bg-surface-3/60 px-1.5 py-0.5 font-mono text-xs text-muted-foreground"
+            className="shrink-0 rounded-lg bg-surface-3/80 px-2 py-0.5 font-mono text-xs font-semibold text-muted-foreground"
           >
             {search.trim() || (filterKey && filterKey !== "all")
               ? `${visible.length} / ${options.length}`
@@ -308,7 +308,7 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
             // 可聚焦的 div（违反 WCAG 2.1.1）。
             <span
               title={t("settings.picker.trialTitle", { kind: kindLabel })}
-              className="shrink-0 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-600 dark:text-emerald-400"
+              className="shrink-0 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 font-mono text-xs font-semibold text-emerald-600 dark:text-emerald-400"
             >
               {t("settings.picker.trialBadge")}
             </span>
@@ -324,7 +324,7 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
       </div>
 
       <div className="relative mb-2.5 shrink-0">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         {/* 全弹层唯一的 combobox：焦点始终留在这个搜索框，
             aria-activedescendant 指向 listbox 里的高亮项。 */}
         <Input
@@ -343,7 +343,7 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
             setActiveIndex(e.target.value ? 0 : visible.findIndex((o) => o.id === value));
           }}
           onKeyDown={handleListKeyDown}
-          className="h-[34px] rounded-xl border-0 bg-surface-3/60 pl-9 pr-8 text-footnote placeholder:text-muted-foreground/60 focus-visible:ring-1 focus-visible:ring-primary/40"
+          className="h-9 rounded-xl border-0 bg-surface-3/60 pl-9 pr-8 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-1 focus-visible:ring-primary/40"
         />
         {search && (
           <button
@@ -352,7 +352,7 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
             aria-label={t("settings.picker.clearSearch")}
             className="absolute right-2.5 top-1/2 -translate-y-1/2 cursor-pointer rounded-full p-1 text-muted-foreground transition-transform hover:text-foreground active:scale-95"
           >
-            <X className="h-3.5 w-3.5" />
+            <X className="h-4 w-4" />
           </button>
         )}
       </div>
@@ -393,7 +393,7 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
         role="listbox"
         aria-label={t("settings.picker.listAria", { kind: a11yLabel })}
         onWheel={(e) => e.stopPropagation()}
-        className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain pr-1 touch-pan-y"
+        className="min-h-0 flex-1 space-y-1.5 overflow-y-auto overscroll-contain pr-1 touch-pan-y"
       >
         {visible.length === 0 ? (
           emptyState ?? (
@@ -429,11 +429,11 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
                 // 桌面端不按鼠标也能实时跟随。
                 onPointerDown={() => setActiveIndex(idx)}
                 className={cn(
-                  "flex cursor-pointer items-start justify-between gap-2.5 rounded-xl p-2.5 text-xs transition-all active:scale-[0.99] sm:items-center sm:px-3",
+                  "flex cursor-pointer items-start justify-between gap-3 rounded-2xl p-3 text-xs transition-all active:scale-[0.99] sm:items-center",
                   isActive && !isSelected && "bg-surface-3/50",
                   isSelected
-                    ? "border border-primary/25 bg-primary/10 font-medium text-primary"
-                    : "border border-transparent"
+                    ? "border border-primary/30 bg-primary/10 font-medium text-primary shadow-xs"
+                    : "border border-transparent hover:bg-surface-3/50"
                 )}
               >
                 <div className="min-w-0 flex-1">
@@ -449,17 +449,17 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
                     {o.guide && <ModelPriceTag tier={o.guide.priceTier} />}
                     {/* 价格档已经是「免费」时不再重复挂一个免费徽章 */}
                     {o.isFree && o.guide?.priceTier !== "free" && (
-                      <span className="rounded-md border border-emerald-500/25 bg-emerald-500/10 px-1.5 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                      <span className="rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 font-mono text-xs font-semibold text-emerald-600 dark:text-emerald-400">
                         {t("settings.picker.freeBadge")}
                       </span>
                     )}
                     {o.isMultimodal && (
-                      <span className="rounded-md border border-violet-500/25 bg-violet-500/10 px-1.5 py-0.5 text-xs font-medium text-violet-600 dark:text-violet-400">
+                      <span className="rounded-lg border border-violet-500/25 bg-violet-500/10 px-2 py-0.5 font-mono text-xs font-semibold text-violet-600 dark:text-violet-400">
                         {t("settings.picker.multimodalBadge")}
                       </span>
                     )}
                     {o.provider && (
-                      <span className="rounded bg-surface-3/80 px-1 py-0.5 font-mono text-xs uppercase text-muted-foreground">
+                      <span className="rounded-lg bg-surface-3/80 px-2 py-0.5 font-mono text-xs uppercase text-muted-foreground font-semibold">
                         {o.provider}
                       </span>
                     )}
@@ -475,12 +475,12 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
                   {/* 命中画像时用中文推荐理由替代厂商的英文原描述 ——
                       后者是 truncated 到一行的营销文案，对选型几乎没有帮助。 */}
                   {o.guide ? (
-                    <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+                    <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
                       {t(o.guide.reasonKey)}
                     </p>
                   ) : (
                     o.description && (
-                      <p className="mt-1 line-clamp-1 text-xs leading-relaxed text-muted-foreground">
+                      <p className="mt-0.5 line-clamp-1 text-xs leading-relaxed text-muted-foreground">
                         {o.description}
                       </p>
                     )
@@ -502,28 +502,22 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
     return (
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetTrigger asChild>{trigger}</SheetTrigger>
-        {/* 抽屉。类名里几个要点：
-            - h-[86dvh]：固定高度而不是自适应，列表因此拿到稳定的高度，
-              不会出现「这次开 3 行、下次开 8 行」的跳动。
-            - gap-0：盖掉 sheetVariants 自带的 gap-4，间距交给拖拽条的
-              pb-1 和面板自己的 p-3，两个子节点之间要严丝合缝。
-            - [&>button]:hidden：去掉 SheetContent 自带的关闭按钮。点遮罩
-              即可关闭，再挂一个 X 与系统返回手势重复，还白占一行高度。
+        {/* 下拉抽屉。类名里几个要点：
+            - side="top"：从屏幕顶部向下滑出，自然承接顶部导航栏中的模型选择器。
+            - h-[85dvh] max-h-[90dvh]：固定高度，列表拿到稳定空间。
+            - rounded-b-[24px] border-b：贴顶展开，底边圆角与阴影。
+            - pt-[var(--sat)]：避开刘海、灵动岛与状态栏。
+            - [&>button]:hidden：去掉 SheetContent 自带的右上角关闭按钮，点遮罩或底把手即可关闭。
             - p-0：内距由下方共用的 `panel` 统一给出。
 
           onOpenAutoFocus 必须拦掉：Radix Dialog 默认把焦点送进内容区，而这里
           内容的第一个可聚焦元素正是搜索框 —— 打开面板就会顶出软键盘、盖掉
           列表，不拦的话每次选模型都要先手动收起一次键盘。 */}
         <SheetContent
-          side="bottom"
+          side="top"
           onOpenAutoFocus={(e) => e.preventDefault()}
-          className="flex h-[86dvh] max-h-[92dvh] w-full flex-col gap-0 overflow-hidden rounded-t-[24px] border-t border-border/50 bg-background/95 p-0 shadow-2xl backdrop-blur-2xl sm:mx-auto sm:max-w-xl [&>button]:hidden"
+          className="flex h-[85dvh] max-h-[90dvh] w-full flex-col gap-0 overflow-hidden rounded-b-sheet border-b border-border/50 bg-background/95 p-0 pt-[var(--sat)] shadow-2xl backdrop-blur-2xl sm:mx-auto sm:max-w-xl [&>button]:hidden"
         >
-          {/* 拖拽指示条，与移动端记忆抽屉保持一致的视觉语言 */}
-          <div className="flex shrink-0 justify-center pb-1 pt-2.5">
-            <div className="h-1 w-9 rounded-full bg-foreground/20" />
-          </div>
-
           {/* Radix Dialog 要求有标题，否则读屏会念不出这个面板是什么。
               与移动端记忆抽屉一致，视觉上隐藏即可。 */}
           <SheetHeader className="sr-only">
@@ -531,10 +525,25 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
             <SheetDescription>{t("settings.picker.sheetDesc", { kind: kindLabel })}</SheetDescription>
           </SheetHeader>
 
-          {/* pb 用 safe-area 而不是写死内距：iPhone 底部 Home Indicator
-              会压住最后一行模型，padding 不足时选项的下半截点不到。 */}
-          <div className="flex min-h-0 flex-1 flex-col pb-[env(safe-area-inset-bottom)]">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             {panel}
+          </div>
+
+          {/* 底部指示条，提示可向上推或点击收起抽屉 */}
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label={t("common.action.close")}
+            onClick={() => setOpen(false)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setOpen(false);
+              }
+            }}
+            className="flex shrink-0 cursor-pointer justify-center py-2.5 active:opacity-60 focus-visible:outline-none"
+          >
+            <div className="h-1 w-9 rounded-full bg-foreground/20" />
           </div>
         </SheetContent>
       </Sheet>

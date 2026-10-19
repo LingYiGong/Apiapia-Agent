@@ -16,6 +16,7 @@ export interface ModelLike {
   description?: string;
   is_free?: boolean;
   is_multimodal?: boolean;
+  is_default?: boolean;
 }
 
 /** 归一化后的模型选项。 */
@@ -26,6 +27,7 @@ export interface ModelOption {
   description?: string;
   isFree: boolean;
   isMultimodal: boolean;
+  isDefault?: boolean;
   /** 是否命中精选画像（见 lib/modelGuide.ts） */
   isFeatured: boolean;
   /** 选型画像；未命中画像表时为 undefined */
@@ -100,7 +102,10 @@ export function getModelPriorityScore(m: UnrankedModelOption, isVocabMode = fals
     if (id.includes("gpt-4o") || id.startsWith("openai/")) return -5;
   }
 
-  // 1. openrouter/free
+  // 1. 系统默认模型置顶（由后端 is_default 标记动态驱动，全项目单一配置源）
+  if (m.isDefault) return -1;
+
+  // 2. openrouter/free 聚合路由
   if (id === "openrouter/free" || id.includes("openrouter/free")) return 0;
 
   // 2. 有画像的模型按价格档排序：旗舰(1) → 标准(2) → 免费(3) → 低价(4)
@@ -152,6 +157,7 @@ export function toChatModelOptions(models: ModelCatalogItem[], isVocabMode = fal
       description: m.description,
       isFree,
       isMultimodal: isMultimodalModel(m),
+      isDefault: Boolean(m.is_default),
       // 精选 = 命中画像表；判据见上方 isFeatured 的注释
       isFeatured: guide !== undefined,
       guide,

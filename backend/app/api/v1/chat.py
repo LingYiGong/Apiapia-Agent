@@ -255,7 +255,7 @@ async def chat_stream(
     base_system_prompt = chat_req.system_prompt_override or (
         user_settings.system_prompt if user_settings else "你是一个智能、真诚、有洞察力的个人智能助理。"
     )
-    model_to_use = chat_req.model or (user_settings.default_model if user_settings else app_settings.DEFAULT_MODEL)
+    model_to_use = chat_req.model or (user_settings.effective_default_model if user_settings else app_settings.DEFAULT_MODEL)
     temperature = chat_req.temperature if chat_req.temperature is not None else (user_settings.temperature if user_settings else 0.7)
     # For single-turn tasks (e.g. translation, vocab tutor), memory should be disabled
     # by default unless the caller explicitly sets memory_enabled=True.

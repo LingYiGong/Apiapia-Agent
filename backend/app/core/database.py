@@ -65,8 +65,9 @@ async def init_db():
                     ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS tts_model varchar(120);
                     ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS consolidation_model varchar(120) DEFAULT 'openrouter/free';
                     ALTER TABLE user_settings ALTER COLUMN consolidation_model SET DEFAULT 'openrouter/free';
-                    ALTER TABLE user_settings ALTER COLUMN default_model SET DEFAULT 'openrouter/free';
-                    UPDATE user_settings SET default_model = 'openrouter/free' WHERE default_model = 'gpt-4o-mini';
+                    ALTER TABLE user_settings ALTER COLUMN default_model DROP NOT NULL;
+                    ALTER TABLE user_settings ALTER COLUMN default_model SET DEFAULT NULL;
+                    UPDATE user_settings SET default_model = NULL WHERE default_model IN ('gpt-4o-mini', 'openrouter/free');
                     ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS web_search_mode varchar(10) DEFAULT 'auto';
                 END IF;
 

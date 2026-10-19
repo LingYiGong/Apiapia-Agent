@@ -129,8 +129,8 @@ export default function ChatPage({
     messagesRef.current = messages;
   }, [messages]);
   const [availableModels, setAvailableModels] = useState<ModelCatalogItem[]>([]);
-  const [currentModel, setCurrentModel] = useState("openrouter/free");
-  const defaultModelRef = useRef<string>("openrouter/free");
+  const [currentModel, setCurrentModel] = useState<string>("");
+  const defaultModelRef = useRef<string>("");
   const [imageModel, setImageModel] = useState<string>("dall-e-3");
   const [videoModel, setVideoModel] = useState<string>("");
   const [availableImageModels, setAvailableImageModels] = useState<ImageModelItem[]>([]);
@@ -231,9 +231,7 @@ export default function ChatPage({
       const targetResetModel =
         userDef && availableModels.some((m) => m.id === userDef)
           ? userDef
-          : availableModels.some((m) => m.id === "openrouter/free")
-          ? "openrouter/free"
-          : availableModels[0]?.id;
+          : availableModels.find((m) => m.is_default)?.id || availableModels[0]?.id;
       if (targetResetModel && targetResetModel !== currentModel) {
         void handleModelChange(targetResetModel);
         const modelObj = availableModels.find((m) => m.id === targetResetModel);
@@ -435,7 +433,7 @@ export default function ChatPage({
     setIsRefreshingModels(true);
     try {
       const [res, settings, imageModelsRes, videoModelsRes] = await Promise.all([
-        apiRequest<{ active_providers: string[]; total: number; models: ModelCatalogItem[] }>(
+        apiRequest<{ active_providers: string[]; total: number; models: ModelCatalogItem[]; default_model?: string }>(
           "/models/configured"
         ),
         apiRequest<any>("/settings"),
@@ -465,9 +463,15 @@ export default function ChatPage({
         setVideoModel(videoModelsRes.models[0].id);
       }
 
+      const systemDefault =
+        res?.default_model ||
+        models.find((m) => m.is_default)?.id ||
+        models[0]?.id ||
+        "";
       const userDef = settings?.default_model;
-      if (userDef) {
-        defaultModelRef.current = userDef;
+      const effectiveDefault = (userDef && models.some((m) => m.id === userDef) ? userDef : null) || systemDefault;
+      if (effectiveDefault) {
+        defaultModelRef.current = effectiveDefault;
       }
 
       webSearch.applyFromServer(settings?.web_search_mode);
@@ -477,24 +481,12 @@ export default function ChatPage({
       }
 
       if (models.length > 0) {
+        const targetModel = effectiveDefault || models[0].id;
         if (!activeIdRef.current) {
-          if (userDef && models.some((m) => m.id === userDef)) {
-            setCurrentModel(userDef);
-            try { localStorage.setItem("apiapia_preferred_model", userDef); } catch (_) {}
-          } else if (models.some((m) => m.id === "openrouter/free")) {
-            setCurrentModel("openrouter/free");
-            try { localStorage.setItem("apiapia_preferred_model", "openrouter/free"); } catch (_) {}
-          } else if (!models.some((m) => m.id === currentModel)) {
-            setCurrentModel(models[0].id);
-          }
+          setCurrentModel(targetModel);
+          try { localStorage.setItem("apiapia_preferred_model", targetModel); } catch (_) {}
         } else if (!models.some((m) => m.id === currentModel)) {
-          const fallback =
-            userDef && models.some((m) => m.id === userDef)
-              ? userDef
-              : models.some((m) => m.id === "openrouter/free")
-              ? "openrouter/free"
-              : models[0].id;
-          setCurrentModel(fallback);
+          setCurrentModel(targetModel);
         }
       }
       return {

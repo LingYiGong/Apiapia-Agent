@@ -32,6 +32,8 @@ def is_free_model(m: dict) -> bool:
     mid = (m.get("id") or "").lower()
     if mid in ALWAYS_FREE_MODEL_IDS or mid.endswith(":free"):
         return True
+    if mid == (settings.DEFAULT_MODEL or "").lower():
+        return True
     return m.get("provider") == "ollama"
 
 

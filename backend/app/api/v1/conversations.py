@@ -192,7 +192,7 @@ async def create_conversation(
     if not model_to_use:
         settings_stmt = select(UserSetting).where(UserSetting.user_id == current_user.id)
         user_settings = (await db.execute(settings_stmt)).scalar_one_or_none()
-        model_to_use = user_settings.default_model if user_settings else app_settings.DEFAULT_MODEL
+        model_to_use = user_settings.effective_default_model if user_settings else app_settings.DEFAULT_MODEL
 
     now = datetime.now(timezone.utc)
     conv = Conversation(

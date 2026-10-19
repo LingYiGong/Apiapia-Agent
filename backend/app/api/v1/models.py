@@ -79,7 +79,13 @@ async def list_configured_models(
     if not can_all:
         configured_models = [m for m in configured_models if is_free_model(m)]
 
+    sys_def = (settings.DEFAULT_MODEL or "").strip().lower()
+    for m in configured_models:
+        m["is_default"] = (m.get("id") or "").strip().lower() == sys_def
+
     def get_model_sort_priority(m: dict):
+        if m.get("is_default"):
+            return (-1, 0, m.get("id") or "")
         mid = (m.get("id") or "").lower()
         if mid == OPENROUTER_FREE_MODEL_ID:
             return (0, 0, mid)
@@ -93,7 +99,8 @@ async def list_configured_models(
         "active_providers": list(active_providers),
         "total": len(configured_models),
         "models": configured_models,
-        "can_access_all_models": can_all
+        "can_access_all_models": can_all,
+        "default_model": settings.DEFAULT_MODEL,
     }
 
 

@@ -94,7 +94,7 @@ class Settings(BaseSettings):
     MEDIA_DIR: str = "/app/data/media"
 
     # LLMs
-    DEFAULT_MODEL: str = "openrouter/free"
+    DEFAULT_MODEL: str = "nvidia/nemotron-3-ultra-550b-a55b:free"
     DEFAULT_PROVIDER: str = "openrouter"
 
     OPENAI_API_KEY: Optional[str] = None

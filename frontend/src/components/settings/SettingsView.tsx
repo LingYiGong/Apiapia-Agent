@@ -184,7 +184,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const { user, loading } = useAuth();
   const isAdmin = Boolean(user?.is_superuser);
 
-  const [defaultModel, setDefaultModel] = useState("openrouter/free");
+  const [defaultModel, setDefaultModel] = useState<string>("");
   const [memoryModel, setMemoryModel] = useState("openai/gpt-4o-mini");
   const [consolidationModel, setConsolidationModel] = useState("openrouter/free");
   const [imageModel, setImageModel] = useState<string | null>(null);
@@ -382,7 +382,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     try {
       const [settingsRes, modelsRes, imageModelsRes, videoModelsRes, audioModelsRes] = await Promise.all([
         apiRequest<any>("/settings"),
-        apiRequest<{ models: ModelCatalogItem[] }>("/models/configured"),
+        apiRequest<{ models: ModelCatalogItem[]; default_model?: string }>("/models/configured"),
         apiRequest<ImageModelsResponse>("/models/image-models").catch(() => null),
         apiRequest<VideoModelsResponse>("/models/video-models").catch(() => null),
         apiRequest<AudioModelsResponse>("/models/audio-models").catch(() => null),
@@ -390,15 +390,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
       if (settingsRes) {
         const models = modelsRes?.models ?? [];
+        const systemDefault =
+          (modelsRes as any)?.default_model ||
+          models.find((m) => m.is_default)?.id ||
+          models[0]?.id ||
+          "";
         let dModel = settingsRes.default_model;
-        if (isTrialMode) {
-          if (!dModel || !models.some((m) => m.id === dModel)) {
-            dModel = models.some((m) => m.id === "openrouter/free")
-              ? "openrouter/free"
-              : (models[0]?.id || "openrouter/free");
-          }
-        } else {
-          dModel = dModel || "openrouter/free";
+        if (!dModel || !models.some((m) => m.id === dModel)) {
+          dModel = systemDefault;
         }
         const mModel = settingsRes.memory_model || "openai/gpt-4o-mini";
         const cModel = settingsRes.consolidation_model || "openrouter/free";

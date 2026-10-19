@@ -108,7 +108,7 @@ async def preview_memory_consolidation(
         if user_setting:
             chosen_model = (
                 user_setting.consolidation_model
-                or user_setting.default_model
+                or user_setting.effective_default_model
                 or user_setting.memory_model
             )
 

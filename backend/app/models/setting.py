@@ -10,7 +10,7 @@ class UserSetting(Base):
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
     user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False, index=True)
-    default_model = Column(String(100), default="openrouter/free", nullable=False)
+    default_model = Column(String(100), default=None, nullable=True)
     memory_model = Column(String(100), default="openai/gpt-4o-mini", nullable=True)
     consolidation_model = Column(String(120), default="openrouter/free", nullable=True)
     image_model = Column(String(120), default=None, nullable=True)
@@ -26,6 +26,14 @@ class UserSetting(Base):
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
     user = relationship("User", back_populates="settings")
+
+    @property
+    def effective_default_model(self) -> str:
+        """用户显式配置的模型优先；未配置时动态回退至全局配置的默认模型。"""
+        if self.default_model:
+            return self.default_model
+        from app.core.config import settings
+        return settings.DEFAULT_MODEL
 
 
 class ModelConfig(Base):

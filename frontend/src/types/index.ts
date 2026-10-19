@@ -208,6 +208,7 @@ export interface ModelCatalogItem {
   description: string;
   is_free?: boolean;
   is_multimodal?: boolean;
+  is_default?: boolean;
 }
 
 export interface ModelUsageItem {

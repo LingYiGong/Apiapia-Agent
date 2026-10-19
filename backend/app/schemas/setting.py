@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from datetime import datetime
 from typing import Optional
 
@@ -24,9 +24,17 @@ class UserSettingUpdate(BaseModel):
 class UserSettingResponse(BaseModel):
     id: str
     user_id: str
-    default_model: str = "openrouter/free"
+    default_model: Optional[str] = None
     memory_model: Optional[str] = "openai/gpt-4o-mini"
     consolidation_model: Optional[str] = "openrouter/free"
+
+    @field_validator("default_model", mode="after")
+    @classmethod
+    def resolve_default_model(cls, v: Optional[str]) -> str:
+        if not v:
+            from app.core.config import settings
+            return settings.DEFAULT_MODEL
+        return v
     image_model: Optional[str] = None
     video_model: Optional[str] = None
     stt_model: Optional[str] = None

@@ -158,7 +158,7 @@ async def get_user_settings(
         # Create default if not found
         setting = UserSetting(
             user_id=current_user.id,
-            default_model=app_settings.DEFAULT_MODEL,
+            default_model=None,
             memory_model="openai/gpt-4o-mini",
             consolidation_model="openrouter/free",
             system_prompt="你是一个智能、真诚、有洞察力的个人智能助理。请根据用户提供的历史背景和长期记忆为用户提供高质量服务。",
@@ -178,12 +178,12 @@ async def get_user_settings(
         await db.commit()
         await db.refresh(setting)
 
-    # For users restricted to free models, ensure default_model falls back to openrouter/free if needed
+    # For users restricted to free models, ensure default_model falls back to system default (None) if not permitted
     can_all = has_full_model_access(current_user)
     if not can_all:
         try:
-            if not check_user_can_use_model(current_user, setting.default_model):
-                setting.default_model = "openrouter/free"
+            if setting.default_model and not check_user_can_use_model(current_user, setting.default_model):
+                setting.default_model = None
                 await db.commit()
                 await db.refresh(setting)
         except Exception:
@@ -265,9 +265,10 @@ async def update_user_settings(
         db.add(setting)
 
     if update_data.default_model is not None:
-        if not check_user_can_use_model(current_user, update_data.default_model):
+        chosen = update_data.default_model.strip()
+        if chosen and not check_user_can_use_model(current_user, chosen):
             raise ApiError(status.HTTP_403_FORBIDDEN, "TRIAL_DEFAULT_MODEL_FORBIDDEN")
-        setting.default_model = update_data.default_model
+        setting.default_model = chosen or None
     if update_data.memory_model is not None:
         if getattr(current_user, "is_superuser", False):
             setting.memory_model = update_data.memory_model

@@ -45,6 +45,7 @@ from app.services.media_storage import (
     media_storage,
 )
 from app.services.prompt import build_system_prompt
+from app.services.prompt.localized import memory_text
 from app.services.deterministic import evaluate_deterministic_context
 from app.services.context_manager import (
     sanitize_untrusted_content,
@@ -1253,7 +1254,7 @@ async def chat_stream(
                         clean_assistant = assistant_content[:2000]
 
                 user_content_for_memory = chat_req.message.strip() if chat_req.message else (
-                    f"用户上传文件: {parsed_docs[0]['name']}" if parsed_docs else "用户上传了图片进行分析"
+                    memory_text("uploaded_file").format(name=parsed_docs[0]['name']) if parsed_docs else memory_text("uploaded_image")
                 )
                 extraction_messages = []
                 # Provide preceding turn context for multi-turn pronoun & topic grounding

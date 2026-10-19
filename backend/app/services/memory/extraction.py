@@ -33,7 +33,9 @@ def _get_llm_client(memory_model: str = "gpt-4o-mini") -> Tuple[Optional[Any], s
         cache_key = (credential["api_key"], credential["base_url"] or "")
         if cache_key not in _client_cache:
             _client_cache[cache_key] = OpenAI(
-                api_key=credential["api_key"], base_url=credential["base_url"]
+                api_key=credential["api_key"],
+                base_url=credential["base_url"],
+                timeout=60.0,
             )
 
         return _client_cache[cache_key], model
@@ -44,78 +46,188 @@ def _get_llm_client(memory_model: str = "gpt-4o-mini") -> Tuple[Optional[Any], s
     return None, memory_model
 
 
+def _repair_truncated_json(s: str) -> Optional[str]:
+    """Attempt to repair a JSON string that was truncated due to token limits."""
+    idx = max(s.rfind(","), s.rfind("}"), s.rfind("]"))
+    if idx <= 0:
+        return None
+    sub = s[:idx].rstrip(",")
+
+    stack = []
+    in_string = False
+    escape = False
+    for ch in sub:
+        if ch == '"' and not escape:
+            in_string = not in_string
+        elif not in_string:
+            if ch in ("{", "["):
+                stack.append(ch)
+            elif ch == "}" and stack and stack[-1] == "{":
+                stack.pop()
+            elif ch == "]" and stack and stack[-1] == "[":
+                stack.pop()
+        if ch == "\\" and not escape:
+            escape = True
+        else:
+            escape = False
+
+    if in_string:
+        sub += '"'
+
+    while stack:
+        opener = stack.pop()
+        if opener == "{":
+            sub += "}"
+        elif opener == "[":
+            sub += "]"
+
+    return sub
+
+
+def _parse_json_from_text(raw_content: str) -> Optional[Dict[str, Any]]:
+    """Robustly extract and parse a JSON dictionary from LLM output."""
+    if not raw_content or not raw_content.strip():
+        return None
+
+    # Strip reasoning tags <think>...</think>
+    cleaned = re.sub(r"<think>[\s\S]*?</think>", "", raw_content).strip()
+    if "<think>" in cleaned:
+        cleaned = re.sub(r"<think>[\s\S]*", "", cleaned).strip()
+
+    candidates = []
+
+    # 1. Look for markdown code fence anywhere: ```(?:json)? ... ```
+    fence_matches = re.findall(r"```(?:json)?\s*([\s\S]*?)\s*```", cleaned, flags=re.IGNORECASE)
+    for f in fence_matches:
+        f_str = f.strip()
+        if "{" in f_str:
+            candidates.append(f_str)
+
+    # 2. Regex search for outermost {...}
+    outer_match = re.search(r"(\{[\s\S]*\})", cleaned)
+    if outer_match:
+        candidates.append(outer_match.group(1).strip())
+
+    # 3. Whole cleaned string
+    candidates.append(cleaned)
+
+    for c in candidates:
+        if not c:
+            continue
+
+        # Pass 1: Direct JSON parse with strict=False (allows unescaped control chars / newlines)
+        try:
+            parsed = json.loads(c, strict=False)
+            if isinstance(parsed, dict):
+                return parsed
+        except Exception:
+            pass
+
+        # Pass 2: Remove trailing commas before } or ]
+        fixed_commas = re.sub(r",\s*([\]\}])", r"\1", c)
+        try:
+            parsed = json.loads(fixed_commas, strict=False)
+            if isinstance(parsed, dict):
+                return parsed
+        except Exception:
+            pass
+
+        # Pass 3: Repair truncated JSON (unclosed brackets/curlies)
+        repaired = _repair_truncated_json(fixed_commas)
+        if repaired:
+            try:
+                parsed = json.loads(repaired, strict=False)
+                if isinstance(parsed, dict):
+                    return parsed
+            except Exception:
+                pass
+
+        # Pass 4: ast.literal_eval fallback for Python dict formatted output
+        try:
+            import ast
+            parsed = ast.literal_eval(c)
+            if isinstance(parsed, dict):
+                return parsed
+        except Exception:
+            pass
+
+    return None
+
+
 def safe_json_chat_completion(
     client: Any,
     model: str,
     prompt: str,
     temperature: float = 0.0,
-    max_tokens: int = 1000,
+    max_tokens: int = 4096,
     seed: Optional[int] = None,
 ) -> Optional[Dict[str, Any]]:
     """
     Robust chat completion helper for JSON responses:
-    1. First attempts response_format={'type': 'json_object'}
-    2. Gracefully falls back to standard completion if provider/proxy does not support response_format (HTTP 400)
-    3. Strips <think>...</think> reasoning blocks (e.g. DeepSeek-R1, QwQ)
-    4. Strips markdown fences (```json ... ```)
-    5. Uses regex fallback to extract top-level {...}
+    1. Injects explicit system prompt enforcing raw JSON output.
+    2. Bypasses unsupported response_format on free models to avoid wasted 400 retries.
+    3. Gracefully captures reasoning_content if content is empty.
+    4. Parses JSON with trailing-comma, unescaped-newlines, code-fence, and truncation recovery.
     """
+    system_msg = (
+        "You are a strict JSON data processing engine. "
+        "You must output ONLY a valid JSON object matching the requested schema. "
+        "Do NOT output markdown fences (```json), thinking tags, preamble, conversational text, or explanation."
+    )
+    messages = [
+        {"role": "system", "content": system_msg},
+        {"role": "user", "content": prompt},
+    ]
+
     kwargs = {
         "model": model,
-        "messages": [{"role": "user", "content": prompt}],
+        "messages": messages,
         "temperature": temperature,
         "max_tokens": max_tokens,
     }
     if seed is not None:
         kwargs["seed"] = seed
 
+    # Models ending with :free or openrouter/free usually reject response_format and return HTTP 400.
+    supports_response_format = not (":free" in model.lower() or "openrouter/free" in model.lower())
+
     raw_content = ""
     try:
-        try:
-            resp = client.chat.completions.create(
-                **kwargs,
-                response_format={"type": "json_object"},
-            )
-            raw_content = resp.choices[0].message.content or ""
-        except Exception as rf_err:
-            logger.debug("Retrying completion without response_format due to: %s", rf_err)
+        if supports_response_format:
+            try:
+                resp = client.chat.completions.create(
+                    **kwargs,
+                    response_format={"type": "json_object"},
+                )
+                choice = resp.choices[0]
+                raw_content = choice.message.content or ""
+                reasoning = getattr(choice.message, "reasoning_content", None) or getattr(choice.message, "reasoning", None) or ""
+                if not raw_content.strip() and reasoning.strip():
+                    raw_content = reasoning
+            except Exception as rf_err:
+                logger.debug("Model %s rejected response_format: %s. Retrying standard completion.", model, rf_err)
+                resp = client.chat.completions.create(**kwargs)
+                choice = resp.choices[0]
+                raw_content = choice.message.content or ""
+                reasoning = getattr(choice.message, "reasoning_content", None) or getattr(choice.message, "reasoning", None) or ""
+                if not raw_content.strip() and reasoning.strip():
+                    raw_content = reasoning
+        else:
             resp = client.chat.completions.create(**kwargs)
-            raw_content = resp.choices[0].message.content or ""
+            choice = resp.choices[0]
+            raw_content = choice.message.content or ""
+            reasoning = getattr(choice.message, "reasoning_content", None) or getattr(choice.message, "reasoning", None) or ""
+            if not raw_content.strip() and reasoning.strip():
+                raw_content = reasoning
     except Exception as e:
         logger.warning("LLM completion failed for model %s: %s", model, e)
         return None
 
-    if not raw_content.strip():
-        return None
+    parsed = _parse_json_from_text(raw_content)
+    if parsed:
+        return parsed
 
-    # Strip reasoning tags <think>...</think>
-    cleaned = re.sub(r"<think>[\s\S]*?</think>", "", raw_content).strip()
-
-    # Strip markdown code blocks ```json ... ```
-    if cleaned.startswith("```"):
-        cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned, flags=re.IGNORECASE)
-        cleaned = re.sub(r"\s*```$", "", cleaned)
-        cleaned = cleaned.strip()
-
-    # Try direct JSON parsing
-    try:
-        parsed = json.loads(cleaned)
-        if isinstance(parsed, dict):
-            return parsed
-    except Exception:
-        pass
-
-    # Regex search for the outermost {...}
-    match = re.search(r"(\{[\s\S]*\})", cleaned)
-    if match:
-        try:
-            parsed = json.loads(match.group(1))
-            if isinstance(parsed, dict):
-                return parsed
-        except Exception:
-            pass
-
-    logger.warning("Failed to parse JSON response from model %s: '%.100s'", model, cleaned)
+    logger.warning("Failed to parse JSON response from model %s: '%.120s'", model, raw_content)
     return None
 
 

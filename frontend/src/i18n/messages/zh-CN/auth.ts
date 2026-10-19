@@ -2,9 +2,9 @@
 export default {
   brandSuffix: "助理",
   loginTitle: "登录 Apiapia",
-  loginSubtitle: "探索拥有长期记忆的个人 AI 空间",
+  loginSubtitle: "拥有长期记忆的智能猫咪助理",
   registerTitle: "创建 Apiapia 账户",
-  registerSubtitle: "开启拥有长期记忆的私人猫咪助理",
+  registerSubtitle: "一只有长期记忆的智能猫咪助理，在持续陪伴中理解您的习惯与偏好",
   tabLogin: "登录",
   tabRegister: "注册",
 
@@ -42,6 +42,6 @@ export default {
     submitFailed: "请求失败，请检查输入或稍后重试",
   },
 
-  privacyBadge: "端到端加密 · 个人对话与记忆仅归您所有",
+  privacyBadge: "数据安全隔离 · 个人对话与记忆仅归您所有",
   footer: "Apiapia 助理 · v{version}",
 } as const;

@@ -123,23 +123,23 @@ export default {
     tokens: "总 Token",
     topModel: "常用模型",
     noTopModel: "未调用",
-    auditTip: "审查该用户全部对话记录（含已删除对话）",
-    audit: "审查",
+    auditTip: "查阅该用户的全部对话记录（含已归档对话）",
+    audit: "查阅",
   },
 
   /** 管理员操作 */
   admin: {
     actionMenu: "操作菜单",
     currentAccount: "当前账号",
-    fullAccessBadge: "完整体验 (管理员)",
-    fullAccess: "完整体验",
-    trialMode: "体验模式",
+    fullAccessBadge: "全量模型 (管理员)",
+    fullAccess: "全量模型权限",
+    trialMode: "体验模式（仅免费）",
     disable: "停用账号",
     enable: "恢复启用",
     revokeAdmin: "取消管理员",
     grantAdmin: "设为管理员",
     switchToTrial: "切换为体验模式",
-    grantFull: "开通完整体验",
+    grantFull: "开通全量模型权限",
 
     disableConfirmTitle: "停用用户",
     enableConfirmTitle: "启用用户",
@@ -160,19 +160,19 @@ export default {
     grantModelsTitle: "开通模型访问权限",
     restrictModelsTitle: "限制模型访问权限",
     grantModelsDesc:
-      "确定为用户「{username}」开通完整体验权限吗？开通后该用户可使用系统内包括所有高级付费模型在内的全部可用模型。",
+      "确定为用户「{username}」开通全量模型权限吗？开通后该用户可使用系统内包括所有高级商用模型在内的全部模型。",
     restrictModelsDesc:
-      "确定将用户「{username}」切换为体验模式吗？切换后该用户将只能访问和调用免费模型。",
-    grantModelsConfirm: "开通完整体验",
+      "确定将用户「{username}」切换为体验模式吗？切换后该用户将仅可访问和调用免费模型。",
+    grantModelsConfirm: "开通全量模型",
     restrictModelsConfirm: "切换为体验模式",
-    grantModelsDone: "已为用户「{username}」开通完整体验",
+    grantModelsDone: "已为用户「{username}」开通全量模型权限",
     restrictModelsDone: "已为用户「{username}」切换为体验模式",
   },
 
   audit: {
-    title: "用户对话审查与审计",
+    title: "对话审计与追溯",
     desc:
-      "用户删除的对话在底层已安全归档保留，平台可完整审计内容与追踪 Token / 成本消耗。",
+      "归档保留用户历史对话记录，支持合规审计与 Token 成本追溯。",
     filterAria: "审计状态筛选",
     filterAll: "全部 ({count})",
     filterActive: "正常 ({count})",

@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.31.0-indigo?style=flat-square" alt="Version"></a>
+  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.32.0-indigo?style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
@@ -224,7 +224,32 @@ cat backup_xxx.sql | docker exec -i apiapia_postgres psql -U postgres -d apiapia
 
 ## 📜 版本发布与更新说明 (Release Notes)
 
-### 🚀 最新版本：v2.31.0 (2026-10-19)
+### 🚀 最新版本：v2.32.0 (2026-10-19)
+
+本版本是一次聚焦于**记忆智能整理与脱水重构、对话流式作用域修复、前端交互文案精炼及猫咪品牌核心设定全语言统一**的综合加固版本。优化了记忆提炼整理方案与容错重试机制，彻底消除了流式对话中由于变量提升引起的偶发中断，精简了全站交互说明，并全面统一了 Apiapia 智能猫咪助理在多语言环境下的品牌设定。
+
+#### 1. 记忆智能整理与脱水重构 (Memory Consolidation Engine)
+- **精选推荐整理模型**：剔除已下架或高耗时不稳定模型，精选推荐专用长上下文模型（如 NVIDIA Nemotron 3 Ultra、Qwen 2.5 72B、Gemini 2.5 Flash、Claude 3.5 Sonnet），确保方案输出稳定快速。
+- **方案差异对比与安全快照回滚**：支持整理方案（保留、合并、删除、更新）的清晰差异预览；整理执行前自动生成快照，支持误操作一键安全回滚。
+- **超时与容错优化**：前端增加请求超时守护与状态预估反馈，提示更清晰准确（单轮预估约 10~30 秒），避免长时间挂起等待。
+
+#### 2. 对话流式接口作用域安全修复 (Chat Stream Scope Safety)
+- **UnboundLocalError 修复**：解决 `chat.py` 中 `messages_payload` 在异常重试分支中由于变量声明提升导致的局部变量未绑定报错，确保多轮流式生成与 Token 用量统计 100% 稳定运行。
+
+#### 3. 前端生产构建类型安全修复
+- **Button onClick 类型兼容**：修复 `MemoryView.tsx` 中 `handleStartConsolidation` 携带可选参数直接作为按钮 `onClick` 处理器时引发的 React MouseEvent 类型不匹配问题，确保 Docker 镜像与 Next.js 生产构建零警告零报错通过。
+
+#### 4. 全站文案脱水与专业术语统一
+- **去除冗余口水话**：系统化精炼设置页、记忆库、管理审计端及创作菜单的说明与引导文案，去除过时陈旧的口水话表达，使其符合现代互联网产品设计标准。
+- **安全与权限表述严谨化**：将易引起误解的“端到端加密”修正为真实的“数据安全隔离”，将“完整体验”统一规范为“全量模型权限”。
+
+#### 5. Apiapia 猫咪品牌原型全语言统一
+- **猫咪助理核心人设回归**：围绕真实猫咪原型（一只有长期记忆的智能猫咪助理），在登录页、注册页、应用外壳及空对话引导中全面统一品牌设定与视觉呼应。
+- **四国语言完全对齐**：简体中文 (zh-CN)、繁体中文 (zh-TW)、英语 (en)、日语 (ja) 四种语言的词典键位与品牌表达严格保持一致。
+
+---
+
+### v2.31.0 (2026-10-19)
 
 本版本是一次聚焦于**多轮长对话时间线与截断修复、LLM Payload 归一化清洗管道、上下文 Token 预算扩充与 Prompt Caching 架构稳定**的重大加固版本。彻底解决了长对话时间线逆序与截断越界问题，确保所有模型服务商的角色严格交替（User/Assistant）规范，历史滑动窗口预算扩充至 24,576 tokens，并全面加固了 Anthropic、Gemini 与 OpenAI 的调用适配器。
 

@@ -128,15 +128,15 @@ export default {
   admin: {
     actionMenu: "Actions",
     currentAccount: "This account",
-    fullAccessBadge: "Full access (admin)",
-    fullAccess: "Full access",
-    trialMode: "Trial mode",
+    fullAccessBadge: "Full model access (admin)",
+    fullAccess: "Full model access",
+    trialMode: "Trial mode (free only)",
     disable: "Disable account",
     enable: "Re-enable",
     revokeAdmin: "Revoke admin",
     grantAdmin: "Grant admin",
     switchToTrial: "Switch to trial mode",
-    grantFull: "Grant full access",
+    grantFull: "Grant full model access",
 
     disableConfirmTitle: "Disable user",
     enableConfirmTitle: "Enable user",
@@ -157,19 +157,19 @@ export default {
     grantModelsTitle: "Grant model access",
     restrictModelsTitle: "Restrict model access",
     grantModelsDesc:
-      'Grant "{username}" full access? They will be able to use every available model, including all paid tiers.',
+      'Grant "{username}" full model access? They will be able to use every available model, including all commercial tiers.',
     restrictModelsDesc:
       'Switch "{username}" to trial mode? They will only be able to reach free models.',
-    grantModelsConfirm: "Grant full access",
+    grantModelsConfirm: "Grant full model access",
     restrictModelsConfirm: "Switch to trial mode",
-    grantModelsDone: 'Granted full access to "{username}"',
+    grantModelsDone: 'Granted full model access to "{username}"',
     restrictModelsDone: 'Switched "{username}" to trial mode',
   },
 
   audit: {
-    title: "Conversation review and audit",
+    title: "Conversation audit & trace",
     desc:
-      "Conversations a user deleted are archived safely at rest, so the platform can audit their content and trace token and cost usage.",
+      "Archived conversation records for compliance audits and token cost tracing.",
     filterAria: "Filter by audit status",
     filterAll: "All ({count})",
     filterActive: "Active ({count})",

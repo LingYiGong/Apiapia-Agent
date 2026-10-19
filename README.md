@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.31.0-indigo?style=flat-square" alt="Version"></a>
+  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.32.0-indigo?style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
@@ -225,7 +225,32 @@ cat backup_xxx.sql | docker exec -i apiapia_postgres psql -U postgres -d apiapia
 
 ## 📜 Releases & Changelog
 
-### 🚀 Latest Release: v2.31.0 (2026-10-19)
+### 🚀 Latest Release: v2.32.0 (2026-10-19)
+
+This release focuses on **memory consolidation and dehydration engine refactoring, chat streaming scope safety fixes, frontend UX copy distillation, and unified multi-language branding around Apiapia's cat assistant identity**. It upgrades the memory consolidation workflow with curated models and snapshot rollback, eliminates an `UnboundLocalError` in streaming chat, streamlines UI copy across the platform, and harmonizes the cat mascot narrative across all 4 locales.
+
+#### 1. Memory Consolidation & Dehydration Engine Refactoring
+- **Curated consolidation models**: retired deprecated and slow models in favor of proven high-context options (NVIDIA Nemotron 3 Ultra, Qwen 2.5 72B, Gemini 2.5 Flash, Claude 3.5 Sonnet) for reliable, fast structured output.
+- **Diff preview & snapshot rollback**: users can clearly review planned merges, updates, and removals before committing, with one-click snapshot rollback support to prevent accidental data loss.
+- **Accurate time estimation & timeout resilience**: added defensive timeout handling and realistic progress indicators (~10-30s per run) to improve user expectations.
+
+#### 2. Chat Streaming Scope Safety Fix
+- **UnboundLocalError elimination**: fixed a variable hoisting issue in `chat.py` where `messages_payload` was referenced before assignment in error recovery branches, ensuring 100% reliable streaming generations and token accounting.
+
+#### 3. Frontend Production Build Type Safety
+- **Strict mouse event typing**: resolved a type incompatibility in `MemoryView.tsx` where an optional argument handler was passed directly to button `onClick`, ensuring flawless Next.js and Docker standalone production builds.
+
+#### 4. UX Copy Distillation & Professional Tone
+- **Reduced colloquial filler**: systematically trimmed redundant text across settings, memory views, audit panels, and creation menus, aligning the interface with modern SaaS product standards.
+- **Accurate security & permission terms**: corrected misleading "end-to-end encryption" claims to "isolated tenant data security" and standardized model entitlement labels.
+
+#### 5. Unified Cat Assistant Mascot Brand Identity Across All Locales
+- **Core identity alignment**: revitalized Apiapia's authentic mascot identity—a smart cat assistant with long-term memory—across auth subtitles, meta descriptions, and empty chat states.
+- **Full locale synchronization**: 100% synchronized key hierarchy and polished natural phrasing across Simplified Chinese, Traditional Chinese, English, and Japanese.
+
+---
+
+### v2.31.0 (2026-10-19)
 
 This release focuses on **multi-turn and long conversation timeline integrity, LLM payload normalization, expanded context token budgets, and prompt caching architecture stabilization**. It resolves chronological inversion and context truncation issues in multi-turn chats, guarantees strictly alternating user/assistant message roles across all model providers, expands token history budget to 24,576 tokens, and hardens Anthropic, Gemini, and OpenAI provider adapters.
 

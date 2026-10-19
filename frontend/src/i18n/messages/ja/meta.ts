@@ -8,7 +8,7 @@
 export default {
   appName: "Apiapia アシスタント",
   entering: "{app} を起動しています…",
-  appDescription: "Apiapia アシスタント — 長期記憶を持つ猫型アシスタント",
+  appDescription: "Apiapia アシスタント — 長期記憶をもつ賢い猫のアシスタント",
 
   notFound: {
     title: "ページが見つかりません",
@@ -16,7 +16,7 @@ export default {
   },
 
   routeError: {
-    title: "問題が発生しました",
+    title: "ページの読み込みエラー",
     description:
       "このページでエラーが発生しました。再試行できます。繰り返し発生する場合はチャットに戻ってください。",
     digest: "エラー ID: {digest}",
@@ -38,6 +38,7 @@ export default {
     updateNow: "今すぐ更新",
     checking: "更新を確認中…",
     noChangelog: "このリリースに更新内容は記載されていません。",
-    cacheWarning: "更新するとブラウザの古いキャッシュが消え、UI が再読み込みされます。会話の途中で更新しないことを推奨します。",
+    cacheWarning:
+      "更新を実行するとブラウザのリソースキャッシュがクリアされ、UI が再読み込みされます。生成の中断を防ぐため、現在の応答が完了した後に実行することをお勧めします。",
   },
 } as const;

@@ -250,28 +250,32 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
     }
   }, [user, isMobileSpa, active]);
 
-  const handleStartConsolidation = async () => {
+  const handleStartConsolidation = async (modelOverride?: string | React.MouseEvent) => {
+    const resolvedModel = typeof modelOverride === "string" ? modelOverride : undefined;
     setIsConsolidateOpen(true);
     setIsAnalyzingConsolidation(true);
     setConsolidationPreview(null);
     try {
-      const res = await apiRequest<ConsolidationPreviewResponse>("/memories/consolidate/preview", {
+      const url = resolvedModel
+        ? `/memories/consolidate/preview?model=${encodeURIComponent(resolvedModel)}`
+        : "/memories/consolidate/preview";
+      const res = await apiRequest<ConsolidationPreviewResponse>(url, {
         method: "POST",
       });
       setConsolidationPreview(res);
       if (res.status === "already_optimal") {
-        toast.success(res.summary || res.message || "当前记忆库已高度精炼，无待整理项！");
+        toast.success(res.summary || res.message || t("memory.consolidation.toastAlreadyOptimal"));
         setIsConsolidateOpen(false);
       } else if (res.status === "too_few" || res.status === "empty") {
-        toast.info(res.message || "记忆数量较少，无需整理");
-        setIsConsolidateOpen(false);
-      } else if (res.status === "error") {
-        toast.error(res.message || "分析记忆库失败");
+        toast.info(res.message || t("memory.consolidation.toastTooFew"));
         setIsConsolidateOpen(false);
       }
     } catch (err: any) {
-      toast.error(err.message || "分析记忆库失败");
-      setIsConsolidateOpen(false);
+      toast.error(err.message || t("memory.consolidation.toastAnalyzeFailed"));
+      setConsolidationPreview({
+        status: "error",
+        message: err.message || t("memory.consolidation.toastAnalyzeFailedRetry"),
+      });
     } finally {
       setIsAnalyzingConsolidation(false);
     }
@@ -279,7 +283,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
 
   const handleApplyConsolidation = async (approvedPlan: ConsolidationPlan) => {
     setIsApplyingConsolidation(true);
-    const toastId = toast.loading("正在应用智能整理并写入数据库…");
+    const toastId = toast.loading(t("memory.consolidation.toastApplyLoading"));
     try {
       const res = await apiRequest<{
         status: string;
@@ -291,13 +295,17 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
         body: JSON.stringify({ plan: approvedPlan }),
       });
       toast.success(
-        `整理完成：淘汰 ${res.deleted_count} 条过期，更新 ${res.updated_count} 处冲突，提炼新增 ${res.added_count} 条核心事实`,
+        t("memory.consolidation.toastApplySuccess", {
+          deleted: res.deleted_count,
+          updated: res.updated_count,
+          added: res.added_count,
+        }),
         { id: toastId }
       );
       setIsConsolidateOpen(false);
       fetchMemories();
     } catch (err: any) {
-      toast.error(err.message || "应用整理失败", { id: toastId });
+      toast.error(err.message || t("memory.consolidation.toastApplyFailed"), { id: toastId });
     } finally {
       setIsApplyingConsolidation(false);
     }
@@ -305,16 +313,16 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
 
   const handleRollbackConsolidation = async () => {
     setIsRollingBack(true);
-    const toastId = toast.loading("正在恢复历史备份快照…");
+    const toastId = toast.loading(t("memory.rollback.toastLoading"));
     try {
       const res = await apiRequest<{ status: string; restored_count: number }>("/memories/consolidate/rollback", {
         method: "POST",
       });
-      toast.success(`已撤销整理，成功恢复 ${res.restored_count} 条记忆`, { id: toastId });
+      toast.success(t("memory.rollback.toastSuccess", { count: res.restored_count }), { id: toastId });
       setShowRollbackConfirm(false);
       fetchMemories();
     } catch (err: any) {
-      toast.error(err.message || "恢复备份快照失败", { id: toastId });
+      toast.error(err.message || t("memory.rollback.toastFailed"), { id: toastId });
     } finally {
       setIsRollingBack(false);
     }
@@ -482,23 +490,23 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
             </Button>
           </ActionTooltip>
 
-          <ActionTooltip label="AI 智能整理全部记忆（时序覆盖与脱水）" side="bottom">
+          <ActionTooltip label={t("memory.consolidation.btnTip")} side="bottom">
             <Button
               type="button"
-              onClick={handleStartConsolidation}
+              onClick={() => handleStartConsolidation()}
               disabled={loadingMemories || isExporting}
               variant="outline"
               size="icon"
               className="h-10 w-10 shrink-0 cursor-pointer rounded-xl border-primary/40 bg-primary/10 text-primary transition-colors hover:bg-primary/20 active:scale-95"
             >
               <Sparkles className="h-4 w-4" />
-              <span className="sr-only">智能整理记忆</span>
+              <span className="sr-only">{t("memory.consolidation.btnSr")}</span>
             </Button>
           </ActionTooltip>
 
           {snapshotStatus?.has_snapshot && (
             <ActionTooltip
-              label={`恢复整理前备份 (${snapshotStatus.count} 条)`}
+              label={t("memory.rollback.btnTip", { count: snapshotStatus.count })}
               side="bottom"
             >
               <Button
@@ -510,7 +518,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
                 className="h-10 w-10 shrink-0 cursor-pointer rounded-xl border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 transition-colors hover:bg-amber-500/20 active:scale-95"
               >
                 <History className="h-4 w-4" />
-                <span className="sr-only">恢复整理前备份</span>
+                <span className="sr-only">{t("memory.rollback.btnSr")}</span>
               </Button>
             </ActionTooltip>
           )}
@@ -785,13 +793,14 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
 
       {/* ── 智能整理弹窗 ── */}
       <ConsolidateDialog
-
         open={isConsolidateOpen}
         onOpenChange={setIsConsolidateOpen}
         previewData={consolidationPreview}
         isAnalyzing={isAnalyzingConsolidation}
         isApplying={isApplyingConsolidation}
         onApply={handleApplyConsolidation}
+        onRetry={(model) => handleStartConsolidation(model)}
+        totalMemoriesCount={totalCount || memories.length}
       />
 
       {/* ── 恢复备份确认弹窗 ── */}
@@ -801,9 +810,9 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
           onOpenChange={(open) => {
             if (!open && !isRollingBack) setShowRollbackConfirm(false);
           }}
-          title="恢复整理前备份快照"
-          description={`确定要撤销上次整理并将记忆库还原为整理前的状态吗？快照中包含 ${snapshotStatus?.count || 0} 条记忆。`}
-          confirmText="确认恢复"
+          title={t("memory.rollback.dialogTitle")}
+          description={t("memory.rollback.dialogDesc", { count: snapshotStatus?.count || 0 })}
+          confirmText={t("memory.rollback.confirm")}
           danger
           loading={isRollingBack}
           onConfirm={handleRollbackConsolidation}

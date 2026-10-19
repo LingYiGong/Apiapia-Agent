@@ -2,9 +2,9 @@
 export default {
   brandSuffix: "Assistant",
   loginTitle: "Sign in to Apiapia",
-  loginSubtitle: "Your personal AI space with long-term memory",
+  loginSubtitle: "A smart cat assistant with long-term memory",
   registerTitle: "Create an Apiapia account",
-  registerSubtitle: "A personal cat assistant that remembers you long term",
+  registerSubtitle: "A smart cat assistant with long-term memory, learning your habits through continuous companionship",
   tabLogin: "Sign in",
   tabRegister: "Sign up",
 
@@ -42,6 +42,6 @@ export default {
     submitFailed: "Request failed. Check your details and try again.",
   },
 
-  privacyBadge: "End-to-end encrypted · Your conversations and memories belong to you",
+  privacyBadge: "Isolated and secure · Your conversations and memories belong to you",
   footer: "Apiapia Assistant · v{version}",
 } as const;

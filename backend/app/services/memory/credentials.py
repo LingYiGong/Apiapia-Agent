@@ -83,6 +83,11 @@ def _apply_prefix(model: str, credential: Dict[str, Any]) -> str:
     OpenRouter rejects.
     """
     if not credential.get("prefix_models"):
+        # Direct OpenAI or non-OpenRouter provider: map openrouter/free to default, strip openai/ prefix
+        if model == "openrouter/free":
+            return credential.get("default_model", DEFAULT_MEMORY_MODEL)
+        if model.startswith("openai/"):
+            return model[len("openai/"):]
         return model
     normalized = _normalize_openrouter_model(model)
     return normalized if "/" in normalized else f"openai/{normalized}"

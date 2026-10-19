@@ -7,7 +7,7 @@
 export default {
   appName: "Apiapia 助理",
   entering: "正在進入 {app}…",
-  appDescription: "Apiapia 助理——一隻擁有長期記憶的貓咪助理",
+  appDescription: "Apiapia 助理——一隻擁有長期記憶的智慧貓咪助理",
 
   notFound: {
     title: "頁面不存在",
@@ -15,14 +15,14 @@ export default {
   },
 
   routeError: {
-    title: "頁面發生了點問題",
-    description: "目前頁面遇到了錯誤。您可以重試；若反覆出現，請返回對話頁。",
+    title: "頁面載入異常",
+    description: "目前頁面執行遇到錯誤。您可以嘗試重新整理重試；若問題持續，請返回對話頁。",
     digest: "錯誤編號：{digest}",
   },
 
   globalError: {
     title: "應用無法啟動",
-    description: "初始化時發生錯誤。可以嘗試重新載入；若持續失敗，請清除本站資料後重試。",
+    description: "應用初始化遇到錯誤。您可以嘗試重新載入；若持續失敗，請清理瀏覽器快取後重試。",
     reload: "重新載入",
   },
 
@@ -35,6 +35,6 @@ export default {
     updateNow: "立即更新",
     checking: "正在檢查更新…",
     noChangelog: "本次更新未提供更新紀錄。",
-    cacheWarning: "更新將自動清理瀏覽器舊版快取並重載最新介面元件。建議不要在對話進行到一半時更新。",
+    cacheWarning: "更新將自動清理舊版快取並重新載入元件。建議在目前對話完成後再進行更新。",
   },
 } as const;

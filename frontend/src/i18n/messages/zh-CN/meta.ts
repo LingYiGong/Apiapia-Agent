@@ -7,7 +7,7 @@
 export default {
   appName: "Apiapia 助理",
   entering: "正在进入 {app}…",
-  appDescription: "Apiapia 助理——一只拥有长期记忆的猫咪助理",
+  appDescription: "Apiapia 助理——一只拥有长期记忆的智能猫咪助理",
 
   notFound: {
     title: "页面不存在",
@@ -15,14 +15,14 @@ export default {
   },
 
   routeError: {
-    title: "页面出了点问题",
-    description: "当前页面遇到了一个错误。你可以重试；如果反复出现，请返回对话页。",
+    title: "页面加载异常",
+    description: "当前页面运行遇到错误。您可以尝试刷新重试；若问题持续，请返回对话页。",
     digest: "错误编号：{digest}",
   },
 
   globalError: {
     title: "应用无法启动",
-    description: "初始化时发生错误。可以尝试重新加载；若持续失败，请清除本站数据后重试。",
+    description: "应用初始化遇到错误。您可以尝试重新加载；若持续失败，请清理浏览器缓存后重试。",
     reload: "重新加载",
   },
 
@@ -36,6 +36,6 @@ export default {
     checking: "正在检查更新…",
     /** 后端未返回 changelog 时的占位，避免展开后出现空白块 */
     noChangelog: "本次更新未提供更新日志。",
-    cacheWarning: "更新将自动清理浏览器旧版缓存并重载最新界面组件。建议在对话中途不要更新。",
+    cacheWarning: "更新将自动清理旧版缓存并重新载入组件。建议在当前对话完成后再进行更新。",
   },
 } as const;

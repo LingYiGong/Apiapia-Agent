@@ -26,7 +26,7 @@ class UserSettingResponse(BaseModel):
     user_id: str
     default_model: Optional[str] = None
     memory_model: Optional[str] = "openai/gpt-4o-mini"
-    consolidation_model: Optional[str] = "openrouter/free"
+    consolidation_model: Optional[str] = "google/gemma-4-31b-it:free"
 
     @field_validator("default_model", mode="after")
     @classmethod

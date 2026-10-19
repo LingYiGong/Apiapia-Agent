@@ -86,81 +86,39 @@ interface RecommendedConsolidationModel {
 
 const RECOMMENDED_CONSOLIDATION_MODELS: RecommendedConsolidationModel[] = [
   {
-    id: "openrouter/free",
-    name: "Free Models Router",
-    tag: "免费",
-    isFree: true,
-    desc: "官方免费智能路由，自动调度在线可用免费大模型池，开箱即用",
-  },
-  {
-    id: "nvidia/nemotron-3-ultra-550b-a55b:free",
-    name: "NVIDIA Nemotron 3 Ultra (Free)",
-    tag: "免费",
-    isFree: true,
-    desc: "550B 参数开源旗舰前沿推理模型（55B 激活），逻辑消歧与时序推断极强",
-  },
-  {
     id: "google/gemma-4-31b-it:free",
     name: "Google Gemma 4 31B (Free)",
-    tag: "免费",
+    tag: "免费推荐",
     isFree: true,
-    desc: "Google DeepMind 30.7B 密集指令微调模型，长文本遵循优秀，事实提炼严谨",
+    desc: "Google DeepMind 30.7B 指令微调模型，免排队响应快，原生遵循 JSON 格式，事实提炼严谨",
   },
   {
     id: "nvidia/nemotron-3-super-120b-a12b:free",
     name: "NVIDIA Nemotron 3 Super (Free)",
     tag: "免费",
     isFree: true,
-    desc: "120B 参数混合 MoE 架构，大算力长上下文，高吞吐批量记忆脱水合并",
-  },
-  {
-    id: "liquid/lfm-2.5-2.6b:free",
-    name: "LiquidAI LFM 2.5 (Free)",
-    tag: "免费",
-    isFree: true,
-    desc: "专为长上下文、数据提取（Data Extraction）与 RAG 优化的轻快推理模型",
+    desc: "120B 参数 MoE 架构，擅长跨多条历史记录综合提炼高维画像与时序消歧",
   },
   {
     id: "deepseek/deepseek-v4.1-flash",
     name: "DeepSeek V4.1 Flash",
-    tag: "API 计费",
+    tag: "超高性价比",
     isFree: false,
-    desc: "DeepSeek 最新稀疏 MoE 架构，长文本理解顶尖，JSON 格式输出高度遵从且极低成本",
+    desc: "中文语义理解顶尖，原生对 JSON 格式高度遵从，单次整理成本极低且调用稳定",
   },
   {
     id: "anthropic/claude-sonnet-5.5",
     name: "Claude Sonnet 5.5",
-    tag: "API 计费",
+    tag: "最高精度",
     isFree: false,
-    desc: "Anthropic 新一代 Sonnet 旗舰，记忆推理天花板，细微时序冲突辨析与碎片归纳最精准",
-  },
-  {
-    id: "anthropic/claude-haiku-5.5",
-    name: "Claude Haiku 5.5",
-    tag: "API 计费",
-    isFree: false,
-    desc: "专为高吞吐摘要与长文脱水优化的高速模型，响应极快，兼顾推理精度与经济性",
+    desc: "复杂逻辑推理旗舰，对细微时序更迭、条件变更与隐含偏好辨析严谨，适合高质量记忆库重构",
   },
   {
     id: "openai/gpt-6-luna",
     name: "GPT-6 Luna",
-    tag: "API 计费",
+    tag: "极速稳定",
     isFree: false,
-    desc: "OpenAI GPT-6 系列高性价比主力，极速响应，指令遵从度极高，单次整理成本极低",
-  },
-  {
-    id: "google/gemini-3.8-flash",
-    name: "Gemini 3.8 Flash",
-    tag: "API 计费",
-    isFree: false,
-    desc: "Google 最新 Flash 超大上下文模型，擅长跨时间线全局扫描与海量历史条目综合梳理",
-  },
-  {
-    id: "qwen/qwen3.8-omni-flash",
-    name: "Qwen 3.8 Omni Flash",
-    tag: "API 计费",
-    isFree: false,
-    desc: "阿里通义千问最新多模态智能体模型，中文本土语义理解深刻，擅长人物关系与复杂事实梳理",
+    desc: "OpenAI 极速高性价比主力，严格遵循数据脱水格式规范，适合日常自动化整理",
   },
 ];
 
@@ -186,7 +144,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const [defaultModel, setDefaultModel] = useState<string>("");
   const [memoryModel, setMemoryModel] = useState("openai/gpt-4o-mini");
-  const [consolidationModel, setConsolidationModel] = useState("openrouter/free");
+  const [consolidationModel, setConsolidationModel] = useState("google/gemma-4-31b-it:free");
   const [imageModel, setImageModel] = useState<string | null>(null);
   const [videoModel, setVideoModel] = useState<string | null>(null);
   const [sttModel, setSttModel] = useState<string | null>(null);
@@ -400,7 +358,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           dModel = systemDefault;
         }
         const mModel = settingsRes.memory_model || "openai/gpt-4o-mini";
-        const cModel = settingsRes.consolidation_model || "openrouter/free";
+        const cModel =
+          settingsRes.consolidation_model && settingsRes.consolidation_model !== "openrouter/free"
+            ? settingsRes.consolidation_model
+            : "google/gemma-4-31b-it:free";
         // Mirror the chat model contract: an absent selection falls back to the
         // zero-cost default rather than staying empty.
         const freeImage =
@@ -980,7 +941,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     <div className="mt-2 space-y-1.5 rounded-xl border border-border/40 bg-surface-2/40 p-3">
                       <div className="flex items-center gap-1.5 px-0.5 text-xs font-semibold text-foreground">
                         <Sparkles className="h-3.5 w-3.5 text-primary" />
-                        <span>推荐整理模型及选用理由（点击卡片可快速选用）：</span>
+                        <span>{t("settings.memoryGroup.consolidationGuideTitle")}</span>
                       </div>
                       <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 pt-1">
                         {RECOMMENDED_CONSOLIDATION_MODELS.map((item) => {
@@ -1015,7 +976,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                                 </div>
                                 {isSelected && (
                                   <span className="text-xs font-medium text-primary shrink-0">
-                                    当前选用
+                                    {t("settings.memoryGroup.consolidationCurrentSelected")}
                                   </span>
                                 )}
                               </div>

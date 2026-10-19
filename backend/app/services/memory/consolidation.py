@@ -19,6 +19,37 @@ def _get_snapshot_path(user_id: str) -> str:
     return os.path.join(SNAPSHOTS_DIR, f"{user_id}_latest.json")
 
 
+def _safe_int(val: Any, default: int = 3) -> int:
+    """Safely parse importance integer (1-5), protecting against floats and strings."""
+    try:
+        if val is None:
+            return default
+        if isinstance(val, (int, float)):
+            return max(1, min(5, int(val)))
+        s = str(val).strip()
+        f = float(s)
+        return max(1, min(5, int(round(f))))
+    except Exception:
+        return default
+
+
+def _normalize_category(cat: Any, importance: int = 3, text: str = "") -> str:
+    """Normalize arbitrary category labels to the standard 5 buckets."""
+    s = str(cat or "").lower().strip()
+    if s in ("identity", "profile", "bio", "user", "personal", "whoami"):
+        return "identity"
+    if s in ("skills", "skill", "tech", "tool", "tools", "technology", "stack"):
+        return "skills"
+    if s in ("preferences", "preference", "habit", "habits", "taste", "tastes", "like", "likes"):
+        return "preferences"
+    if s in ("projects", "project", "work", "plan", "plans", "tasks", "task", "roadmap"):
+        return "projects"
+    # High-importance stable traits naturally map to identity if not specified
+    if importance >= 4:
+        return "identity"
+    return "facts"
+
+
 def get_snapshot_status(user_id: str) -> Dict[str, Any]:
     """Check if a rollback snapshot exists for this user."""
     path = _get_snapshot_path(user_id)
@@ -92,9 +123,27 @@ def preview_consolidation(
             "plan": None,
         }
 
-    resolved_model = memory_model or "openrouter/free"
-    client, model = _get_llm_client(resolved_model)
-    if not client:
+    # Determine model execution candidates with automatic resilience fallback
+    candidates: List[str] = []
+    if memory_model and memory_model.strip():
+        req = memory_model.strip()
+        if req != "openrouter/free":
+            candidates.append(req)
+        else:
+            candidates.extend([
+                "google/gemma-4-31b-it:free",
+                "nvidia/nemotron-3-super-120b-a12b:free",
+                "openrouter/free",
+            ])
+    else:
+        candidates.extend([
+            "google/gemma-4-31b-it:free",
+            "nvidia/nemotron-3-super-120b-a12b:free",
+            "openrouter/free",
+        ])
+
+    primary_client, _ = _get_llm_client(candidates[0])
+    if not primary_client:
         return {
             "status": "error",
             "message": "LLM 客户端不可用，请检查模型与 API Key 配置",
@@ -125,11 +174,23 @@ def preview_consolidation(
     }
 
     for idx, item in enumerate(raw_memories, start=1):
-        mid = str(item.get("id") or item.get("hash") or "")
+        mid = str(item.get("id") or item.get("hash") or f"mem_{idx}").strip()
+        if not mid:
+            continue
         short_tag = f"M{idx}"
-        short_to_real[short_tag] = mid
-        short_to_real[f"[{short_tag}]"] = mid
-        short_to_real[short_tag.lower()] = mid
+        for variant in (
+            short_tag,
+            short_tag.lower(),
+            f"[{short_tag}]",
+            f"[{short_tag.lower()}]",
+            str(idx),
+            f"#{idx}",
+            f"M {idx}",
+            f"m {idx}",
+            f"第{idx}条",
+            f"第{idx}",
+        ):
+            short_to_real[variant] = mid
         real_to_short[mid] = short_tag
 
         text = str(item.get("memory") or item.get("text") or "").strip()
@@ -145,10 +206,12 @@ def preview_consolidation(
         created = item.get("created_at") or meta.get("created_at") or "未知时间"
         updated = item.get("updated_at") or meta.get("updated_at")
         time_info = f"记录时间: {created}" + (f", 更新时间: {updated}" if updated else "")
-        category = str(meta.get("category") or meta.get("type") or "facts").lower()
-        if category not in category_buckets:
-            category = "facts"
-        importance = meta.get("importance") or 3
+        importance = _safe_int(meta.get("importance"), default=3)
+        category = _normalize_category(
+            meta.get("category") or meta.get("type"),
+            importance=importance,
+            text=text,
+        )
 
         item_str = f"标号: [{short_tag}] | {time_info} | 重要度: {importance}\n内容: {text}"
         category_buckets[category].append(item_str)
@@ -213,40 +276,62 @@ def preview_consolidation(
         + memories_text
     )
 
+    plan = None
+    used_model = None
     try:
-        plan = safe_json_chat_completion(
-            client=client,
-            model=model,
-            prompt=prompt,
-            temperature=0.0,
-            seed=42,
-            max_tokens=4096,
-        )
+        for cand in candidates:
+            cand_client, cand_model = _get_llm_client(cand)
+            if not cand_client:
+                continue
+            logger.info("Running consolidation preview for user %s with model %s", user_id, cand_model)
+            try:
+                plan = safe_json_chat_completion(
+                    client=cand_client,
+                    model=cand_model,
+                    prompt=prompt,
+                    temperature=0.0,
+                    seed=42,
+                    max_tokens=4096,
+                )
+                if plan and isinstance(plan, dict) and any(k in plan for k in ("to_delete", "to_update", "to_add", "summary")):
+                    used_model = cand_model
+                    logger.info("Model %s successfully generated consolidation plan for user %s", cand_model, user_id)
+                    break
+                logger.warning("Model %s did not return valid consolidation schema, trying next candidate...", cand_model)
+            except Exception as cand_e:
+                logger.warning("Model %s failed with exception: %s, trying next candidate...", cand_model, cand_e)
+
         if not plan or not isinstance(plan, dict):
             return {
                 "status": "error",
-                "message": "模型未能返回有效的整理方案 JSON，请重试或更换模型",
+                "message": "模型未能返回有效的整理方案 JSON，请重试或在设置中更换模型",
                 "plan": None,
             }
 
         # Helper to resolve M1 or [M1] back to real UUID
         def resolve_id(id_val: Any) -> Optional[str]:
-            if not id_val:
+            if id_val is None:
                 return None
             s = str(id_val).strip()
+            if not s:
+                return None
+            # Direct match against dictionary (M1, [M1], m1, 1, etc.)
             if s in short_to_real:
                 return short_to_real[s]
-            s_clean = s.strip("[]")
+            s_clean = s.strip("[]# ")
             if s_clean in short_to_real:
                 return short_to_real[s_clean]
             if s_clean.lower() in short_to_real:
                 return short_to_real[s_clean.lower()]
+            # Extract numeric index if formatted like M1, m-1, 第1条, etc.
             import re
-            m = re.search(r"M(\d+)", s, re.IGNORECASE)
+            m = re.search(r"(?:M|第)?\s*(\d+)", s, re.IGNORECASE)
             if m:
-                tag = f"M{m.group(1)}"
-                if tag in short_to_real:
-                    return short_to_real[tag]
+                num = str(int(m.group(1)))
+                if f"M{num}" in short_to_real:
+                    return short_to_real[f"M{num}"]
+                if num in short_to_real:
+                    return short_to_real[num]
             if s in real_to_short:
                 return s
             return None
@@ -256,11 +341,13 @@ def preview_consolidation(
         for item in plan.get("to_add", []):
             add_text = str(item.get("text") or "").strip()
             if add_text:
+                imp = _safe_int(item.get("importance"), default=4)
+                cat = _normalize_category(item.get("category"), importance=imp, text=add_text)
                 processed_to_add.append({
                     "text": add_text,
-                    "category": item.get("category") or "fact",
-                    "importance": int(item.get("importance") or 3),
-                    "reason": item.get("reason", "新提炼事实"),
+                    "category": cat,
+                    "importance": imp,
+                    "reason": str(item.get("reason") or "新提炼事实").strip(),
                 })
 
         # 2. Resolve to_update
@@ -272,13 +359,20 @@ def preview_consolidation(
                 new_text = str(item.get("text") or "").strip()
                 if new_text and new_text != real_to_text.get(real_id):
                     updated_uuids.add(real_id)
+                    old_meta = real_to_meta.get(real_id, {})
+                    imp = _safe_int(item.get("importance") or old_meta.get("importance"), default=3)
+                    cat = _normalize_category(
+                        item.get("category") or old_meta.get("category") or old_meta.get("type"),
+                        importance=imp,
+                        text=new_text,
+                    )
                     processed_to_update.append({
                         "id": real_id,
                         "text": new_text,
                         "old_text": real_to_text.get(real_id, ""),
-                        "category": item.get("category") or real_to_meta.get(real_id, {}).get("category") or "fact",
-                        "importance": int(item.get("importance") or real_to_meta.get(real_id, {}).get("importance") or 3),
-                        "reason": item.get("reason", "状态更新或细节补充"),
+                        "category": cat,
+                        "importance": imp,
+                        "reason": str(item.get("reason") or "状态更新或细节补充").strip(),
                     })
 
         # 3. Resolve and deduplicate to_delete with CODE-LEVEL SAFETY CLAMP
@@ -292,7 +386,7 @@ def preview_consolidation(
                 processed_to_delete.append({
                     "id": real_id,
                     "text": real_to_text.get(real_id, item.get("text", "")),
-                    "reason": item.get("reason", "已提炼合并至新条目"),
+                    "reason": str(item.get("reason") or "已提炼合并至新条目").strip(),
                 })
 
         # ── Code-Level Safety Net: Prevent Rogue LLM Mass Deletions ──
@@ -403,11 +497,11 @@ def apply_consolidation(
         new_text = str(item.get("text") or "").strip()
         if not mid or not new_text:
             continue
-        category = item.get("category") or "fact"
-        importance = int(item.get("importance") or 3)
+        importance = _safe_int(item.get("importance"), default=3)
+        category = _normalize_category(item.get("category"), importance=importance, text=new_text)
         meta = {
             "category": category,
-            "type": "profile" if importance >= 5 else category,
+            "type": "profile" if (importance >= 4 or category == "identity") else category,
             "importance": importance,
             "consolidated_at": now_iso,
         }
@@ -423,17 +517,16 @@ def apply_consolidation(
             logger.warning("Failed to update memory %s during consolidation: %s", mid, e)
 
     # 4. Add newly synthesized / merged facts
-    resolved_model = memory_model or "gpt-4o-mini"
     for item in to_add:
         fact_text = str(item.get("text") or "").strip()
         if not fact_text:
             continue
-        category = item.get("category") or "fact"
-        importance = int(item.get("importance") or 3)
+        importance = _safe_int(item.get("importance"), default=4)
+        category = _normalize_category(item.get("category"), importance=importance, text=fact_text)
         meta = {
             "source": "consolidation",
             "category": category,
-            "type": "profile" if importance >= 5 else category,
+            "type": "profile" if (importance >= 4 or category == "identity") else category,
             "importance": importance,
             "created_at": now_iso,
             "consolidated_at": now_iso,
@@ -443,7 +536,7 @@ def apply_consolidation(
                 user_id=user_id,
                 data=fact_text,
                 metadata=meta,
-                memory_model=resolved_model,
+                memory_model=memory_model,
                 infer=False,
             )
             added_count += 1
@@ -503,6 +596,8 @@ def rollback_consolidation(user_id: str) -> Dict[str, Any]:
                 meta = {}
         if "created_at" not in meta and m.get("created_at"):
             meta["created_at"] = m["created_at"]
+        if "updated_at" not in meta and m.get("updated_at"):
+            meta["updated_at"] = m["updated_at"]
         try:
             memory_service.add_memory(
                 user_id=user_id,
@@ -514,11 +609,18 @@ def rollback_consolidation(user_id: str) -> Dict[str, Any]:
         except Exception as e:
             logger.warning("Failed to restore memory during rollback: %s", e)
 
-    # 3. Clean snapshot file after successful restore
+    # 3. Archive snapshot file instead of raw deletion to preserve history
     try:
-        os.remove(path)
+        archive_path = path.replace(
+            "_latest.json",
+            f"_rolled_back_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}.json"
+        )
+        os.replace(path, archive_path)
     except Exception:
-        pass
+        try:
+            os.remove(path)
+        except Exception:
+            pass
 
     logger.info("Rollback complete for user %s: restored %d memories", user_id, restored_count)
     return {

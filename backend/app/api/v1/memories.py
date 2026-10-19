@@ -123,14 +123,27 @@ async def preview_memory_consolidation(
 @router.post("/consolidate/apply", response_model=ConsolidationApplyResponse)
 async def apply_memory_consolidation(
     payload: ConsolidationApplyRequest,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """Apply the approved consolidation plan to the database (with auto snapshot)."""
+    stmt = select(UserSetting).where(UserSetting.user_id == current_user.id)
+    res = await db.execute(stmt)
+    user_setting = res.scalar_one_or_none()
+    chosen_model = None
+    if user_setting:
+        chosen_model = (
+            user_setting.consolidation_model
+            or user_setting.effective_default_model
+            or user_setting.memory_model
+        )
+
     try:
         result = await asyncio.to_thread(
             apply_consolidation,
             user_id=current_user.id,
-            approved_plan=payload.plan.model_dump()
+            approved_plan=payload.plan.model_dump(),
+            memory_model=chosen_model,
         )
         return ConsolidationApplyResponse(**result)
     except Exception as e:

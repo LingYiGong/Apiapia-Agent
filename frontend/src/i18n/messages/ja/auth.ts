@@ -2,9 +2,9 @@
 export default {
   brandSuffix: "アシスタント",
   loginTitle: "Apiapia にサインイン",
-  loginSubtitle: "長期記憶を備えた個人用 AI スペース",
+  loginSubtitle: "長期記憶をもつ賢い猫のアシスタント",
   registerTitle: "Apiapia のアカウントを作成",
-  registerSubtitle: "長期記憶を持つ、完全自律な猫型アシスタント",
+  registerSubtitle: "長期記憶をもつ賢い猫のアシスタント。日々の対話を通じてあなたの習慣や好みを理解します",
   tabLogin: "サインイン",
   tabRegister: "新規登録",
 
@@ -42,6 +42,6 @@ export default {
     submitFailed: "リクエストに失敗しました。入力内容を確認してもう一度お試しください。",
   },
 
-  privacyBadge: "エンドツーエンド暗号化 · 会話と記憶はあなただけのものです",
+  privacyBadge: "データセキュリティ分離 · 会話と記憶はご自身のアカウントにのみ保持されます",
   footer: "Apiapia アシスタント · v{version}",
 } as const;

@@ -8,7 +8,7 @@
 export default {
   appName: "Apiapia Assistant",
   entering: "Opening {app}…",
-  appDescription: "Apiapia Assistant — a cat assistant with long-term memory",
+  appDescription: "Apiapia Assistant — A smart cat assistant with long-term memory",
 
   notFound: {
     title: "Page not found",
@@ -16,7 +16,7 @@ export default {
   },
 
   routeError: {
-    title: "Something went wrong",
+    title: "Page loading error",
     description:
       "This page hit an error. You can retry; if it keeps happening, head back to the chat.",
     digest: "Error ID: {digest}",
@@ -39,6 +39,6 @@ export default {
     checking: "Checking for updates…",
     /** Shown when the server sends no changelog, so the panel is never blank. */
     noChangelog: "No changelog was published for this release.",
-    cacheWarning: "Updating clears the cached assets and reloads the app. Avoid updating mid-conversation.",
+    cacheWarning: "Updating clears cached assets and reloads the interface. We recommend finishing your current conversation first.",
   },
 } as const;

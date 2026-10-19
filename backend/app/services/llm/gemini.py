@@ -47,24 +47,57 @@ class GeminiProvider(LLMProvider):
             role = msg.get("role")
             raw_content = msg.get("content", "")
             if role == "system":
-                system_instruction = {"parts": [{"text": str(raw_content)}]}
-            elif role == "user":
+                sys_text = ""
                 if isinstance(raw_content, list):
-                    parts = []
+                    sys_text = "".join(item.get("text", "") for item in raw_content if isinstance(item, dict) and item.get("type") == "text")
+                else:
+                    sys_text = str(raw_content or "")
+                if sys_text.strip():
+                    system_instruction = {"parts": [{"text": sys_text.strip()}]}
+            elif role == "user":
+                parts = []
+                if isinstance(raw_content, list):
                     for item in raw_content:
                         if item.get("type") == "text":
-                            parts.append({"text": item.get("text", "")})
+                            t = item.get("text", "")
+                            if t and t.strip():
+                                parts.append({"text": t})
                         elif item.get("type") == "image_url":
                             url = item.get("image_url", {}).get("url", "")
                             if "data:" in url and ";base64," in url:
                                 mime, b64 = url.split(";base64,")
                                 mime = mime.replace("data:", "")
                                 parts.append({"inline_data": {"mime_type": mime, "data": b64}})
-                    contents.append({"role": "user", "parts": parts})
                 else:
-                    contents.append({"role": "user", "parts": [{"text": str(raw_content)}]})
+                    txt = str(raw_content or "").strip()
+                    if txt:
+                        parts.append({"text": txt})
+                if parts:
+                    if contents and contents[-1]["role"] == "user":
+                        contents[-1]["parts"].extend(parts)
+                    else:
+                        contents.append({"role": "user", "parts": parts})
             elif role == "assistant":
-                contents.append({"role": "model", "parts": [{"text": str(raw_content)}]})
+                txt = ""
+                if isinstance(raw_content, list):
+                    txt = "".join(i.get("text", "") for i in raw_content if isinstance(i, dict)).strip()
+                else:
+                    txt = str(raw_content or "").strip()
+                if txt:
+                    parts = [{"text": txt}]
+                    if contents and contents[-1]["role"] == "model":
+                        contents[-1]["parts"].extend(parts)
+                    else:
+                        contents.append({"role": "model", "parts": parts})
+
+        # Gemini strictly requires the first turn to be 'user'
+        while contents and contents[0]["role"] != "user":
+            contents.pop(0)
+
+        # Gemini strictly requires non-empty contents
+        if not contents:
+            contents.append({"role": "user", "parts": [{"text": "你好"}]})
+
         return system_instruction, contents
 
     async def chat(

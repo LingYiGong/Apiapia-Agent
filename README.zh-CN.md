@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.30.0-indigo?style=flat-square" alt="Version"></a>
+  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.31.0-indigo?style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
@@ -224,7 +224,34 @@ cat backup_xxx.sql | docker exec -i apiapia_postgres psql -U postgres -d apiapia
 
 ## 📜 版本发布与更新说明 (Release Notes)
 
-### 🚀 最新版本：v2.30.0 (2026-10-19)
+### 🚀 最新版本：v2.31.0 (2026-10-19)
+
+本版本是一次聚焦于**多轮长对话时间线与截断修复、LLM Payload 归一化清洗管道、上下文 Token 预算扩充与 Prompt Caching 架构稳定**的重大加固版本。彻底解决了长对话时间线逆序与截断越界问题，确保所有模型服务商的角色严格交替（User/Assistant）规范，历史滑动窗口预算扩充至 24,576 tokens，并全面加固了 Anthropic、Gemini 与 OpenAI 的调用适配器。
+
+#### 1. 多轮长对话时间线与截断修复
+- **时间线逆序彻底修复**：解决 SQL 降序查询与预算截断双重倒序导致的“长对话发给模型逆序”Bug。现在历史严格以正序时间线送入大模型，超长时准确优先保留最新轮次，根治长对话模型“答非所问、记忆混乱”。
+- **首条 User 上下文边界保护**：在历史截断或清理后，自动剔除首条孤立的 assistant 回复，确保发送给所有大模型的上下文严格以用户问题为起点。
+- **异常中断消息过滤**：过滤掉因报错或中断残留的 `finish_reason == "error"` 及空内容消息，避免异常轮次污染后续对话上下文。
+
+#### 2. 对话滑动窗口预算扩充与大文档防挤占
+- **3 倍历史 Token 预算**：将默认上下文历史预算由 8,192 扩充至 24,576 tokens（`DEFAULT_MAX_CONTEXT_TOKENS`），大幅提升模型对多轮长代码与复杂推演的记忆跨度。
+- **历史文档单条上限保护**：针对历史带附件的对话，增加单篇文档 3,000 tokens 历史截断保护，防止单篇超长附件彻底吃满历史预算导致长对话上下文丢失。
+
+#### 3. 全局 LLM Payload 归一化清洗管道
+- **强制角色严格交替（User -> Assistant）**：在发送给所有 Provider 之前引入 `normalize_messages_payload` 清洗管道。自动合并重复连续的 user 消息（常见于连续重试、联网搜索增强或中断重发），彻底消除 OpenAI、Claude、Gemini 的 HTTP 400 Bad Request 校验错误。
+
+#### 4. Prompt Caching 架构优化与类型安全保护
+- **System 上下文安全追加机制**：引入 `append_system_context` 替代直接字符串 `+=`，彻底解决 Python 原生 `list += str` 将提示词按字符切碎并崩溃的严重隐患，确保 Claude Prompt Caching 稳定生效。
+- **Anthropic 适配器列表 System 兼容**：重写 `_prepare_messages`，既原生支持带 `cache_control` 的列表型 System prompt，又确保用户侧 cache markers 完整透传。
+
+#### 5. 多模型 Provider 适配器加固
+- **Gemini**：增加空 Part 过滤与连续同角色合并，确保 Google GenAI 规范兼容。
+- **OpenAI & 推理模型**：针对 `o3`、`o3-mini` 自动转换为 `developer` 角色；修正 DeepSeek-R1 参数传递，保留 `temperature` 并避免传递不兼容的 `reasoning_effort`。
+- **联网检索评估器**：修复意图提取时历史顺序颠倒的问题，确保联网搜索主题提取始终基于用户最新提问意图。
+
+---
+
+### v2.30.0 (2026-10-19)
 
 本版本是一次聚焦于**默认模型单一信任源架构重构、旗舰推理模型升级与智能翻译记忆隔离**的重要版本。彻底收敛了此前分散在多处的默认模型硬编码配置，落地了开箱即用的 NVIDIA 550B 开源旗舰推理模型，并修复了单轮翻译模式下记忆检索冗余传递的问题。
 

@@ -46,7 +46,9 @@ from app.services.context_manager import (
     sanitize_untrusted_content,
     assemble_quoted_reply_prompt,
     truncate_conversation_history_by_budget,
+    normalize_messages_payload,
     apply_prompt_cache_markers,
+    append_system_context,
 )
 
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -400,15 +402,17 @@ async def chat_stream(
     if getattr(chat_req, "single_turn_mode", False):
         recent_msgs = []
     else:
-        # Read up to 50 raw messages, then dynamically truncate to a token budget (e.g. 8192 tokens)
+        # Read up to 100 raw messages, then dynamically truncate to a token budget (e.g. 24576 tokens)
         msg_stmt = (
             select(Message)
             .where(Message.conversation_id == conv_id)
             .order_by(Message.created_at.desc())
-            .limit(50)
+            .limit(100)
         )
         raw_recent_msgs = (await db.execute(msg_stmt)).scalars().all()
-        recent_msgs = truncate_conversation_history_by_budget(raw_recent_msgs, max_tokens=8192)
+        # SQL DESC returns newest-first; reverse to chronological order (oldest -> newest)
+        chronological_raw_msgs = list(reversed(raw_recent_msgs))
+        recent_msgs = truncate_conversation_history_by_budget(chronological_raw_msgs, max_tokens=24576)
 
     # 5.1 本地确定性事实核验（数字比大小、字符清点、算术与日期天数差）
     deterministic_context_str = evaluate_deterministic_context(full_user_text)
@@ -474,7 +478,12 @@ async def chat_stream(
             rehydrated_docs_by_msg_key[key] = msg_docs
 
     for msg in recent_msgs:
+        # Skip failed assistant responses to prevent LLM error hallucination
+        finish_reason = getattr(msg, "finish_reason", None)
         cleaned_content = msg.content or ""
+        if finish_reason == "error" or cleaned_content.startswith("**❌ 模型调用失败"):
+            continue
+
         # Strip historical <think>...</think> blocks to avoid polluting context and blowing token budgets
         if "<think>" in cleaned_content:
             cleaned_content = re.sub(r"<think>[\s\S]*?</think>", "", cleaned_content).strip()
@@ -516,9 +525,10 @@ async def chat_stream(
             if cleaned_content:
                 messages_payload.append({"role": msg.role, "content": cleaned_content})
 
+    safe_user_text = (full_user_text or "").strip() or (chat_req.message or "").strip()
     if parsed_images:
         user_content: List[Dict[str, Any]] = [
-            {"type": "text", "text": full_user_text or "请分析此图片。"}
+            {"type": "text", "text": safe_user_text or "请分析此图片。"}
         ]
         for img in parsed_images:
             user_content.append({
@@ -527,10 +537,7 @@ async def chat_stream(
             })
         messages_payload.append({"role": "user", "content": user_content})
     else:
-        messages_payload.append({"role": "user", "content": full_user_text})
-
-    # Apply prompt caching optimizations (Anthropic cache_control, DeepSeek prefixes)
-    messages_payload = apply_prompt_cache_markers(messages_payload, provider=provider_name)
+        messages_payload.append({"role": "user", "content": safe_user_text or "请继续"})
 
     # 7. Save current user message to DB
     user_created_at = datetime.now(timezone.utc)
@@ -692,10 +699,7 @@ async def chat_stream(
 
                     # Provide system context about generated image so LLM can explain or converse about it
                     img_context_hint = f"\n\n【🎨 AI生图系统通知】已成功生成画作（提示词: {img_prompt}，引擎: {img_provider} · {img_model}）。图片已由前端卡片渲染。请针对用户的原始输入进行自然、得体的说明或继续完成用户要求的故事/文案等要求。"
-                    if messages_payload and messages_payload[0].get("role") == "system":
-                        messages_payload[0]["content"] += img_context_hint
-                    else:
-                        messages_payload.insert(0, {"role": "system", "content": img_context_hint})
+                    append_system_context(messages_payload, img_context_hint)
 
                 except Exception as ie:
                     logger.warning("Image generation service failed: %s", str(ie))
@@ -704,8 +708,7 @@ async def chat_stream(
                         tool_invocations[-1]["state"] = "result"
                         tool_invocations[-1]["result"] = {"error": str(ie)}
                     err_hint = f"\n\n【🎨 AI生图失败提示】生图失败: {str(ie)}。请在回答中向用户说明原因并给出建议。"
-                    if messages_payload and messages_payload[0].get("role") == "system":
-                        messages_payload[0]["content"] += err_hint
+                    append_system_context(messages_payload, err_hint)
 
             # 1.5 Check and execute AI Video Generation if requested
             if need_video_gen and video_prompt:
@@ -713,10 +716,7 @@ async def chat_stream(
                     tool_call_id = f"vid_{int(time.time() * 1000)}"
                     yield f"data: {json.dumps({'type': 'tool_result', 'toolCallId': tool_call_id, 'result': {'error': '体验模式账号暂不支持使用视频生成功能'}}, ensure_ascii=False)}\n\n"
                     vid_err_hint = "\n\n【🎬 AI视频生成提示】当前账号处于体验模式，暂不支持使用 AI 视频生成功能。请向用户委婉说明该权限需联系管理员开通。"
-                    if messages_payload and messages_payload[0].get("role") == "system":
-                        messages_payload[0]["content"] += vid_err_hint
-                    else:
-                        messages_payload.insert(0, {"role": "system", "content": vid_err_hint})
+                    append_system_context(messages_payload, vid_err_hint)
                 else:
                     tool_call_id = f"vid_{int(time.time() * 1000)}"
                     logger.info("Executing video generation for prompt: '%s' (aspect_ratio=%s)", video_prompt, video_ratio)
@@ -762,10 +762,7 @@ async def chat_stream(
                             tool_invocations[-1]["result"] = {"prompt": video_prompt, "model": vid_model, "provider": vid_provider, "videoId": video_id}
 
                         vid_context_hint = f"\n\n【🎬 AI视频生成系统通知】已成功生成视频（提示词: {video_prompt}，模型: {vid_provider} · {vid_model}）。视频已由前端播放器卡片渲染。请针对用户的原始请求进行得体友好的说明或继续提供相关建议。"
-                        if messages_payload and messages_payload[0].get("role") == "system":
-                            messages_payload[0]["content"] += vid_context_hint
-                        else:
-                            messages_payload.insert(0, {"role": "system", "content": vid_context_hint})
+                        append_system_context(messages_payload, vid_context_hint)
 
                     except Exception as ve:
                         logger.warning("Video generation service failed: %s", str(ve))
@@ -774,8 +771,7 @@ async def chat_stream(
                             tool_invocations[-1]["state"] = "result"
                             tool_invocations[-1]["result"] = {"error": str(ve)}
                         vid_err_hint = f"\n\n【🎬 AI视频生成失败提示】视频生成失败: {str(ve)}。请在回答中向用户说明原因并给出建议。"
-                        if messages_payload and messages_payload[0].get("role") == "system":
-                            messages_payload[0]["content"] += vid_err_hint
+                        append_system_context(messages_payload, vid_err_hint)
 
             # 2. Check and execute automatic search before streaming LLM tokens
             if need_search and (search_query or search_queries):
@@ -876,10 +872,7 @@ async def chat_stream(
                         )
                     search_context_str = "\n".join(search_lines)
 
-                    if messages_payload and messages_payload[0].get("role") == "system":
-                        messages_payload[0]["content"] += search_context_str
-                    else:
-                        messages_payload.insert(0, {"role": "system", "content": search_context_str})
+                    append_system_context(messages_payload, search_context_str)
 
             # 3. First send metadata chunk containing conversation_id and retrieved memories
             meta_chunk = {
@@ -913,6 +906,10 @@ async def chat_stream(
                 extra_llm_kwargs["max_tokens"] = chat_req.max_tokens
             if chat_req.reasoning_effort:
                 extra_llm_kwargs["reasoning_effort"] = chat_req.reasoning_effort
+
+            # Strict normalization (alternating roles, user-first, non-empty) and prompt caching
+            messages_payload = normalize_messages_payload(messages_payload)
+            messages_payload = apply_prompt_cache_markers(messages_payload, provider=provider_name)
 
             token_iter = provider.chat(
                 messages=messages_payload,

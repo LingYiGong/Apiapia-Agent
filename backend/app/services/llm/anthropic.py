@@ -31,19 +31,28 @@ class AnthropicProvider(LLMProvider):
         }
 
     def _prepare_messages(self, messages: List[Dict[str, Any]]):
-        system_content = ""
+        system_content: Any = ""
         clean_messages = []
         for msg in messages:
             role = msg.get("role")
             content = msg.get("content", "")
             if role == "system":
-                system_content += f"\n{str(content)}"
+                if isinstance(content, list):
+                    system_content = content
+                elif isinstance(system_content, list):
+                    system_content.append({"type": "text", "text": str(content or "")})
+                else:
+                    system_content = f"{system_content}\n{str(content or '')}".strip()
             elif role in ["user", "assistant"]:
                 if isinstance(content, list):
                     clean_parts = []
                     for item in content:
                         if item.get("type") == "text":
-                            clean_parts.append({"type": "text", "text": item.get("text", "")})
+                            txt = item.get("text", "") or " "
+                            part = {"type": "text", "text": txt}
+                            if "cache_control" in item:
+                                part["cache_control"] = item["cache_control"]
+                            clean_parts.append(part)
                         elif item.get("type") == "image_url":
                             url = item.get("image_url", {}).get("url", "")
                             if "data:" in url and ";base64," in url:
@@ -57,10 +66,39 @@ class AnthropicProvider(LLMProvider):
                                         "data": b64
                                     }
                                 })
-                    clean_messages.append({"role": role, "content": clean_parts})
+                    if clean_parts:
+                        clean_messages.append({"role": role, "content": clean_parts})
                 else:
-                    clean_messages.append({"role": role, "content": str(content)})
-        return system_content.strip(), clean_messages
+                    txt = str(content) if content else " "
+                    clean_messages.append({"role": role, "content": txt})
+
+        # Anthropic requires the first message to be 'user'
+        while clean_messages and clean_messages[0]["role"] == "assistant":
+            clean_messages.pop(0)
+
+        # Merge consecutive messages of the same role to strictly satisfy Anthropic role alternation
+        merged_messages: List[Dict[str, Any]] = []
+        for m in clean_messages:
+            if not merged_messages:
+                merged_messages.append(m)
+                continue
+            if merged_messages[-1]["role"] == m["role"]:
+                prev = merged_messages[-1]
+                p_c = prev["content"]
+                m_c = m["content"]
+                if isinstance(p_c, str) and isinstance(m_c, str):
+                    prev["content"] = f"{p_c}\n\n{m_c}".strip()
+                else:
+                    p_parts = p_c if isinstance(p_c, list) else [{"type": "text", "text": str(p_c)}]
+                    m_parts = m_c if isinstance(m_c, list) else [{"type": "text", "text": str(m_c)}]
+                    prev["content"] = p_parts + m_parts
+            else:
+                merged_messages.append(m)
+
+        if not merged_messages:
+            merged_messages.append({"role": "user", "content": " "})
+
+        return system_content, merged_messages
 
     def _build_request(
         self,

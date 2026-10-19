@@ -1,12 +1,12 @@
 {
-  "version": "2.30.0",
-  "buildTime": "2026-10-19T11:20:00Z",
-  "title": "v2.30.0 默认模型单一配置源重构、Nemotron 3 Ultra 升级与翻译记忆隔离",
+  "version": "2.31.0",
+  "buildTime": "2026-10-19T13:30:00Z",
+  "title": "v2.31.0 多轮长对话时间线与截断修复、LLM Payload 归一化及 Prompt Caching 升级",
   "changelog": [
-    "默认模型单一配置源（SSOT）架构重构：彻底消除全代码库中分散硬编码的默认模型 ID，收敛至全局唯一配置项（.env 或 config.py 中的 DEFAULT_MODEL），全链路动态下发与解耦",
-    "自选模型优先与动态继承机制：user_settings.default_model 改为允许为 NULL；用户在设置面板自定义模型始终优先，未自定义时无缝继承全局默认，部署端切换默认配置时存量与新用户即时生效",
-    "全局默认模型升级为 NVIDIA Nemotron 3 Ultra：开箱默认接入 550B 参数开源旗舰前沿推理模型（nvidia/nemotron-3-ultra-550b-a55b:free），全面提升逻辑规划与复杂推理上限",
-    "前端模型列表动态置顶：前端根据后端返回的 is_default 标记动态对默认模型进行置顶与回退，消除客户端硬编码",
-    "智能翻译模式记忆传递修复：翻译与词汇模式下支持单轮记忆隔离（single_turn_mode），防止个人长期记忆污染专业翻译输出并节省大量上下文开销"
+    "多轮长对话时间线与截断修复：彻底解决 SQL 降序与预算截断双重倒序导致的对话逆序问题，确保长对话优先保留最新上下文，截断首条自动保证为 User 提问",
+    "对话滑动窗口预算扩充：历史默认 Token 预算由 8,192 提升至 24,576 tokens，为历史附件文档增加单条上限保护，杜绝长文档挤占历史导致长对话失忆",
+    "全局 LLM Payload 归一化清洗管道：在调用大模型前强制校验角色严格交替（User/Assistant/Model）与首条 User 规范，消除重新生成与异常中断导致的连续 User 消息 400 报错",
+    "Prompt Caching 架构优化与类型安全保护：重构 System 上下文安全追加机制，彻底消除 Python list += str 导致的提示词单字符解构崩溃，恢复 Claude 缓存生效",
+    "多模型 Provider 适配器加固：Gemini 增加空 Part 过滤与连续同角色合并，OpenAI 补齐 o3/o3-mini 的 developer role 适配并修正 DeepSeek-R1 参数传递"
   ]
 }

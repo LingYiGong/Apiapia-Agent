@@ -132,8 +132,15 @@ def _extract_topic_from_recent_messages(recent_messages: Optional[List[Any]]) ->
     if not recent_messages:
         return ""
 
+    msgs = list(recent_messages)
+    if len(msgs) > 1:
+        f_created = getattr(msgs[0], "created_at", None)
+        l_created = getattr(msgs[-1], "created_at", None)
+        if f_created and l_created and f_created > l_created:
+            msgs.reverse()
+
     # 1. 优先寻找倒数最近的一条 user 消息
-    for m in reversed(recent_messages):
+    for m in reversed(msgs):
         role = getattr(m, "role", None) or (m.get("role") if isinstance(m, dict) else "")
         if role == "user":
             content = getattr(m, "content", None) or (m.get("content") if isinstance(m, dict) else "")
@@ -302,7 +309,13 @@ async def evaluate_and_generate_search_query(
     # 准备历史对话摘要上下文（取最近 4 条）
     history_snippets = []
     if recent_messages:
-        for m in recent_messages[-4:]:
+        msgs = list(recent_messages)
+        if len(msgs) > 1:
+            f_created = getattr(msgs[0], "created_at", None)
+            l_created = getattr(msgs[-1], "created_at", None)
+            if f_created and l_created and f_created > l_created:
+                msgs.reverse()
+        for m in msgs[-4:]:
             role = getattr(m, "role", None) or (m.get("role") if isinstance(m, dict) else "unknown")
             content = getattr(m, "content", None) or (m.get("content") if isinstance(m, dict) else "")
             if isinstance(content, str) and content.strip():

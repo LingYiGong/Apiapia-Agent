@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.30.0-indigo?style=flat-square" alt="Version"></a>
+  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.31.0-indigo?style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
@@ -225,7 +225,34 @@ cat backup_xxx.sql | docker exec -i apiapia_postgres psql -U postgres -d apiapia
 
 ## 📜 Releases & Changelog
 
-### 🚀 Latest Release: v2.30.0 (2026-10-19)
+### 🚀 Latest Release: v2.31.0 (2026-10-19)
+
+This release focuses on **multi-turn and long conversation timeline integrity, LLM payload normalization, expanded context token budgets, and prompt caching architecture stabilization**. It resolves chronological inversion and context truncation issues in multi-turn chats, guarantees strictly alternating user/assistant message roles across all model providers, expands token history budget to 24,576 tokens, and hardens Anthropic, Gemini, and OpenAI provider adapters.
+
+#### 1. Multi-Turn & Long Conversation Timeline & Context Truncation Fixes
+- **Chronological timeline inversion fix**: Resolved a double-reversal bug where SQL descending order combined with token budgeting reversed conversation history, causing long chats to send messages backwards and drop newest turns first. History is now strictly chronological, prioritizing the most recent context.
+- **User-first context boundary**: Automatically strips leading assistant messages when conversation history is truncated by token budget, ensuring conversation context starts cleanly with a user query.
+- **Poisoned turn filtering**: Filtered out messages with `finish_reason == "error"` or empty contents to prevent failed/cancelled turns from polluting subsequent context.
+
+#### 2. Expanded Conversation Token Budget & Large Document Guard
+- **3x history token budget**: Increased the sliding window history token budget from 8,192 to 24,576 tokens (`DEFAULT_MAX_CONTEXT_TOKENS`), allowing models to retain much longer conversational memory.
+- **Document history cap**: Added a 3,000 token single-document cap for historical turns to prevent large document attachments from monopolizing the context budget and crowding out conversational dialogue.
+
+#### 3. Global LLM Payload Normalization Pipeline
+- **Strict role alternation (`user` -> `assistant`)**: Added `normalize_messages_payload` before all model provider dispatches. Merges consecutive `user` turns (e.g. from regenerations or search augmentations) and drops orphan assistant messages, eliminating HTTP 400 payload errors across OpenAI, Claude, and Gemini.
+
+#### 4. Prompt Caching Architecture Optimization & Type Safety
+- **Safe system prompt concatenation**: Replaced string in-place addition on list-based system prompts with `append_system_context`, completely eliminating Python `list += str` character-splitting issues and restoring Anthropic prompt caching reliability.
+- **Anthropic provider caching preservation**: Updated `_prepare_messages` to handle structured list system prompts without string serialization mangling while preserving ephemeral cache control markers.
+
+#### 5. Multi-Provider Adapter Hardening
+- **Gemini**: Added empty parts filtering and combined adjacent same-role messages into unified contents.
+- **OpenAI & Reasoning Models**: Added `developer` role conversion for `o3` and `o3-mini`, and corrected DeepSeek-R1 handling to retain `temperature` and omit unsupported `reasoning_effort`.
+- **Search evaluator**: Corrected message ordering in topic extraction so search queries accurately reflect the user's latest conversation intent.
+
+---
+
+### v2.30.0 (2026-10-19)
 
 This release focuses on **Single Source of Truth (SSOT) architecture refactoring for default models, default model upgrade to NVIDIA Nemotron 3 Ultra, and memory retrieval isolation for Smart Translate**. It eliminates scattered hardcoded model ID strings across the entire codebase, ships NVIDIA's 550B open-weight frontier reasoning model out of the box, and ensures single-turn translate mode does not carry redundant conversational memory.
 

@@ -40,12 +40,12 @@ class OpenAIProvider(LLMProvider):
     ) -> AsyncGenerator[str, None]:
         # Adapt messages for o1 / o3 reasoning models (they prefer 'developer' role instead of 'system')
         model_lower = model.lower()
-        is_reasoning_model = any(k in model_lower for k in ["o1", "o3", "o3-mini", "r1"])
+        is_openai_reasoning = any(k in model_lower for k in ["o1", "o3", "o3-mini"])
 
         prepared_messages = []
         for msg in messages:
             role = msg.get("role")
-            if is_reasoning_model and role == "system" and "o1" in model_lower:
+            if is_openai_reasoning and role == "system":
                 prepared_messages.append({**msg, "role": "developer"})
             else:
                 prepared_messages.append(msg)
@@ -58,7 +58,7 @@ class OpenAIProvider(LLMProvider):
         }
 
         # OpenAI o1/o3 models do not accept standard 'temperature', and instead accept reasoning_effort
-        if not is_reasoning_model:
+        if not is_openai_reasoning:
             create_kwargs["temperature"] = temperature
         else:
             if "reasoning_effort" in kwargs and kwargs["reasoning_effort"]:
@@ -154,13 +154,29 @@ class OpenAIProvider(LLMProvider):
         temperature: float = 0.7,
         **kwargs
     ) -> str:
-        response = await self.client.chat.completions.create(
-            model=model,
-            messages=messages,
-            stream=False,
-            temperature=temperature,
+        model_lower = model.lower()
+        is_openai_reasoning = any(k in model_lower for k in ["o1", "o3", "o3-mini"])
+        prepared_messages = []
+        for msg in messages:
+            role = msg.get("role")
+            if is_openai_reasoning and role == "system":
+                prepared_messages.append({**msg, "role": "developer"})
+            else:
+                prepared_messages.append(msg)
+
+        create_kwargs = {
+            "model": model,
+            "messages": prepared_messages,
+            "stream": False,
             **kwargs
-        )
+        }
+        if not is_openai_reasoning:
+            create_kwargs["temperature"] = temperature
+        else:
+            if "reasoning_effort" in kwargs and kwargs["reasoning_effort"]:
+                create_kwargs["reasoning_effort"] = kwargs["reasoning_effort"]
+
+        response = await self.client.chat.completions.create(**create_kwargs)
         if getattr(response, "model", None):
             self.last_model = response.model
         if response.choices:

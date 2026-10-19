@@ -13,7 +13,7 @@ from typing import List, Dict, Any, Optional
 logger = logging.getLogger("context_manager")
 
 # Standard context budgets (in estimated tokens)
-DEFAULT_MAX_HISTORY_TOKENS = 8192
+DEFAULT_MAX_HISTORY_TOKENS = 24576
 DEFAULT_MAX_SYSTEM_TOKENS = 4096
 
 
@@ -69,16 +69,35 @@ def truncate_conversation_history_by_budget(
 ) -> List[Any]:
     """
     Select recent conversation messages backwards within a token budget rather than
-    a rigid item count. Always preserves the newest messages.
+    a rigid item count. Always preserves the newest messages in chronological order.
+    Guarantees:
+    1. Input order is normalized to chronological (oldest -> newest).
+    2. Token budget iterates from newest to oldest so the most recent turns are kept.
+    3. Trailing system errors or failed messages are filtered out.
+    4. Truncated result always begins with a 'user' turn (orphaned assistant turns are dropped).
     """
     if not messages:
         return []
 
+    # 1. Normalize input to chronological order (oldest -> newest)
+    sorted_messages = list(messages)
+    if len(sorted_messages) > 1:
+        first_created = getattr(sorted_messages[0], "created_at", None)
+        last_created = getattr(sorted_messages[-1], "created_at", None)
+        if first_created and last_created and first_created > last_created:
+            sorted_messages.reverse()
+
     collected = []
     budget_used = 0
 
-    # Iterate from newest to oldest
-    for msg in reversed(messages):
+    # 2. Iterate backwards from newest to oldest to accumulate token budget
+    for msg in reversed(sorted_messages):
+        # Filter out backend error messages or abort messages with error prefixes
+        finish_reason = getattr(msg, "finish_reason", None) if not isinstance(msg, dict) else msg.get("finish_reason")
+        content_str = str(getattr(msg, "content", "") if not isinstance(msg, dict) else msg.get("content", ""))
+        if finish_reason == "error" or content_str.startswith("**❌ 模型调用失败"):
+            continue
+
         content = getattr(msg, "content", "") if not isinstance(msg, dict) else msg.get("content", "")
         if isinstance(content, list):
             # Multimodal content
@@ -96,7 +115,9 @@ def truncate_conversation_history_by_budget(
                         for att in parsed_atts:
                             if isinstance(att, dict):
                                 if att.get("type") == "document" and att.get("text"):
-                                    msg_tokens += estimate_token_count(att["text"])
+                                    # Cap historical document token estimation to 3000 tokens so older docs don't choke the window
+                                    doc_tokens = estimate_token_count(att["text"])
+                                    msg_tokens += min(doc_tokens, 3000)
                                 elif att.get("type") != "document":
                                     msg_tokens += 800
                 except Exception:
@@ -110,14 +131,102 @@ def truncate_conversation_history_by_budget(
         budget_used += msg_tokens
         collected.append(msg)
 
+    # 3. Restore chronological order (oldest -> newest)
     collected.reverse()
+
+    # 4. Drop leading assistant turn if budget cut off its user prompt
+    while collected:
+        first_role = getattr(collected[0], "role", None) if not isinstance(collected[0], dict) else collected[0].get("role")
+        if first_role == "assistant":
+            collected.pop(0)
+        else:
+            break
+
     return collected
+
+
+def _merge_message_contents(prev_content: Any, curr_content: Any) -> Any:
+    """Intelligently merge two message contents of the same role."""
+    if isinstance(prev_content, str) and isinstance(curr_content, str):
+        return f"{prev_content}\n\n{curr_content}".strip()
+
+    prev_parts = prev_content if isinstance(prev_content, list) else [{"type": "text", "text": str(prev_content or "")}]
+    curr_parts = curr_content if isinstance(curr_content, list) else [{"type": "text", "text": str(curr_content or "")}]
+    return prev_parts + curr_parts
+
+
+def normalize_messages_payload(messages_payload: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Ensure the assembled messages payload strictly complies with all major LLM provider requirements:
+    1. System prompt(s) come first.
+    2. First non-system dialogue message must have role 'user'.
+    3. Roles strictly alternate ('user' -> 'assistant' -> 'user'). Consecutive messages of the
+       same role (e.g. from user regeneration or prior aborted turn) are cleanly merged.
+    4. Non-empty guarantee: empty text messages are given a neutral fallback to avoid 400 errors.
+    """
+    if not messages_payload:
+        return []
+
+    system_msgs: List[Dict[str, Any]] = []
+    dialogue_msgs: List[Dict[str, Any]] = []
+
+    for msg in messages_payload:
+        role = msg.get("role")
+        if role == "system":
+            system_msgs.append(msg)
+        elif role in ("user", "assistant"):
+            dialogue_msgs.append(msg)
+
+    # If multiple system messages exist, merge their contents
+    merged_system: Optional[Dict[str, Any]] = None
+    if system_msgs:
+        all_sys_texts = []
+        for sm in system_msgs:
+            c = sm.get("content")
+            if isinstance(c, str):
+                all_sys_texts.append(c)
+            elif isinstance(c, list):
+                text_parts = [item.get("text", "") for item in c if isinstance(item, dict) and item.get("type") == "text"]
+                all_sys_texts.append("".join(text_parts))
+        merged_system = {"role": "system", "content": "\n\n".join(t for t in all_sys_texts if t.strip())}
+
+    # Dialogue must start with 'user'
+    while dialogue_msgs and dialogue_msgs[0].get("role") == "assistant":
+        dialogue_msgs.pop(0)
+
+    # Merge consecutive messages of the same role
+    normalized_dialogue: List[Dict[str, Any]] = []
+    for msg in dialogue_msgs:
+        role = msg.get("role")
+        content = msg.get("content")
+
+        # Ensure content is not empty
+        if not content or (isinstance(content, str) and not content.strip()) or (isinstance(content, list) and not content):
+            content = " "
+
+        msg_copy = {**msg, "content": content}
+
+        if not normalized_dialogue:
+            normalized_dialogue.append(msg_copy)
+            continue
+
+        prev = normalized_dialogue[-1]
+        if prev.get("role") == role:
+            prev["content"] = _merge_message_contents(prev.get("content"), msg_copy.get("content"))
+        else:
+            normalized_dialogue.append(msg_copy)
+
+    result = []
+    if merged_system:
+        result.append(merged_system)
+    result.extend(normalized_dialogue)
+    return result
 
 
 def apply_prompt_cache_markers(messages_payload: List[Dict[str, Any]], provider: str) -> List[Dict[str, Any]]:
     """
     Add prompt caching annotations for providers that support them (Anthropic Claude, DeepSeek).
-    For Anthropic: cache_control = {"type": "ephemeral"} on system prompt and large documents.
+    For Anthropic: cache_control = {"type": "ephemeral"} on system prompt and the second-to-last user message.
     """
     if not messages_payload:
         return messages_payload
@@ -128,7 +237,6 @@ def apply_prompt_cache_markers(messages_payload: List[Dict[str, Any]], provider:
         # Anthropic caching: attach cache_control to system message and the second-to-last user message
         for i, msg in enumerate(messages_payload):
             if msg.get("role") == "system":
-                # Convert string system prompt to cacheable content block
                 content = msg.get("content")
                 if isinstance(content, str) and len(content) > 1024:
                     msg["content"] = [
@@ -139,7 +247,6 @@ def apply_prompt_cache_markers(messages_payload: List[Dict[str, Any]], provider:
                         }
                     ]
             elif i == len(messages_payload) - 2 and msg.get("role") == "user":
-                # Cache conversation turn prefix
                 content = msg.get("content")
                 if isinstance(content, str) and len(content) > 500:
                     msg["content"] = [
@@ -149,4 +256,28 @@ def apply_prompt_cache_markers(messages_payload: List[Dict[str, Any]], provider:
                             "cache_control": {"type": "ephemeral"}
                         }
                     ]
+                elif isinstance(content, list):
+                    for part in reversed(content):
+                        if isinstance(part, dict) and part.get("type") == "text":
+                            part["cache_control"] = {"type": "ephemeral"}
+                            break
     return messages_payload
+
+
+def append_system_context(messages_payload: List[Dict[str, Any]], extra_text: str) -> None:
+    """Safely append extra context to the system message without triggering Python list += str type corruption."""
+    if not extra_text or not extra_text.strip():
+        return
+    if messages_payload and messages_payload[0].get("role") == "system":
+        cur = messages_payload[0].get("content")
+        if isinstance(cur, list):
+            for part in cur:
+                if isinstance(part, dict) and part.get("type") == "text":
+                    part["text"] = (part.get("text") or "") + extra_text
+                    return
+            cur.append({"type": "text", "text": extra_text})
+        else:
+            messages_payload[0]["content"] = (str(cur) if cur else "") + extra_text
+    else:
+        messages_payload.insert(0, {"role": "system", "content": extra_text})
+

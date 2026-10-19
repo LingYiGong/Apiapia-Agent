@@ -257,7 +257,12 @@ async def chat_stream(
     )
     model_to_use = chat_req.model or (user_settings.default_model if user_settings else app_settings.DEFAULT_MODEL)
     temperature = chat_req.temperature if chat_req.temperature is not None else (user_settings.temperature if user_settings else 0.7)
-    use_memory = chat_req.memory_enabled if chat_req.memory_enabled is not None else (user_settings.memory_enabled if user_settings else True)
+    # For single-turn tasks (e.g. translation, vocab tutor), memory should be disabled
+    # by default unless the caller explicitly sets memory_enabled=True.
+    if getattr(chat_req, "single_turn_mode", False):
+        use_memory = bool(chat_req.memory_enabled) if chat_req.memory_enabled is not None else False
+    else:
+        use_memory = chat_req.memory_enabled if chat_req.memory_enabled is not None else (user_settings.memory_enabled if user_settings else True)
     memory_score_thresh = chat_req.memory_score_threshold if chat_req.memory_score_threshold is not None else 0.35
     selected_image_model = user_settings.image_model if user_settings else None
     selected_video_model = user_settings.video_model if user_settings else None

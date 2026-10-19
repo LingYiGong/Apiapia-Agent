@@ -92,6 +92,17 @@ def should_retrieve_memories(query: str) -> bool:
     text = (query or "").strip().lower()
     if not text:
         return False
+    # Explicitly generic, self-contained requests normally gain nothing from
+    # personal memory (translation, syntax, arithmetic, etc.), unless explicitly
+    # asking to adapt to personal preferences or style.
+    generic_markers = ("翻译", "translate", "怎么写", "语法", "syntax", "定义", "what is")
+    preference_override_markers = (
+        "偏好", "习惯", "根据我", "按我的", "我的风格", "my preference", "my style", "remember", "记得"
+    )
+    if any(marker in text for marker in generic_markers):
+        if not any(pref in text for pref in preference_override_markers):
+            return False
+
     personal_markers = (
         "我", "我的", "我之前", "记得", "偏好", "喜欢", "不喜欢", "习惯",
         "计划", "项目", "推荐", "适合我", "根据我的", "my ", " i ",
@@ -100,11 +111,6 @@ def should_retrieve_memories(query: str) -> bool:
     # Questions framed around personal context should always use memory.
     if any(marker in text for marker in personal_markers):
         return True
-    # Explicitly generic, self-contained requests normally gain nothing from
-    # personal memory (translation, syntax, arithmetic, etc.).
-    generic_markers = ("翻译", "translate", "怎么写", "语法", "syntax", "定义", "what is")
-    if any(marker in text for marker in generic_markers):
-        return False
     # Ambiguous requests are worth a lookup; this keeps recall conservative.
     return True
 

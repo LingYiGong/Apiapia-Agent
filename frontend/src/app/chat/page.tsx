@@ -16,6 +16,7 @@ import { SettingsView } from "@/components/settings/SettingsView";
 import { toast } from "sonner";
 import { notifyModelSyncResult } from "@/lib/feedback";
 import { useI18n } from "@/i18n";
+import { buildVocabTutorPrompt } from "@/config/personas";
 import { useRefreshOnResume } from "@/hooks/useRefreshOnResume";
 import { useWakeLock } from "@/hooks/useWakeLock";
 import { useWebSearchMode } from "@/hooks/useWebSearchMode";
@@ -116,7 +117,7 @@ export default function ChatPage({
 }) {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -902,21 +903,44 @@ export default function ChatPage({
         }
       }, 20);
 
+      const isTranslate = isTranslateModeRef.current;
+      const effectiveSystemPrompt =
+        extraOptions?.systemPromptOverride !== undefined
+          ? extraOptions.systemPromptOverride
+          : isTranslate
+          ? buildVocabTutorPrompt(vocabTargetLangRef.current, locale)
+          : undefined;
+      const effectiveSingleTurn =
+        extraOptions?.singleTurnMode !== undefined
+          ? extraOptions.singleTurnMode
+          : isTranslate
+          ? true
+          : undefined;
+      const effectiveMemoryEnabled =
+        extraOptions?.memoryEnabled !== undefined
+          ? extraOptions.memoryEnabled
+          : isTranslate
+          ? false
+          : memoryEnabled;
+      const effectiveWebSearchMode =
+        extraOptions?.webSearchMode ||
+        (isTranslate ? "off" : webSearch.modeRef.current);
+
       try {
         await streamChatResponse(
           {
             conversation_id: activeId || undefined,
             message: text,
             model: effectiveModel,
-            memory_enabled: extraOptions?.memoryEnabled !== undefined ? extraOptions.memoryEnabled : memoryEnabled,
-            single_turn_mode: extraOptions?.singleTurnMode,
-            web_search_mode: extraOptions?.webSearchMode || webSearch.modeRef.current,
+            memory_enabled: effectiveMemoryEnabled,
+            single_turn_mode: effectiveSingleTurn,
+            web_search_mode: effectiveWebSearchMode,
             image_gen_mode: extraOptions?.imageGenMode,
             video_gen_mode: extraOptions?.videoGenMode,
             attachments: attachments && attachments.length > 0 ? attachments : undefined,
             quoted_message_id: extraOptions?.quotedMessageId,
             quoted_content: extraOptions?.quotedContent,
-            system_prompt_override: extraOptions?.systemPromptOverride,
+            system_prompt_override: effectiveSystemPrompt,
             reasoning_effort: extraOptions?.reasoningEffort,
             max_tokens: extraOptions?.maxTokens,
           },
@@ -1055,7 +1079,7 @@ export default function ChatPage({
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [activeId, currentModel, memoryEnabled]
+    [activeId, currentModel, memoryEnabled, locale]
   );
 
   const handleStopGenerating = () => {
@@ -1121,10 +1145,11 @@ export default function ChatPage({
         });
         truncatedOnServer = true;
         const cutIndex = before.findIndex((m) => m.id === messageId);
+        const originalUserMsg = cutIndex >= 0 ? before[cutIndex] : undefined;
         setMessages(
           cutIndex >= 0 ? before.slice(0, cutIndex) : before.filter((m) => m.id !== messageId)
         );
-        await handleSendMessage(clean);
+        await handleSendMessage(clean, originalUserMsg?.attachments);
       } catch (err: any) {
         if (!truncatedOnServer) {
           rollback();
@@ -1163,6 +1188,7 @@ export default function ChatPage({
         return;
       }
       const prompt = list[userIdx].content;
+      const attachments = list[userIdx].attachments;
 
       const rollback = () => setMessages(list);
 
@@ -1172,7 +1198,7 @@ export default function ChatPage({
           method: "DELETE",
         });
         setMessages(list.slice(0, idx));
-        await handleSendMessage(prompt);
+        await handleSendMessage(prompt, attachments);
       } catch (err: any) {
         rollback();
         toast.error(err.message || t("chat.errors.regenerateFailed"));

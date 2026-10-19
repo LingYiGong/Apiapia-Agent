@@ -21,7 +21,11 @@ from app.api.v1.deps import get_current_user
 from app.services.catalog import check_user_can_use_model, has_full_model_access
 from app.services.model_credentials import resolve_user_llm_credentials
 from app.services.llm.factory import get_llm_provider, detect_provider
-from app.services.memory.retrieval import retrieve_relevant_memories, should_retrieve_memories
+from app.services.memory.retrieval import (
+    retrieve_relevant_memories,
+    should_retrieve_memories,
+    enrich_query_with_conversation_context,
+)
 from app.services.memory.extraction import schedule_memory_extraction
 from app.services.memory.dreaming import schedule_dreaming
 from app.services.document_parser import parse_attachment, fetch_and_parse_url, extract_urls
@@ -376,28 +380,7 @@ async def chat_stream(
 
     full_user_text = "\n".join(user_text_parts) if user_text_parts else (chat_req.message or "")
 
-    # 4. Retrieve relevant long-term memories if enabled (with score threshold)
-    retrieved_memories = []
-    memory_context_str = ""
-    if use_memory:
-        clean_mem_msg = re.sub(r"https?://[^\s<>\"'()]+", "", chat_req.message or "").strip()
-        mem_query = clean_mem_msg if clean_mem_msg else (parsed_docs[0]['name'] if parsed_docs else "")
-        if mem_query and should_retrieve_memories(mem_query):
-            retrieved_memories, memory_context_str = await asyncio.to_thread(
-                retrieve_relevant_memories,
-                user_id=user_id,
-                query=mem_query,
-                limit=5,
-            )
-            # Filter low relevance memories by threshold if requested
-            if retrieved_memories and memory_score_thresh > 0:
-                filtered_mems = [m for m in retrieved_memories if m.get("score", 1.0) >= memory_score_thresh]
-                if len(filtered_mems) < len(retrieved_memories):
-                    retrieved_memories = filtered_mems
-                    if not retrieved_memories:
-                        memory_context_str = ""
-
-    # 5. Fetch recent conversation messages using Token-Budget Sliding Window
+    # 4. Fetch recent conversation messages using Token-Budget Sliding Window
     # When single_turn_mode is True (e.g., translation / vocab tutor), skip history context entirely
     if getattr(chat_req, "single_turn_mode", False):
         recent_msgs = []
@@ -413,6 +396,23 @@ async def chat_stream(
         # SQL DESC returns newest-first; reverse to chronological order (oldest -> newest)
         chronological_raw_msgs = list(reversed(raw_recent_msgs))
         recent_msgs = truncate_conversation_history_by_budget(chronological_raw_msgs, max_tokens=24576)
+
+    # 5. Retrieve relevant long-term memories if enabled (with score threshold & contextual enrichment)
+    retrieved_memories = []
+    memory_context_str = ""
+    if use_memory:
+        clean_mem_msg = re.sub(r"https?://[^\s<>\"'()]+", "", chat_req.message or "").strip()
+        base_query = clean_mem_msg if clean_mem_msg else (parsed_docs[0]['name'] if parsed_docs else "")
+        if base_query and should_retrieve_memories(base_query):
+            # Enrich query with preceding turn context if user input is short or uses pronouns
+            mem_query = enrich_query_with_conversation_context(base_query, recent_msgs)
+            retrieved_memories, memory_context_str = await asyncio.to_thread(
+                retrieve_relevant_memories,
+                user_id=user_id,
+                query=mem_query,
+                limit=5,
+                score_threshold=memory_score_thresh,
+            )
 
     # 5.1 本地确定性事实核验（数字比大小、字符清点、算术与日期天数差）
     deterministic_context_str = evaluate_deterministic_context(full_user_text)
@@ -594,6 +594,7 @@ async def chat_stream(
 
     # 7. SSE Streaming generator with FULL error capture
     async def sse_event_stream() -> AsyncGenerator[str, None]:
+        nonlocal messages_payload
         full_assistant_reply = []
         start_time = time.time()
         first_token_time = None
@@ -1254,17 +1255,28 @@ async def chat_stream(
                 user_content_for_memory = chat_req.message.strip() if chat_req.message else (
                     f"用户上传文件: {parsed_docs[0]['name']}" if parsed_docs else "用户上传了图片进行分析"
                 )
-                conversation_pair = [
+                extraction_messages = []
+                # Provide preceding turn context for multi-turn pronoun & topic grounding
+                if recent_msgs and len(recent_msgs) >= 2:
+                    for pm in recent_msgs[-2:]:
+                        pm_role = getattr(pm, "role", None) or (pm.get("role") if isinstance(pm, dict) else "user")
+                        pm_content = getattr(pm, "content", None) or (pm.get("content") if isinstance(pm, dict) else "")
+                        if pm_content and pm_role in ("user", "assistant"):
+                            cleaned_pm = re.sub(r"<think>[\s\S]*?</think>", "", str(pm_content)).strip()
+                            if cleaned_pm:
+                                extraction_messages.append({"role": pm_role, "content": cleaned_pm[:600]})
+
+                extraction_messages.extend([
                     {"role": "user", "content": user_content_for_memory},
                     {"role": "assistant", "content": clean_assistant}
-                ]
+                ])
                 memory_model_to_use = getattr(user_settings, "memory_model", None) or "openai/gpt-4o-mini"
                 await schedule_memory_extraction(
                     user_id=user_id,
-                    messages=conversation_pair,
+                    messages=extraction_messages,
                     metadata={
                         "conversation_id": conv_id,
-                        "source_messages": conversation_pair,
+                        "source_messages": extraction_messages,
                     },
                     memory_model=memory_model_to_use
                 )

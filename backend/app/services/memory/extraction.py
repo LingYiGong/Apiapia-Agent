@@ -44,6 +44,81 @@ def _get_llm_client(memory_model: str = "gpt-4o-mini") -> Tuple[Optional[Any], s
     return None, memory_model
 
 
+def safe_json_chat_completion(
+    client: Any,
+    model: str,
+    prompt: str,
+    temperature: float = 0.0,
+    max_tokens: int = 1000,
+    seed: Optional[int] = None,
+) -> Optional[Dict[str, Any]]:
+    """
+    Robust chat completion helper for JSON responses:
+    1. First attempts response_format={'type': 'json_object'}
+    2. Gracefully falls back to standard completion if provider/proxy does not support response_format (HTTP 400)
+    3. Strips <think>...</think> reasoning blocks (e.g. DeepSeek-R1, QwQ)
+    4. Strips markdown fences (```json ... ```)
+    5. Uses regex fallback to extract top-level {...}
+    """
+    kwargs = {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+    }
+    if seed is not None:
+        kwargs["seed"] = seed
+
+    raw_content = ""
+    try:
+        try:
+            resp = client.chat.completions.create(
+                **kwargs,
+                response_format={"type": "json_object"},
+            )
+            raw_content = resp.choices[0].message.content or ""
+        except Exception as rf_err:
+            logger.debug("Retrying completion without response_format due to: %s", rf_err)
+            resp = client.chat.completions.create(**kwargs)
+            raw_content = resp.choices[0].message.content or ""
+    except Exception as e:
+        logger.warning("LLM completion failed for model %s: %s", model, e)
+        return None
+
+    if not raw_content.strip():
+        return None
+
+    # Strip reasoning tags <think>...</think>
+    cleaned = re.sub(r"<think>[\s\S]*?</think>", "", raw_content).strip()
+
+    # Strip markdown code blocks ```json ... ```
+    if cleaned.startswith("```"):
+        cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(r"\s*```$", "", cleaned)
+        cleaned = cleaned.strip()
+
+    # Try direct JSON parsing
+    try:
+        parsed = json.loads(cleaned)
+        if isinstance(parsed, dict):
+            return parsed
+    except Exception:
+        pass
+
+    # Regex search for the outermost {...}
+    match = re.search(r"(\{[\s\S]*\})", cleaned)
+    if match:
+        try:
+            parsed = json.loads(match.group(1))
+            if isinstance(parsed, dict):
+                return parsed
+        except Exception:
+            pass
+
+    logger.warning("Failed to parse JSON response from model %s: '%.100s'", model, cleaned)
+    return None
+
+
 # ── Phase 1: Importance-scored fact extraction ────────────────────────────────
 
 def _extract_facts_with_importance(
@@ -94,22 +169,21 @@ def _extract_facts_with_importance(
         + conv_text
     )
 
-    try:
-        resp = client.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"},
-            temperature=0.1,
-            max_tokens=800,
-        )
-        raw = resp.choices[0].message.content or "{}"
-        data = json.loads(raw)
-        facts = data.get("facts", [])
+    data = safe_json_chat_completion(
+        client=client,
+        model=model,
+        prompt=prompt,
+        temperature=0.1,
+        max_tokens=800,
+    )
+    if not data or not isinstance(data, dict):
+        return []
+
+    facts = data.get("facts", [])
+    if isinstance(facts, list):
         logger.info("Extracted %d raw facts from conversation", len(facts))
         return facts
-    except Exception as e:
-        logger.warning("Failed to extract facts with importance: %s", e)
-        return []
+    return []
 
 
 # ── Phase 2: Dedup / merge decision ──────────────────────────────────────────
@@ -145,24 +219,21 @@ def _decide_dedup(
         '{"decision": "KEEP_NEW", "merged_text": ""}'
     )
 
-    try:
-        resp = client.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"},
-            temperature=0.0,
-            max_tokens=300,
-        )
-        raw = resp.choices[0].message.content or "{}"
-        data = json.loads(raw)
-        decision = str(data.get("decision", "ADD")).upper()
-        merged = data.get("merged_text") or new_fact
-        if decision not in ("KEEP_NEW", "MERGE", "IGNORE", "ADD"):
-            decision = "ADD"
-        return decision, merged
-    except Exception as e:
-        logger.warning("Failed to decide dedup (defaulting to ADD): %s", e)
+    data = safe_json_chat_completion(
+        client=client,
+        model=model,
+        prompt=prompt,
+        temperature=0.0,
+        max_tokens=300,
+    )
+    if not data or not isinstance(data, dict):
         return "ADD", new_fact
+
+    decision = str(data.get("decision", "ADD")).upper()
+    merged = data.get("merged_text") or new_fact
+    if decision not in ("KEEP_NEW", "MERGE", "IGNORE", "ADD"):
+        decision = "ADD"
+    return decision, merged
 
 
 # ── Shared helper: add a single vetted fact string to Mem0 ────────────────────

@@ -7,7 +7,7 @@ from typing import List, Dict, Any, Optional
 from app.core.config import settings
 from app.core.i18n import get_locale, language_directive
 from app.services.memory.service import memory_service
-from app.services.memory.extraction import _get_llm_client
+from app.services.memory.extraction import _get_llm_client, safe_json_chat_completion
 
 logger = logging.getLogger("memory_consolidation")
 
@@ -214,27 +214,20 @@ def preview_consolidation(
     )
 
     try:
-        resp = client.chat.completions.create(
+        plan = safe_json_chat_completion(
+            client=client,
             model=model,
-            messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"},
+            prompt=prompt,
             temperature=0.0,
             seed=42,
             max_tokens=4096,
         )
-        raw = resp.choices[0].message.content or "{}"
-        
-        # Clean potential markdown wrapping
-        raw_clean = raw.strip()
-        if raw_clean.startswith("```json"):
-            raw_clean = raw_clean[7:]
-        elif raw_clean.startswith("```"):
-            raw_clean = raw_clean[3:]
-        if raw_clean.endswith("```"):
-            raw_clean = raw_clean[:-3]
-        raw_clean = raw_clean.strip()
-
-        plan = json.loads(raw_clean)
+        if not plan or not isinstance(plan, dict):
+            return {
+                "status": "error",
+                "message": "模型未能返回有效的整理方案 JSON，请重试或更换模型",
+                "plan": None,
+            }
 
         # Helper to resolve M1 or [M1] back to real UUID
         def resolve_id(id_val: Any) -> Optional[str]:

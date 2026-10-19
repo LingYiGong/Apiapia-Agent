@@ -74,6 +74,7 @@ def run_dreaming_task(
     from app.services.memory.service import memory_service
     from app.services.memory.extraction import (
         _get_llm_client,
+        safe_json_chat_completion,
         upsert_facts_to_memory,
     )
 
@@ -130,20 +131,17 @@ def run_dreaming_task(
         + conv_context
     )
 
-    try:
-        resp = client.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"},
-            temperature=0.2,
-            max_tokens=1200,
-        )
-        raw = resp.choices[0].message.content or "{}"
-        data = json.loads(raw)
-        summaries = data.get("summaries", [])
-    except Exception as e:
-        logger.warning("Dreaming LLM call failed for user %s: %s", user_id, e)
+    data = safe_json_chat_completion(
+        client=client,
+        model=model,
+        prompt=prompt,
+        temperature=0.2,
+        max_tokens=1200,
+    )
+    if not data or not isinstance(data, dict):
+        logger.info("Dreaming: no valid JSON returned for user %s conv %s", user_id, conv_id)
         return
+    summaries = data.get("summaries", [])
 
     if not summaries:
         logger.info("Dreaming: no summaries generated for user %s conv %s", user_id, conv_id)

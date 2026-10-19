@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.29.0-indigo?style=flat-square" alt="Version"></a>
+  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.30.0-indigo?style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
@@ -225,7 +225,25 @@ cat backup_xxx.sql | docker exec -i apiapia_postgres psql -U postgres -d apiapia
 
 ## 📜 Releases & Changelog
 
-### 🚀 Latest Release: v2.29.0 (2026-10-17)
+### 🚀 Latest Release: v2.30.0 (2026-10-19)
+
+This release focuses on **Single Source of Truth (SSOT) architecture refactoring for default models, default model upgrade to NVIDIA Nemotron 3 Ultra, and memory retrieval isolation for Smart Translate**. It eliminates scattered hardcoded model ID strings across the entire codebase, ships NVIDIA's 550B open-weight frontier reasoning model out of the box, and ensures single-turn translate mode does not carry redundant conversational memory.
+
+#### 1. Single Source of Truth (SSOT) for Default Model
+- **One place to configure across the system**: eliminated over 10 hardcoded model ID strings previously scattered across user registration, user settings, access gating, database migrations, and frontend UI. The system default model is now configured in exactly one place: `DEFAULT_MODEL` in `.env` or `config.py`.
+- **User preference precedence & dynamic inheritance**: `user_settings.default_model` is now nullable. Users who haven't customized their model setting dynamically inherit the system default; once a user chooses a custom model in settings, their preference always takes precedence. Changing the system default in `.env` immediately takes effect for all default-inheriting users without database migrations.
+- **Backend-driven frontend**: the `/models/configured` endpoint dynamically marks `is_default: true` and sends `default_model`. The frontend model selector relies on dynamic flags rather than hardcoded client strings.
+
+#### 2. Default Model Upgraded to NVIDIA Nemotron 3 Ultra
+- **550B open-weight frontier reasoning model**: system default is now `nvidia/nemotron-3-ultra-550b-a55b:free` (MoE architecture with 55B active parameters).
+- **Elevated logical planning and reasoning ceiling**: purpose-built for deep reasoning, multi-step agentic planning, and long-context orchestration, fully available out of the box at zero cost.
+
+#### 3. Single-Turn Memory Isolation for Smart Translate
+- **Clean translation context**: fixed an issue where personal long-term memories were unnecessarily retrieved and injected into translation prompts. Introduced `single_turn_mode` to ensure translation output remains pure, deterministic, and fast while reducing context token consumption.
+
+---
+
+### v2.29.0 (2026-10-17)
 
 This release reworks the **mobile "+" panel into a bottom sheet** and cleans up dead code across the component library. On narrow screens the creation panel used to pop up over the conversation — nearly 300px tall with six entry points, covering most of a 360px-wide screen and putting the bottom rows out of thumb reach. It now rises from the bottom edge, matching the visual language of the memory drawer and the model picker, while wide screens keep the original dropdown. Both forms render one shared panel definition, so they cannot drift apart.
 

@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.29.0-indigo?style=flat-square" alt="Version"></a>
+  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.30.0-indigo?style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
@@ -224,7 +224,25 @@ cat backup_xxx.sql | docker exec -i apiapia_postgres psql -U postgres -d apiapia
 
 ## 📜 版本发布与更新说明 (Release Notes)
 
-### 🚀 最新版本：v2.29.0 (2026-10-17)
+### 🚀 最新版本：v2.30.0 (2026-10-19)
+
+本版本是一次聚焦于**默认模型单一信任源架构重构、旗舰推理模型升级与智能翻译记忆隔离**的重要版本。彻底收敛了此前分散在多处的默认模型硬编码配置，落地了开箱即用的 NVIDIA 550B 开源旗舰推理模型，并修复了单轮翻译模式下记忆检索冗余传递的问题。
+
+#### 1. 默认模型单一配置源（SSOT）架构重构
+- **全项目唯一配置点**：彻底移除此前在用户注册、个人设置、权限白名单、数据库初始化脚本及前端页面中多达 10 处硬编码的模型 ID 字符串。现在全局仅需在 `.env` 或 `config.py` 中的 `DEFAULT_MODEL` 配置一次。
+- **用户自选优先与动态继承**：数据库 `user_settings.default_model` 允许为空（`NULL`）。未单独修改过设置的新老用户均无缝继承系统默认模型；一旦用户在设置面板中主动选择偏好模型，则始终优先使用用户自选项。当部署运维人员调整全局默认模型时，所有未自选的用户即时跟随生效。
+- **后端动态驱动前端**：`/models/configured` 接口自动对当前系统默认模型下发 `is_default: true` 标记与 `default_model` 字段，前端模型选择器完全依赖动态标记进行默认选中与置顶，彻底实现前后端解耦。
+
+#### 2. 全局默认模型升级为 NVIDIA Nemotron 3 Ultra
+- **550B 参数开源旗舰前沿推理模型**：全局开箱默认接入 `nvidia/nemotron-3-ultra-550b-a55b:free`（MoE 混合专家架构，55B 激活参数）。
+- **逻辑规划与复杂推理上限大幅提升**：专为深度前沿推理与多步智能体编排设计，在代码分析、逻辑推断及长上下文规划任务中表现卓越，且开箱即用、完全免费。
+
+#### 3. 智能翻译模式单轮记忆隔离优化
+- **单轮隔离避免记忆污染**：修复了在智能翻译与词汇助手模式下，系统误将全部个人长期记忆检索并混入系统 Prompt 的问题。引入 `single_turn_mode` 隔离机制，确保翻译与查词输出纯粹、严谨，并大幅削减上下文 Token 开销与延迟。
+
+---
+
+### v2.29.0 (2026-10-17)
 
 本版本将**移动端「+」面板重构为底部抽屉**，并完成一轮组件库死代码清理。此前该面板以浮层形式盖在对话区之上，实测近 300px 高、六个入口，在 360px 宽的屏上遮住大半个对话区且最下面两行够不着；现已改为贴底升起，与记忆抽屉、模型选择器共用同一套视觉语言，宽屏则沿用原上弹浮层。两种形态渲染同一份面板定义，不会各自漂移。
 

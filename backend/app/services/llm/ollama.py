@@ -69,13 +69,18 @@ class OllamaProvider(LLMProvider):
     ) -> AsyncGenerator[str, None]:
         url = f"{self.base_url}/api/chat"
         formatted_messages = self._prepare_messages(messages)
+        options: Dict[str, Any] = {"temperature": temperature}
+        if "max_tokens" in kwargs and kwargs["max_tokens"]:
+            try:
+                options["num_predict"] = int(kwargs["max_tokens"])
+            except (ValueError, TypeError):
+                pass
+
         payload = {
             "model": model,
             "messages": formatted_messages,
             "stream": stream,
-            "options": {
-                "temperature": temperature
-            }
+            "options": options
         }
         self.last_finish_reason = None
         in_thinking = False
@@ -125,13 +130,18 @@ class OllamaProvider(LLMProvider):
     ) -> str:
         url = f"{self.base_url}/api/chat"
         formatted_messages = self._prepare_messages(messages)
+        options: Dict[str, Any] = {"temperature": temperature}
+        if "max_tokens" in kwargs and kwargs["max_tokens"]:
+            try:
+                options["num_predict"] = int(kwargs["max_tokens"])
+            except (ValueError, TypeError):
+                pass
+
         payload = {
             "model": model,
             "messages": formatted_messages,
             "stream": False,
-            "options": {
-                "temperature": temperature
-            }
+            "options": options
         }
         async with httpx.AsyncClient(timeout=180.0) as client:
             response = await client.post(url, json=payload)

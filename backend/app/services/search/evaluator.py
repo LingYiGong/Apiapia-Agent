@@ -359,6 +359,8 @@ async def evaluate_and_generate_search_query(
 
         if raw_res and raw_res.strip():
             cleaned_json = raw_res.strip()
+            # Strip <think>...</think> from reasoning models before extracting JSON
+            cleaned_json = re.sub(r"<think>[\s\S]*?</think>", "", cleaned_json).strip()
             # 无论模型是否包裹 ```json 或附加解释性前后缀，均可靠抓取最外层合法的 JSON 字典
             json_match = re.search(r"\{[\s\S]*\}", cleaned_json)
             if json_match:

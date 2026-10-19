@@ -116,11 +116,16 @@ class GeminiProvider(LLMProvider):
             "x-goog-api-key": self.api_key,
             "Content-Type": "application/json"
         }
+        gen_config: Dict[str, Any] = {"temperature": temperature}
+        if "max_tokens" in kwargs and kwargs["max_tokens"]:
+            try:
+                gen_config["maxOutputTokens"] = int(kwargs["max_tokens"])
+            except (ValueError, TypeError):
+                pass
+
         payload: Dict[str, Any] = {
             "contents": contents,
-            "generationConfig": {
-                "temperature": temperature
-            }
+            "generationConfig": gen_config
         }
         if system_instruction:
             payload["systemInstruction"] = system_instruction

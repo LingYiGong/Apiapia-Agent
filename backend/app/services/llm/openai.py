@@ -57,6 +57,32 @@ class OpenAIProvider(LLMProvider):
             **kwargs
         }
 
+        # OpenAI o1/o3 reasoning models reject 'max_tokens' and require 'max_completion_tokens'
+        if is_openai_reasoning:
+            if "max_tokens" in create_kwargs:
+                mt = create_kwargs.pop("max_tokens")
+                if "max_completion_tokens" not in create_kwargs and mt is not None:
+                    create_kwargs["max_completion_tokens"] = mt
+
+        # If model is text-only (e.g. DeepSeek, o1-mini, o3-mini), strip multimodal image_url parts
+        is_text_only = any(k in model_lower for k in ["deepseek", "o1-mini", "o3-mini"])
+        if is_text_only:
+            sanitized_messages = []
+            for msg in prepared_messages:
+                content = msg.get("content")
+                if isinstance(content, list):
+                    text_parts = []
+                    for item in content:
+                        if isinstance(item, dict):
+                            if item.get("type") == "text":
+                                text_parts.append(item.get("text", ""))
+                            elif item.get("type") == "image_url":
+                                text_parts.append("[附图: 图片]")
+                    sanitized_messages.append({**msg, "content": "".join(text_parts).strip() or " "})
+                else:
+                    sanitized_messages.append(msg)
+            create_kwargs["messages"] = sanitized_messages
+
         # OpenAI o1/o3 models do not accept standard 'temperature', and instead accept reasoning_effort
         if not is_openai_reasoning:
             create_kwargs["temperature"] = temperature
@@ -170,6 +196,31 @@ class OpenAIProvider(LLMProvider):
             "stream": False,
             **kwargs
         }
+        # OpenAI o1/o3 reasoning models reject 'max_tokens' and require 'max_completion_tokens'
+        if is_openai_reasoning:
+            if "max_tokens" in create_kwargs:
+                mt = create_kwargs.pop("max_tokens")
+                if "max_completion_tokens" not in create_kwargs and mt is not None:
+                    create_kwargs["max_completion_tokens"] = mt
+
+        is_text_only = any(k in model_lower for k in ["deepseek", "o1-mini", "o3-mini"])
+        if is_text_only:
+            sanitized_messages = []
+            for msg in prepared_messages:
+                content = msg.get("content")
+                if isinstance(content, list):
+                    text_parts = []
+                    for item in content:
+                        if isinstance(item, dict):
+                            if item.get("type") == "text":
+                                text_parts.append(item.get("text", ""))
+                            elif item.get("type") == "image_url":
+                                text_parts.append("[附图: 图片]")
+                    sanitized_messages.append({**msg, "content": "".join(text_parts).strip() or " "})
+                else:
+                    sanitized_messages.append(msg)
+            create_kwargs["messages"] = sanitized_messages
+
         if not is_openai_reasoning:
             create_kwargs["temperature"] = temperature
         else:

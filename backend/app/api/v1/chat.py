@@ -269,8 +269,14 @@ async def chat_stream(
     selected_image_model = user_settings.image_model if user_settings else None
     selected_video_model = user_settings.video_model if user_settings else None
 
-    # Validate model permission (new users only have access to free models until granted by admin)
-    if not check_user_can_use_model(current_user, model_to_use):
+    # 1.1 Resolve the caller's own provider credential for this model, if any.
+    provider_name = (chat_req.provider or "").strip() or detect_provider(model_to_use)
+    caller_api_key, caller_base_url = await resolve_user_llm_credentials(
+        db, user_id, provider_name, model_to_use
+    )
+
+    # Validate model permission (trial users can use free models, or models for which they supplied their own key)
+    if not caller_api_key and not check_user_can_use_model(current_user, model_to_use):
         raise ApiError(
             status_code=status.HTTP_403_FORBIDDEN,
             code="TRIAL_CHAT_MODEL_FORBIDDEN",
@@ -286,12 +292,6 @@ async def chat_stream(
             status_code=status.HTTP_403_FORBIDDEN,
             code="TRIAL_VIDEO_GEN_FORBIDDEN",
         )
-
-    # 1.1 Resolve the caller's own provider credential for this model, if any.
-    provider_name = (chat_req.provider or "").strip() or detect_provider(model_to_use)
-    caller_api_key, caller_base_url = await resolve_user_llm_credentials(
-        db, user_id, provider_name, model_to_use
-    )
 
     # 2. Fetch or create conversation
     conversation = None
@@ -919,102 +919,122 @@ async def chat_stream(
                 **extra_llm_kwargs
             )
 
-            while True:
-                try:
-                    # Keep-alive heartbeat: wait at most 15s for next token.
-                    # If model is deep reasoning, emit standard SSE comment to prevent gateway 504 timeouts.
-                    token = await asyncio.wait_for(token_iter.__anext__(), timeout=15.0)
-                except asyncio.TimeoutError:
-                    yield ": keep-alive\n\n"
-                    continue
-                except StopAsyncIteration:
-                    break
+            next_token_task = asyncio.create_task(token_iter.__anext__())
+            suppress_buf = ""
 
-                if first_token_time is None:
-                    first_token_time = time.time()
-                full_assistant_reply.append(token)
-
-                if "<think>" in token:
-                    in_thinking = True
-                if "</think>" in token:
-                    in_thinking = False
-
-                if suppressed:
-                    # Recover when closing tag is encountered
-                    if any(close_tag in token for close_tag in LEAK_CLOSING):
-                        suppressed = False
-                        stream_window = ""
-                    continue
-
-                stream_window += token
-
-                # Inside <think>...</think>, reasoning models must be allowed to think freely
-                if in_thinking:
-                    delta_payload = {
-                        "type": "content",
-                        "conversation_id": conv_id,
-                        "delta": stream_window
-                    }
-                    yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
-                    stream_window = ""
-                    continue
-
-                # 1. Check if any trigger is fully inside the window
-                matched_trigger = False
-                for trig in LEAK_TRIGGERS:
-                    if trig in stream_window:
-                        trig_pos = stream_window.find(trig)
-                        safe_part = stream_window[:trig_pos]
-                        if safe_part:
-                            delta_payload = {
-                                "type": "content",
-                                "conversation_id": conv_id,
-                                "delta": safe_part
-                            }
-                            yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
-                        stream_window = ""
-                        suppressed = True
-                        matched_trigger = True
+            try:
+                while True:
+                    try:
+                        # Keep-alive heartbeat: wait at most 15s for next token.
+                        # Using asyncio.shield prevents wait_for's timeout from cancelling the
+                        # underlying stream task while deep reasoning models are generating thoughts.
+                        token = await asyncio.wait_for(asyncio.shield(next_token_task), timeout=15.0)
+                    except asyncio.TimeoutError:
+                        yield ": keep-alive\n\n"
+                        continue
+                    except StopAsyncIteration:
                         break
-                if matched_trigger:
-                    continue
 
-                # 2. Check if stream_window ends with a prefix of any trigger
-                hold_back = 0
-                for trig in LEAK_TRIGGERS:
-                    for i in range(len(trig) - 1, 0, -1):
-                        if stream_window.endswith(trig[:i]):
-                            hold_back = max(hold_back, i)
-                            break
+                    # Create task for next token before processing current token
+                    next_token_task = asyncio.create_task(token_iter.__anext__())
 
-                if hold_back > 0:
-                    safe_len = len(stream_window) - hold_back
-                    if safe_len > 0:
-                        to_send = stream_window[:safe_len]
-                        stream_window = stream_window[safe_len:]
+                    if first_token_time is None:
+                        first_token_time = time.time()
+                    full_assistant_reply.append(token)
+
+                    if "<think>" in token or "<think>" in stream_window:
+                        in_thinking = True
+                    if "</think>" in token or "</think>" in stream_window:
+                        in_thinking = False
+
+                    if suppressed:
+                        suppress_buf += token
+                        # Recover when closing tag is encountered in suppression buffer
+                        if any(close_tag in suppress_buf for close_tag in LEAK_CLOSING):
+                            suppressed = False
+                            suppress_buf = ""
+                            stream_window = ""
+                        elif len(suppress_buf) > 4000:
+                            # Safety threshold if model emitted no closing tag
+                            suppressed = False
+                            suppress_buf = ""
+                            stream_window = ""
+                        continue
+
+                    stream_window += token
+
+                    # Inside <think>...</think>, reasoning models must be allowed to think freely
+                    if in_thinking:
                         delta_payload = {
                             "type": "content",
                             "conversation_id": conv_id,
-                            "delta": to_send
+                            "delta": stream_window
                         }
                         yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
-                else:
+                        stream_window = ""
+                        continue
+
+                    # 1. Check if any trigger is fully inside the window
+                    matched_trigger = False
+                    for trig in LEAK_TRIGGERS:
+                        if trig in stream_window:
+                            trig_pos = stream_window.find(trig)
+                            safe_part = stream_window[:trig_pos]
+                            if safe_part:
+                                delta_payload = {
+                                    "type": "content",
+                                    "conversation_id": conv_id,
+                                    "delta": safe_part
+                                }
+                                yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
+                            stream_window = ""
+                            suppressed = True
+                            suppress_buf = token
+                            matched_trigger = True
+                            break
+                    if matched_trigger:
+                        continue
+
+                    # 2. Check if stream_window ends with a prefix of any trigger
+                    hold_back = 0
+                    for trig in LEAK_TRIGGERS:
+                        for i in range(len(trig) - 1, 0, -1):
+                            if stream_window.endswith(trig[:i]):
+                                hold_back = max(hold_back, i)
+                                break
+
+                    if hold_back > 0:
+                        safe_len = len(stream_window) - hold_back
+                        if safe_len > 0:
+                            to_send = stream_window[:safe_len]
+                            stream_window = stream_window[safe_len:]
+                            delta_payload = {
+                                "type": "content",
+                                "conversation_id": conv_id,
+                                "delta": to_send
+                            }
+                            yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
+                    else:
+                        delta_payload = {
+                            "type": "content",
+                            "conversation_id": conv_id,
+                            "delta": stream_window
+                        }
+                        yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
+                        stream_window = ""
+
+                # Flush remaining window if not suppressed
+                if stream_window and not suppressed:
                     delta_payload = {
                         "type": "content",
                         "conversation_id": conv_id,
                         "delta": stream_window
                     }
                     yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
-                    stream_window = ""
 
-            # Flush remaining window if not suppressed
-            if stream_window and not suppressed:
-                delta_payload = {
-                    "type": "content",
-                    "conversation_id": conv_id,
-                    "delta": stream_window
-                }
-                yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
+            finally:
+                if next_token_task and not next_token_task.done():
+                    next_token_task.cancel()
 
             # Ensure <think> tag is cleanly closed if model aborted mid-thought
             if in_thinking:
@@ -1123,6 +1143,8 @@ async def chat_stream(
         if not assistant_content.strip():
             if error_text:
                 assistant_content = error_text
+            elif finish_reason == "abort":
+                assistant_content = "*(用户已中止本次回答)*"
             elif finish_reason == "content_filter":
                 assistant_content = "⚠️ 该提问触发了上游模型内容安全审核拦截（Content Filter），未返回有效回复内容。"
             elif finish_reason == "length":
@@ -1174,7 +1196,7 @@ async def chat_stream(
                     conv_id, persist_err, exc_info=True,
                 )
 
-        # Signal completion with complete metadata
+        # Signal completion with complete metadata (only emit done if stream finished without unrecoverable error)
         done_payload = {
             "type": "done",
             "conversation_id": conv_id,
@@ -1194,17 +1216,18 @@ async def chat_stream(
             "generated_images": generated_images if generated_images else None,
             "generated_videos": generated_videos if generated_videos else None,
         }
-        if yield_allowed:
+        if yield_allowed and finish_reason != "error":
             yield f"data: {json.dumps(done_payload, ensure_ascii=False)}\n\n"
 
-        # 10. Background housekeeping: conversation title + memory extraction
-        if assistant_content.strip():
+        # 10. Background housekeeping: conversation title + memory extraction (only for valid, successful turns)
+        if assistant_content.strip() and finish_reason not in ("error", "abort") and not error_text:
             # Generate conversation title on first turn
             if is_first_turn:
+                clean_assistant_for_title = re.sub(r"<think>[\s\S]*?</think>", "", assistant_content).strip() or assistant_content[:500]
                 try:
                     new_title = await _generate_conversation_title(
                         chat_req.message or "(附件)",
-                        assistant_content,
+                        clean_assistant_for_title,
                         model_to_use,
                         provider_name,
                         api_key=caller_api_key,
@@ -1221,7 +1244,7 @@ async def chat_stream(
                     logger.warning("Failed to generate conversation title: %s", title_err)
 
             # Schedule memory extraction in background if enabled and not aborted
-            if use_memory and finish_reason != "abort":
+            if use_memory:
                 clean_assistant = assistant_content
                 if "<think>" in clean_assistant:
                     clean_assistant = re.sub(r"<think>[\s\S]*?</think>", "", clean_assistant).strip()

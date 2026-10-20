@@ -1,3 +1,4 @@
+import asyncio
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import declarative_base
 from sqlalchemy import text
@@ -23,11 +24,20 @@ AsyncSessionLocal = async_sessionmaker(
 
 async def get_db():
     """FastAPI dependency for obtaining async SQLAlchemy database session."""
-    async with AsyncSessionLocal() as session:
+    session = AsyncSessionLocal()
+    try:
+        yield session
+    except BaseException:
         try:
-            yield session
-        finally:
-            await session.close()
+            await asyncio.shield(session.rollback())
+        except (asyncio.CancelledError, Exception):
+            pass
+        raise
+    finally:
+        try:
+            await asyncio.shield(session.close())
+        except (asyncio.CancelledError, Exception):
+            pass
 
 
 async def init_db():

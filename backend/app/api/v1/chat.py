@@ -59,6 +59,7 @@ from app.services.context_manager import (
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 logger = logging.getLogger("chat_api")
+_background_persist_tasks: set = set()
 
 TITLE_GENERATION_PROMPT = (
     "你是一个对话标题生成器。根据用户的第一句提问和助手的回答，"
@@ -591,12 +592,15 @@ async def chat_stream(
         conv_rec.last_message_at = user_created_at
 
     await db.commit()
-
+    # Explicitly release the db connection back to the pool before starting
+    # the long-running streaming response, avoiding connection pool starvation.
+    await db.close()
 
     # 7. SSE Streaming generator with FULL error capture
     async def sse_event_stream() -> AsyncGenerator[str, None]:
         nonlocal messages_payload
         full_assistant_reply = []
+        was_cancelled = False
         start_time = time.time()
         first_token_time = None
         provider = None
@@ -1077,6 +1081,8 @@ async def chat_stream(
 
         except asyncio.CancelledError:
             finish_reason = "abort"
+            yield_allowed = False
+            was_cancelled = True
             logger.info("Stream cancelled by client for conversation %s; persisting partial reply", conv_id)
 
         except GeneratorExit:
@@ -1159,9 +1165,7 @@ async def chat_stream(
             clean_sub_model = actual_model_id.split("/")[-1].replace(":free", "")
             recorded_model_name = f"{model_to_use} ({clean_sub_model})"
 
-        # Persist assistant reply before emitting done payload
-        assistant_message_id = None
-        if assistant_content.strip():
+        async def _save_assistant_reply() -> Optional[str]:
             try:
                 async with AsyncSessionLocal() as save_db:
                     # Update conversation updated_at so latest chat is at the top
@@ -1191,12 +1195,28 @@ async def chat_stream(
                     )
                     save_db.add(assistant_msg_record)
                     await save_db.commit()
-                    assistant_message_id = assistant_msg_record.id
+                    return assistant_msg_record.id
             except Exception as persist_err:
                 logger.error(
                     "Failed to persist assistant reply for conversation %s: %s",
                     conv_id, persist_err, exc_info=True,
                 )
+                return None
+
+        # Persist assistant reply before emitting done payload
+        assistant_message_id = None
+        if assistant_content.strip():
+            if finish_reason == "abort":
+                # Current ASGI request task is cancelled. Running DB operations directly
+                # in this cancelled task raises CancelledError and triggers AsyncAdaptedQueuePool
+                # connection termination errors.
+                # Scheduling persistence in an uncancelled background task ensures the partial reply
+                # is reliably written and the DB connection is cleanly returned to the pool.
+                persist_task = asyncio.create_task(_save_assistant_reply())
+                _background_persist_tasks.add(persist_task)
+                persist_task.add_done_callback(_background_persist_tasks.discard)
+            else:
+                assistant_message_id = await _save_assistant_reply()
 
         # Signal completion with complete metadata (only emit done if stream finished without unrecoverable error)
         done_payload = {
@@ -1309,6 +1329,9 @@ async def chat_stream(
                     )
                 except Exception as dream_err:
                     logger.warning("Failed to schedule dreaming for user %s: %s", user_id, dream_err)
+
+        if was_cancelled:
+            raise asyncio.CancelledError()
 
 
     return StreamingResponse(

@@ -1,21 +1,15 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { Coins, Sparkles, List } from "lucide-react";
+import { Brain, Coins, Gauge, SlidersHorizontal } from "lucide-react";
 import { ModelPicker } from "@/components/common/ModelPicker";
 import {
   allFilterMatch,
-  featuredFilterMatch,
-  freeFilterMatch,
   type ModelFilterGroup,
 } from "@/components/common/modelFilterGroups";
-import {
-  USE_CASE_ICONS,
-  USE_CASE_LABEL_KEYS,
-} from "@/components/common/ModelGuideTags";
 import { useIsTrialMode } from "@/hooks/useIsTrialMode";
-import { countDistinctModels, toChatModelOptions, type ModelOption } from "@/lib/models";
-import { USE_CASE_ORDER } from "@/lib/modelGuide";
+import { countDistinctModels, toChatModelOptions } from "@/lib/models";
+import { getModelTier } from "@/lib/modelTiers";
 import { useI18n } from "@/i18n";
 import type { ModelCatalogItem } from "@/types";
 
@@ -31,14 +25,16 @@ interface ModelSelectProps {
 
 /**
  * 语言模型选择器。实现已收敛到共享的 <ModelPicker>；
- * 本文件只负责把后端目录归一化，并组装分组筛选。
+ * 本文件只负责把后端目录归一化，并组装四个等级卡片。
  *
- * 分组按「先价格、后场景、再兜底」排列：
- * 1. 免费（价格维度：目录里所有 is_free 的模型）
- * 2. 综合推荐（最聪明全能）
- * 3. 4 个高频日常场景（深度思考 / 写作翻译 / 看图识文 / 编程开发），
- *    顺序由 lib/modelGuide.ts 的 USE_CASE_ORDER 决定
- * 4. 全部模型
+ * 三个推荐档位只列精选模型（清单见 lib/modelTiers.ts），顺序固定为：
+ * 1. 免费 —— 置顶的三个免费入口
+ * 2. 正常 —— 精选的日常性价比模型
+ * 3. 聪明 —— 精选的旗舰模型
+ * 4. 自定义 —— 不做等级筛选，搜索并浏览全部模型
+ *
+ * 精选清单之外的模型不会消失，只是不在前三个档位里重复展示；用户仍可在
+ * 「自定义」里搜索到它们。这样档位是「推荐」而不是「目录分区」。
  */
 export const ModelSelect: React.FC<ModelSelectProps> = ({
   value,
@@ -54,61 +50,76 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
 
   const filterGroups = useMemo<ModelFilterGroup[]>(() => {
     // 目录还没加载出来时**一个分组都不给**。ModelPicker 的自动选组只在
-    // 「有可选分组」时挑一次并上锁；若此时只递一个 available 的「全部」进去，
-    // 它会立刻锁定在「全部」，之后目录到了也不会再切到「推荐」。
-    // 聊天页首帧就是空目录（目录靠 useEffect 异步拉取），不挡这一下会踩中。
+    // 「有可选分组」时挑一次并上锁；若此时只递一个 available 的「自定义」，
+    // 它会立刻锁定在「自定义」，之后目录到了也不会再切到当前模型所属推荐档。
     if (options.length === 0) return [];
 
-    const recommended = options.filter(featuredFilterMatch);
-    const freeModels = options.filter(freeFilterMatch);
-    const useCaseSection = t("settings.modelGuide.sectionUseCase");
-
-    const byUseCase: ModelFilterGroup[] = USE_CASE_ORDER.map((key) => {
-      const match = (o: ModelOption) => o.guide?.useCases.includes(key) === true;
-      const matched = options.filter(match);
-      return {
-        key: `use:${key}`,
-        label: t(USE_CASE_LABEL_KEYS[key]),
-        icon: USE_CASE_ICONS[key],
-        count: matched.length,
-        distinctCount: countDistinctModels(options, match),
-        section: useCaseSection,
-        available: matched.length > 0,
-        match,
-      };
-    });
-
-    return [
+    const tiers: Array<Omit<ModelFilterGroup, "count" | "distinctCount" | "available">> = [
       {
         key: "free",
         label: t("settings.modelGuide.groupFree"),
+        description: t("settings.modelGuide.tierDesc.free"),
         icon: Coins,
-        count: freeModels.length,
-        distinctCount: countDistinctModels(options, freeFilterMatch),
-        available: freeModels.length > 0,
-        match: freeFilterMatch,
+        // 只保留三个置顶免费入口，其余免费模型仍在「自定义」里。
+        match: (o) => getModelTier(o) === "free",
       },
       {
-        key: "recommended",
-        label: t("settings.modelGuide.groupRecommend"),
-        icon: Sparkles,
-        count: recommended.length,
-        distinctCount: countDistinctModels(options, featuredFilterMatch),
-        available: recommended.length > 0,
-        match: featuredFilterMatch,
+        key: "normal",
+        label: t("settings.modelGuide.groupNormal"),
+        description: t("settings.modelGuide.tierDesc.normal"),
+        icon: Gauge,
+        // 精选日常性价比模型，不把整个付费目录倒进来。
+        match: (o) => getModelTier(o) === "normal",
       },
-      ...byUseCase,
       {
-        key: "all",
-        label: t("settings.picker.allGroup"),
-        icon: List,
-        count: options.length,
-        distinctCount: countDistinctModels(options, () => true),
-        available: true,
+        key: "smart",
+        label: t("settings.modelGuide.groupSmart"),
+        description: t("settings.modelGuide.tierDesc.smart"),
+        icon: Brain,
+        // 精选旗舰，同系列的旧版与变体只在「自定义」里出现。
+        match: (o) => getModelTier(o) === "smart",
+      },
+      {
+        key: "custom",
+        label: t("settings.modelGuide.groupCustom"),
+        description: t("settings.modelGuide.tierDesc.custom"),
+        icon: SlidersHorizontal,
+        // 不做等级筛选：配合搜索框可以自己翻遍整个目录。
         match: allFilterMatch,
       },
     ];
+
+    return tiers.map((group) => {
+      const matched = options.filter(group.match);
+      return {
+        ...group,
+        count: matched.length,
+        distinctCount: countDistinctModels(options, group.match),
+        available: matched.length > 0,
+      };
+    });
   }, [options, t]);
+
+  /**
+   * 首次打开面板时默认停在当前模型所属的推荐档：免费模型进「免费」，精选
+   * 旗舰进「聪明」，精选日常模型进「正常」。
+   *
+   * 如果当前模型不在任何精选清单里（旧模型、快照、`:batch` 变体等），直接
+   * 落到「自定义」，否则列表里会看不到当前选中项。没有选中项（新用户）时
+   * 从「免费」开始。
+   *
+   * 词汇/翻译模式有专门的排序（见 lib/models.ts 的 isVocabMode 分支），
+   * 那里直接落到「自定义」浏览全部更合适。
+   */
+  const initialFilterKey = useMemo(() => {
+    if (isVocabMode) return "custom";
+    const selected = options.find((o) => o.id === value);
+    const selectedTier = selected ? getModelTier(selected) : null;
+    if (selectedTier) return selectedTier;
+    if (selected) return "custom";
+    // 没有选中项时优先从「免费」开始；目录里没有精选免费模型才退到「自定义」。
+    return options.some((o) => getModelTier(o) === "free") ? "free" : "custom";
+  }, [options, value, isVocabMode]);
 
   const isTrialMode = useIsTrialMode(options);
 
@@ -124,9 +135,7 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
       variant={variant}
       width="wide"
       filterGroups={filterGroups}
-      // 词汇/翻译模式有专门的模型排序（见 lib/models.ts 的 isVocabMode 分支），
-      // 那里推荐的往往是 flash-lite 之类的小模型，直接落到「全部」更合适。
-      defaultFilterKey={isVocabMode ? "all" : "recommended"}
+      defaultFilterKey={initialFilterKey}
       isTrialMode={isTrialMode}
     />
   );

@@ -4,9 +4,6 @@ import type { MessageKey } from "@/i18n";
  * 模型选型推荐清单。
  */
 
-/** 场景标签。既作为模型行上的徽章，也作为 ModelPicker 一级场景分类区的分组依据。 */
-export type UseCaseKey = "writing" | "reasoning" | "coding" | "visionDocs" | "fastFree";
-
 /** 价格档：free 免费 / budget 低价 / standard 标准 / premium 旗舰。 */
 export type PriceTier = "free" | "budget" | "standard" | "premium";
 
@@ -14,9 +11,6 @@ export interface ModelGuide {
   /** 一句话说明「为什么选它」。 */
   reasonKey: MessageKey;
   priceTier: PriceTier;
-  useCases: readonly UseCaseKey[];
-  /** 使用避坑提示（定价阶梯、上下文上限、概率不稳等）。没有则不展示。 */
-  caveatKey?: MessageKey;
 }
 
 /**
@@ -42,100 +36,39 @@ export function normalizeModelId(id: string): string {
   return s;
 }
 
-/** 构造一条画像，顺手把四个可选参数压到一行。 */
-function guide(
-  reasonKey: MessageKey,
-  priceTier: PriceTier,
-  useCases: readonly UseCaseKey[],
-  caveatKey?: MessageKey,
-): ModelGuide {
-  return { reasonKey, priceTier, useCases, caveatKey };
+/** 构造一条画像。 */
+function guide(reasonKey: MessageKey, priceTier: PriceTier): ModelGuide {
+  return { reasonKey, priceTier };
 }
 
-const SONNET = guide("settings.modelGuide.reason.sonnet", "standard", ["writing", "coding"]);
-const GPT_SOL = guide(
-  "settings.modelGuide.reason.gptSol61",
-  "standard",
-  ["writing", "coding", "visionDocs"],
-  "settings.modelGuide.caveat.longPrompt",
-);
-const GEMINI_FLASH = guide(
-  "settings.modelGuide.reason.gemini38",
-  "standard",
-  ["writing", "visionDocs", "fastFree"],
-  "settings.modelGuide.caveat.priceRise",
-);
-const GLM = guide("settings.modelGuide.reason.glm53", "standard", ["writing", "coding", "reasoning"]);
-const GPT_LUNA = guide(
-  "settings.modelGuide.reason.gptLuna",
-  "budget",
-  ["writing", "fastFree"],
-  "settings.modelGuide.caveat.longPrompt",
-);
-const GLM_FLASH = guide(
-  "settings.modelGuide.reason.glm53Flash",
-  "budget",
-  ["visionDocs", "fastFree", "coding"],
-);
-const OPUS = guide(
-  "settings.modelGuide.reason.opus55",
-  "premium",
-  ["reasoning", "coding", "visionDocs"],
-  "settings.modelGuide.caveat.thinking",
-);
-const FREE_ROUTER = guide(
-  "settings.modelGuide.reason.freeRouter",
-  "free",
-  ["writing", "fastFree"],
-  "settings.modelGuide.caveat.freeUnstable",
-);
+const SONNET = guide("settings.modelGuide.reason.sonnet", "standard");
+const GPT_SOL = guide("settings.modelGuide.reason.gptSol61", "standard");
+const GEMINI_FLASH = guide("settings.modelGuide.reason.gemini38", "standard");
+const GLM = guide("settings.modelGuide.reason.glm53", "standard");
+const GPT_LUNA = guide("settings.modelGuide.reason.gptLuna", "budget");
+const GLM_FLASH = guide("settings.modelGuide.reason.glm53Flash", "budget");
+const OPUS = guide("settings.modelGuide.reason.opus55", "premium");
+const FREE_ROUTER = guide("settings.modelGuide.reason.freeRouter", "free");
 
-const DEEPSEEK_PRO = guide(
-  "settings.modelGuide.reason.deepseekPro",
-  "standard",
-  ["coding", "reasoning"],
-);
-const GROK47 = guide(
-  "settings.modelGuide.reason.grok47",
-  "standard",
-  ["coding", "reasoning"],
-  "settings.modelGuide.caveat.shortContext",
-);
-const QWEN_MAX = guide(
-  "settings.modelGuide.reason.qwenMax",
-  "standard",
-  ["writing", "coding", "visionDocs"],
-  "settings.modelGuide.caveat.primeVariant",
-);
+const DEEPSEEK_PRO = guide("settings.modelGuide.reason.deepseekPro", "standard");
+const GROK47 = guide("settings.modelGuide.reason.grok47", "standard");
+const QWEN_MAX = guide("settings.modelGuide.reason.qwenMax", "standard");
 
-const GPT_ASTRA = guide(
-  "settings.modelGuide.reason.gptAstra",
-  "premium",
-  ["reasoning", "coding"],
-  "settings.modelGuide.caveat.longPrompt",
-);
-const KIMI_K3 = guide(
-  "settings.modelGuide.reason.kimiK3",
-  "premium",
-  ["reasoning", "visionDocs"],
-  "settings.modelGuide.caveat.kimiPrice",
-);
+const GPT_ASTRA = guide("settings.modelGuide.reason.gptAstra", "premium");
+const KIMI_K3 = guide("settings.modelGuide.reason.kimiK3", "premium");
 
-const DEEPSEEK_FLASH = guide(
-  "settings.modelGuide.reason.deepseekFlash",
-  "budget",
-  ["visionDocs", "fastFree", "coding"],
-  "settings.modelGuide.caveat.peakPricing",
-);
-const QWEN_FLASH = guide("settings.modelGuide.reason.qwen38Flash", "budget", ["visionDocs", "fastFree"]);
-const MINIMAX_M3 = guide("settings.modelGuide.reason.minimaxM3", "budget", ["visionDocs", "fastFree"]);
-const MIMO_FLASH = guide("settings.modelGuide.reason.mimoFlash", "budget", ["visionDocs", "fastFree"]);
-const HAIKU = guide(
-  "settings.modelGuide.reason.haiku55",
-  "budget",
-  ["coding", "fastFree"],
-  "settings.modelGuide.caveat.haikuLongPrompt",
-);
+const DEEPSEEK_FLASH = guide("settings.modelGuide.reason.deepseekFlash", "budget");
+const QWEN_FLASH = guide("settings.modelGuide.reason.qwen38Flash", "budget");
+const MINIMAX_M3 = guide("settings.modelGuide.reason.minimaxM3", "budget");
+const MIMO_FLASH = guide("settings.modelGuide.reason.mimoFlash", "budget");
+
+/**
+ * 「免费」档置顶的三个模型（顺序由 lib/models.ts 的 FEATURED_PIN_ORDER 决定）。
+ * 画像同时覆盖付费线路，所以理由文案里不写「免费」，免费标签由 is_free 决定。
+ */
+const NEMOTRON_ULTRA = guide("settings.modelGuide.reason.nemotronUltra", "standard");
+const MINIMAX_M31_FLASH = guide("settings.modelGuide.reason.minimaxM31Flash", "budget");
+const HAIKU = guide("settings.modelGuide.reason.haiku55", "budget");
 
 /**
  * 命中规则。顺序即匹配顺序：精确 id 先于正则。
@@ -146,6 +79,15 @@ const GUIDES: ReadonlyArray<{
   patterns?: readonly RegExp[];
   guide: ModelGuide;
 }> = [
+  // 「免费」档优先展示的三个模型，顺序与 lib/models.ts 的 FEATURED_PIN_ORDER 保持一致。
+  {
+    ids: ["nvidia/nemotron-3-ultra-550b-a55b"],
+    guide: NEMOTRON_ULTRA,
+  },
+  {
+    ids: ["minimax/minimax-m3.1-flash"],
+    guide: MINIMAX_M31_FLASH,
+  },
   {
     ids: ["openrouter/free"],
     guide: FREE_ROUTER,
@@ -258,11 +200,3 @@ export function getModelGuide(id: string): ModelGuide | undefined {
   }
   return undefined;
 }
-
-/** 场景分类的展示顺序 */
-export const USE_CASE_ORDER: readonly UseCaseKey[] = [
-  "reasoning",
-  "writing",
-  "visionDocs",
-  "coding",
-] as const;

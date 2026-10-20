@@ -201,6 +201,14 @@ export interface AudioModelsResponse {
   synced: boolean;
 }
 
+/** Provider pricing is per token in USD; keep the raw values from the catalog. */
+export interface ModelPricing {
+  prompt?: string | number;
+  completion?: string | number;
+  request?: string | number;
+  image?: string | number;
+}
+
 export interface ModelCatalogItem {
   id: string;
   name: string;
@@ -209,6 +217,7 @@ export interface ModelCatalogItem {
   is_free?: boolean;
   is_multimodal?: boolean;
   is_default?: boolean;
+  pricing?: ModelPricing;
 }
 
 export interface ModelUsageItem {

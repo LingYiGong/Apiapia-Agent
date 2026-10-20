@@ -135,17 +135,17 @@ export default {
     selectAriaCurrent: "，当前 {name}",
     title: "选择{kind}",
     /** 移动端底部抽屉的无障碍描述（视觉隐藏，抽屉没有可见副标题） */
-    sheetDesc: "按场景挑选{kind}，或直接搜索名称与厂商。",
+    sheetDesc: "按等级挑选{kind}，或直接搜索名称与厂商。",
     current: "当前: {name}",
     searchAria: "搜索{kind}",
     searchPh: "搜索{kind}",
     clearSearch: "清除搜索",
     listAria: "{kind}列表",
-    /** 分类胶囊区（role="group"）的无障碍名称 */
-    filterGroupAria: "{kind}分组筛选",
+    /** 等级卡片区（role="group"）的无障碍名称 */
+    tierGroupAria: "{kind}等级筛选",
     noMatch: "未找到匹配的{kind}",
+    searchAll: "在「自定义」中搜索全部模型",
     multimodalBadge: "多模态",
-    allGroup: "全部",
     freeBadge: "免费",
     trialBadge: "体验模式",
     trialTitle: "当前处于体验模式，仅可使用免费{kind}",
@@ -161,24 +161,26 @@ export default {
     syncedButEmpty: "后端已同步但无可用模型，请检查 .env 中的服务凭证是否有效。",
   },
 
-  /** 推荐模型的选型引导：需求标签、价格档、推荐理由与使用提示 */
+  /** 推荐模型的选型引导：价格档与推荐理由 */
   modelGuide: {
-    /** ModelPicker 分组筛选里的「推荐」一档 */
-    groupRecommend: "综合推荐",
-
-    /** ModelPicker 分组筛选里的「免费」一档：目录里所有免费模型 */
+    /** 等级卡片里的「免费」一档：置顶的三个免费入口 */
     groupFree: "免费",
 
-    /** ModelPicker 一级分类区的小标题 */
-    sectionUseCase: "按场景选型",
+    /** 等级卡片里的「正常」一档：精选的日常性价比模型 */
+    groupNormal: "正常",
 
-    /** 场景标签：既作模型行的徽章，也作 ModelPicker 的分类名 */
-    useCase: {
-      writing: "写作翻译",
-      reasoning: "深度思考",
-      coding: "编程开发",
-      visionDocs: "看图识文",
-      fastFree: "极速与免费",
+    /** 等级卡片里的「聪明」一档：精选的旗舰模型 */
+    groupSmart: "聪明",
+
+    /** 等级卡片里的「自定义」一档：不做等级筛选，浏览全部 */
+    groupCustom: "自定义",
+
+    /** 四个等级卡片的一行说明 */
+    tierDesc: {
+      free: "三个免费首选，零成本体验",
+      normal: "精选日常主力，兼顾能力与价格",
+      smart: "精选旗舰，复杂任务更强，价格更高",
+      custom: "搜索并筛选全部模型",
     },
 
     /** 价格档：按厂商公开列表价粗分，只回答「贵不贵」 */
@@ -187,9 +189,11 @@ export default {
       budget: "低价",
       standard: "标准",
       premium: "旗舰",
+      /** 精确价格徽章的提示：单位是美元 / 百万 tokens */
+      perMillion: "输入 / 输出，每百万 tokens（USD）",
     },
 
-    /** 18 条推荐画像的选型理由。键名与 lib/modelGuide.ts 的常量对应。 */
+    /** 20 条推荐画像的选型理由。键名与 lib/modelGuide.ts 的常量对应。 */
     reason: {
       sonnet: "【综合旗舰】日常问答、长篇写作与代码调试表现出色，综合推理能力领先。",
       gptSol61: "【高能旗舰】顶尖的推理性能与响应速度，适合处理复杂长链任务与高频对话。",
@@ -209,19 +213,8 @@ export default {
       minimaxM3: "【均衡多模态】支持图文与视频多模态分析，兼备百万字长上下文能力。",
       mimoFlash: "【超轻量多模态】极低调用成本，适合日常视觉问答与轻量交互。",
       haiku55: "【极速轻巧】响应极速，适合轻量问答、文本提炼与快速格式转换。",
-    },
-
-    /** 使用提示 */
-    caveat: {
-      longPrompt: "提示：单次对话输入超过数十万字时按阶梯费率计费，常规使用不受影响。",
-      priceRise: "提示：官方计划于后续调整价格，长期稳定业务需提前评估成本。",
-      thinking: "提示：强制开启深度思考过程，解答复杂难题更严谨，但耗时与消耗会增加。",
-      freeUnstable: "提示：公共免费节点可用性可能随负载波动，正式生产建议选用商用模型。",
-      shortContext: "提示：上下文上限为 50 万字，低于多数 100 万字模型，分析超大项目时留意字数。",
-      primeVariant: "提示：若遇 -prime 加速变体价格较高，追求高性价比建议选用标准版。",
-      kimiPrice: "提示：长文本生成单价较高，生成超长回复时会消耗较多额度。",
-      peakPricing: "提示：厂商实行峰谷定价机制，高峰时段（UTC 01:00-04:00、06:00-10:00）费率会有浮动。",
-      haikuLongPrompt: "提示：单次输入超过 10 万字时进入高阶费率档位，超长文档场景请留意。",
+      nemotronUltra: "【旗舰级推理】550B 总参 / 55B 激活的 MoE，长程 Agent 与复杂逻辑推演能力突出，超长上下文、纯文本输入。",
+      minimaxM31Flash: "【全能长文多模态】百万上下文与超大输出，支持图文视频解析、工具调用与结构化输出，中文表现均衡。",
     },
   },
 

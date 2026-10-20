@@ -258,6 +258,35 @@ input[type="search"]::-webkit-search-results-decoration {
   background-clip: padding-box;
 }
 
+/* 模型选择器列表：常驻可见的细滚动条，长目录也能一眼看出可以滚动 */
+.model-list-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--muted-foreground) / 0.4) hsl(var(--surface-3) / 0.5);
+  scrollbar-gutter: stable;
+}
+
+.model-list-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.model-list-scrollbar::-webkit-scrollbar-track {
+  background: hsl(var(--surface-3) / 0.5);
+  border-radius: 9999px;
+}
+
+.model-list-scrollbar::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.4);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.model-list-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.6);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
 /* Selection Highlighting */
 ::selection {
   background-color: hsl(var(--primary) / 0.35);

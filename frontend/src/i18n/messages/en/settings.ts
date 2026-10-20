@@ -129,17 +129,17 @@ export default {
     selectAriaCurrent: ", currently {name}",
     title: "Choose {kind}",
     /** A11y description for the mobile bottom sheet (visually hidden). */
-    sheetDesc: "Pick a {kind} by scenario, or search by name and vendor.",
+    sheetDesc: "Pick a {kind} by tier, or search by name and vendor.",
     current: "Current: {name}",
     searchAria: "Search {kind}",
     searchPh: "Search {kind}",
     clearSearch: "Clear search",
     listAria: "{kind} list",
-    /** A11y name for the filter-chip row (role="group"). */
-    filterGroupAria: "{kind} category filters",
+    /** A11y name for the tier-card grid (role="group"). */
+    tierGroupAria: "{kind} tier filters",
     noMatch: "No matching {kind}",
+    searchAll: "Search all models in Custom",
     multimodalBadge: "Multimodal",
-    allGroup: "All",
     freeBadge: "Free",
     trialBadge: "Trial mode",
     trialTitle: "You're in trial mode, so only free {kind} are available",
@@ -153,24 +153,26 @@ export default {
     syncedButEmpty: "The backend synced but found no models. Check that the credentials in .env are valid.",
   },
 
-  /** Model selection guidance: need tags, price tiers, reasons and gotchas */
+  /** Model selection guidance: price tiers and reasons */
   modelGuide: {
-    /** The "Picks" filter group in ModelPicker */
-    groupRecommend: "Recommended",
-
-    /** The "Free" chip in the ModelPicker: every free model in the catalog. */
+    /** The "Free" tier: the three pinned free entries. */
     groupFree: "Free",
 
-    /** Section headers in ModelPicker's category list */
-    sectionUseCase: "By scenario",
+    /** The "Normal" tier: curated everyday value models. */
+    groupNormal: "Normal",
 
-    /** Task tags; also used as the ModelPicker category labels */
-    useCase: {
-      writing: "Writing & Translation",
-      reasoning: "Deep Reasoning",
-      coding: "Coding & Dev",
-      visionDocs: "Vision & Docs",
-      fastFree: "Fast & Free",
+    /** The "Smart" tier: curated flagship models. */
+    groupSmart: "Smart",
+
+    /** The "Custom" tier: no tier filter, browse the whole catalog. */
+    groupCustom: "Custom",
+
+    /** One-line explanations shown on the four tier cards. */
+    tierDesc: {
+      free: "Three free picks, zero cost",
+      normal: "Curated daily drivers with strong value",
+      smart: "Curated flagships for complex tasks, priced higher",
+      custom: "Search and filter the entire catalog",
     },
 
     /** Price tier, bucketed roughly by published list price. Answers "is it expensive?" */
@@ -179,9 +181,11 @@ export default {
       budget: "Budget",
       standard: "Standard",
       premium: "Flagship",
+      /** Tooltip for the exact-price badge: USD per million tokens. */
+      perMillion: "Input / output, per 1M tokens (USD)",
     },
 
-    /** The eighteen picks. Keys mirror the constants in lib/modelGuide.ts. */
+    /** The twenty picks. Keys mirror the constants in lib/modelGuide.ts. */
     reason: {
       sonnet: "[All-Round SOTA] Top-tier reasoning, writing, and coding; ideal for complex professional tasks.",
       gptSol61: "[Flagship Experience] Leading comprehensive reasoning with rapid response; excellent for complex tasks.",
@@ -201,19 +205,8 @@ export default {
       minimaxM3: "[Long-Context & Multimodal] Million-token throughput; economical image and video comprehension.",
       mimoFlash: "[Rapid Daily Q&A] Low-cost inference with swift response for general queries and basic image recognition.",
       haiku55: "[Millisecond Lightweight Model] Near-instant response, optimized for summarization, classification, and quick calls.",
-    },
-
-    /** Only written where there is a real gotcha. Models without a caveatKey skip this line. */
-    caveat: {
-      longPrompt: "Notice: Inputs exceeding hundreds of thousands of tokens scale to a higher price bracket.",
-      priceRise: "Notice: Scheduled for a price adjustment in 2027; plan ahead for long-term production use.",
-      thinking: "Notice: Always engages deep chain-of-thought reasoning, which adds processing time and cost.",
-      freeUnstable: "Notice: Routed through public free pools; response quality and availability may fluctuate.",
-      shortContext: "Notice: Context window is 500K tokens (shorter than 1M models); verify large document sizes.",
-      primeVariant: "Notice: -prime accelerated variants are priced higher; use standard models for maximum value.",
-      kimiPrice: "Notice: Output token pricing is higher for verbose long-form generations.",
-      peakPricing: "Notice: Dynamic peak pricing applies during UTC 01:00-04:00 and 06:00-10:00.",
-      haikuLongPrompt: "Notice: Single requests exceeding 100K tokens step up to the next pricing tier.",
+      nemotronUltra: "[Flagship Reasoning] 550B-total / 55B-active MoE built for long-horizon agents and complex deduction; long-context, text-only.",
+      minimaxM31Flash: "[Versatile Long-Context Multimodal] 1M-token context and very large outputs; image/video parsing, tool calling, and structured output.",
     },
   },
 

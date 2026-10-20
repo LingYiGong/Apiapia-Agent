@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.32.0-indigo?style=flat-square" alt="Version"></a>
+  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.33.0-indigo?style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
@@ -224,7 +224,35 @@ cat backup_xxx.sql | docker exec -i apiapia_postgres psql -U postgres -d apiapia
 
 ## 📜 版本发布与更新说明 (Release Notes)
 
-### 🚀 最新版本：v2.32.0 (2026-10-19)
+### 🚀 最新版本：v2.33.0 (2026-10-20)
+
+本版本是一次聚焦于**语言模型选择器等级化重构、精确价格展示与旧分类体系清理**的重要更新。选择器由场景标签改为「免费 / 正常 / 聪明 / 自定义」四档卡片：免费档只保留三个置顶免费模型，正常与聪明档使用人工精选清单，只有自定义档展示全量目录；同时接入 OpenRouter 输入 / 输出单价，按每百万 Token 展示实际价格，并完成旧胶囊筛选、场景标签与冗余多语言文案的清理。
+
+#### 1. 模型选择器四档重构
+- **四档语义清晰化**：免费、正常、聪明、自定义四张卡片各自带一行说明，用户先判断「贵不贵、适合什么」，再进入下方模型列表。
+- **免费档严格收敛**：点击免费档只显示 Nemotron、MiniMax M3.1 Flash 与 `openrouter/free` 三个置顶免费入口，不再混入低价付费模型。
+- **仅自定义展示全量**：正常与聪明档使用人工精选清单；自定义档取消等级限制，支持按名称、厂商搜索与筛选全部模型。
+- **初始档位跟随当前模型**：当前模型属于哪个精选档就默认打开哪一档；未收录的模型自动进入自定义档，没有选中模型时回退到免费档。
+
+#### 2. 精确价格展示
+- **输入 / 输出单价接入**：后端同步 OpenRouter 目录时写入 `pricing.prompt` / `pricing.completion` 原始单价，前端换算为每百万 Token 展示。
+- **列表直接可比较**：模型名称后展示类似 `$2 / $10 /M` 的输入 / 输出价格，免费模型统一显示「免费」。
+- **无价格不猜测**：目录没有精确价格时回退到原有价格档；两层都没有价格依据时不显示价格，避免误导。
+
+#### 3. 旧分类与冗余代码清理
+- **移除场景标签**：删除写作翻译、深度思考、编程开发、看图识文、极速与免费等旧分类，以及对应的模型行徽章。
+- **删除旧胶囊筛选**：移除 `ModelFilterChips`、`buildFilterBlocks` 等旧版筛选组件与谓词，选择器只保留等级卡片一套入口。
+- **清理未使用数据与文案**：删除场景画像、避坑提示、精选标记等不再渲染的字段，以及四语言中失去引用的文案键。
+
+#### 4. 交互与试用模式
+- **滚动条常驻可见**：模型列表使用独立滚动区域，头部、搜索框与等级卡片固定，长目录也能一眼看出可以继续滚动。
+- **切换等级的行为**：点击等级会清空搜索、回到列表顶部并高亮第一项；模型只在点击行或按 Enter 时变更。
+- **试用模式适配**：仅免费模型可用时只展示免费与自定义两档，避免用户点进必然为空的档位。
+- **四语言同步**：简体中文、繁体中文、英语、日语同步更新等级说明、价格提示与搜索空状态文案。
+
+---
+
+### v2.32.0 (2026-10-19)
 
 本版本是一次聚焦于**记忆智能整理与脱水重构、对话流式作用域修复、前端交互文案精炼及猫咪品牌核心设定全语言统一**的综合加固版本。优化了记忆提炼整理方案与容错重试机制，彻底消除了流式对话中由于变量提升引起的偶发中断，精简了全站交互说明，并全面统一了 Apiapia 智能猫咪助理在多语言环境下的品牌设定。
 

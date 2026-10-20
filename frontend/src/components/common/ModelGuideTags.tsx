@@ -1,43 +1,19 @@
 "use client";
 
 import React from "react";
-import {
-  Brain,
-  Code,
-  Eye,
-  PenLine,
-  Zap,
-  type LucideIcon,
-} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n";
 import type { MessageKey } from "@/i18n";
-import type { PriceTier, UseCaseKey } from "@/lib/modelGuide";
+import type { PriceTier } from "@/lib/modelGuide";
+import type { ModelPricing } from "@/types";
 
 /**
- * 模型画像的展示件：需求标签与价格档徽章。
+ * 模型画像的展示件：价格徽章。
  *
- * 三处用到同一批小徽章 —— ModelPicker 的选项行、ModelSelect 的分组筛选按钮、
- * 设置页的推荐卡片 —— 所以图标映射和配色只在这里定义一次。组件本身不含任何
- * 判定逻辑：拿不到 useCases / priceTier 时就什么都不渲染，绝不猜。
+ * 价格分两层：目录里带精确价（OpenRouter 的每 token 美元价）时显示
+ * 「输入 / 输出 每百万 token」；没有精确价时才退回画像表的粗价格档。
+ * 两层都拿不到就什么都不渲染，绝不猜。
  */
-
-export const USE_CASE_ICONS: Record<UseCaseKey, LucideIcon> = {
-  writing: PenLine,
-  reasoning: Brain,
-  coding: Code,
-  visionDocs: Eye,
-  fastFree: Zap,
-};
-
-/** 需求标签的文案键。导出给 ModelSelect 拼分组筛选按钮时用。 */
-export const USE_CASE_LABEL_KEYS: Record<UseCaseKey, MessageKey> = {
-  writing: "settings.modelGuide.useCase.writing",
-  reasoning: "settings.modelGuide.useCase.reasoning",
-  coding: "settings.modelGuide.useCase.coding",
-  visionDocs: "settings.modelGuide.useCase.visionDocs",
-  fastFree: "settings.modelGuide.useCase.fastFree",
-};
 
 const PRICE_LABEL_KEYS: Record<PriceTier, MessageKey> = {
   free: "settings.modelGuide.price.free",
@@ -57,54 +33,62 @@ const PRICE_CLASS: Record<PriceTier, string> = {
   premium: "border-fuchsia-500/25 bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400",
 };
 
-/** 价格档徽章。 */
-export function ModelPriceTag({ tier, className }: { tier: PriceTier; className?: string }) {
-  const { t } = useI18n();
-  return (
-    <span
-      className={cn(
-        "shrink-0 rounded-lg border px-2 py-0.5 font-mono text-xs font-semibold",
-        PRICE_CLASS[tier],
-        className
-      )}
-    >
-      {t(PRICE_LABEL_KEYS[tier])}
-    </span>
-  );
+/** 把厂商的「每 token 美元」价格换算成「每百万 token」并保留最多 4 位小数。 */
+function perMillion(value: string | number | undefined): number | null {
+  if (value === undefined || value === null || value === "") return null;
+  const parsed = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) return null;
+  return Math.round(parsed * 1_000_000 * 10_000) / 10_000;
 }
 
-/**
- * 需求标签行。
- *
- * `max` 用来在窄容器（选项行、卡片头）里截断 —— 命中 2~3 个需求的模型最常见，
- * 全排出来会把模型名挤没。截断只影响展示，不影响筛选结果。
- */
-export function ModelUseCaseTags({
-  useCases,
-  max = 3,
+function formatUsd(value: number): string {
+  return String(value);
+}
+
+/** 有精确价格时优先显示「输入 / 输出 每百万 token」；没有则回退到价格档。 */
+export function ModelPriceTag({
+  tier,
+  pricing,
+  isFree = false,
   className,
 }: {
-  useCases: readonly UseCaseKey[];
-  max?: number;
+  tier?: PriceTier;
+  pricing?: ModelPricing;
+  /** 目录标记为免费；没有价格数据时也能显示「免费」。 */
+  isFree?: boolean;
   className?: string;
 }) {
   const { t } = useI18n();
-  if (useCases.length === 0) return null;
+  const prompt = perMillion(pricing?.prompt);
+  const completion = perMillion(pricing?.completion);
+  const hasExactPrice = prompt !== null || completion !== null;
+  const pricedAsFree = prompt === 0 && completion === 0;
+  const showFree = isFree || pricedAsFree;
+  const exactLabel =
+    hasExactPrice && !pricedAsFree
+      ? `${[prompt, completion]
+          .filter((value): value is number => value !== null)
+          .map((value) => `$${formatUsd(value)}`)
+          .join(" / ")} /M`
+      : null;
+  const label = showFree
+    ? t("settings.modelGuide.price.free")
+    : (exactLabel ?? (tier ? t(PRICE_LABEL_KEYS[tier]) : null));
+
+  if (!label) return null;
+
+  const colorTier = showFree ? "free" : tier;
 
   return (
-    <span className={cn("flex shrink-0 flex-wrap items-center gap-1", className)}>
-      {useCases.slice(0, max).map((key) => {
-        const Icon = USE_CASE_ICONS[key];
-        return (
-          <span
-            key={key}
-            className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border/50 bg-surface-3/70 px-1.5 py-0.5 text-xs font-medium text-muted-foreground"
-          >
-            <Icon className="h-3 w-3" aria-hidden="true" />
-            {t(USE_CASE_LABEL_KEYS[key])}
-          </span>
-        );
-      })}
+    <span
+      title={hasExactPrice && !showFree ? t("settings.modelGuide.price.perMillion") : undefined}
+      className={cn(
+        "shrink-0 rounded-lg border px-2 py-0.5 font-mono text-xs font-semibold",
+        colorTier ? PRICE_CLASS[colorTier] : "border-border/50 bg-surface-3/70 text-muted-foreground",
+        className
+      )}
+    >
+      {label}
     </span>
   );
 }

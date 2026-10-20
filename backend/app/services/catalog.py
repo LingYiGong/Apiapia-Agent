@@ -215,14 +215,27 @@ async def fetch_openrouter_models_from_api(api_key: Optional[str] = None) -> Lis
                         "image" in str(item.get("architecture", {}))
                         or any(k in mid.lower() for k in ["vision", "-vl", "4o", "gemini", "claude-3", "pixtral", "llava", "minicpm-v"])
                     )
-                    models.append({
+                    entry: Dict[str, Any] = {
                         "id": mid,
                         "name": item.get("name") or mid,
                         "description": item.get("description", "")[:120],
                         "provider": "openrouter",
                         "is_free": is_free,
                         "is_multimodal": is_multimodal,
-                    })
+                    }
+                    # OpenRouter exposes per-token USD prices. Keep the raw
+                    # prompt/completion values (and any extras it sends) so the
+                    # frontend can render an exact price next to each model.
+                    pricing = item.get("pricing")
+                    if isinstance(pricing, dict):
+                        pricing_data = {
+                            key: value
+                            for key, value in pricing.items()
+                            if isinstance(value, (str, int, float))
+                        }
+                        if pricing_data:
+                            entry["pricing"] = pricing_data
+                    models.append(entry)
     except Exception as e:
         logger.error(f"Failed to fetch OpenRouter models: {e}")
     return models
@@ -273,6 +286,7 @@ async def fetch_ollama_models_from_api(base_url: str) -> List[Dict[str, Any]]:
                             "description": "本地运行的 Ollama 模型",
                             "is_free": True,
                             "is_multimodal": False,
+                            "pricing": {"prompt": "0", "completion": "0"},
                         })
     except Exception as e:
         logger.error(f"Failed to fetch Ollama models: {e}")

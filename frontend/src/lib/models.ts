@@ -3,6 +3,7 @@ import type {
   ImageModelItem,
   VideoModelItem,
   ModelCatalogItem,
+  ModelPricing,
 } from "@/types";
 import { getModelGuide, normalizeModelId, type ModelGuide } from "@/lib/modelGuide";
 
@@ -17,6 +18,7 @@ export interface ModelLike {
   is_free?: boolean;
   is_multimodal?: boolean;
   is_default?: boolean;
+  pricing?: ModelPricing;
 }
 
 /** 归一化后的模型选项。 */
@@ -28,8 +30,8 @@ export interface ModelOption {
   isFree: boolean;
   isMultimodal: boolean;
   isDefault?: boolean;
-  /** 是否命中精选画像（见 lib/modelGuide.ts） */
-  isFeatured: boolean;
+  /** 厂商返回的原始价格（USD / token）；目录没有价格时为 undefined */
+  pricing?: ModelPricing;
   /** 选型画像；未命中画像表时为 undefined */
   guide?: ModelGuide;
   /** 由适配器算好的展示顺序，越小越靠前 */
@@ -87,6 +89,27 @@ export function isMultimodalModel(m: ModelLike): boolean {
 /** 尚未分配 rank 的模型选项（排序期间使用） */
 export type UnrankedModelOption = Omit<ModelOption, "rank">;
 
+/**
+ * 「免费」等级里的置顶顺序。
+ *
+ * 免费档默认按画像 / 名称排序，但这个项目的主要入口是免费体验：新用户打开
+ * 选择器时默认落在「免费」，应当先看到当下最好用的几个免费模型，而不是被
+ * 其他免费条目占满首屏。
+ *
+ * 只匹配带 `:free` 的条目（以及 `openrouter/free`），同一模型的付费线路仍按
+ * 原有价格档排序，不会被一起顶到前面。
+ */
+const FEATURED_PIN_ORDER: readonly string[] = [
+  "nvidia/nemotron-3-ultra-550b-a55b:free",
+  "minimax/minimax-m3.1-flash:free",
+  "openrouter/free",
+];
+
+/** id → 置顶分数。负数越小越靠前，且整体排在系统默认模型（-1）之前。 */
+const FEATURED_PIN_SCORES: ReadonlyMap<string, number> = new Map(
+  FEATURED_PIN_ORDER.map((id, index) => [id, -100 + index] as const),
+);
+
 /** 模型优先级排序评分：越小越靠前 */
 export function getModelPriorityScore(m: UnrankedModelOption, isVocabMode = false): number {
   const id = m.id.toLowerCase();
@@ -102,13 +125,19 @@ export function getModelPriorityScore(m: UnrankedModelOption, isVocabMode = fals
     if (id.includes("gpt-4o") || id.startsWith("openai/")) return -5;
   }
 
-  // 1. 系统默认模型置顶（由后端 is_default 标记动态驱动，全项目单一配置源）
+  // 1. 免费等级置顶的模型（见 FEATURED_PIN_ORDER）。词汇模式不干预。
+  if (!isVocabMode) {
+    const pinnedScore = FEATURED_PIN_SCORES.get(id);
+    if (pinnedScore !== undefined) return pinnedScore;
+  }
+
+  // 2. 系统默认模型置顶（由后端 is_default 标记动态驱动，全项目单一配置源）
   if (m.isDefault) return -1;
 
-  // 2. openrouter/free 聚合路由
+  // 3. openrouter/free 聚合路由
   if (id === "openrouter/free" || id.includes("openrouter/free")) return 0;
 
-  // 2. 有画像的模型按价格档排序：旗舰(1) → 标准(2) → 免费(3) → 低价(4)
+  // 4. 有画像的模型按价格档排序：旗舰(1) → 标准(2) → 免费(3) → 低价(4)
   if (m.guide) {
     switch (m.guide.priceTier) {
       case "premium":
@@ -122,10 +151,10 @@ export function getModelPriorityScore(m: UnrankedModelOption, isVocabMode = fals
     }
   }
 
-  // 3. 其他免费模型
+  // 5. 其他免费模型
   if (m.isFree) return 20;
 
-  // 4. 其他模型
+  // 6. 其他模型
   return 30;
 }
 
@@ -158,8 +187,7 @@ export function toChatModelOptions(models: ModelCatalogItem[], isVocabMode = fal
       isFree,
       isMultimodal: isMultimodalModel(m),
       isDefault: Boolean(m.is_default),
-      // 精选 = 命中画像表；判据见上方 isFeatured 的注释
-      isFeatured: guide !== undefined,
+      pricing: m.pricing,
       guide,
     };
   });
@@ -198,7 +226,6 @@ export function toMediaModelOptions<T extends MediaCatalogItem>(models: readonly
       isFree: m.is_free,
       isMultimodal: false,
       // 多媒体目录（绘图 / 视频 / 语音）不参与语言模型的选型画像
-      isFeatured: false,
       guide: undefined,
     }))
     .sort((a, b) => {

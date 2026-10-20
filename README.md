@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.32.0-indigo?style=flat-square" alt="Version"></a>
+  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.33.0-indigo?style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
@@ -225,7 +225,35 @@ cat backup_xxx.sql | docker exec -i apiapia_postgres psql -U postgres -d apiapia
 
 ## 📜 Releases & Changelog
 
-### 🚀 Latest Release: v2.32.0 (2026-10-19)
+### 🚀 Latest Release: v2.33.0 (2026-10-20)
+
+This release focuses on **a tiered language-model picker, exact pricing, and cleanup of the legacy category system**. The picker now uses Free / Normal / Smart / Custom cards: Free contains only the three pinned free models, Normal and Smart use curated lists, and only Custom exposes the full catalog. OpenRouter prompt/completion prices are now synced and shown per 1M tokens, while the old filter-chip UI, scenario tags, and redundant i18n keys have been removed.
+
+#### 1. Tiered Model Picker
+- **Four clear tiers**: Free, Normal, Smart, and Custom each carry a one-line explanation, so users can judge cost and fit before scanning the list.
+- **Strict free tier**: the Free card shows only Nemotron, MiniMax M3.1 Flash, and `openrouter/free` — no low-cost paid models.
+- **Full catalog only in Custom**: Normal and Smart use curated lists; Custom removes tier limits and searches/filters every model by name or vendor.
+- **Initial tier follows the current model**: the picker opens the curated tier containing the selected model, uncurated models open Custom, and no selection falls back to Free.
+
+#### 2. Exact Pricing
+- **Prompt/completion prices**: backend OpenRouter sync now stores `pricing.prompt` / `pricing.completion`, converted to USD per 1M tokens in the UI.
+- **Comparable at a glance**: model rows show input/output prices such as `$2 / $10 /M`; free models display Free.
+- **No guessing**: when exact pricing is unavailable, the qualitative tier remains; when neither exists, no price is shown.
+
+#### 3. Legacy Category & Dead-Code Cleanup
+- **Scenario tags removed**: Writing & Translation, Deep Reasoning, Coding & Dev, Vision & Docs, and Fast & Free tags are gone from model rows and picker filters.
+- **Old chip filter removed**: deleted `ModelFilterChips`, `buildFilterBlocks`, and the unused filter predicates, leaving the tier cards as the single entry point.
+- **Unused data and copy removed**: dropped use-case profiles, caveat hints, featured flags, and the corresponding four-locale message keys that no longer render.
+
+#### 4. Interaction & Trial Mode
+- **Always-visible scrollbar**: the model list scrolls independently while the header, search box, and tier cards stay fixed.
+- **Tier switch behavior**: changing tiers clears the search, returns to the top, and highlights the first row; a model is committed only by clicking a row or pressing Enter.
+- **Trial mode**: when only free models are available, only Free and Custom are shown, so users cannot enter an empty tier.
+- **Four locales synchronized**: tier descriptions, pricing tooltips, and empty-search copy updated in Simplified Chinese, Traditional Chinese, English, and Japanese.
+
+---
+
+### v2.32.0 (2026-10-19)
 
 This release focuses on **memory consolidation and dehydration engine refactoring, chat streaming scope safety fixes, frontend UX copy distillation, and unified multi-language branding around Apiapia's cat assistant identity**. It upgrades the memory consolidation workflow with curated models and snapshot rollback, eliminates an `UnboundLocalError` in streaming chat, streamlines UI copy across the platform, and harmonizes the cat mascot narrative across all 4 locales.
 

@@ -16,9 +16,9 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
-import { ModelPriceTag, ModelUseCaseTags } from "@/components/common/ModelGuideTags";
-import { ModelFilterChips } from "@/components/common/ModelFilterChips";
-import { buildFilterBlocks, type ModelFilterGroup } from "@/components/common/modelFilterGroups";
+import { ModelPriceTag } from "@/components/common/ModelGuideTags";
+import { ModelTierCards } from "@/components/common/ModelTierCards";
+import type { ModelFilterGroup } from "@/components/common/modelFilterGroups";
 import { overlaySurfaceClass } from "@/components/common/surfaces";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n";
@@ -51,7 +51,7 @@ export interface ModelPickerProps {
   triggerIcon?: LucideIcon;
   /** 桌面浮层宽度档位；移动端抽屉始终通栏，此项不参与 */
   width?: "narrow" | "wide";
-  /** 是否展示分组筛选（仅语言模型有此筛选） */
+  /** 等级卡片筛选（仅语言模型有此筛选） */
   filterGroups?: ModelFilterGroup[];
   /** 初始默认选中的分组 key；该分组不可用时不预选任何分组 */
   defaultFilterKey?: string;
@@ -86,6 +86,7 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
   const [activeIndex, setActiveIndex] = useState(-1);
   const [filterKey, setFilterKey] = useState<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const listboxId = useRef(`model-listbox-${Math.random().toString(36).slice(2)}`);
   const optionId = (idx: number) => `${listboxId.current}-opt-${idx}`;
@@ -95,7 +96,9 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
     [filterGroups]
   );
 
-  const filterBlocks = useMemo(() => buildFilterBlocks(availableGroups), [availableGroups]);
+  const activeGroup = availableGroups.find((g) => g.key === filterKey);
+  /** 「自定义」档不对等级做限制，因此头部计数把它当作「未筛选」。 */
+  const isFiltered = activeGroup !== undefined && activeGroup.key !== "custom";
 
   const autoPickedRef = useRef(false);
   useEffect(() => {
@@ -112,27 +115,25 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
 
   const visible = useMemo(() => {
     const query = search.trim().toLowerCase();
-    const group = availableGroups.find((g) => g.key === filterKey);
 
     const matched = options.filter((o) => {
-      // 用户主动输入关键词时在全量目录内搜索，最快找到目标模型；
-      // 此时忽略分组筛选，否则「免费」分组会让带关键词的搜索查不到付费模型。
-      if (query) {
-        return (
-          o.id.toLowerCase().includes(query) ||
-          o.name.toLowerCase().includes(query) ||
-          (o.provider || "").toLowerCase().includes(query) ||
-          (o.description || "").toLowerCase().includes(query)
-        );
-      }
-      return group ? group.match(o) : true;
+      // 搜索只在当前等级内进行：选了「免费」就不该冒出付费模型。
+      // 「自定义」档的 match 恒为 true，因此那边搜索的就是全量目录。
+      if (activeGroup && !activeGroup.match(o)) return false;
+      if (!query) return true;
+      return (
+        o.id.toLowerCase().includes(query) ||
+        o.name.toLowerCase().includes(query) ||
+        (o.provider || "").toLowerCase().includes(query) ||
+        (o.description || "").toLowerCase().includes(query)
+      );
     });
 
     return matched.sort((a, b) => a.rank - b.rank);
-  }, [options, search, filterKey, availableGroups]);
+  }, [options, search, activeGroup]);
 
   /**
-   * 打开时清空搜索，并把高亮对齐到当前选中项。
+   * 打开时清空搜索，并把高亮对齐到当前选中项；没有选中项时落在第一项。
    * 不默认聚焦输入框，避免移动端/触屏设备打开弹窗时直接顶出软键盘
    * （抽屉侧同样要拦住 Radix Dialog 自带的 onOpenAutoFocus，见下）。
    * 用户需要搜索时手动点击输入框才会获得焦点并呼出键盘。
@@ -140,7 +141,10 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
   useEffect(() => {
     if (!open) return;
     setSearch("");
-    setActiveIndex(visible.findIndex((o) => o.id === value));
+    const selectedIndex = visible.findIndex((o) => o.id === value);
+    // 没有选中项（或选中项不在当前列表）时，默认高亮第一项，键盘操作
+    // 可以直接从推荐首位开始。
+    setActiveIndex(selectedIndex >= 0 ? selectedIndex : visible.length > 0 ? 0 : -1);
   }, [open]);
 
   // 高亮项滚动进可视区，否则 ↑ 移到列表外时用户看不到自己在哪
@@ -260,13 +264,13 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
           </span>
           <span
             title={
-              search.trim() || (filterKey && filterKey !== "all")
+              search.trim() || isFiltered
                 ? `${visible.length} / ${options.length}`
                 : `${options.length}`
             }
             className="shrink-0 rounded-lg bg-surface-3/80 px-2 py-0.5 font-mono text-xs font-semibold text-muted-foreground"
           >
-            {search.trim() || (filterKey && filterKey !== "all")
+            {search.trim() || isFiltered
               ? `${visible.length} / ${options.length}`
               : options.length}
           </span>
@@ -318,33 +322,63 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
         )}
       </div>
 
-      {filterBlocks.length > 0 && (
-        <div className="mb-2.5">
-          <ModelFilterChips
-            blocks={filterBlocks}
+      {availableGroups.length > 0 && (
+        <div className="mb-2.5 shrink-0">
+          <ModelTierCards
+            groups={availableGroups}
             activeKey={filterKey}
-            highlightEnabled={!search.trim()}
             kindLabel={a11yLabel}
             onSelect={(key) => {
+              // 切档时回到该档的完整列表：清掉上一档的搜索词，并把第一项
+              // 设为键盘高亮项（点一下才会真正切换模型，避免误触付费档）。
               setFilterKey(key);
-              setActiveIndex(-1);
+              setSearch("");
+              setActiveIndex(0);
+              // activeIndex 可能本来就是 0，单靠上面的滚动 effect 不会触发；
+              // 这里显式回到列表顶部，确保切档后先看到第一个推荐。
+              if (listRef.current) listRef.current.scrollTop = 0;
             }}
           />
         </div>
       )}
 
       <div
+        ref={listRef}
         id={listboxId.current}
-        role="listbox"
-        aria-label={t("settings.picker.listAria", { kind: a11yLabel })}
+        role={visible.length > 0 ? "listbox" : undefined}
+        aria-label={
+          visible.length > 0 ? t("settings.picker.listAria", { kind: a11yLabel }) : undefined
+        }
         onWheel={(e) => e.stopPropagation()}
-        className="min-h-0 flex-1 space-y-1.5 overflow-y-auto overscroll-contain pr-1 touch-pan-y"
+        className="model-list-scrollbar min-h-0 flex-1 space-y-1.5 overflow-y-auto overscroll-contain pr-1.5 touch-pan-y"
       >
         {visible.length === 0 ? (
-          emptyState ?? (
+          options.length > 0 && search.trim() && isFiltered ? (
             <div className="px-3 py-10 text-center text-xs leading-relaxed text-muted-foreground">
-              {t("settings.picker.noMatch", { kind: kindLabel })}
+              <p>{t("settings.picker.noMatch", { kind: kindLabel })}</p>
+              <button
+                type="button"
+                onPointerDown={(e) => {
+                  if (e.pointerType !== "touch") e.preventDefault();
+                }}
+                onClick={() => {
+                  // 保留搜索词切到「自定义」，让用户立刻看到全量目录里的结果；
+                  // 第一条作为默认高亮项。
+                  setFilterKey("custom");
+                  setActiveIndex(0);
+                  if (listRef.current) listRef.current.scrollTop = 0;
+                }}
+                className="mt-2 cursor-pointer rounded-full border border-primary/30 bg-primary/10 px-3 py-1 font-medium text-primary transition-colors hover:bg-primary/15"
+              >
+                {t("settings.picker.searchAll")}
+              </button>
             </div>
+          ) : (
+            emptyState ?? (
+              <div className="px-3 py-10 text-center text-xs leading-relaxed text-muted-foreground">
+                {t("settings.picker.noMatch", { kind: kindLabel })}
+              </div>
+            )
           )
         ) : (
           visible.map((o, idx) => {
@@ -361,10 +395,11 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
                 onPointerDown={() => setActiveIndex(idx)}
                 className={cn(
                   "flex cursor-pointer items-start justify-between gap-3 rounded-2xl p-3 text-xs transition-all active:scale-[0.99] sm:items-center",
-                  isActive && !isSelected && "bg-surface-3/50",
                   isSelected
                     ? "border border-primary/30 bg-primary/10 font-medium text-primary shadow-xs"
-                    : "border border-transparent hover:bg-surface-3/50"
+                    : isActive
+                      ? "border border-primary/25 bg-primary/5"
+                      : "border border-transparent hover:bg-surface-3/50"
                 )}
               >
                 <div className="min-w-0 flex-1">
@@ -377,11 +412,12 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
                     >
                       {o.name}
                     </span>
-                    {o.guide && <ModelPriceTag tier={o.guide.priceTier} />}
-                    {o.isFree && o.guide?.priceTier !== "free" && (
-                      <span className="rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 font-mono text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                        {t("settings.picker.freeBadge")}
-                      </span>
+                    {(o.guide || o.pricing || o.isFree) && (
+                      <ModelPriceTag
+                        tier={o.guide?.priceTier}
+                        pricing={o.pricing}
+                        isFree={o.isFree}
+                      />
                     )}
                     {o.isMultimodal && (
                       <span className="rounded-lg border border-violet-500/25 bg-violet-500/10 px-2 py-0.5 font-mono text-xs font-semibold text-violet-600 dark:text-violet-400">
@@ -394,8 +430,6 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
                       </span>
                     )}
                   </div>
-
-                  {o.guide && <ModelUseCaseTags useCases={o.guide.useCases} max={2} className="mt-1" />}
 
                   <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">{o.id}</p>
 

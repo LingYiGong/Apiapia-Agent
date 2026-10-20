@@ -72,7 +72,8 @@ async def list_configured_models(
                 "provider": "openrouter",
                 "description": "由 OpenRouter 官方智能路由至当前最佳可用的免费大模型，稳定可靠",
                 "is_free": True,
-                "is_multimodal": True
+                "is_multimodal": True,
+                "pricing": {"prompt": "0", "completion": "0"},
             })
 
     can_all = has_full_model_access(current_user)

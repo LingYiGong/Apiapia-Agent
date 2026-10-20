@@ -128,17 +128,17 @@ export default {
     selectAriaCurrent: "，目前 {name}",
     title: "選擇{kind}",
     /** 行動版底部抽屜的無障礙描述（視覺隱藏，抽屜沒有可見副標題） */
-    sheetDesc: "按場景挑選{kind}，或直接搜尋名稱與廠商。",
+    sheetDesc: "按等級挑選{kind}，或直接搜尋名稱與廠商。",
     current: "目前: {name}",
     searchAria: "搜尋{kind}",
     searchPh: "搜尋{kind}",
     clearSearch: "清除搜尋",
     listAria: "{kind}清單",
-    /** 分類膠囊區（role="group"）的無障礙名稱 */
-    filterGroupAria: "{kind}分類篩選",
+    /** 等級卡片區（role="group"）的無障礙名稱 */
+    tierGroupAria: "{kind}等級篩選",
     noMatch: "找不到符合的{kind}",
+    searchAll: "在「自訂」中搜尋全部模型",
     multimodalBadge: "多模態",
-    allGroup: "全部",
     freeBadge: "免費",
     trialBadge: "體驗模式",
     trialTitle: "目前處於體驗模式，僅可使用免費{kind}",
@@ -152,24 +152,26 @@ export default {
     syncedButEmpty: "後端已同步但沒有可用模型，請檢查 .env 中的服務憑證是否有效。",
   },
 
-  /** 模型選型引導：需求標籤、價格檔、推薦理由與避坑提示 */
+  /** 模型選型引導：價格檔與推薦理由 */
   modelGuide: {
-    /** ModelPicker 分組篩選裡的「推薦」一檔 */
-    groupRecommend: "綜合推薦",
-
-    /** ModelPicker 分組篩選裡的「免費」一檔：目錄裡所有免費模型 */
+    /** 等級卡片裡的「免費」一檔：置頂的三個免費入口 */
     groupFree: "免費",
 
-    /** ModelPicker 一級分類區的小標題 */
-    sectionUseCase: "按場景選型",
+    /** 等級卡片裡的「正常」一檔：精選的日常性價比模型 */
+    groupNormal: "正常",
 
-    /** 需求標籤：既作模型行的徽章，也作 ModelPicker 的分類名 */
-    useCase: {
-      writing: "寫作翻譯",
-      reasoning: "深度思考",
-      coding: "程式開發",
-      visionDocs: "看圖識文",
-      fastFree: "極速與免費",
+    /** 等級卡片裡的「聰明」一檔：精選的旗艦模型 */
+    groupSmart: "聰明",
+
+    /** 等級卡片裡的「自訂」一檔：不做等級篩選，瀏覽全部 */
+    groupCustom: "自訂",
+
+    /** 四張等級卡片的一行說明 */
+    tierDesc: {
+      free: "三個免費首選，零成本體驗",
+      normal: "精選日常主力，兼顧能力與價格",
+      smart: "精選旗艦，複雜任務更強，價格更高",
+      custom: "搜尋並篩選全部模型",
     },
 
     /** 價格檔：依廠商公開列表價粗分，只回答「貴不貴」 */
@@ -178,9 +180,11 @@ export default {
       budget: "低價",
       standard: "標準",
       premium: "旗艦",
+      /** 精確價格徽章的提示：單位是美元 / 百萬 tokens */
+      perMillion: "輸入 / 輸出，每百萬 tokens（USD）",
     },
 
-    /** 18 條推薦畫像的選型理由。鍵名與 lib/modelGuide.ts 的常數對應。 */
+    /** 20 條推薦畫像的選型理由。鍵名與 lib/modelGuide.ts 的常數對應。 */
     reason: {
       sonnet: "【綜合旗艦】日常問答、長篇寫作與程式碼除錯表現出色，綜合推理能力領先。",
       gptSol61: "【高能旗艦】頂尖的推理性能與回應速度，適合處理複雜長鏈任務與高頻對話。",
@@ -200,19 +204,8 @@ export default {
       minimaxM3: "【均衡多模態】支援圖文與影片多模態分析，兼備百萬字長上下文能力。",
       mimoFlash: "【超輕量多模態】極低呼叫成本，適合日常視覺問答與輕量互動。",
       haiku55: "【極速輕巧】回應極速，適合輕量問答、文本提煉與快速格式轉換。",
-    },
-
-    /** 使用提示 */
-    caveat: {
-      longPrompt: "提示：單次對話輸入超過數十萬字時按階梯費率計費，常規使用不受影響。",
-      priceRise: "提示：官方計劃於後續調整價格，長期穩定業務需提前評估成本。",
-      thinking: "提示：強制開啟深度思考過程，解答複雜難題更嚴謹，但耗時與消耗會增加。",
-      freeUnstable: "提示：公共免費節點可用性可能隨負載波動，正式生產建議選用商用模型。",
-      shortContext: "提示：上下文上限為 50 萬字，低於多數 100 萬字模型，分析超大專案時留意字數。",
-      primeVariant: "提示：若遇 -prime 加速變体價格較高，追求高性價比建議選用標準版。",
-      kimiPrice: "提示：長文本生成單價較高，生成超長回覆時會消耗較多額度。",
-      peakPricing: "提示：廠商實行峰谷定價機制，尖峰時段（UTC 01:00-04:00、06:00-10:00）費率會有浮動。",
-      haikuLongPrompt: "提示：一次性輸入超過 10 萬字時進入高階費率檔位，超長文件場景請留意。",
+      nemotronUltra: "【旗艦級推理】550B 總參 / 55B 啟用的 MoE，長程 Agent 與複雜邏輯推演能力突出，超長上下文、純文字輸入。",
+      minimaxM31Flash: "【全能長文多模態】百萬上下文與超大輸出，支援圖文影片解析、工具呼叫與結構化輸出，中文表現均衡。",
     },
   },
 

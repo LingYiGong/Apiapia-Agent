@@ -305,8 +305,8 @@ def retrieve_relevant_memories(
     chars_used = 0
 
     for item in top:
-        text = item.get("memory") or item.get("text") or str(item)
-        if not (text and text.strip()):
+        mem_text = item.get("memory") or item.get("text") or str(item)
+        if not (mem_text and mem_text.strip()):
             continue
 
         meta = item.get("_parsed_meta", {})
@@ -316,8 +316,8 @@ def retrieve_relevant_memories(
             continue
         if memory_id:
             seen_ids.add(memory_id)
-        text = text.strip()[:1200]
-        line = f"- {text}"
+        mem_text = mem_text.strip()[:1200]
+        line = f"- {mem_text}"
         is_profile = meta.get("type") == "profile"
         if is_profile and profile_count >= MAX_PROFILE_ITEMS:
             continue
@@ -334,7 +334,7 @@ def retrieve_relevant_memories(
         chars_used += len(line) + 1
         clean_memories.append({
             "id": memory_id,
-            "memory": text,
+            "memory": mem_text,
             "score": round(item["_final_score"], 4),
             "semantic_score": round(item["_semantic_score"], 4),
             "importance": importance or None,

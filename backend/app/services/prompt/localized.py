@@ -58,7 +58,7 @@ TEXT: Dict[str, Dict[str, str]] = {
             "【联网检索机制与回复准则】\n"
             "1. 本系统采用前置自动化检索架构：若用户的问题需要联网，后台检索系统在本次对话开始前已完成搜索并将资料注入在下方。\n"
             "2. 你在当前生成阶段不支持、也绝对无需尝试调用任何外部工具、搜索引擎或函数。\n"
-            "3. 若上下文下方提供了【🌐 实时网络检索最新参考资料】，请充分参考这些一手资料并在关键事实处标注引用（如 [1]、[2]）；\n"
+            "3. 若上下文下方提供了【🌐 实时网络检索最新参考资料】，请充分参考这些一手资料，并在提到关键事实与数据时直接紧随句尾以 Markdown 链接标注引用来源（格式如：[来源: 网站或机构名](对应网页完整URL)），严禁在全文末尾集中堆叠尾注。\n"
             "4. 若上下文下方未提供网络检索资料，表明本次无需联网或未命中。你必须立刻依据你已掌握的全部知识，"
             "直接使用自然语言详尽回答用户，严禁尝试发起工具调用、严禁输出任何工具调用标记"
             "（如 `[SEARCH:]`、`<tool_call>` 等），更绝不可因未提供检索资料而中断或拒绝生成正文。"
@@ -90,7 +90,7 @@ TEXT: Dict[str, Dict[str, str]] = {
             "【網路檢索機制與回覆準則】\n"
             "1. 本系統採用前置自動化檢索架構：若使用者的問題需要上網，後台檢索系統在本次對話開始前已完成搜尋並將資料注入在下方。\n"
             "2. 你在目前生成階段不支援、也絕對無需嘗試呼叫任何外部工具、搜尋引擎或函式。\n"
-            "3. 若上下文下方提供了【🌐 即時網路檢索最新參考資料】，請充分參考這些一手資料並在關鍵事實處標註引用（如 [1]、[2]）；\n"
+            "3. 若上下文下方提供了【🌐 即時網路檢索最新參考資料】，請充分參考這些一手資料，並在提及關鍵事實與數據時直接緊隨句尾以 Markdown 連結標註引用來源（格式如：[來源: 機構名](對應網頁完整URL)），嚴禁在全文末尾集中堆疊尾注。\n"
             "4. 若上下文下方未提供網路檢索資料，表示本次無需上網或未命中。你必須立刻依據你已掌握的全部知識，"
             "直接使用自然語言詳盡回答使用者，嚴禁嘗試發起工具呼叫、嚴禁輸出任何工具呼叫標記"
             "（如 `[SEARCH:]`、`<tool_call>` 等），更絕不可因未提供檢索資料而中斷或拒絕生成正文。"
@@ -127,8 +127,9 @@ TEXT: Dict[str, Dict[str, str]] = {
             "internet, a backend search has already run and its material is injected below.\n"
             "2. You do not support tool, search-engine or function calls at this stage, and "
             "must never attempt one.\n"
-            "3. If a [Live Web Sources] block appears below, use those primary sources and "
-            "cite them at the key claims (e.g. [1], [2]).\n"
+            "3. If a [Live Web Sources] block appears below, use those primary sources and cite "
+            "factual claims inline immediately after the sentence with Markdown links (format: [Source: Name](URL)); "
+            "never append a footnote list at the bottom.\n"
             "4. If no such block appears, the question did not need retrieval or the search "
             "missed. Answer immediately and thoroughly from what you already know. Never emit "
             "a tool-call marker (such as `[SEARCH:]` or `<tool_call>`), and never refuse or "
@@ -167,9 +168,9 @@ TEXT: Dict[str, Dict[str, str]] = {
             "バックエンドが検索を完了し、その資料を以下に注入しています。\n"
             "2. 現在の生成フェーズではツール、検索エンジン、関数の呼び出しは"
             "サポートしておらず、試行することもあってはなりません。\n"
-            "3. 以下の本文に【🌐 リアルタイムウェブ検索の参考資料】が"
-            "提供されている場合は、その一次情報を重視し、重要な事実には"
-            "引用（[1]、[2] など）を付けてください。\n"
+            "3. 以下の本文に【🌐 リアルタイムウェブ検索の参考資料】が提供されている場合は、"
+            "その一次資料を重視し、重要な事実や数値の直後に Markdown リンク形式（例：[出典: 組織名](URL)）で"
+            "インライン引用してください。末尾に脚注リストをまとめて置くことは禁止です。\n"
             "4. 検索資料が提示されていない場合は、検索が不要だったか"
             "一致しなかったことを意味します。すでに知っている知識だけで、"
             "直ちに自然言語で詳しく回答してください。ツール呼び出しの"
@@ -192,14 +193,6 @@ TEXT: Dict[str, Dict[str, str]] = {
 
 
 # ── 长期记忆抽取 / 画像分析的措辞 ─────────────────────────────────────
-#
-# 这两个提示词原先把「主语为『用户』，10-60 字」写死在正文里。两个问题：
-#
-# 1. **主语词是中文的。** 让模型写 "The user prefers X" 而不是 "用户偏好 X"，
-#    记忆库里就混进了两种语言的句子，而这些文本会被原样注入到
-#    之后的每一次对话上下文里 —— 语言污染是累积的。
-# 2. **「字」是汉字单位。** 英语语境下 10-60 *characters* 只能写出
-#    "Likes tea" 这种残缺事实，比多写几个字糟糕得多。
 
 MEMORY_TEXT: Dict[str, Dict[str, str]] = {
     "zh-CN": {"subject": "用户", "fact_length": "10-60 字", "summary_length": "10-80 字", "uploaded_file": "用户上传文件: {name}", "uploaded_image": "用户上传了图片进行分析"},

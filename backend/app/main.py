@@ -131,12 +131,20 @@ install_error_handler(app)
 app.add_middleware(MaxBodySizeMiddleware, max_bytes=MAX_REQUEST_BODY_BYTES)
 app.add_middleware(LocaleMiddleware)
 
-# CORS Middleware: 允许配置的外部域名以及本地开发调试端口
-cors_origins = [o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()]
+# CORS Middleware: 兼容通配符与带凭证场景
+raw_cors = [o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()]
+has_wildcard = "*" in raw_cors
+cors_origins = [o for o in raw_cors if o != "*"]
+allow_origin_regex = (
+    settings.CORS_ORIGIN_REGEX.strip()
+    if settings.CORS_ORIGIN_REGEX and settings.CORS_ORIGIN_REGEX.strip()
+    else (".*" if has_wildcard else None)
+)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=settings.CORS_ORIGIN_REGEX.strip() if settings.CORS_ORIGIN_REGEX and settings.CORS_ORIGIN_REGEX.strip() else None,
-    allow_origins=cors_origins,
+    allow_origin_regex=allow_origin_regex,
+    allow_origins=cors_origins if not has_wildcard else [],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

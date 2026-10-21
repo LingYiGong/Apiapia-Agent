@@ -241,7 +241,7 @@ async def fetch_openrouter_models_from_api(api_key: Optional[str] = None) -> Lis
     return models
 
 
-async def fetch_anthropic_models_from_api(api_key: str) -> List[Dict[str, Any]]:
+async def fetch_anthropic_models_from_api(api_key: str, base_url: str = "https://api.anthropic.com") -> List[Dict[str, Any]]:
     """Fetch available models directly from Anthropic API."""
     headers = {
         "x-api-key": api_key,
@@ -250,7 +250,7 @@ async def fetch_anthropic_models_from_api(api_key: str) -> List[Dict[str, Any]]:
     models = []
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
-            resp = await client.get("https://api.anthropic.com/v1/models", headers=headers)
+            resp = await client.get(f"{base_url.rstrip('/')}/v1/models", headers=headers)
             if resp.status_code == 200:
                 data = resp.json().get("data", [])
                 for item in data:
@@ -303,6 +303,7 @@ async def sync_chat_models() -> Dict[str, Any]:
     openai_base = (settings.OPENAI_BASE_URL or "https://api.openai.com/v1").strip()
     openrouter_key = (settings.OPENROUTER_API_KEY or "").strip()
     anthropic_key = (settings.ANTHROPIC_API_KEY or "").strip()
+    anthropic_base = (settings.ANTHROPIC_BASE_URL or "https://api.anthropic.com").strip()
     ollama_url = (settings.OLLAMA_BASE_URL or "").strip()
 
     active_providers = set()
@@ -359,7 +360,7 @@ async def sync_chat_models() -> Dict[str, Any]:
             fetched_all.extend(ollama_list)
 
     if anthropic_key:
-        anthropic_list = await fetch_anthropic_models_from_api(anthropic_key)
+        anthropic_list = await fetch_anthropic_models_from_api(anthropic_key, anthropic_base)
         if anthropic_list:
             synced_providers.append("Anthropic")
             fetched_all.extend(anthropic_list)

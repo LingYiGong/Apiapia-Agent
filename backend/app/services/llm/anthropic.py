@@ -117,6 +117,9 @@ class AnthropicProvider(LLMProvider):
         }
         if system_prompt:
             request["system"] = system_prompt
+        if "thinking" in kwargs and kwargs["thinking"]:
+            request["thinking"] = kwargs["thinking"]
+            request.pop("temperature", None)
         return request
 
     async def chat(

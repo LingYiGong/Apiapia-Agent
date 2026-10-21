@@ -1,5 +1,6 @@
 import json
 import math
+import time
 import logging
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Tuple
@@ -28,6 +29,36 @@ _LAMBDA_DEFAULT = 0.008
 MAX_MEMORY_CONTEXT_CHARS = 4800
 MAX_PROFILE_ITEMS = 5
 MAX_RELEVANT_ITEMS = 5
+
+# Cache for user profile memories to avoid redundant full-table queries per chat turn
+_profile_cache: Dict[str, Tuple[float, List[Dict[str, Any]]]] = {}
+PROFILE_CACHE_TTL = 60.0  # seconds
+
+
+def _get_cached_profile_memories(user_id: str) -> List[Dict[str, Any]]:
+    """Retrieve stable profile memories with short in-memory cache to save database scans."""
+    now = time.time()
+    if user_id in _profile_cache:
+        ts, cached = _profile_cache[user_id]
+        if now - ts < PROFILE_CACHE_TTL:
+            return list(cached)
+
+    profile_memories: List[Dict[str, Any]] = []
+    try:
+        for item in memory_service.list_memories(user_id=user_id, limit=50):
+            meta = item.get("metadata") or {}
+            if isinstance(meta, str):
+                try:
+                    meta = json.loads(meta)
+                except Exception:
+                    meta = {}
+            if meta.get("type") == "profile":
+                profile_memories.append(item)
+    except Exception as profile_err:
+        logger.debug("Profile memory lookup failed: %s", profile_err)
+
+    _profile_cache[user_id] = (now, profile_memories)
+    return list(profile_memories)
 
 
 # ── Scoring helpers ───────────────────────────────────────────────────────────
@@ -77,7 +108,7 @@ def _compute_final_score(item: Dict[str, Any], parsed_metadata: Dict) -> float:
     semantic = float(item.get("score") or 0.5)
     importance = _parse_importance(parsed_metadata)
 
-    # An updated fact is fresh again.  Prefer the update timestamp; otherwise
+    # An updated fact is fresh again. Prefer the update timestamp; otherwise
     # replacing an old preference would leave it permanently decayed.
     created_at = (
         item.get("updated_at")
@@ -223,20 +254,8 @@ def retrieve_relevant_memories(
 
     profile_memories: List[Dict[str, Any]] = []
     try:
-        # Stable profile facts (identity, durable preferences) should not rely
-        # on lexical similarity to the current question.
-        try:
-            for item in memory_service.list_memories(user_id=user_id, limit=100):
-                meta = item.get("metadata") or {}
-                if isinstance(meta, str):
-                    try:
-                        meta = json.loads(meta)
-                    except Exception:
-                        meta = {}
-                if meta.get("type") == "profile":
-                    profile_memories.append(item)
-        except Exception as profile_err:
-            logger.debug("Profile memory lookup failed: %s", profile_err)
+        # Stable profile facts (identity, durable preferences) using short-TTL cache
+        profile_memories = _get_cached_profile_memories(user_id)
 
         # Fetch 2× limit so reranking has enough candidates to choose from
         raw_memories = memory_service.search_memory(
@@ -277,7 +296,7 @@ def retrieve_relevant_memories(
     scored.sort(key=lambda x: x["_final_score"], reverse=True)
     top = scored[:limit]
 
-    # Add a small, stable profile block ahead of semantic results.  De-duplicate
+    # Add a small, stable profile block ahead of semantic results. De-duplicate
     # by id so a profile item returned by vector search is not shown twice.
     selected_ids = {str(item.get("id") or "") for item in top}
     for profile in reversed(profile_memories[:MAX_PROFILE_ITEMS]):

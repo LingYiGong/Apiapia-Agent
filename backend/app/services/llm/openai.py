@@ -149,11 +149,8 @@ class OpenAIProvider(LLMProvider):
                             fn = getattr(tc, "function", None)
                             if fn:
                                 fn_name = getattr(fn, "name", "")
-                                fn_args = getattr(fn, "arguments", "")
                                 if fn_name:
                                     yield f"\n🛠️ `[工具调用: {fn_name}]`\n"
-                                if fn_args:
-                                    yield fn_args
 
             if in_thinking:
                 yield "\n</think>\n\n"
@@ -230,8 +227,20 @@ class OpenAIProvider(LLMProvider):
         response = await self.client.chat.completions.create(**create_kwargs)
         if getattr(response, "model", None):
             self.last_model = response.model
+        if hasattr(response, "usage") and response.usage:
+            self.last_usage = {
+                "prompt_tokens": getattr(response.usage, "prompt_tokens", 0) or 0,
+                "completion_tokens": getattr(response.usage, "completion_tokens", 0) or 0,
+                "total_tokens": getattr(response.usage, "total_tokens", 0) or 0,
+            }
         if response.choices:
             self.last_finish_reason = response.choices[0].finish_reason
-            return response.choices[0].message.content or ""
+            msg = response.choices[0].message
+            content = msg.content or ""
+            reasoning = getattr(msg, "reasoning_content", None) or getattr(msg, "reasoning", None)
+            if not reasoning and hasattr(msg, "model_extra") and isinstance(msg.model_extra, dict):
+                reasoning = msg.model_extra.get("reasoning_content") or msg.model_extra.get("reasoning")
+            if reasoning:
+                return f"<think>\n{reasoning}\n</think>\n\n{content}"
+            return content
         return ""
-

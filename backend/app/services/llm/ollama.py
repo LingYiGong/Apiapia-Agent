@@ -89,7 +89,7 @@ class OllamaProvider(LLMProvider):
             async with client.stream("POST", url, json=payload) as response:
                 if response.status_code != 200:
                     error_text = await response.aread()
-                    raise RuntimeError(f"Ollama error ({response.status_code}): {error_text.decode('utf-8')}")
+                    raise RuntimeError(f"Ollama error ({response.status_code}): {error_text.decode('utf-8', errors='replace')}")
 
                 async for line in response.aiter_lines():
                     if not line:
@@ -150,5 +150,10 @@ class OllamaProvider(LLMProvider):
             self._record_usage(data)
             if data.get("done"):
                 self.last_finish_reason = data.get("done_reason") or "stop"
-            return data.get("message", {}).get("content", "")
+            msg = data.get("message", {})
+            thinking = msg.get("thinking", "")
+            content = msg.get("content", "")
+            if thinking:
+                return f"<think>\n{thinking}\n</think>\n\n{content}"
+            return content
 

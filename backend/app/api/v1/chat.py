@@ -54,6 +54,7 @@ from app.services.context_manager import (
     normalize_messages_payload,
     apply_prompt_cache_markers,
     append_system_context,
+    estimate_token_count,
 )
 
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -139,15 +140,6 @@ def _resolve_image_to_data_url(
     return None
 
 
-def estimate_token_count(text: str) -> int:
-    """Accurately estimate token count for multi-lingual text (Chinese + English)."""
-    if not text:
-        return 0
-    zh_chars = sum(1 for c in text if '\u4e00' <= c <= '\u9fff')
-    other_chars = len(text) - zh_chars
-    return zh_chars + other_chars // 4
-
-
 LEAK_TRIGGERS = [
     "<|tool",
     "<|plugin",
@@ -197,7 +189,9 @@ LEAK_CLOSING = [
 def sanitize_llm_output(text: str) -> str:
     """
     Universal LLM output sanitizer.
-    Handles all 4 major classes of non-user leaks across any model:
+    Protects markdown code blocks so programming examples containing <action>,
+    <tool>, or <call> are not stripped.
+    Handles non-user leaks across any model:
     1. Unexecuted Agent/Tool calls (<tool...>, <func...>, <action...>, <invoke...>, [ACTION:...])
     2. Guardrail & Content Moderation leaks (User/Response Safety, Safety Assessment, etc.)
     3. Multi-turn role bleeding (model hallucinating next turn User:/Human:)
@@ -205,16 +199,24 @@ def sanitize_llm_output(text: str) -> str:
     """
     if not text:
         return ""
-    cleaned = text
 
-    # 1. Strip raw tool/function call containers and dangling arguments
+    # 0. Protect fenced code blocks (```...``` or ~~~...~~~) before applying tag-stripping regexes
+    code_blocks: List[str] = []
+    def _save_code_block(match: re.Match) -> str:
+        code_blocks.append(match.group(0))
+        return f"__CODE_BLOCK_PLACEHOLDER_{len(code_blocks) - 1}__"
+
+    protected = re.sub(r"(```[\s\S]*?```|~~~[\s\S]*?~~~)", _save_code_block, text)
+    cleaned = protected
+
+    # 1. Strip raw tool/function call containers and dangling arguments (without destructive |$)
     cleaned = re.sub(
-        r'<\/?(?:tool(?:_call)?|func(?:tion)?(?:_call)?|action|invoke|plugin_call|code_interpreter|call)[\s\S]*?(?:<\/(?:tool(?:_call)?|func(?:tion)?(?:_call)?|action|invoke|plugin_call|code_interpreter|call)>|$)',
+        r'<\/?(?:tool(?:_call)?|func(?:tion)?(?:_call)?|action|invoke|plugin_call|code_interpreter|call)[\s\S]*?(?:<\/(?:tool(?:_call)?|func(?:tion)?(?:_call)?|action|invoke|plugin_call|code_interpreter|call)>)',
         '',
         cleaned,
         flags=re.IGNORECASE
     )
-    cleaned = re.sub(r'<\|(?:tool(?:_call|_calls)?_start|action_start|plugin_start)\|?>[\s\S]*?(?:<\|(?:tool(?:_call|_calls)?_end|action_end|plugin_end)\|?>|$)', '', cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r'<\|(?:tool(?:_call|_calls)?_start|action_start|plugin_start)\|?>[\s\S]*?(?:<\|(?:tool(?:_call|_calls)?_end|action_end|plugin_end)\|?>)', '', cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r'<\/?(?:arg_key|arg_value|parameter|parameters|arguments)[\s\S]*?>', '', cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r'\[(?:ACTION|SEARCH|TOOL|CALL|OBSERVATION|google|search):\s*[^\]]+\]', '', cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r'\[(?:google|search)\([^\]]*\)\]', '', cleaned, flags=re.IGNORECASE)
@@ -241,6 +243,10 @@ def sanitize_llm_output(text: str) -> str:
 
     # 5. Strip stray internal scratchpad / reflection tags
     cleaned = re.sub(r'<\/?(?:scratchpad|internal|reflection|antThinking)>', '', cleaned, flags=re.IGNORECASE)
+
+    # 6. Restore preserved code blocks
+    for idx, block in enumerate(code_blocks):
+        cleaned = cleaned.replace(f"__CODE_BLOCK_PLACEHOLDER_{idx}__", block)
 
     return cleaned.strip()
 
@@ -503,9 +509,9 @@ async def chat_stream(
             doc_append_texts = []
             for doc in hist_docs:
                 # Avoid re-injecting if already present in content for any reason
-                if doc["name"] not in cleaned_content or "untrusted_document" not in cleaned_content:
+                if doc["name"] not in cleaned_content and "untrusted_document" not in cleaned_content:
                     safe_doc = sanitize_untrusted_content(
-                        doc["text"],
+                        doc["text"][:6000],  # Cap to match sliding window budget (~3000 tokens)
                         source_type="document",
                         source_name=doc["name"]
                     )
@@ -906,6 +912,10 @@ async def chat_stream(
             stream_window = ""
             suppressed = False
             in_thinking = False
+            has_seen_thinking = False
+            thinking_start_time = None
+            thinking_end_time = None
+            suppress_buf = ""
 
             extra_llm_kwargs = {}
             if chat_req.max_tokens:
@@ -926,7 +936,6 @@ async def chat_stream(
             )
 
             next_token_task = asyncio.create_task(token_iter.__anext__())
-            suppress_buf = ""
 
             try:
                 while True:
@@ -947,40 +956,77 @@ async def chat_stream(
                     if first_token_time is None:
                         first_token_time = time.time()
                     full_assistant_reply.append(token)
+                    stream_window += token
 
-                    if "<think>" in token or "<think>" in stream_window:
-                        in_thinking = True
-                    if "</think>" in token or "</think>" in stream_window:
-                        in_thinking = False
-
+                    # Handle suppression if inside a leak block
                     if suppressed:
                         suppress_buf += token
                         # Recover when closing tag is encountered in suppression buffer
-                        if any(close_tag in suppress_buf for close_tag in LEAK_CLOSING):
-                            suppressed = False
-                            suppress_buf = ""
-                            stream_window = ""
-                        elif len(suppress_buf) > 4000:
-                            # Safety threshold if model emitted no closing tag
+                        recovered = False
+                        for close_tag in LEAK_CLOSING:
+                            if close_tag in suppress_buf:
+                                recovered = True
+                                break
+                        if recovered or len(suppress_buf) > 4000:
                             suppressed = False
                             suppress_buf = ""
                             stream_window = ""
                         continue
 
-                    stream_window += token
-
-                    # Inside <think>...</think>, reasoning models must be allowed to think freely
+                    # Process thinking state transitions cleanly (handles tag split across tokens)
                     if in_thinking:
-                        delta_payload = {
-                            "type": "content",
-                            "conversation_id": conv_id,
-                            "delta": stream_window
-                        }
-                        yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
-                        stream_window = ""
+                        # Inside thinking block: check for "</think>"
+                        if "</think>" in stream_window:
+                            idx = stream_window.find("</think>")
+                            thought_part = stream_window[:idx]
+                            if thought_part:
+                                delta_payload = {
+                                    "type": "content",
+                                    "conversation_id": conv_id,
+                                    "delta": thought_part
+                                }
+                                yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
+                            yield f"data: {json.dumps({'type': 'content', 'conversation_id': conv_id, 'delta': '</think>'}, ensure_ascii=False)}\n\n"
+                            in_thinking = False
+                            if thinking_end_time is None:
+                                thinking_end_time = time.time()
+                            stream_window = stream_window[idx + len("</think>"):]
+                            # Fall through to allow any remainder after </think> to be processed as normal content
+                        else:
+                            # Hold back if stream_window ends with a prefix of "</think>" (e.g. "</", "</th")
+                            close_tag = "</think>"
+                            hold_back = 0
+                            for i in range(len(close_tag) - 1, 0, -1):
+                                if stream_window.endswith(close_tag[:i]):
+                                    hold_back = i
+                                    break
+                            if hold_back > 0:
+                                safe_len = len(stream_window) - hold_back
+                                if safe_len > 0:
+                                    to_send = stream_window[:safe_len]
+                                    stream_window = stream_window[safe_len:]
+                                    yield f"data: {json.dumps({'type': 'content', 'conversation_id': conv_id, 'delta': to_send}, ensure_ascii=False)}\n\n"
+                            else:
+                                if stream_window:
+                                    yield f"data: {json.dumps({'type': 'content', 'conversation_id': conv_id, 'delta': stream_window}, ensure_ascii=False)}\n\n"
+                                    stream_window = ""
+                            continue
+
+                    # Outside thinking block: check for "<think>"
+                    if "<think>" in stream_window:
+                        idx = stream_window.find("<think>")
+                        pre_part = stream_window[:idx]
+                        if pre_part:
+                            yield f"data: {json.dumps({'type': 'content', 'conversation_id': conv_id, 'delta': pre_part}, ensure_ascii=False)}\n\n"
+                        yield f"data: {json.dumps({'type': 'content', 'conversation_id': conv_id, 'delta': '<think>'}, ensure_ascii=False)}\n\n"
+                        in_thinking = True
+                        has_seen_thinking = True
+                        if thinking_start_time is None:
+                            thinking_start_time = time.time()
+                        stream_window = stream_window[idx + len("<think>"):]
                         continue
 
-                    # 1. Check if any trigger is fully inside the window
+                    # Check leak triggers outside thinking
                     matched_trigger = False
                     for trig in LEAK_TRIGGERS:
                         if trig in stream_window:
@@ -1001,9 +1047,10 @@ async def chat_stream(
                     if matched_trigger:
                         continue
 
-                    # 2. Check if stream_window ends with a prefix of any trigger
+                    # Check if stream_window ends with a prefix of "<think>" or any leak trigger
                     hold_back = 0
-                    for trig in LEAK_TRIGGERS:
+                    candidate_prefixes = ["<think>"] + LEAK_TRIGGERS
+                    for trig in candidate_prefixes:
                         for i in range(len(trig) - 1, 0, -1):
                             if stream_window.endswith(trig[:i]):
                                 hold_back = max(hold_back, i)
@@ -1021,13 +1068,14 @@ async def chat_stream(
                             }
                             yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
                     else:
-                        delta_payload = {
-                            "type": "content",
-                            "conversation_id": conv_id,
-                            "delta": stream_window
-                        }
-                        yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
-                        stream_window = ""
+                        if stream_window:
+                            delta_payload = {
+                                "type": "content",
+                                "conversation_id": conv_id,
+                                "delta": stream_window
+                            }
+                            yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
+                            stream_window = ""
 
                 # Flush remaining window if not suppressed
                 if stream_window and not suppressed:
@@ -1048,6 +1096,8 @@ async def chat_stream(
                 full_assistant_reply.append(close_think)
                 yield f"data: {json.dumps({'type': 'content', 'conversation_id': conv_id, 'delta': close_think}, ensure_ascii=False)}\n\n"
                 in_thinking = False
+                if thinking_end_time is None:
+                    thinking_end_time = time.time()
 
             # Check if assistant reply yielded any visible main body outside of <think>...</think>
             current_raw_reply = "".join(full_assistant_reply)
@@ -1121,7 +1171,12 @@ async def chat_stream(
 
         # 9. Calculate latency, reply time and accurate token stats
         duration_ms = max(20, int((time.time() - start_time) * 1000))
-        thinking_duration_ms = max(0, int((first_token_time - start_time) * 1000)) if first_token_time else duration_ms
+        ttft_ms = max(0, int((first_token_time - start_time) * 1000)) if first_token_time else 0
+        if has_seen_thinking and thinking_start_time:
+            t_end = thinking_end_time or time.time()
+            thinking_duration_ms = max(0, int((t_end - thinking_start_time) * 1000))
+        else:
+            thinking_duration_ms = 0
         reply_created_at = datetime.now(timezone.utc)
         assistant_content = sanitize_llm_output("".join(full_assistant_reply))
 
@@ -1225,6 +1280,7 @@ async def chat_stream(
             "message_id": assistant_message_id,
             "model": recorded_model_name,
             "duration_ms": duration_ms,
+            "ttft_ms": ttft_ms,
             "thinking_duration_ms": thinking_duration_ms,
             "prompt_tokens": prompt_tokens,
             "completion_tokens": completion_tokens,

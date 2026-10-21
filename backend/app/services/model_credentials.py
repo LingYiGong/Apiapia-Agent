@@ -22,20 +22,36 @@ async def resolve_user_llm_credentials(
 ) -> Tuple[Optional[str], Optional[str]]:
     """Resolve the caller's own credential for one (provider, model) pair.
 
+    Supports exact model match and falls back to wildcard/provider-level key
+    (where model is '*', '', 'all', or 'default').
     Returns ``(api_key, base_url)`` or ``(None, None)``.
     """
     provider_name = (provider or "").strip().lower()
     model_name = (model or "").strip()
-    if not provider_name or not model_name:
+    if not provider_name:
         return None, None
 
-    stmt = select(ModelConfig).where(
-        ModelConfig.user_id == user_id,
-        ModelConfig.provider == provider_name,
-        ModelConfig.model == model_name,
-        ModelConfig.enabled == True,
-    )
-    cfg = (await db.execute(stmt)).scalar_one_or_none()
+    # 1. Exact model match
+    cfg = None
+    if model_name:
+        stmt = select(ModelConfig).where(
+            ModelConfig.user_id == user_id,
+            ModelConfig.provider == provider_name,
+            ModelConfig.model == model_name,
+            ModelConfig.enabled == True,
+        )
+        cfg = (await db.execute(stmt)).scalar_one_or_none()
+
+    # 2. Provider-level wildcard fallback
+    if cfg is None:
+        fallback_stmt = select(ModelConfig).where(
+            ModelConfig.user_id == user_id,
+            ModelConfig.provider == provider_name,
+            ModelConfig.model.in_(["*", "", "all", "default"]),
+            ModelConfig.enabled == True,
+        )
+        cfg = (await db.execute(fallback_stmt)).scalar_one_or_none()
+
     if cfg is None:
         return None, None
 
@@ -49,7 +65,7 @@ async def resolve_user_llm_credentials(
         return None, None
 
     logger.info(
-        "Using caller-supplied credential for user=%s provider=%s model=%s",
-        user_id, provider_name, model_name,
+        "Using caller-supplied credential for user=%s provider=%s model=%s (config_model=%s)",
+        user_id, provider_name, model_name, cfg.model,
     )
     return api_key, (cfg.base_url or "").strip() or None

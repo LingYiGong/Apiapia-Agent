@@ -30,7 +30,11 @@ def detect_provider(model: str) -> str:
     elif "gemini" in model_lower:
         return "gemini"
     elif any(k in model_lower for k in ["llama", "qwen", "mistral", "deepseek", "phi"]):
-        return "ollama"
+        # Only route to Ollama if OLLAMA_BASE_URL is actively configured;
+        # otherwise, user is likely accessing DeepSeek or Qwen via an OpenAI-compatible endpoint.
+        if settings.OLLAMA_BASE_URL and settings.OLLAMA_BASE_URL.strip():
+            return "ollama"
+        return "openai"
     return settings.DEFAULT_PROVIDER
 
 

@@ -137,7 +137,7 @@ class GeminiProvider(LLMProvider):
             async with client.stream("POST", url, headers=headers, json=payload) as response:
                 if response.status_code != 200:
                     error_text = await response.aread()
-                    raise RuntimeError(f"Gemini API error ({response.status_code}): {error_text.decode('utf-8')}")
+                    raise RuntimeError(f"Gemini API error ({response.status_code}): {error_text.decode('utf-8', errors='replace')}")
 
                 async for line in response.aiter_lines():
                     if line.startswith("data: "):

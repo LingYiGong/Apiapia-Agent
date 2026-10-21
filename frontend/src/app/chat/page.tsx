@@ -294,6 +294,7 @@ export default function ChatPage({
   const abortControllerRef = useRef<AbortController | null>(null);
   const stopRequestedRef = useRef<boolean>(false);
   const finalizedRef = useRef<boolean>(false);
+  const streamSessionIdRef = useRef<number>(0);
 
   const clearStreamIntervals = () => {
     if (typewriterIntervalRef.current) {
@@ -310,16 +311,46 @@ export default function ChatPage({
     abortControllerRef.current = null;
   };
 
+  const resetStreamingState = useCallback(() => {
+    // 递增 session 编号，使所有旧的异步回调、打字机定时器彻底作废
+    streamSessionIdRef.current += 1;
+    stopRequestedRef.current = true;
+
+    try {
+      abortControllerRef.current?.abort();
+    } catch (_) {}
+    abortControllerRef.current = null;
+
+    if (typewriterIntervalRef.current) {
+      clearInterval(typewriterIntervalRef.current);
+      typewriterIntervalRef.current = null;
+    }
+
+    targetContentRef.current = "";
+    displayedContentRef.current = "";
+    isStreamCompletedRef.current = false;
+    doneMetaRef.current = null;
+    firstTokenTimeRef.current = null;
+    finalizedRef.current = false;
+    currentSearchResultsRef.current = null;
+    currentToolInvocationsRef.current = [];
+    currentGeneratedImagesRef.current = [];
+    currentGeneratedVideosRef.current = [];
+
+    setIsStreaming(false);
+    setIsWaitingForFirstToken(false);
+    setStreamingContent("");
+    setThinkingDuration(null);
+    setStreamStartedAt(null);
+    setSearchStatus({ state: "idle" });
+    setStreamingSearchResults(null);
+  }, []);
+
   useEffect(() => {
     return () => {
-      if (typewriterIntervalRef.current) clearInterval(typewriterIntervalRef.current);
-      stopRequestedRef.current = true;
-      try {
-        abortControllerRef.current?.abort();
-      } catch (_) {}
-      abortControllerRef.current = null;
+      resetStreamingState();
     };
-  }, []);
+  }, [resetStreamingState]);
 
   const [isMemoryOpen, setIsMemoryOpen] = useState(false);
 
@@ -546,7 +577,12 @@ export default function ChatPage({
   }, [user]);
 
   const selectConversation = async (id: string) => {
-    if (activeIdRef.current !== id) {
+    if (activeIdRef.current === id) {
+      setMobileTab("chat");
+      return;
+    }
+
+    if (activeIdRef.current) {
       saveConversationInputState(activeIdRef.current, {
         isTranslateMode: isTranslateModeRef.current,
         vocabTargetLang: vocabTargetLangRef.current,
@@ -554,9 +590,11 @@ export default function ChatPage({
       });
     }
 
+    // 切换到其他历史记录时，立即终止并重置当前等待思考或推流状态，避免残留到新选中的会话
+    resetStreamingState();
+
     setActiveId(id);
     activeIdRef.current = id;
-    setStreamingContent("");
     setRetrievedMemories([]);
     setMessages([]);
     setLoadingMessages(true);
@@ -603,6 +641,11 @@ export default function ChatPage({
   };
 
   const handleNewChat = () => {
+    if (activeIdRef.current === null && messages.length === 0 && !isStreaming) {
+      setMobileTab("chat");
+      return;
+    }
+
     if (activeIdRef.current) {
       saveConversationInputState(activeIdRef.current, {
         isTranslateMode: isTranslateModeRef.current,
@@ -611,10 +654,12 @@ export default function ChatPage({
       });
     }
 
+    // 新打开聊天时，立即终止并重置上一次会话的等待思考或推流状态
+    resetStreamingState();
+
     setActiveId(null);
     activeIdRef.current = null;
     setMessages([]);
-    setStreamingContent("");
     setRetrievedMemories([]);
     setLoadingMessages(false);
     setMobileTab("chat");
@@ -646,10 +691,10 @@ export default function ChatPage({
         localStorage.removeItem(`apiapia_chat_draft:${id}`);
       } catch (_) {}
       if (activeIdRef.current === id) {
+        resetStreamingState();
         activeIdRef.current = null;
         setActiveId(null);
         setMessages([]);
-        setStreamingContent("");
         setRetrievedMemories([]);
         setLoadingMessages(false);
       }
@@ -750,6 +795,7 @@ export default function ChatPage({
 
   const finalizeAssistantMessage = () => {
     if (finalizedRef.current) return;
+    if (stopRequestedRef.current && isStreamCompletedRef.current === false) return;
     finalizedRef.current = true;
 
     clearStreamIntervals();
@@ -772,27 +818,33 @@ export default function ChatPage({
     const generatedVideos = currentGeneratedVideosRef.current;
     const finishReason = doneMeta?.finish_reason || (stopRequestedRef.current ? "abort" : "stop");
 
-    setMessages((prev) => [
-      ...prev,
-      {
-        role: "assistant",
-        id: doneMeta?.message_id,
-        content: finalContent,
-        model: doneMeta?.model || currentStreamModelRef.current || currentModel,
-        duration_ms: totalDurationMs,
-        thinking_duration_ms: finalThinkingMs,
-        prompt_tokens: doneMeta?.prompt_tokens,
-        completion_tokens: doneMeta?.completion_tokens,
-        token_usage: doneMeta?.total_tokens,
-        search_results: searchResults && searchResults.length > 0 ? searchResults : undefined,
-        search_query: doneMeta?.search_query || undefined,
-        toolInvocations: tools && tools.length > 0 ? [...tools] : undefined,
-        generatedImages: generatedImages && generatedImages.length > 0 ? [...generatedImages] : undefined,
-        generatedVideos: generatedVideos && generatedVideos.length > 0 ? [...generatedVideos] : undefined,
-        finish_reason: finishReason,
-        created_at: doneMeta?.created_at || new Date().toISOString(),
-      },
-    ]);
+    const hasMedia =
+      (generatedImages && generatedImages.length > 0) ||
+      (generatedVideos && generatedVideos.length > 0);
+
+    if (finalContent.trim() || hasMedia) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          id: doneMeta?.message_id,
+          content: finalContent,
+          model: doneMeta?.model || currentStreamModelRef.current || currentModel,
+          duration_ms: totalDurationMs,
+          thinking_duration_ms: finalThinkingMs,
+          prompt_tokens: doneMeta?.prompt_tokens,
+          completion_tokens: doneMeta?.completion_tokens,
+          token_usage: doneMeta?.total_tokens,
+          search_results: searchResults && searchResults.length > 0 ? searchResults : undefined,
+          search_query: doneMeta?.search_query || undefined,
+          toolInvocations: tools && tools.length > 0 ? [...tools] : undefined,
+          generatedImages: generatedImages && generatedImages.length > 0 ? [...generatedImages] : undefined,
+          generatedVideos: generatedVideos && generatedVideos.length > 0 ? [...generatedVideos] : undefined,
+          finish_reason: finishReason,
+          created_at: doneMeta?.created_at || new Date().toISOString(),
+        },
+      ]);
+    }
 
     setIsStreaming(false);
     setStreamStartedAt(null);
@@ -828,9 +880,10 @@ export default function ChatPage({
         memoryEnabled?: boolean;
       }
     ) => {
-      clearStreamIntervals();
-      abortInFlightStream();
-      if (finalizedRef.current) finalizedRef.current = false;
+      resetStreamingState();
+      const currentSessionId = ++streamSessionIdRef.current;
+      stopRequestedRef.current = false;
+      finalizedRef.current = false;
 
       const effectiveModel = extraOptions?.modelOverride || currentModel;
       currentStreamModelRef.current = effectiveModel;
@@ -869,10 +922,13 @@ export default function ChatPage({
       displayedContentRef.current = "";
       isStreamCompletedRef.current = false;
       doneMetaRef.current = null;
-      stopRequestedRef.current = false;
       abortControllerRef.current = new AbortController();
 
       typewriterIntervalRef.current = setInterval(() => {
+        if (streamSessionIdRef.current !== currentSessionId || stopRequestedRef.current) {
+          clearStreamIntervals();
+          return;
+        }
         const target = targetContentRef.current;
         const current = displayedContentRef.current;
         const remaining = target.length - current.length;
@@ -938,6 +994,12 @@ export default function ChatPage({
           },
           {
             onMeta: (meta) => {
+              if (streamSessionIdRef.current !== currentSessionId || stopRequestedRef.current) {
+                if (meta.conversation_id) {
+                  loadConversations();
+                }
+                return;
+              }
               if (meta.conversation_id) {
                 setActiveId(meta.conversation_id);
                 activeIdRef.current = meta.conversation_id;
@@ -966,9 +1028,11 @@ export default function ChatPage({
               }
             },
             onSearchStart: (data) => {
+              if (streamSessionIdRef.current !== currentSessionId || stopRequestedRef.current) return;
               setSearchStatus({ state: "searching", query: data.query });
             },
             onSearchResults: (data) => {
+              if (streamSessionIdRef.current !== currentSessionId || stopRequestedRef.current) return;
               currentSearchResultsRef.current = data.results;
               setStreamingSearchResults(data.results);
               setSearchStatus({
@@ -978,6 +1042,7 @@ export default function ChatPage({
               });
             },
             onToolCall: (data) => {
+              if (streamSessionIdRef.current !== currentSessionId || stopRequestedRef.current) return;
               currentToolInvocationsRef.current.push({
                 toolCallId: data.toolCallId,
                 toolName: data.toolName,
@@ -986,6 +1051,7 @@ export default function ChatPage({
               });
             },
             onToolResult: (data) => {
+              if (streamSessionIdRef.current !== currentSessionId || stopRequestedRef.current) return;
               const idx = currentToolInvocationsRef.current.findIndex(
                 (t) => t.toolCallId === data.toolCallId
               );
@@ -995,6 +1061,7 @@ export default function ChatPage({
               }
             },
             onImageResult: (data) => {
+              if (streamSessionIdRef.current !== currentSessionId || stopRequestedRef.current) return;
               currentGeneratedImagesRef.current.push({
                 id: data.imageId ?? undefined,
                 url: data.url,
@@ -1004,6 +1071,7 @@ export default function ChatPage({
               });
             },
             onVideoResult: (data) => {
+              if (streamSessionIdRef.current !== currentSessionId || stopRequestedRef.current) return;
               currentGeneratedVideosRef.current.push({
                 id: data.videoId ?? undefined,
                 prompt: data.prompt,
@@ -1012,6 +1080,7 @@ export default function ChatPage({
               });
             },
             onToken: (token) => {
+              if (streamSessionIdRef.current !== currentSessionId || stopRequestedRef.current) return;
               if (firstTokenTimeRef.current === null) {
                 firstTokenTimeRef.current = Date.now();
                 setIsWaitingForFirstToken(false);
@@ -1020,7 +1089,7 @@ export default function ChatPage({
               targetContentRef.current += token;
             },
             onError: (err) => {
-              if (stopRequestedRef.current) return;
+              if (streamSessionIdRef.current !== currentSessionId || stopRequestedRef.current) return;
               console.error("Stream error:", err);
               clearStreamIntervals();
               setIsStreaming(false);
@@ -1037,6 +1106,7 @@ export default function ChatPage({
               ]);
             },
             onDone: (doneMeta) => {
+              if (streamSessionIdRef.current !== currentSessionId || stopRequestedRef.current) return;
               isStreamCompletedRef.current = true;
               doneMetaRef.current = doneMeta;
               if (doneMeta.search_results && doneMeta.search_results.length > 0) {
@@ -1051,7 +1121,11 @@ export default function ChatPage({
           { signal: abortControllerRef.current?.signal }
         );
       } catch (err: any) {
-        if (stopRequestedRef.current || abortControllerRef.current?.signal.aborted) {
+        if (
+          streamSessionIdRef.current !== currentSessionId ||
+          stopRequestedRef.current ||
+          abortControllerRef.current?.signal.aborted
+        ) {
           return;
         }
         clearStreamIntervals();
@@ -1071,7 +1145,7 @@ export default function ChatPage({
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [activeId, currentModel, memoryEnabled, locale]
+    [activeId, currentModel, memoryEnabled, locale, resetStreamingState]
   );
 
   const handleStopGenerating = () => {
@@ -1148,13 +1222,7 @@ export default function ChatPage({
           toast.error(err.message || t("chat.errors.editFailed"));
           return;
         }
-        abortInFlightStream();
-        clearStreamIntervals();
-        setIsStreaming(false);
-        setStreamStartedAt(null);
-        setIsWaitingForFirstToken(false);
-        setStreamingContent("");
-        setSearchStatus({ state: "idle" });
+        resetStreamingState();
         void refreshFromServer();
         toast.warning(t("chat.errors.resendFailedTitle"), {
           description: t("chat.errors.resendFailedDesc", { reason: err?.message || t("chat.errors.networkReason") }),
@@ -1162,7 +1230,7 @@ export default function ChatPage({
         });
       }
     },
-    [activeId, isStreaming, regenerating, handleSendMessage]
+    [activeId, isStreaming, regenerating, handleSendMessage, resetStreamingState]
   );
 
   const handleRegenerate = useCallback(

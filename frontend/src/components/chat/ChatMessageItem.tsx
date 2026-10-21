@@ -36,6 +36,7 @@ import {
   Volume2,
   VolumeX,
   Zap,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 import type { Message } from "@/types";
@@ -60,6 +61,7 @@ interface ChatMessageItemProps {
   onEditMessage?: (messageId: string, newText: string) => void;
   onContinue?: () => void;
   onQuote?: (quoteText: string, messageId?: string) => void;
+  onSelectSuggestion?: (prompt: string) => void;
   onFileClick?: (file: { name: string; size?: number; type?: "image" | "document"; mime_type?: string; data_url?: string; text?: string }) => void;
 }
 
@@ -203,6 +205,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
   onContinue,
   onQuote,
   onFileClick,
+  onSelectSuggestion,
 }: ChatMessageItemProps) {
   const { t, fmt } = useI18n();
   const isUser = msg.role === "user";
@@ -468,6 +471,25 @@ export const ChatMessageItem = memo(function ChatMessageItem({
               )}
 
               {renderMessageBody(msg.content, false, onImageClick)}
+
+              {Array.isArray(msg.suggested_questions) && msg.suggested_questions.length > 0 && (
+                <div className="mt-3.5 mb-1.5 flex flex-wrap items-center gap-1.5 w-full">
+                  <div className="w-full flex items-center gap-1 text-[11px] font-medium text-muted-foreground/80 mb-0.5">
+                    <Sparkles className="h-3 w-3 text-primary shrink-0" />
+                    <span>{t("chat.message.suggestedQuestions") || "推荐追问："}</span>
+                  </div>
+                  {msg.suggested_questions.map((q, qIdx) => (
+                    <button
+                      key={qIdx}
+                      type="button"
+                      onClick={() => onSelectSuggestion?.(q)}
+                      className="group/chip inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-surface-2/70 px-3 py-1 text-xs text-foreground/85 transition-all hover:border-primary/60 hover:bg-primary/5 hover:text-primary active:scale-[0.98] cursor-pointer"
+                    >
+                      <span>{q}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </>
           )}
         </div>

@@ -198,6 +198,7 @@ export default {
     streamInterrupted: "模型連線在完成事件前中斷，回答可能不完整。",
     streamUnsupported: "目前瀏覽器不支援串流回應（ReadableStream 不可用）",
     modelStreamFailed: "模型的串流回應異常終止。",
+    suggestedQuestions: "推薦追問：",
   },
 
   errors: {
@@ -262,6 +263,7 @@ export default {
     svgCodeToggle: "檢視程式碼",
     downloadSvg: "下載 SVG",
     thinkingTitle: "思考過程",
+    thoughtFinished: "已深度思考",
     emptyAnswer:
       "（模型已完成思考推演，未輸出正文內容。可能由於推理鏈較長觸發單次 Token 截斷，或上游服務提前中斷。）",
     sourcesSummary: "參考了 {count} 個網頁來源",

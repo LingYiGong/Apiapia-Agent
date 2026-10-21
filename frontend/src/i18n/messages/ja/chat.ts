@@ -200,6 +200,7 @@ export default {
     streamInterrupted: "完了イベントの前に接続が切れました。回答が途中で止まっている可能性があります。",
     streamUnsupported: "このブラウザはストリーミング応答に対応していません（ReadableStream が利用不可）",
     modelStreamFailed: "モデルのストリームが予期せず終了しました。",
+    suggestedQuestions: "おすすめの質問：",
   },
 
   errors: {
@@ -264,6 +265,7 @@ export default {
     svgCodeToggle: "コードを表示",
     downloadSvg: "SVG をダウンロード",
     thinkingTitle: "思考プロセス",
+    thoughtFinished: "思考プロセス完了",
     emptyAnswer:
       "（モデルは思考推論を完了しましたが、本文は出力されませんでした。長い推論によりトークン上限に達したか、アップストリームサービスが中断した可能性があります。）",
     sourcesSummary: "{count} 件のウェブ出典を参照",

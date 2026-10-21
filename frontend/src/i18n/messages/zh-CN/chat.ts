@@ -213,6 +213,7 @@ export default {
     streamInterrupted: "模型连接在完成事件前中断，回答可能不完整。",
     streamUnsupported: "当前浏览器不支持流式响应（ReadableStream 不可用）",
     modelStreamFailed: "模型流式响应异常终止。",
+    suggestedQuestions: "推荐追问：",
   },
 
   /** 聊天气泡里的动作失败反馈 */
@@ -302,6 +303,7 @@ export default {
     svgCodeToggle: "查看代码",
     downloadSvg: "下载 SVG",
     thinkingTitle: "思考过程",
+    thoughtFinished: "已深度思考",
     emptyAnswer:
       "（模型已完成思考推演，未输出正文内容。可能由于推理链较长触发单次 Token 截断，或上游服务提前中断。）",
     sourcesSummary: "参考了 {count} 个网页来源",

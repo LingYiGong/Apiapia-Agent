@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.34.0-indigo?style=flat-square" alt="Version"></a>
+  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.35.0-indigo?style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
@@ -225,7 +225,33 @@ cat backup_xxx.sql | docker exec -i apiapia_postgres psql -U postgres -d apiapia
 
 ## 📜 Releases & Changelog
 
-### 🚀 Latest Release: v2.34.0 (2026-10-21)
+### 🚀 Latest Release: v2.35.0 (2026-10-21)
+
+This release brings a **ChatGPT-grade interaction upgrade, adaptive reasoning presentation, rich web search cards, and contextual follow-up recommendations**. The chat experience introduces dynamic reasoning accordion folding that smoothly auto-collapses as soon as answer tokens arrive, protects code blocks during sanitization, enriches web sources with clean hostnames and high-res Favicons, and pushes real-time conversation titles and 3 actionable follow-up suggestion chips via SSE.
+
+#### 1. ChatGPT-Grade Adaptive Reasoning Fold
+- **Streaming State & Auto-Collapse**: Reasoning blocks (`<think>`) expand with a gentle pulse during generation; as soon as the first answer token arrives, the block automatically folds and flips to "Thought Process" without user intervention.
+- **Syntax & Code Protection**: Fenced markdown code blocks (``` and ~~~) are shielded with placeholders before sanitization, preventing programming tags from being stripped.
+
+#### 2. Rich Web Search Sources & Favicons
+- **Clean Domains & Icons**: Search results parse clean hostnames (stripping `www.`) and fetch high-resolution site favicons via Google S2, replacing generic numbered badges.
+- **Card-Style Display**: Results show domain logos, snippets, and external link indicators in a responsive grid.
+
+#### 3. Real-Time Conversation Title Push
+- **Instant Sidebar Renaming**: Conversation titles generated on the first turn are immediately streamed to the client via `type: "title"` SSE events, updating the sidebar without manual refresh.
+
+#### 4. Contextual Follow-up Suggestion Chips
+- **Smart Follow-ups**: Automatically analyzes user intent and assistant response to generate 3 concise, highly relevant next questions.
+- **Click-to-Send Chips**: Rendered as interactive capsule chips at the bottom of assistant messages; clicking any chip instantly submits the question.
+- **Standalone REST Endpoint**: Added `POST /api/v1/chat/suggestions` for on-demand suggestion generation.
+
+#### 5. Telemetry & Multi-Language Support
+- **TTFT Metric**: Tracks and yields Time-To-First-Token (`ttft_ms`) alongside total duration.
+- **Four-Language i18n**: Full localization across English, 简体中文, 繁體中文, and 日本語.
+
+---
+
+### v2.34.0 (2026-10-21)
 
 This release focuses on **universal file preview and download support, frontend architecture refactoring, and static bundle optimization**. The chat interface introduces a unified file preview modal supporting native PDF iframe reading, lossless UTF-8 text decoding with line numbering, full-text copy, and one-click downloading. Historical conversation attachments are fully preserved through message hydration refactoring, while duplicate model selectors and redundant code were pruned, SVG assets optimized by 99.8%, and Docker build types aligned.
 

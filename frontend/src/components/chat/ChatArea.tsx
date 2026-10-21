@@ -1121,6 +1121,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                     ? () => onSendMessage(t("chat.message.continuePrompt"))
                     : undefined
                 }
+                onSelectSuggestion={(prompt) => onSendMessage(prompt)}
               />
             ))}
 

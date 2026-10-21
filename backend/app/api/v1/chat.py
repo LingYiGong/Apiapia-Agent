@@ -6,6 +6,7 @@ import re
 import time
 from datetime import datetime, timezone
 from typing import AsyncGenerator, List, Dict, Any, Optional
+from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -101,17 +102,66 @@ async def _generate_conversation_title(
         messages=[{"role": "user", "content": prompt}],
         model=model,
         temperature=0.2,
+        max_tokens=30,
     )
     if not raw:
         return ""
 
-    title = sanitize_llm_output(str(raw)).strip()
+    raw_clean = re.sub(r"<think>[\s\S]*?</think>", "", str(raw)).strip()
+    title = sanitize_llm_output(raw_clean).strip()
     # Strip common decorations the model may still add. lstrip/rstrip with an
     # explicit character set (rather than a quote-heavy regex) keeps the intent
     # obvious and avoids quoting pitfalls.
     title = title.lstrip(" \t\r\n\"'“”‘’《「『:：-—").rstrip(" \t\r\n\"'“”‘’》」』。，,;；:：")
     title = title.splitlines()[0].strip() if title else ""
     return title if 1 < len(title) <= 40 else ""
+
+
+FOLLOWUP_SUGGESTIONS_PROMPT = (
+    "你是一个对话追问建议助手。基于用户的提问和助手的最新回答，从用户的视角推荐 3 个简短、自然、最可能想要继续追问的高价值后续问题。\n"
+    "要求：\n"
+    "1. 严格输出 3 行，每行一个问题。\n"
+    "2. 每个问题控制在 15 个字以内，口吻自然，直截了当。\n"
+    "3. 不要任何数字编号、连字符、破折号或多余的解释文字。\n\n"
+    "用户提问：{user}\n\n助手回答（节选）：{assistant}\n\n后续追问："
+)
+
+
+async def _generate_followup_suggestions(
+    user_text: str,
+    assistant_text: str,
+    model: str,
+    provider_name: str,
+    api_key: Optional[str] = None,
+    base_url: Optional[str] = None,
+) -> List[str]:
+    """Ask the model for 3 concise follow-up prompt chips, just like ChatGPT."""
+    try:
+        provider = get_llm_provider(
+            provider=provider_name, model=model, api_key=api_key, base_url=base_url
+        )
+        prompt = FOLLOWUP_SUGGESTIONS_PROMPT.format(
+            user=(user_text or "")[:400],
+            assistant=(assistant_text or "")[:600],
+        )
+        raw = await provider.complete(
+            messages=[{"role": "user", "content": prompt}],
+            model=model,
+            temperature=0.7,
+            max_tokens=100,
+        )
+        if not raw:
+            return []
+        clean_raw = re.sub(r"<think>[\s\S]*?</think>", "", str(raw)).strip()
+        lines = [
+            line.strip().lstrip("1234567890.、 -*•")
+            for line in clean_raw.splitlines()
+            if line.strip() and not line.strip().startswith(("#", "注", "建议", "好的"))
+        ]
+        return [l[:25] for l in lines if 2 <= len(l) <= 30][:3]
+    except Exception as e:
+        logger.warning("Failed to generate follow-up suggestions: %s", e)
+        return []
 
 
 def _resolve_image_to_data_url(
@@ -1318,8 +1368,27 @@ async def chat_stream(
                             if t_rec:
                                 t_rec.title = new_title[:40]
                                 await title_db.commit()
+                        if yield_allowed:
+                            yield f"data: {json.dumps({'type': 'title', 'conversation_id': conv_id, 'title': new_title[:40]}, ensure_ascii=False)}\n\n"
                 except Exception as title_err:
                     logger.warning("Failed to generate conversation title: %s", title_err)
+
+            # Generate ChatGPT-style follow-up suggestion chips if requested
+            if getattr(chat_req, "suggest_followups", False):
+                clean_assistant_for_sug = re.sub(r"<think>[\s\S]*?</think>", "", assistant_content).strip() or assistant_content[:600]
+                try:
+                    suggestions = await _generate_followup_suggestions(
+                        chat_req.message or "(附件)",
+                        clean_assistant_for_sug,
+                        model_to_use,
+                        provider_name,
+                        api_key=caller_api_key,
+                        base_url=caller_base_url,
+                    )
+                    if suggestions and yield_allowed:
+                        yield f"data: {json.dumps({'type': 'suggestions', 'conversation_id': conv_id, 'suggestions': suggestions}, ensure_ascii=False)}\n\n"
+                except Exception as sug_err:
+                    logger.warning("Failed to generate follow-up suggestions: %s", sug_err)
 
             # Schedule memory extraction in background if enabled and not aborted
             if use_memory:
@@ -1398,4 +1467,58 @@ async def chat_stream(
             "Connection": "keep-alive",
             "X-Accel-Buffering": "no"
         }
+    )
+
+
+class FollowupSuggestionRequest(BaseModel):
+    conversation_id: str
+    message_id: Optional[str] = None
+
+
+@router.post("/suggestions", response_model=List[str])
+async def get_followup_suggestions(
+    req: FollowupSuggestionRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Generate 3 contextual follow-up questions for a message, just like ChatGPT."""
+    conv = await db.get(Conversation, req.conversation_id)
+    if not conv or conv.user_id != current_user.id or conv.is_deleted:
+        raise ApiError(status_code=status.HTTP_404_NOT_FOUND, code="CONVERSATION_NOT_FOUND")
+
+    stmt = (
+        select(Message)
+        .where(Message.conversation_id == req.conversation_id)
+        .order_by(Message.created_at.desc())
+        .limit(2)
+    )
+    msgs = (await db.execute(stmt)).scalars().all()
+    if not msgs:
+        return []
+
+    user_text = ""
+    assistant_text = ""
+    for m in reversed(msgs):
+        if m.role == "user":
+            user_text = m.content
+        elif m.role == "assistant":
+            assistant_text = m.content
+
+    if not assistant_text:
+        return []
+
+    model_to_use = conv.model or app_settings.DEFAULT_MODEL
+    provider_name = detect_provider(model_to_use)
+    caller_api_key, caller_base_url = await resolve_user_llm_credentials(
+        db, current_user.id, provider_name, model_to_use
+    )
+
+    clean_assistant = re.sub(r"<think>[\s\S]*?</think>", "", assistant_text).strip()
+    return await _generate_followup_suggestions(
+        user_text,
+        clean_assistant,
+        model_to_use,
+        provider_name,
+        api_key=caller_api_key,
+        base_url=caller_base_url,
     )

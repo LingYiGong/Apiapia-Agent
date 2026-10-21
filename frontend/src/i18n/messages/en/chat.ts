@@ -200,6 +200,7 @@ export default {
     streamInterrupted: "The model connection ended before completion; the answer may be incomplete.",
     streamUnsupported: "This browser can't handle streaming responses (ReadableStream unavailable)",
     modelStreamFailed: "The model's stream ended unexpectedly.",
+    suggestedQuestions: "Suggested follow-ups:",
   },
 
   errors: {
@@ -286,6 +287,7 @@ export default {
     svgCodeToggle: "View code",
     downloadSvg: "Download SVG",
     thinkingTitle: "Reasoning",
+    thoughtFinished: "Thought Process",
     emptyAnswer:
       "(The model completed its reasoning process without generating a final text response. This usually occurs when extended reasoning reaches the per-response token limit or the upstream connection ends early.)",
     sourcesSummary: "Cited {count} web sources",

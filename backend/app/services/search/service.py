@@ -15,6 +15,28 @@ logger = logging.getLogger("web_search")
 MAX_ANSWER_CHARS = 2000
 
 
+def format_search_entry(title: str, url: str, snippet: str) -> Dict[str, str]:
+    """Format search entry with clean hostname and favicon icon for ChatGPT-style UI presentation."""
+    hostname = ""
+    icon = ""
+    try:
+        parsed = urllib.parse.urlsplit(url)
+        hostname = (parsed.netloc or "").lower()
+        if hostname.startswith("www."):
+            hostname = hostname[4:]
+        if hostname:
+            icon = f"https://www.google.com/s2/favicons?domain={hostname}&sz=32"
+    except Exception:
+        pass
+    return {
+        "title": title,
+        "url": url,
+        "snippet": snippet,
+        "hostname": hostname,
+        "icon": icon,
+    }
+
+
 @dataclass(frozen=True)
 class WebSearchOutcome:
     """The outcome of one completed search.
@@ -192,7 +214,7 @@ class WebSearchService:
                 # Keep prompt compact (same "..." truncation style as _search_duckduckgo_api)
                 if len(snippet) > 800:
                     snippet = snippet[:800].rstrip() + "..."
-                results.append({"title": title, "url": url, "snippet": snippet})
+                results.append(format_search_entry(title, url, snippet))
                 if len(results) >= max_results:
                     break
         return WebSearchOutcome(results, answer, "tavily")
@@ -242,11 +264,7 @@ class WebSearchService:
                     snippet = unescape(snippet).strip()
 
                 if clean_url and title:
-                    results.append({
-                        "title": title,
-                        "url": clean_url,
-                        "snippet": snippet
-                    })
+                    results.append(format_search_entry(title, clean_url, snippet))
                     if len(results) >= max_results:
                         break
 
@@ -278,11 +296,7 @@ class WebSearchService:
                         clean_url = urllib.parse.unquote(uddg_match.group(1))
 
                 if clean_url and title:
-                    results.append({
-                        "title": title,
-                        "url": clean_url,
-                        "snippet": snippet
-                    })
+                    results.append(format_search_entry(title, clean_url, snippet))
 
             return results
 
@@ -297,18 +311,18 @@ class WebSearchService:
             data = resp.json()
             results = []
             if data.get("AbstractText") and data.get("AbstractURL"):
-                results.append({
-                    "title": data.get("Heading") or query,
-                    "url": data.get("AbstractURL"),
-                    "snippet": data.get("AbstractText")
-                })
+                results.append(format_search_entry(
+                    data.get("Heading") or query,
+                    data.get("AbstractURL"),
+                    data.get("AbstractText")
+                ))
             for topic in data.get("RelatedTopics", []):
                 if isinstance(topic, dict) and topic.get("Text") and topic.get("FirstURL"):
-                    results.append({
-                        "title": topic.get("Text")[:50] + "...",
-                        "url": topic.get("FirstURL"),
-                        "snippet": topic.get("Text")
-                    })
+                    results.append(format_search_entry(
+                        topic.get("Text")[:50] + "...",
+                        topic.get("FirstURL"),
+                        topic.get("Text")
+                    ))
                     if len(results) >= max_results:
                         break
             return results

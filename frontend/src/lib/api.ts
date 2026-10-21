@@ -165,6 +165,7 @@ export async function streamChatResponse(
     image_gen_mode?: boolean;
     video_gen_mode?: boolean;
     single_turn_mode?: boolean;
+    suggest_followups?: boolean;
     attachments?: AttachmentItem[];
   },
   callbacks: {
@@ -175,6 +176,8 @@ export async function streamChatResponse(
       retrieved_memories: any[];
       search_query?: string | null;
     }) => void;
+    onTitle?: (data: { title: string; conversation_id: string }) => void;
+    onSuggestions?: (data: { suggestions: string[]; conversation_id: string }) => void;
     onSearchStart?: (data: { query: string }) => void;
     onSearchResults?: (data: { query: string; results: SearchResultItem[] }) => void;
     onToolCall?: (data: { toolCallId: string; toolName: string; args: any }) => void;
@@ -190,6 +193,8 @@ export async function streamChatResponse(
       model?: string;
       duration_ms?: number;
       thinking_duration_ms?: number;
+      ttft_ms?: number;
+      suggested_questions?: string[];
       prompt_tokens?: number;
       completion_tokens?: number;
       total_tokens?: number;
@@ -277,6 +282,10 @@ export async function streamChatResponse(
       const parsed = JSON.parse(dataStr);
       if (parsed.type === "meta") {
         callbacks.onMeta?.(parsed);
+      } else if (parsed.type === "title") {
+        callbacks.onTitle?.(parsed);
+      } else if (parsed.type === "suggestions") {
+        callbacks.onSuggestions?.(parsed);
       } else if (parsed.type === "search_start") {
         callbacks.onSearchStart?.(parsed);
       } else if (parsed.type === "search_results") {

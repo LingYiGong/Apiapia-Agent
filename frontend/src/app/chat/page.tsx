@@ -269,6 +269,7 @@ export default function ChatPage({
   }>({ state: "idle" });
   const [streamingSearchResults, setStreamingSearchResults] = useState<SearchResultItem[] | null>(null);
   const currentSearchResultsRef = useRef<SearchResultItem[] | null>(null);
+  const currentSuggestionsRef = useRef<string[] | null>(null);
   const currentToolInvocationsRef = useRef<ToolInvocation[]>([]);
   const currentGeneratedImagesRef = useRef<
     import("@/types").GeneratedImage[]
@@ -333,6 +334,7 @@ export default function ChatPage({
     firstTokenTimeRef.current = null;
     finalizedRef.current = false;
     currentSearchResultsRef.current = null;
+    currentSuggestionsRef.current = null;
     currentToolInvocationsRef.current = [];
     currentGeneratedImagesRef.current = [];
     currentGeneratedVideosRef.current = [];
@@ -841,6 +843,7 @@ export default function ChatPage({
           generatedImages: generatedImages && generatedImages.length > 0 ? [...generatedImages] : undefined,
           generatedVideos: generatedVideos && generatedVideos.length > 0 ? [...generatedVideos] : undefined,
           finish_reason: finishReason,
+          suggested_questions: currentSuggestionsRef.current || doneMeta?.suggested_questions || undefined,
           created_at: doneMeta?.created_at || new Date().toISOString(),
         },
       ]);
@@ -853,6 +856,7 @@ export default function ChatPage({
     setSearchStatus({ state: "idle" });
     setStreamingSearchResults(null);
     currentSearchResultsRef.current = null;
+    currentSuggestionsRef.current = null;
 
     currentToolInvocationsRef.current = [];
     currentGeneratedImagesRef.current = [];
@@ -911,6 +915,7 @@ export default function ChatPage({
       setSearchStatus({ state: "idle" });
       setStreamingSearchResults(null);
       currentSearchResultsRef.current = null;
+    currentSuggestionsRef.current = null;
       currentToolInvocationsRef.current = [];
       currentGeneratedImagesRef.current = [];
       currentGeneratedVideosRef.current = [];
@@ -991,8 +996,32 @@ export default function ChatPage({
             system_prompt_override: effectiveSystemPrompt,
             reasoning_effort: extraOptions?.reasoningEffort,
             max_tokens: extraOptions?.maxTokens,
+            suggest_followups: true,
           },
           {
+            onTitle: (data) => {
+              if (data?.title && data?.conversation_id) {
+                setConversations((list) =>
+                  list.map((c) => (c.id === data.conversation_id ? { ...c, title: data.title } : c))
+                );
+              }
+            },
+            onSuggestions: (data) => {
+              if (streamSessionIdRef.current !== currentSessionId || stopRequestedRef.current) return;
+              if (data?.suggestions && data.suggestions.length > 0) {
+                currentSuggestionsRef.current = data.suggestions;
+                setMessages((prev) => {
+                  for (let i = prev.length - 1; i >= 0; i--) {
+                    if (prev[i]?.role === "assistant") {
+                      const next = prev.slice();
+                      next[i] = { ...prev[i], suggested_questions: data.suggestions };
+                      return next;
+                    }
+                  }
+                  return prev;
+                });
+              }
+            },
             onMeta: (meta) => {
               if (streamSessionIdRef.current !== currentSessionId || stopRequestedRef.current) {
                 if (meta.conversation_id) {

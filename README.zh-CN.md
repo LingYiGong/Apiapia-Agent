@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.34.0-indigo?style=flat-square" alt="Version"></a>
+  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.35.0-indigo?style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
@@ -224,7 +224,33 @@ cat backup_xxx.sql | docker exec -i apiapia_postgres psql -U postgres -d apiapia
 
 ## 📜 版本发布与更新说明 (Release Notes)
 
-### 🚀 最新版本：v2.34.0 (2026-10-21)
+### 🚀 最新版本：v2.35.0 (2026-10-21)
+
+本版本聚焦于 **ChatGPT 级交互体验重构、思考链自适应动态折叠与智能追问建议系统**。全新交互全面对标 ChatGPT o1/o3 与 Claude 3.7：推理流式生成期间自动展开并呈现微光脉动动画，正文输出瞬间自动平滑收起并切换为「已深度思考」；重构输出过滤算法对代码块实施占位符保护；联网检索结果全面升级为包含 Favicon 高清站点图标与主域名的来源卡片；首轮对话标题生成后通过 SSE 协议实时下发，侧边栏秒级刷新；回答末尾智能生成 3 条紧凑有深度的后续追问胶囊，支持一键点击发送与独立 REST 接口调用。
+
+#### 1. ChatGPT 级思考链自适应动态折叠
+- **自适应状态联动**：当模型处于 `<think>` 推理阶段且正文未输出时，折叠框自动展开并带有呼吸脉动光效；首个正文字符到达时，折叠框**自动平滑收起**并切换为「已深度思考」，彻底避免手动上滑找正文的繁琐。
+- **代码块语法占位符保护**：在过滤内部标记时，先对 markdown 围栏代码块（``` 与 ~~~）实施占位隔离，防止编程示例代码中的标签被误删。
+
+#### 2. 联网检索来源卡片与网站图标
+- **域名清洗与 Google S2 Favicon 接入**：后端服务对所有检索结果自动解析纯净域名（去除 `www.`）并获取对应站点的超清 Favicon 图标。
+- **现代化来源卡片**：前端卡片化展示站点 Logo、域名、文章标题与摘要片段，鼠标悬浮显示外链跳出标识。
+
+#### 3. 实时会话标题流式推送
+- **会话标题秒级重命名**：首轮问答生成标题后，直接通过当前 SSE 流推送 `type: "title"` 事件，客户端侧边栏在内存中即刻刷新会话名称，彻底解决延迟与刷新问题。
+
+#### 4. 智能推荐追问气泡卡片
+- **高价值追问推荐**：后端结合用户提问与回答上下文，由模型精炼生成 3 条自然、在 15 字以内的后续提问。
+- **点击即发交互**：气泡底部渲染带 Sparkle 动效的追问胶囊，点击任一选项直接自动送入输入框并发起提问。
+- **独立接口支持**：新增 `POST /api/v1/chat/suggestions` 端点，支持前端任意时刻按需拉取消息推荐追问。
+
+#### 5. 首字生成延迟（TTFT）与四语国际化
+- **性能指标全链路度量**：协议层新增首字生成响应时间 `ttft_ms`，实时追踪首字网络与推理耗时。
+- **多语言完整支持**：推荐追问与思考完成状态文案全面接入中、英、日、繁四国语言。
+
+---
+
+### v2.34.0 (2026-10-21)
 
 本版本聚焦于**全格式文件回显预览与下载支持、前端代码规范化重构与静态资源极致瘦身**。聊天界面新增通用文件模态框，不仅完整支持 PDF 内嵌阅读，更支持代码、数据与纯文本的 UTF-8 无损解析、行数统计、全文复制与下载；通过消息持久化水合重构，刷新会话后所有文件均可完美回显与导出；同时提取全局剪贴板 Hook，消除重复模型选择器组件，优化 SVG/图片资源瘦身约 1MB，并彻底规范组件库变体以消除 Docker 构建错误。
 

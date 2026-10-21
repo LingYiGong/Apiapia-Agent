@@ -64,12 +64,24 @@ export function SearchSources({
             className="group/card flex flex-col rounded-lg border bg-card p-2 text-left transition-colors hover:border-primary hover:shadow-xs"
           >
             <div className="flex items-center gap-1.5 text-xs font-medium group-hover/card:text-primary">
-              <span
-                aria-hidden="true"
-                className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary"
-              >
-                {idx + 1}
-              </span>
+              {item.icon ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={item.icon}
+                  alt=""
+                  className="h-3.5 w-3.5 shrink-0 rounded-xs object-contain"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLElement).style.display = "none";
+                  }}
+                />
+              ) : (
+                <span
+                  aria-hidden="true"
+                  className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary"
+                >
+                  {idx + 1}
+                </span>
+              )}
               <span className="truncate">{item.title || item.url}</span>
               <ExternalLink className="ml-auto h-3 w-3 shrink-0 text-primary opacity-0 transition-opacity group-hover/card:opacity-100" />
             </div>
@@ -79,7 +91,7 @@ export function SearchSources({
               </p>
             )}
             <span className="mt-1 truncate font-mono text-xs text-muted-foreground/80">
-              {hostnameOf(item.url)}
+              {item.hostname || hostnameOf(item.url)}
             </span>
           </a>
         ))}

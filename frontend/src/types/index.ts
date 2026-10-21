@@ -38,6 +38,8 @@ export interface SearchResultItem {
   title: string;
   url: string;
   snippet: string;
+  hostname?: string;
+  icon?: string;
 }
 
 export interface ToolInvocation {
@@ -93,6 +95,8 @@ export interface Message {
   completion_tokens?: number;
   duration_ms?: number;
   thinking_duration_ms?: number;
+  ttft_ms?: number;
+  suggested_questions?: string[];
   created_at?: string;
 }
 

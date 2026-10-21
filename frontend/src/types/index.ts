@@ -31,6 +31,7 @@ export interface AttachmentItem {
   type: "image" | "document";
   mime_type: string;
   data_url: string;
+  text?: string;
 }
 
 export interface SearchResultItem {
@@ -78,6 +79,7 @@ export interface Message {
   search_results?: SearchResultItem[] | string;
   generated_images?: string | null;
   generated_videos?: string | null;
+  user_attachments?: string | null;
   tool_invocations?: ToolInvocation[] | string | null;
   search_query?: string | null;
   /** 'stop' = complete, 'abort' = user stopped, 'error' = failed, 'length' = token truncated, 'content_filter' = blocked */

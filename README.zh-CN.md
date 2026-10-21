@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.33.0-indigo?style=flat-square" alt="Version"></a>
+  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.34.0-indigo?style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
@@ -224,7 +224,33 @@ cat backup_xxx.sql | docker exec -i apiapia_postgres psql -U postgres -d apiapia
 
 ## 📜 版本发布与更新说明 (Release Notes)
 
-### 🚀 最新版本：v2.33.0 (2026-10-20)
+### 🚀 最新版本：v2.34.0 (2026-10-21)
+
+本版本聚焦于**全格式文件回显预览与下载支持、前端代码规范化重构与静态资源极致瘦身**。聊天界面新增通用文件模态框，不仅完整支持 PDF 内嵌阅读，更支持代码、数据与纯文本的 UTF-8 无损解析、行数统计、全文复制与下载；通过消息持久化水合重构，刷新会话后所有文件均可完美回显与导出；同时提取全局剪贴板 Hook，消除重复模型选择器组件，优化 SVG/图片资源瘦身约 1MB，并彻底规范组件库变体以消除 Docker 构建错误。
+
+#### 1. 全格式附件预览与一键下载
+- **通用预览模态框（FilePreviewModal）**：采用 Radix UI 规范封装弹层，支持 PDF 原生 iframe 缩放阅读，代码/文本文件行号展示与 UTF-8 字符解码，以及 Office/压缩包一键下载。
+- **无损文本解码（UTF-8 TextDecoder）**：重构 Base64 文本解码算法，弃用易崩溃的原生 `atob`，全面支持中日韩多语言文字及 Emoji 表情，杜绝乱码。
+- **交互与操作增强**：
+  - 输入框附件栏支持点击卡片随时预览待发文件，并附带直达下载与删除操作。
+  - 用户消息气泡内的文档徽标与图片缩略图均支持点击全屏预览与悬停快速下载。
+- **消息持久化水合（Hydration）**：重构 `hydrateMessage`，在页面刷新或切换历史会话时自动从后端反序列化 `user_attachments`，历史文件随时随地可回显与下载。
+
+#### 2. 前端架构合并与规范重构
+- **剪贴板 Hook 统一**：提取全局统一的 `useClipboard` Hook，消除了代码块、单词卡等多处分散维护的定时器状态与逻辑复制；移除冗余别名 `useCopyFeedback`。
+- **模型选择器三合一**：在 `ModelSelect.tsx` 内统一收敛多模态逻辑，彻底删除 `ImageModelSelect`、`VideoModelSelect` 与 `AudioModelSelect` 冗余代码。
+- **内存安全与工具收敛**：统一附件下载逻辑至 `fileUpload.ts`，自动在触发下载后调用 `URL.revokeObjectURL` 释放内存，杜绝长期会话产生的内存泄漏。
+- **路由重定向优化**：首页登录态判断使用 `router.replace` 代替 `router.push`，避免浏览器后退键陷入死循环。
+
+#### 3. 资源瘦身与构建编译修复
+- **矢量图标极致压缩**：优化重构 `apiapia-logo.svg`（835KB -> 2.2KB）与 `icon.svg`（417KB -> 780B），体积减少达 **99.8%**。
+- **清理无用大图文件**：从 `frontend/public/` 中清理删除 4 张未引用的静态图片（原始素材在根目录 `icons/` 完好保留），构建包瘦身约 **931KB**。
+- **Shadcn Badge 变体补齐**：规范基础组件 `badge.tsx`，补充 `outline` 变体定义，解决 Next.js 生产环境构建在严格 TypeScript 检查下的报错。
+- **Git 忽略项规范**：`.gitignore` 补充 `.codex/` 等规则，防止本地编辑器配置污染代码库。
+
+---
+
+### v2.33.0 (2026-10-20)
 
 本版本是一次聚焦于**语言模型选择器等级化重构、精确价格展示与旧分类体系清理**的重要更新。选择器由场景标签改为「免费 / 正常 / 聪明 / 自定义」四档卡片：免费档只保留三个置顶免费模型，正常与聪明档使用人工精选清单，只有自定义档展示全量目录；同时接入 OpenRouter 输入 / 输出单价，按每百万 Token 展示实际价格，并完成旧胶囊筛选、场景标签与冗余多语言文案的清理。
 

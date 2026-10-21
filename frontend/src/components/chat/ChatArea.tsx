@@ -78,8 +78,10 @@ import {
   MAX_ATTACHMENT_BYTES,
   MAX_TOTAL_ATTACHMENT_BYTES,
   compressImage,
+  downloadAttachment,
   readFileAsDataUrl,
 } from "@/lib/fileUpload";
+import { FilePreviewModal, type PreviewableFile } from "./FilePreviewModal";
 
 const useIsTouchPrimary = () => {
   const [isTouchPrimary, setIsTouchPrimary] = useState(false);
@@ -335,6 +337,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     } catch (_) {}
   }, [draftKey]);
   const [previewImage, setPreviewImage] = useState<{ src: string; alt?: string } | null>(null);
+  const [previewFile, setPreviewFile] = useState<PreviewableFile | null>(null);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
 
   // ── Quoted Message State ──
@@ -1105,6 +1108,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 isCopied={copiedIdx === idx}
                 onCopy={handleCopyMessage}
                 onImageClick={handleImageClick}
+                onFileClick={(file) => setPreviewFile(file)}
                 canRegenerate={
                   !!onRegenerate && !isStreaming && !regenerating && msg.role === "assistant" && !!msg.id
                 }
@@ -1367,16 +1371,24 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               {attachments.map((att) => (
                 <div
                   key={att.id}
-                  className="relative group shrink-0 flex items-center gap-2 p-1.5 pr-2 rounded-xl bg-card border border-border/70 dark:bg-surface-3 shadow-xs"
+                  onClick={() => {
+                    if (att.type === "image") {
+                      setPreviewImage({ src: att.data_url, alt: att.name });
+                    } else {
+                      setPreviewFile(att);
+                    }
+                  }}
+                  title={`${att.name} (${fmt.fileSize(att.size)}) - 点击查看预览`}
+                  className="relative group shrink-0 flex items-center gap-2 p-1.5 pr-2 rounded-xl bg-card border border-border/70 dark:bg-surface-3 shadow-xs cursor-pointer hover:border-primary/50 transition-all select-none active:scale-[0.99]"
                 >
                   {att.type === "image" ? (
                     <img
                       src={att.data_url}
                       alt={att.name}
-                      className="h-9 w-9 rounded-lg object-cover border border-border/60"
+                      className="h-9 w-9 rounded-lg object-cover border border-border/60 shrink-0"
                     />
                   ) : (
-                    <div className="h-9 w-9 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
+                    <div className="h-9 w-9 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
                       <FileText className="h-4 w-4" />
                     </div>
                   )}
@@ -1388,17 +1400,32 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                       {fmt.fileSize(att.size)}
                     </p>
                   </div>
-                  <ActionTooltip label={t("chat.composer.removeAttachment")} side="top">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setAttachments((prev) => prev.filter((a) => a.id !== att.id))}
-                      className="h-8 w-8 rounded-full text-muted-foreground hover:text-destructive"
-                    >
-                      <X className="h-4 w-4" />
-                      <span className="sr-only">{t("chat.composer.removeAttachment")}</span>
-                    </Button>
-                  </ActionTooltip>
+                  <div className="flex items-center gap-0.5 ml-1" onClick={(e) => e.stopPropagation()}>
+                    <ActionTooltip label={t("chat.markdown.download")} side="top">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => downloadAttachment(att)}
+                        className="h-7 w-7 rounded-full text-muted-foreground hover:bg-surface-3 hover:text-foreground"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        <span className="sr-only">{t("chat.markdown.download")}</span>
+                      </Button>
+                    </ActionTooltip>
+                    <ActionTooltip label={t("chat.composer.removeAttachment")} side="top">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setAttachments((prev) => prev.filter((a) => a.id !== att.id))}
+                        className="h-7 w-7 rounded-full text-muted-foreground hover:text-destructive"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                        <span className="sr-only">{t("chat.composer.removeAttachment")}</span>
+                      </Button>
+                    </ActionTooltip>
+                  </div>
                 </div>
               ))}
               {isUploading && (
@@ -1683,6 +1710,12 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           )}
         </DialogContent>
       </Dialog>
+
+      <FilePreviewModal
+        file={previewFile}
+        open={!!previewFile}
+        onOpenChange={(open) => !open && setPreviewFile(null)}
+      />
     </div>
   );
 };

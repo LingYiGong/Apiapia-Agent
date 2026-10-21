@@ -6,26 +6,16 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n";
 import { useClipboard } from "@/hooks/useClipboard";
+import { downloadAttachment } from "@/lib/fileUpload";
 import { WordCard, parseWordData } from "./WordCard";
 
 /**
  * 代码块 / SVG 矢量画作 的渲染。
  */
 
-/** 把纯文本写进剪贴板，并把按钮切成「已复制」2 秒（由 @/hooks/useClipboard 接管实现）。 */
-export const useCopyFeedback = useClipboard;
-
 /** 触发浏览器下载一段内存中的文本（SVG 源码等）。 */
 export function downloadTextFile(filename: string, text: string, mime: string) {
-  const blob = new Blob([text], { type: mime });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  downloadAttachment({ name: filename, text, mime_type: mime });
 }
 
 /**
@@ -54,7 +44,7 @@ function getSvgAspectRatio(svg: string): number | undefined {
 export function SvgRenderer({ svgCode }: { svgCode: string }) {
   const { t } = useI18n();
   const [viewMode, setViewMode] = React.useState<"preview" | "code">("preview");
-  const { copied, copy } = useCopyFeedback();
+  const { copied, copy } = useClipboard();
 
   /**
    * 预览走 `sandbox=""` 的 iframe 渲染，而不是 dangerouslySetInnerHTML。
@@ -236,7 +226,7 @@ function highlightSyntax(code: string, lang: string): React.ReactNode {
 
 export function CodeBlock({ children, className }: any) {
   const { t } = useI18n();
-  const { copied, copy } = useCopyFeedback();
+  const { copied, copy } = useClipboard();
   const match = /language-(\w+)/.exec(className || "");
   const lang = match ? match[1] : "";
   const codeText =

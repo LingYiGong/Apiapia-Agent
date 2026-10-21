@@ -2,6 +2,8 @@
  * 时间分组工具函数与类型定义。
  */
 
+import type { MessageKey, Translator } from "@/i18n";
+
 /**
  * 分组内的时间键（不含置顶）。按新→旧排列。
  */
@@ -23,8 +25,6 @@ export interface TimeSection<T> {
   title: string;
   items: T[];
 }
-
-import type { MessageKey, Translator } from "@/i18n";
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
@@ -100,10 +100,24 @@ export function groupByTimeBuckets<T>(
   }
 
   const sections: TimeSection<T>[] = [];
-  if (pinned.length > 0) sections.push({ key: "pinned", title: t(pinnedTitleKey), items: pinned });
-  for (const { key } of [...TIME_BUCKET_SPANS, { key: "earlier" as TimeBucketKey }]) {
-    const list = buckets[key];
-    if (list.length > 0) sections.push({ key, title: t(BUCKET_TITLE_KEYS[key]), items: list });
+
+  if (pinned.length > 0) {
+    sections.push({
+      key: "pinned",
+      title: t(pinnedTitleKey),
+      items: pinned,
+    });
   }
+
+  for (const key of ["last24h", "last3d", "last7d", "earlier"] as const) {
+    if (buckets[key].length > 0) {
+      sections.push({
+        key,
+        title: t(BUCKET_TITLE_KEYS[key]),
+        items: buckets[key],
+      });
+    }
+  }
+
   return sections;
 }

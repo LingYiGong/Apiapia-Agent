@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.33.0-indigo?style=flat-square" alt="Version"></a>
+  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.34.0-indigo?style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
@@ -225,7 +225,33 @@ cat backup_xxx.sql | docker exec -i apiapia_postgres psql -U postgres -d apiapia
 
 ## 📜 Releases & Changelog
 
-### 🚀 Latest Release: v2.33.0 (2026-10-20)
+### 🚀 Latest Release: v2.34.0 (2026-10-21)
+
+This release focuses on **universal file preview and download support, frontend architecture refactoring, and static bundle optimization**. The chat interface introduces a unified file preview modal supporting native PDF iframe reading, lossless UTF-8 text decoding with line numbering, full-text copy, and one-click downloading. Historical conversation attachments are fully preserved through message hydration refactoring, while duplicate model selectors and redundant code were pruned, SVG assets optimized by 99.8%, and Docker build types aligned.
+
+#### 1. Universal Attachment Preview & Download
+- **Universal Modal (FilePreviewModal)**: Radix UI dialog supporting native PDF viewing, code/data/text file UTF-8 decoding with line counts, and one-click direct download for Office and binary files.
+- **Lossless Text Decoding**: Replaced error-prone `atob` with WHATWG `TextDecoder("utf-8")` to cleanly render multi-byte CJK text, source code, and emoji without garbled characters.
+- **Enhanced Interactions**:
+  - Pending attachments in the composer support click-to-preview, quick download, and delete.
+  - Document badges and image thumbnails in message bubbles support preview and hover quick download.
+- **Message Hydration**: Rebuilt `hydrateMessage` to automatically unpack `user_attachments` from backend JSON, ensuring uploaded attachments remain viewable and downloadable after refresh or session switching.
+
+#### 2. Architecture & Code Consolidation
+- **Clipboard Hook**: Created unified `useClipboard` hook, eliminating duplicate timers in CodeBlock and WordCard, and dropped redundant `useCopyFeedback` alias.
+- **Model Selector Consolidation**: Merged image, video, and audio selectors into `ModelSelect.tsx` and removed 3 duplicate component files.
+- **Memory Safety**: Centralized download triggers in `fileUpload.ts` with automatic `URL.revokeObjectURL` cleanup to eliminate long-session memory leaks.
+- **Route Navigation**: Used `router.replace` on the root redirect to prevent browser back-button history loops.
+
+#### 3. Asset Pruning & Build Fixes
+- **Vector Graphics Optimization**: Compressed `apiapia-logo.svg` (835KB -> 2.2KB) and `icon.svg` (417KB -> 780B), shrinking file size by **99.8%**.
+- **Unused Image Cleanup**: Removed 4 unreferenced large JPG images from `frontend/public/` (original assets safely retained in `icons/`), saving **~931KB** from the build image.
+- **Badge Variant Conformance**: Added standard `outline` variant to `badge.tsx` to resolve Next.js production Docker TypeScript check errors.
+- **Git Hygiene**: Added `.codex/` to `.gitignore` to prevent editor configs from entering version control.
+
+---
+
+### v2.33.0 (2026-10-20)
 
 This release focuses on **a tiered language-model picker, exact pricing, and cleanup of the legacy category system**. The picker now uses Free / Normal / Smart / Custom cards: Free contains only the three pinned free models, Normal and Smart use curated lists, and only Custom exposes the full catalog. OpenRouter prompt/completion prices are now synced and shown per 1M tokens, while the old filter-chip UI, scenario tags, and redundant i18n keys have been removed.
 

@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ActionTooltip } from "@/components/common/ActionTooltip";
 import { AttachmentItems, DocChip, ImageThumb, MediaGrid } from "@/components/chat/MessageMedia";
+import { downloadAttachment } from "@/lib/fileUpload";
 import {
   AiImageCard,
   AiVideoCard,
@@ -59,6 +60,7 @@ interface ChatMessageItemProps {
   onEditMessage?: (messageId: string, newText: string) => void;
   onContinue?: () => void;
   onQuote?: (quoteText: string, messageId?: string) => void;
+  onFileClick?: (file: { name: string; size?: number; type?: "image" | "document"; mime_type?: string; data_url?: string; text?: string }) => void;
 }
 
 
@@ -200,6 +202,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
   onEditMessage,
   onContinue,
   onQuote,
+  onFileClick,
 }: ChatMessageItemProps) {
   const { t, fmt } = useI18n();
   const isUser = msg.role === "user";
@@ -294,7 +297,11 @@ export const ChatMessageItem = memo(function ChatMessageItem({
     if (attachments && attachments.length > 0) {
       return (
         <>
-          <AttachmentItems attachments={attachments} onImageClick={onImageClick} />
+          <AttachmentItems
+            attachments={attachments}
+            onImageClick={onImageClick}
+            onFileClick={onFileClick}
+          />
           {msg.content?.trim() && (
             <div className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{msg.content.trim()}</div>
           )}
@@ -322,7 +329,12 @@ export const ChatMessageItem = memo(function ChatMessageItem({
               />
             ))}
             {parsed.docs.map((docName, i) => (
-              <DocChip key={i} name={docName} />
+              <DocChip
+                key={i}
+                name={docName}
+                onPreview={onFileClick ? () => onFileClick({ name: docName, type: "document" }) : undefined}
+                onDownload={() => downloadAttachment({ name: docName })}
+              />
             ))}
           </MediaGrid>
         )}

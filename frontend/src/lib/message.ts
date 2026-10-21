@@ -1,4 +1,5 @@
-import type { GeneratedImage, GeneratedVideo, Message, ToolInvocation } from "@/types";
+import type { AttachmentItem, GeneratedImage, GeneratedVideo, Message, ToolInvocation } from "@/types";
+import { getMediaImageUrl } from "@/lib/api";
 
 /**
  * 消息的形状归一化。
@@ -38,6 +39,29 @@ function toGeneratedVideos(raw: unknown): GeneratedVideo[] | undefined {
   return undefined;
 }
 
+function toAttachments(raw: unknown): AttachmentItem[] | undefined {
+  const parsed = parseJsonColumn(raw);
+  if (Array.isArray(parsed) && parsed.length > 0) {
+    return parsed.map((item: any, idx: number): AttachmentItem => {
+      const isImg = item.type === "image" || (item.mime_type && item.mime_type.startsWith("image/"));
+      let dataUrl = item.data_url || "";
+      if (!dataUrl && item.id) {
+        dataUrl = getMediaImageUrl(item.id);
+      }
+      return {
+        id: item.id || `att-${idx}-${Date.now()}`,
+        name: item.name || (isImg ? "image.png" : "file"),
+        size: item.size || item.bytes || (item.text ? item.text.length : 0),
+        type: isImg ? "image" : "document",
+        mime_type: item.mime_type || (isImg ? "image/jpeg" : "application/octet-stream"),
+        data_url: dataUrl,
+        text: item.text,
+      };
+    });
+  }
+  return undefined;
+}
+
 /**
  * 把后端返回的消息补齐成前端渲染需要的形状。
  *
@@ -48,9 +72,14 @@ function toGeneratedVideos(raw: unknown): GeneratedVideo[] | undefined {
  * 解析失败只警告不抛：一条坏消息不该让整个会话打不开。
  */
 export function hydrateMessage(msg: Message): Message {
-  if (!msg.generated_images && !msg.generated_videos && !msg.tool_invocations) return msg;
+  if (!msg.generated_images && !msg.generated_videos && !msg.tool_invocations && !msg.user_attachments) return msg;
 
   const next: Message = { ...msg };
+
+  if ((!next.attachments || next.attachments.length === 0) && msg.user_attachments) {
+    const atts = toAttachments(msg.user_attachments);
+    if (atts) next.attachments = atts;
+  }
 
   if (!next.generatedImages && msg.generated_images) {
     const images = toGeneratedImages(msg.generated_images);

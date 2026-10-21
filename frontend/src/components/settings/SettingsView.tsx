@@ -17,9 +17,11 @@ import { Switch } from "@/components/ui/switch";
 import { ThemeSegments } from "@/components/common/ThemeSegments";
 import { LanguageRow } from "@/components/common/LanguageSwitcher";
 import { BrandLogo } from "@/components/common/BrandLogo";
-import { ImageModelSelect } from "@/components/settings/ImageModelSelect";
-import { VideoModelSelect } from "@/components/settings/VideoModelSelect";
-import { AudioModelSelect } from "@/components/settings/AudioModelSelect";
+import {
+  ImageModelSelect,
+  VideoModelSelect,
+  AudioModelSelect,
+} from "@/components/common/ModelSelect";
 import {
   ModelInfoPanel,
   ModelMissingNotice,

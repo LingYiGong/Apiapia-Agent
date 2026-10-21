@@ -19,6 +19,7 @@ import { speakText } from "@/lib/speech";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n";
 import type { MessageKey, Translator } from "@/i18n";
+import { useClipboard } from "@/hooks/useClipboard";
 
 export interface WordDefinition {
   pos?: string;
@@ -71,32 +72,6 @@ type LanguageCode = keyof typeof LANGUAGE_NAME_KEYS;
 function languageName(t: Translator, code: string): string {
   const key = LANGUAGE_NAME_KEYS[code.toLowerCase() as LanguageCode];
   return key ? t(key) : code.toUpperCase();
-}
-
-/** 本地剪贴板反馈 hook，避免循环依赖 CodeBlock */
-function useLocalCopyFeedback(duration = 2000) {
-  const [copied, setCopied] = React.useState(false);
-  const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  React.useEffect(() => () => {
-    if (timer.current) clearTimeout(timer.current);
-  }, []);
-
-  const copy = React.useCallback(
-    (text: string) => {
-      try {
-        navigator.clipboard.writeText(text);
-        setCopied(true);
-        if (timer.current) clearTimeout(timer.current);
-        timer.current = setTimeout(() => setCopied(false), duration);
-      } catch (err) {
-        console.error("Clipboard copy failed:", err);
-      }
-    },
-    [duration]
-  );
-
-  return { copied, copy };
 }
 
 function safeString(val: any): string {
@@ -360,7 +335,7 @@ export function WordCard({
 
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const audioCacheRef = React.useRef<Map<string, string>>(new Map());
-  const { copied, copy } = useLocalCopyFeedback();
+  const { copied, copy } = useClipboard();
 
   // 组件卸载时释放音频资源
   React.useEffect(() => {

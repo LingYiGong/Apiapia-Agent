@@ -5,33 +5,15 @@ import { Check, Copy, Download, Palette } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n";
+import { useClipboard } from "@/hooks/useClipboard";
 import { WordCard, parseWordData } from "./WordCard";
 
 /**
  * 代码块 / SVG 矢量画作 的渲染。
  */
 
-/** 把纯文本写进剪贴板，并把按钮切成「已复制」2 秒。 */
-export function useCopyFeedback(duration = 2000) {
-  const [copied, setCopied] = React.useState(false);
-  const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  React.useEffect(() => () => {
-    if (timer.current) clearTimeout(timer.current);
-  }, []);
-
-  const copy = React.useCallback(
-    (text: string) => {
-      navigator.clipboard.writeText(text);
-      setCopied(true);
-      if (timer.current) clearTimeout(timer.current);
-      timer.current = setTimeout(() => setCopied(false), duration);
-    },
-    [duration]
-  );
-
-  return { copied, copy };
-}
+/** 把纯文本写进剪贴板，并把按钮切成「已复制」2 秒（由 @/hooks/useClipboard 接管实现）。 */
+export const useCopyFeedback = useClipboard;
 
 /** 触发浏览器下载一段内存中的文本（SVG 源码等）。 */
 export function downloadTextFile(filename: string, text: string, mime: string) {

@@ -14,9 +14,9 @@ export default function Home() {
   useEffect(() => {
     if (!loading) {
       if (user) {
-        router.push("/chat");
+        router.replace("/chat");
       } else {
-        router.push("/login");
+        router.replace("/login");
       }
     }
   }, [user, loading, router]);

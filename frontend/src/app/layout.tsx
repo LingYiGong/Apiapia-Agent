@@ -6,7 +6,6 @@ import { UpdatePrompt } from "@/components/common/UpdatePrompt";
 import { CapacitorInit } from "@/components/common/CapacitorInit";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
 import "./globals.css";
 import "katex/dist/katex.min.css";
 

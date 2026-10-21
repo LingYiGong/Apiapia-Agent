@@ -73,6 +73,13 @@ import {
   vocabLanguageName,
   vocabLanguageChipLabel,
 } from "@/config/personas";
+import {
+  MAX_ATTACHMENTS,
+  MAX_ATTACHMENT_BYTES,
+  MAX_TOTAL_ATTACHMENT_BYTES,
+  compressImage,
+  readFileAsDataUrl,
+} from "@/lib/fileUpload";
 
 const useIsTouchPrimary = () => {
   const [isTouchPrimary, setIsTouchPrimary] = useState(false);
@@ -138,77 +145,6 @@ function CreationMenuRow({
     </button>
   );
 }
-
-
-
-
-
-
-const compressImage = (file: File): Promise<string> => {
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new window.Image();
-      img.onload = () => {
-        const MAX_DIM = 1920;
-        let width = img.width;
-        let height = img.height;
-
-        if (width > MAX_DIM || height > MAX_DIM) {
-          if (width > height) {
-            height = Math.round((height * MAX_DIM) / width);
-            width = MAX_DIM;
-          } else {
-            width = Math.round((width * MAX_DIM) / height);
-            height = MAX_DIM;
-          }
-        }
-
-        const canvas = document.createElement("canvas");
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) {
-          resolve((e.target?.result as string) || "");
-          return;
-        }
-        ctx.drawImage(img, 0, 0, width, height);
-        const outputType = file.type === "image/png" ? "image/png" : "image/jpeg";
-        resolve(canvas.toDataURL(outputType, 0.85));
-      };
-      img.onerror = () => resolve((e.target?.result as string) || "");
-      img.src = (e.target?.result as string) || "";
-    };
-    reader.onerror = () => resolve("");
-    reader.readAsDataURL(file);
-  });
-};
-
-const readFileAsDataUrl = (file: File): Promise<string> => {
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve((reader.result as string) || "");
-    reader.onerror = () => resolve("");
-    reader.readAsDataURL(file);
-  });
-};
-
-/**
- * 附件预算，与后端 `backend/app/schemas/chat.py` 的校验保持一致。
- *
- * 三层的换算关系（附件是 base64 data URL 内联进 JSON 的，请求体 ≈ 原始字节 ×4/3）：
- *
- * - MAX_ATTACHMENT_BYTES 与后端单文件 20MB 对齐；
- * - MAX_TOTAL_ATTACHMENT_BYTES 与后端总量 40MB 对齐；
- * - 后端 `main.py` 的 MAX_REQUEST_BODY_BYTES 必须是 56MB，也就是总量 ×4/3 再留
- *   余量。否则请求体会先被中间件拒掉，这层的 40MB 就成了够不到的死配置。
- *
- * 这两个上限必须留在前端：超预算时后端拒的是**整条消息（连同正文）**，用户看到
- * 的只会是「消息发不出去」，而不是「附件选多了」。
- */
-const MAX_ATTACHMENTS = 10;
-const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024;
-const MAX_TOTAL_ATTACHMENT_BYTES = 40 * 1024 * 1024;
 
 /**
  * ISO 639-1 语种码 → 文案键。

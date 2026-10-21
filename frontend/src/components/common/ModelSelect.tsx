@@ -1,17 +1,36 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { Brain, Coins, Gauge, SlidersHorizontal } from "lucide-react";
+import {
+  AudioLines,
+  Brain,
+  Coins,
+  Gauge,
+  Palette,
+  SlidersHorizontal,
+  Video,
+} from "lucide-react";
 import { ModelPicker } from "@/components/common/ModelPicker";
 import {
   allFilterMatch,
   type ModelFilterGroup,
 } from "@/components/common/modelFilterGroups";
 import { useIsTrialMode } from "@/hooks/useIsTrialMode";
-import { countDistinctModels, toChatModelOptions } from "@/lib/models";
+import {
+  countDistinctModels,
+  toAudioModelOptions,
+  toChatModelOptions,
+  toImageModelOptions,
+  toVideoModelOptions,
+} from "@/lib/models";
 import { getModelTier } from "@/lib/modelTiers";
 import { useI18n } from "@/i18n";
-import type { ModelCatalogItem } from "@/types";
+import type {
+  AudioModelItem,
+  ImageModelItem,
+  ModelCatalogItem,
+  VideoModelItem,
+} from "@/types";
 
 interface ModelSelectProps {
   value: string;
@@ -137,6 +156,206 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
       filterGroups={filterGroups}
       defaultFilterKey={initialFilterKey}
       isTrialMode={isTrialMode}
+    />
+  );
+};
+
+/** 统一的媒体模型选择器空状态展示逻辑 */
+function renderMediaPickerEmptyState({
+  count,
+  synced,
+  isTrialMode,
+  kindLabel,
+  envVar,
+  t,
+}: {
+  count: number;
+  synced: boolean;
+  isTrialMode: boolean;
+  kindLabel: string;
+  envVar: string;
+  t: (key: any, vars?: any) => string;
+}) {
+  if (count === 0) {
+    return (
+      <p className="px-3 py-8 text-center text-xs text-muted-foreground leading-relaxed">
+        {!synced
+          ? t("settings.pickerEmpty.notSynced", { kind: kindLabel })
+          : isTrialMode
+            ? t("settings.pickerEmpty.trialNoFree", { kind: kindLabel, env: envVar })
+            : t("settings.pickerEmpty.syncedButEmpty")}
+      </p>
+    );
+  }
+  return (
+    <p className="px-3 py-8 text-center text-xs text-muted-foreground">
+      {t("settings.picker.noMatch", { kind: kindLabel })}
+    </p>
+  );
+}
+
+export interface ImageModelSelectProps {
+  /** 允许为 null，表示用户尚未选择绘图模型 */
+  value: string | null;
+  onChange: (modelId: string) => void;
+  models: ImageModelItem[];
+  placeholder?: string;
+  loading?: boolean;
+  /** 后端是否已完成过一次同步；用于区分「没同步」与「同步了但没模型」 */
+  synced?: boolean;
+  className?: string;
+  isTrialMode: boolean;
+}
+
+/** 绘图模型选择器 */
+export const ImageModelSelect: React.FC<ImageModelSelectProps> = ({
+  value,
+  onChange,
+  models,
+  placeholder,
+  loading = false,
+  synced = true,
+  className,
+  isTrialMode,
+}) => {
+  const { t } = useI18n();
+  const options = useMemo(() => toImageModelOptions(models), [models]);
+  const kindLabel = t("settings.modelGroup.image");
+
+  return (
+    <ModelPicker
+      value={value}
+      onChange={onChange}
+      options={options}
+      kindLabel={kindLabel}
+      placeholder={placeholder ?? t("settings.modelGroup.imagePlaceholder")}
+      className={className}
+      loading={loading}
+      triggerIcon={Palette}
+      width="narrow"
+      isTrialMode={isTrialMode}
+      emptyState={renderMediaPickerEmptyState({
+        count: models.length,
+        synced,
+        isTrialMode,
+        kindLabel,
+        envVar: "FREE_IMAGE_MODELS",
+        t,
+      })}
+    />
+  );
+};
+
+export interface VideoModelSelectProps {
+  /** 允许为 null，表示用户尚未选择视频模型 */
+  value: string | null;
+  onChange: (modelId: string) => void;
+  models: VideoModelItem[];
+  placeholder?: string;
+  loading?: boolean;
+  /** 后端是否已完成过一次同步；用于区分「没同步」与「同步了但没模型」 */
+  synced?: boolean;
+  className?: string;
+  isTrialMode: boolean;
+}
+
+/** 视频模型选择器 */
+export const VideoModelSelect: React.FC<VideoModelSelectProps> = ({
+  value,
+  onChange,
+  models,
+  placeholder,
+  loading = false,
+  synced = true,
+  className,
+  isTrialMode,
+}) => {
+  const { t } = useI18n();
+  const options = useMemo(() => toVideoModelOptions(models), [models]);
+  const kindLabel = t("settings.modelGroup.video");
+
+  return (
+    <ModelPicker
+      value={value}
+      onChange={onChange}
+      options={options}
+      kindLabel={kindLabel}
+      placeholder={placeholder ?? t("settings.modelGroup.videoPlaceholder")}
+      className={className}
+      loading={loading}
+      triggerIcon={Video}
+      width="narrow"
+      isTrialMode={isTrialMode}
+      emptyState={renderMediaPickerEmptyState({
+        count: models.length,
+        synced,
+        isTrialMode,
+        kindLabel,
+        envVar: "FREE_VIDEO_MODELS",
+        t,
+      })}
+    />
+  );
+};
+
+export interface AudioModelSelectProps {
+  /** 允许为 null —— UserSetting.stt_model / tts_model 本身就是 `string | null` */
+  value: string | null;
+  onChange: (modelId: string) => void;
+  /** 整份语音目录；组件按 capability 自行过滤 */
+  models: AudioModelItem[];
+  /** 选择哪一族模型（stt 或 tts） */
+  capability: "stt" | "tts";
+  /** 决定 kindLabel / placeholder / 空状态文案 */
+  kindLabel: string;
+  placeholder?: string;
+  loading?: boolean;
+  /** 后端是否已完成过一次同步；用于区分「没同步」与「同步了但没模型」 */
+  synced?: boolean;
+  className?: string;
+  isTrialMode: boolean;
+}
+
+/** 语音模型选择器（识别 / 合成共用） */
+export const AudioModelSelect: React.FC<AudioModelSelectProps> = ({
+  value,
+  onChange,
+  models,
+  capability,
+  kindLabel,
+  placeholder,
+  loading = false,
+  synced = true,
+  className,
+  isTrialMode,
+}) => {
+  const { t } = useI18n();
+  const scoped = useMemo(
+    () => models.filter((m) => m.capability === capability),
+    [models, capability]
+  );
+  const options = useMemo(() => toAudioModelOptions(scoped), [scoped]);
+
+  return (
+    <ModelPicker
+      value={value}
+      onChange={onChange}
+      options={options}
+      kindLabel={kindLabel}
+      placeholder={placeholder}
+      className={className}
+      loading={loading}
+      triggerIcon={AudioLines}
+      width="narrow"
+      isTrialMode={isTrialMode}
+      emptyState={renderMediaPickerEmptyState({
+        count: scoped.length,
+        synced,
+        isTrialMode,
+        kindLabel,
+        envVar: "FREE_AUDIO_MODELS",
+        t,
+      })}
     />
   );
 };

@@ -5,7 +5,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
-import { Brain } from "lucide-react";
+import { Brain, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n";
 import { CodeBlock } from "@/components/chat/markdown/CodeBlock";
@@ -16,28 +16,49 @@ import { CodeBlock } from "@/components/chat/markdown/CodeBlock";
 
 export type ImageClickHandler = (src: string, alt?: string) => void;
 
-/** 剥掉模型泄漏的内部痕迹（工具调用容器、ReAct 轨迹、安全分类器输出等）。 */
+/** 把模型可能输出的标准 LaTeX 括号分界符 \(...\) 与 \[...\] 转换为 remark-math 识别的 $...$ 与 $$...$$ */
+export function normalizeMathDelimiters(text: string): string {
+  if (!text) return "";
+  let normalized = text.replace(/\\\[([\s\S]*?)\\\]/g, (_, math) => `\n$$\n${math.trim()}\n$$\n`);
+  normalized = normalized.replace(/\\\(([\s\S]*?)\\\)/g, (_, math) => `$${math.trim()}$`);
+  return normalized;
+}
+
+/** 剥掉模型泄漏的内部痕迹（工具调用容器、ReAct 轨迹、安全分类器输出等），保护代码块并归一化公式。 */
 export function sanitizeDisplayContent(raw: string): string {
   if (!raw) return "";
-  return (
-    raw
-      // 1. 裸的工具/函数调用容器与悬空的参数标签
-      .replace(/<\/?(?:tool(?:_call)?|func(?:tion)?(?:_call)?|action|invoke|plugin_call|code_interpreter|call)[\s\S]*?(?:<\/(?:tool(?:_call)?|func(?:tion)?(?:_call)?|action|invoke|plugin_call|code_interpreter|call)>|$)/gi, "")
-      .replace(/<\|(?:tool(?:_call|_calls)?_start|action_start|plugin_start)\|?>[\s\S]*?(?:<\|(?:tool(?:_call|_calls)?_end|action_end|plugin_end)\|?>|$)/gi, "")
-      .replace(/<\/?(?:arg_key|arg_value|parameter|parameters|arguments)[\s\S]*?>/gi, "")
-      .replace(/\[(?:ACTION|SEARCH|TOOL|CALL|OBSERVATION|google|search):\s*[^\]]+\]/gi, "")
-      .replace(/\[(?:google|search)\([^\]]*\)\]/gi, "")
-      // 2. ReAct 残留
-      .replace(/\n\s*(?:Action|Action Input|Observation):\s*[\s\S]*?(?=\n\s*(?:Thought|Final Answer)|$)/gi, "")
-      // 3. 护栏/内容审核分类器的输出
-      .replace(/(?:Thus (?:both|all) are safe|We must output exactly that format|Safety Assessment:|Content Moderation:)[\s\S]*/gi, "")
-      .replace(/(?:(?:User|Input|Prompt|Response|Output|Assistant)\s*(?:Safety|Moderation|Guard|Risk|Category|Harm)\s*[:=]\s*\w+[\s\n\r]*)+/gi, "")
-      // 4. 幻觉出的多余轮次（结尾的 User:/Human:）
-      .replace(/\n+\s*(?:(?:User|Human|System)\s*:[^\n]+[\s\n\r]*)+$/gi, "")
-      // 5. 遗留的内部草稿/反思标签
-      .replace(/<\/?(?:scratchpad|internal|reflection|antThinking)>/gi, "")
-      .trim()
-  );
+
+  // 0. 隔离保护 markdown 围栏代码块（``` 与 ~~~），防止代码内部的内容被正则误伤
+  const codeBlocks: string[] = [];
+  const protectedText = raw.replace(/(```[\s\S]*?```|~~~[\s\S]*?~~~)/g, (match) => {
+    codeBlocks.push(match);
+    return `__CODE_BLOCK_PLACEHOLDER_${codeBlocks.length - 1}__`;
+  });
+
+  // 1. 标准化数学公式分界符 \[...\] -> $$...$$, \(...\) -> $...$
+  let cleaned = normalizeMathDelimiters(protectedText)
+    // 2. 裸的工具/函数调用容器与悬空的参数标签
+    .replace(/<\/?(?:tool(?:_call)?|func(?:tion)?(?:_call)?|action|invoke|plugin_call|code_interpreter|call)[\s\S]*?(?:<\/(?:tool(?:_call)?|func(?:tion)?(?:_call)?|action|invoke|plugin_call|code_interpreter|call)>|$)/gi, "")
+    .replace(/<\|(?:tool(?:_call|_calls)?_start|action_start|plugin_start)\|?>[\s\S]*?(?:<\|(?:tool(?:_call|_calls)?_end|action_end|plugin_end)\|?>|$)/gi, "")
+    .replace(/<\/?(?:arg_key|arg_value|parameter|parameters|arguments)[\s\S]*?>/gi, "")
+    .replace(/\[(?:ACTION|SEARCH|TOOL|CALL|OBSERVATION|google|search):\s*[^\]]+\]/gi, "")
+    .replace(/\[(?:google|search)\([^\]]*\)\]/gi, "")
+    // 3. ReAct 残留
+    .replace(/\n\s*(?:Action|Action Input|Observation):\s*[\s\S]*?(?=\n\s*(?:Thought|Final Answer)|$)/gi, "")
+    // 4. 护栏/内容审核分类器的输出
+    .replace(/(?:Thus (?:both|all) are safe|We must output exactly that format|Safety Assessment:|Content Moderation:)[\s\S]*/gi, "")
+    .replace(/(?:(?:User|Input|Prompt|Response|Output|Assistant)\s*(?:Safety|Moderation|Guard|Risk|Category|Harm)\s*[:=]\s*\w+[\s\n\r]*)+/gi, "")
+    // 5. 幻觉出的多余轮次（结尾的 User:/Human:）
+    .replace(/\n+\s*(?:(?:User|Human|System)\s*:[^\n]+[\s\n\r]*)+$/gi, "")
+    // 6. 遗留的内部草稿/反思标签
+    .replace(/<\/?(?:scratchpad|internal|reflection|antThinking)>/gi, "");
+
+  // 7. 还原受保护的代码块
+  for (let i = 0; i < codeBlocks.length; i++) {
+    cleaned = cleaned.replace(`__CODE_BLOCK_PLACEHOLDER_${i}__`, codeBlocks[i]);
+  }
+
+  return cleaned.trim();
 }
 
 /** 把正文里的裸 `<br>` 变成真正的换行元素（部分模型会用它代替换行）。 */
@@ -70,7 +91,6 @@ function renderWithBreaks(node: React.ReactNode): React.ReactNode {
 const remarkPlugins = [remarkGfm, remarkMath];
 const rehypePlugins = [rehypeKatex];
 
-
 const BODY_TEXT = "text-base sm:text-body leading-[1.62] text-foreground/95";
 
 function MarkdownImage({ node, ...props }: any) {
@@ -86,14 +106,47 @@ function MarkdownImage({ node, ...props }: any) {
 
 const baseMarkdownComponents: Record<string, any> = {
   img: MarkdownImage,
-  a: ({ node, ...props }: any) => (
-    <a
-      {...props}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="break-all font-medium text-primary underline underline-offset-2 hover:opacity-80 [overflow-wrap:anywhere]"
-    />
-  ),
+  a: ({ node, children, href, ...props }: any) => {
+    const textContent =
+      typeof children === "string"
+        ? children
+        : Array.isArray(children) && typeof children[0] === "string"
+        ? children[0]
+        : "";
+    const isCitation =
+      /(?:来源|Source|出典|來源)\s*[:：]|^\s*\[?\d+\]?\s*$|^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(?:\/.*)?$/i.test(
+        textContent.trim()
+      );
+
+    if (isCitation) {
+      const cleanLabel = textContent.replace(/^(?:来源|Source|出典|來源)\s*[:：]\s*/i, "").trim();
+      return (
+        <a
+          {...props}
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={href}
+          className="group/citation inline-flex items-center gap-1 mx-0.5 px-2 py-0.5 rounded-full border border-primary/25 bg-primary/10 text-[11px] font-medium text-primary hover:bg-primary/20 hover:border-primary/50 transition-all no-underline align-baseline cursor-pointer select-none"
+        >
+          <span className="truncate max-w-[140px]">{cleanLabel || textContent}</span>
+          <ExternalLink className="h-2.5 w-2.5 shrink-0 opacity-60 group-hover/citation:opacity-100" />
+        </a>
+      );
+    }
+
+    return (
+      <a
+        {...props}
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="break-all font-medium text-primary underline underline-offset-2 hover:opacity-80 [overflow-wrap:anywhere]"
+      >
+        {children}
+      </a>
+    );
+  },
   p: ({ node, children, ...props }: any) => (
     <p
       {...props}
@@ -134,7 +187,7 @@ const baseMarkdownComponents: Record<string, any> = {
   th: ({ node, children, ...props }: any) => (
     <th
       {...props}
-      className="whitespace-nowrap border-b border-border/70 bg-surface-3/60 px-3.5 py-2.5 text-left text-xs font-semibold text-foreground sm:text-sm"
+      className="border-b border-border/70 bg-surface-3/60 px-3.5 py-2.5 text-left text-xs font-semibold text-foreground sm:text-sm min-w-[80px]"
     >
       {renderWithBreaks(children)}
     </th>
@@ -142,7 +195,7 @@ const baseMarkdownComponents: Record<string, any> = {
   td: ({ node, children, ...props }: any) => (
     <td
       {...props}
-      className="whitespace-nowrap border-b border-border/50 px-3.5 py-2.5 align-top text-xs text-foreground/90 sm:text-sm"
+      className="border-b border-border/50 px-3.5 py-2.5 align-top text-xs text-foreground/90 sm:text-sm min-w-[100px] max-w-sm whitespace-normal break-words sm:whitespace-pre-wrap [overflow-wrap:anywhere]"
     >
       {renderWithBreaks(children)}
     </td>
@@ -184,25 +237,10 @@ const baseMarkdownComponents: Record<string, any> = {
 
 /**
  * markdown 渲染器表，按 onImageClick 缓存。
- *
- * 此前 renderMessageBody 每次调用都 `{ ...markdownComponents, img: ... }` 造一个新
- * 对象，于是 react-markdown 收到的 `components` prop 每次渲染都是新引用 —— 它会认为
- * 渲染配置变了，从而**把整段 markdown 重新解析一遍**。流式输出时这个函数每秒被
- * 调用 50 次（打字机 20ms 一跳），等于每秒全量重解析 50 次，长回答时明显卡顿。
- *
- * 调用方（ChatArea / ChatMessageItem）已把回调固化为 useCallback，引用稳定，
- * 缓存恒定命中。
  */
 let cachedImageClick: ImageClickHandler | undefined;
 let cachedComponents: Record<string, any> | undefined;
 
-/**
- * 可点击放大的 markdown 内联图。
- *
- * 回调不靠闭包捕获，而是直接读模块级的 cachedImageClick：它与
- * cachedComponents 同生共死，本来就是「同一时刻只有一份」的缓存槽，
- * 行为与此前每次新建闭包完全一致。
- */
 function MarkdownImageClickable({ node, ...props }: any) {
   const { t } = useI18n();
   return (
@@ -277,9 +315,6 @@ function ThinkingBlock({
 
 /**
  * 「只输出了思考过程、没有正文」的兜底说明。
- *
- * renderMessageBody 是模块级函数，拿不到 hook，所以这段文案单独包成一个
- * 组件：调用处仍是 `<EmptyAnswerNote />`，不需要把 t 透传进来。
  */
 function EmptyAnswerNote() {
   const { t } = useI18n();
@@ -348,5 +383,4 @@ export function renderMessageBody(
       </ReactMarkdown>
     </div>
   );
-
 }

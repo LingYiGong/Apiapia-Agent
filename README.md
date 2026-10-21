@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.35.0-indigo?style=flat-square" alt="Version"></a>
+  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.36.0-indigo?style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
@@ -225,29 +225,32 @@ cat backup_xxx.sql | docker exec -i apiapia_postgres psql -U postgres -d apiapia
 
 ## 📜 Releases & Changelog
 
-### 🚀 Latest Release: v2.35.0 (2026-10-21)
+### 🚀 Latest Release: v2.36.0 (2026-10-21)
 
-This release brings a **ChatGPT-grade interaction upgrade, adaptive reasoning presentation, rich web search cards, and contextual follow-up recommendations**. The chat experience introduces dynamic reasoning accordion folding that smoothly auto-collapses as soon as answer tokens arrive, protects code blocks during sanitization, enriches web sources with clean hostnames and high-res Favicons, and pushes real-time conversation titles and 3 actionable follow-up suggestion chips via SSE.
+This release brings a **comprehensive ChatGPT-grade interaction upgrade, adaptive reasoning presentation, rich web search cards, inline citation pills, LaTeX math standardization, and contextual follow-up recommendations**. The chat experience introduces dynamic reasoning accordion folding that smoothly auto-collapses as soon as answer tokens arrive, shields code blocks during sanitization, normalizes LaTeX formulas across all model providers, enriches web sources with clean hostnames, high-res Favicons and interactive citation pills, optimizes table text-wrapping, and streams real-time conversation titles and 3 actionable follow-up suggestion chips via SSE.
 
-#### 1. ChatGPT-Grade Adaptive Reasoning Fold
+#### 1. ChatGPT-Grade Adaptive Reasoning Fold & Floating Caret Polish
 - **Streaming State & Auto-Collapse**: Reasoning blocks (`<think>`) expand with a gentle pulse during generation; as soon as the first answer token arrives, the block automatically folds and flips to "Thought Process" without user intervention.
+- **Floating Caret Polish**: Hides dangling caret cursor during pure reasoning mode, engaging the typing caret only when answer body tokens begin streaming.
 - **Syntax & Code Protection**: Fenced markdown code blocks (``` and ~~~) are shielded with placeholders before sanitization, preventing programming tags from being stripped.
 
-#### 2. Rich Web Search Sources & Favicons
-- **Clean Domains & Icons**: Search results parse clean hostnames (stripping `www.`) and fetch high-resolution site favicons via Google S2, replacing generic numbered badges.
-- **Card-Style Display**: Results show domain logos, snippets, and external link indicators in a responsive grid.
+#### 2. Rich Web Search Sources & Inline Citation Pills
+- **Inline Citation Pills (Perplexity / ChatGPT Search Style)**: In-text citations such as `[Source: GitHub](url)` or `[1](url)` are automatically rendered as interactive rounded badges with site icons and external links, replacing disruptive raw blue underlines.
+- **Clean Domains & Favicons**: Search sources parse clean hostnames (stripping `www.`) and fetch high-resolution site favicons via Google S2, replacing generic numbered badges.
 
-#### 3. Real-Time Conversation Title Push
+#### 3. LaTeX Math Standardization & Auto-Normalization
+- **Universal LaTeX Normalization**: Pre-processes bracketed LaTeX delimiters (`\[...\]` and `\(...\)`) into remark-math standard syntax (`$$...$$` and `$...$`), ensuring 100% mathematical formula rendering across OpenAI, Anthropic, DeepSeek, and open-source models.
+- **Backend LaTeX Guidelines**: System prompt explicitly enforces valid LaTeX notation and distinguishes currency from math delimiters.
+
+#### 4. Anti-Fluff Protocol & Code Formatting
+- **Zero-Fluff (Directness)**: System prompt instructs models to omit polite preambles ("Certainly!", "Sure thing", "Here is the answer:") and dive straight into the core response.
+- **Code Language Enforcement**: Enforces explicit language identifiers on all fenced code blocks for accurate syntax highlighting.
+- **Adaptive Table Wrapping**: Removed aggressive `nowrap` on table cells, allowing natural wrapping with max width limits to eliminate extreme horizontal scrolling on mobile.
+
+#### 5. Real-Time Conversation Title Push & Follow-up Suggestion Chips
 - **Instant Sidebar Renaming**: Conversation titles generated on the first turn are immediately streamed to the client via `type: "title"` SSE events, updating the sidebar without manual refresh.
-
-#### 4. Contextual Follow-up Suggestion Chips
-- **Smart Follow-ups**: Automatically analyzes user intent and assistant response to generate 3 concise, highly relevant next questions.
-- **Click-to-Send Chips**: Rendered as interactive capsule chips at the bottom of assistant messages; clicking any chip instantly submits the question.
-- **Standalone REST Endpoint**: Added `POST /api/v1/chat/suggestions` for on-demand suggestion generation.
-
-#### 5. Telemetry & Multi-Language Support
-- **TTFT Metric**: Tracks and yields Time-To-First-Token (`ttft_ms`) alongside total duration.
-- **Four-Language i18n**: Full localization across English, 简体中文, 繁體中文, and 日本語.
+- **Smart Follow-ups**: Analyzes conversation context to generate 3 concise, highly relevant next questions with clickable chips and a dedicated `POST /api/v1/chat/suggestions` REST endpoint.
+- **Telemetry & Multi-Language**: Tracks Time-To-First-Token (`ttft_ms`) alongside total duration; fully localized across 4 languages.
 
 ---
 

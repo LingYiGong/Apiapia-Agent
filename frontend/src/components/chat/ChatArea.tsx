@@ -1173,7 +1173,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
                   <div className="relative">
                     {renderMessageBody(streamingContent, true, handleImageClick)}
-                    <span className="ml-1.5 inline-block h-[18px] w-2 translate-y-0.5 animate-caret rounded-xs bg-primary/80" />
+                    {(!streamingContent.includes("<think>") || streamingContent.includes("</think>")) && (
+                      <span className="ml-1.5 inline-block h-[18px] w-2 translate-y-0.5 animate-caret rounded-xs bg-primary/80" />
+                    )}
                   </div>
 
                   <div className="mt-3 flex items-center justify-between gap-1.5 border-t border-border/40 pt-2 font-mono text-xs text-muted-foreground opacity-80">

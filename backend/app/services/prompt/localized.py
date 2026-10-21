@@ -64,10 +64,13 @@ TEXT: Dict[str, Dict[str, str]] = {
             "（如 `[SEARCH:]`、`<tool_call>` 等），更绝不可因未提供检索资料而中断或拒绝生成正文。"
         ),
         "format_instruction": (
-            "【排版与排版规范】\n"
+            "【排版、格式与语言规范】\n"
             "1. 严禁在 Markdown 表格中输出 `<br>`、`<br/>` 等 HTML 标签。\n"
             "2. 输出表格时，单元格文字保持精炼高可读，切忌冗长句子。若单元格内需列举多项内容，"
-            "请直接在同一行使用顿号、分号或序号（如 ① ②）简练列出，使表格横向排版整洁紧凑。"
+            "请直接在同一行使用顿号、分号或序号（如 ① ②）简练列出，使表格横向排版整洁紧凑。\n"
+            "3. 数学公式排版规范：行内公式请使用 `$...$` 或 `\\(...\\)`，独立块级公式必须使用 `$$...$$` 或 `\\[...\\]`。必须输出合法标准的 LaTeX 语法，严禁输出非标准 Unicode 伪符号；非公式场景的美元金额请写为 $100 或 USD 100，避免与公式分界符冲突。\n"
+            "4. 回答风格开门见山：严禁在开头输出无意义的客套废话（例如“好的”、“当然可以”、“根据您的要求”、“为您解答如下”等），直接以核心结论、解答步骤或结构化要点开篇。\n"
+            "5. 代码块规范：输出代码块时，起始三反引号 ``` 后面必须明确标注编程语言标识符（如 python, ts, js, html, json, bash, sql 等），严禁输出无语言标注的代码块。"
         ),
         "memory_header": "【长期背景记忆参考】以下为系统检索到的用户长期事实与背景偏好，仅供对话个性化参考：",
         "memory_rule_1": "1. 自然融合：请将这些背景自然融入回答中，无需刻意声明“根据系统记录/记忆库”，避免机械僵硬。",
@@ -96,10 +99,13 @@ TEXT: Dict[str, Dict[str, str]] = {
             "（如 `[SEARCH:]`、`<tool_call>` 等），更絕不可因未提供檢索資料而中斷或拒絕生成正文。"
         ),
         "format_instruction": (
-            "【排版與排版規範】\n"
+            "【排版、格式與語言規範】\n"
             "1. 嚴禁在 Markdown 表格中輸出 `<br>`、`<br/>` 等 HTML 標籤。\n"
             "2. 輸出表格時，儲存格文字保持精簡高可讀，切忌冗長句子。若儲存格內需列舉多項內容，"
-            "請直接在同一行使用頓號、分號或序號（如 ① ②）簡潔列出，使表格橫向排版整潔緊湊。"
+            "請直接在同一行使用頓號、分號或序號（如 ① ②）簡潔列出，使表格橫向排版整潔緊湊。\n"
+            "3. 數學公式排版規範：行內公式請使用 `$...$` 或 `\\(...\\)`，獨立區塊級公式必須使用 `$$...$$` 或 `\\[...\\]`。必須輸出合法標準的 LaTeX 語法，嚴禁輸出非標準 Unicode 偽符號；非公式場景的美元金額請寫為 $100 或 USD 100，避免與公式分界符衝突。\n"
+            "4. 回答風格開門見山：嚴禁在開頭輸出無意義的客套廢話（例如「好的」、「當然可以」、「根據您的要求」、「為您解答如下」等），直接以核心結論、解答步驟或結構化要點開篇。\n"
+            "5. 程式碼區塊規範：輸出程式碼區塊時，起始三反引號 ``` 後面必須明確標註程式語言標識符（如 python, ts, js, html, json, bash, sql 等），嚴禁輸出無語言標註的程式碼區塊。"
         ),
         "memory_header": "【長期背景記憶參考】以下為系統檢索到的使用者長期事實與背景偏好，僅供對話個性化參考：",
         "memory_rule_1": "1. 自然融合：請將這些背景自然融入回答中，無需刻意聲明「根據系統記錄/記憶庫」，避免機械僵硬。",
@@ -136,11 +142,18 @@ TEXT: Dict[str, Dict[str, str]] = {
             "truncate your answer for lack of retrieved material."
         ),
         "format_instruction": (
-            "[Formatting Rules]\n"
+            "[Formatting, Math & Style Guidelines]\n"
             "1. Never emit raw HTML tags such as `<br>` or `<br/>` inside Markdown tables.\n"
             "2. Keep table cells short and scannable; avoid full sentences. To list several "
             "items in one cell, put them on the same line separated by commas, semicolons or "
-            "ordinals (e.g. ① ②) so the table stays compact."
+            "ordinals (e.g. ① ②) so the table stays compact.\n"
+            "3. Mathematical Formulas: Use `$...$` or `\\(...\\)` for inline math, and `$$...$$` or `\\[...\\]` "
+            "for display/block equations. Always write valid standard LaTeX notation and avoid messy unicode symbols. "
+            "For plain currency amounts, write $100 or USD 100 to avoid conflicting with math delimiters.\n"
+            "4. Direct & Concise (Zero-Fluff): Start directly with the answer, core conclusions, or actionable steps. "
+            "Never open with conversational filler or empty preambles (such as 'Sure!', 'Certainly!', 'Here is the answer you requested:').\n"
+            "5. Code Blocks: Always specify the programming language identifier immediately after the opening triple backticks "
+            "(e.g. ```python, ```typescript, ```json, ```bash). Never output bare unlabelled code blocks."
         ),
         "memory_header": "[Long-Term Background Memory] The following are recalled user facts and preferences for personalized context:",
         "memory_rule_1": "1. Natural Integration: Organically incorporate this context into your response without mechanically declaring 'According to memory records'.",
@@ -178,11 +191,16 @@ TEXT: Dict[str, Dict[str, str]] = {
             "検索資料がないことを理由に回答を中断・拒否したりしてはいけません。"
         ),
         "format_instruction": (
-            "【表記とレイアウトの規則】\n"
+            "【表記・書式・回答スタイル規則】\n"
             "1. Markdown の表の中に `<br>` や `<br/>` などの HTML タグを出力してはいけません。\n"
             "2. 表のセルは簡潔で読みやすい文章に留め、長文は避けてください。"
             "複数の項目を 1 つのセルに列挙する場合は、同一行で読点（、）、セミコロン、"
-            "序数（① ② など）で簡潔に区切ると、表全体のレイアウトが整います。"
+            "序数（① ② など）で簡潔に区切ると、表全体のレイアウトが整います。\n"
+            "3. 数式表記：インライン数式には `$...$` または `\\(...\\)`、ブロック数式には `$$...$$` または `\\[...\\]` "
+            "を使用してください。有効な標準 LaTeX 記法を出力し、曖昧な Unicode 記号は避けてください。通常のドル通貨は $100 または USD 100 と表記し、数式記号との競合を防いでください。\n"
+            "4. 前置きの排除（簡潔・明瞭）：『はい、承知いたしました』『ご質問にお答えします』などの不要な挨拶や前置きは省き、"
+            "直ちに核心の結論、解決手順、または構造化された要点から回答を開始してください。\n"
+            "5. コードブロック：バッククォート3つ ``` の直後に、必ずプログラミング言語識別子（python, ts, js, html, json, bash など）を明記してください。言語指定のないコードブロックは禁止です。"
         ),
         "memory_header": "【長期背景記憶リファレンス】以下はシステムが検索したユーザーの長期的な事実と背景の好みです。対話のパーソナライズ参考としてのみ使用してください：",
         "memory_rule_1": "1. 自然な融合：記憶を機械的に「記録によると」などと明言せず、回答の中に自然に反映させてください。",

@@ -282,6 +282,8 @@ export default {
     emptyAnswer:
       "（モデルは思考推論を完了しましたが、本文は出力されませんでした。長い推論によりトークン上限に達したか、アップストリームサービスが中断した可能性があります。）",
     sourcesSummary: "{count} 件のウェブ出典を参照",
+    sourcesShowMore: "他 {count} 件のソースを表示",
+    sourcesShowLess: "折りたたむ",
     aiImageTitle: "AI 生成画像",
     aiVideoTitle: "AI 生成動画",
   },

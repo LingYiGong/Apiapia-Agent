@@ -112,7 +112,7 @@ function ElapsedSeconds({
   }, []);
   const elapsed = (Date.now() - startedAt) / 1000;
   return (
-    <span className={className}>
+    <span className={cn("tabular-nums whitespace-nowrap shrink-0", className)}>
       {Math.max(0, elapsed).toFixed(digits)}s
     </span>
   );
@@ -1168,27 +1168,34 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 /* Stage 1: Waiting / Thinking Live Indicator */
                 <div className="py-1">
                   {searchStatus?.state === "searching" ? (
-                    <div className="inline-flex items-center gap-2 rounded-full border border-sky-200/50 bg-sky-50 px-3 py-1.5 text-xs text-sky-600 dark:border-sky-800/50 dark:bg-sky-950/40 dark:text-sky-400 sm:text-sm">
-                      <Globe className="h-3.5 w-3.5 shrink-0 animate-spin" />
-                      <span>
-                        {t("chat.message.searching", { query: searchStatus.query ?? "" })}
+                    <div className="inline-flex max-w-full items-center gap-1.5 sm:gap-2 rounded-full border border-sky-200/60 bg-sky-50/90 px-3 py-1.5 text-xs text-sky-700 dark:border-sky-800/60 dark:bg-sky-950/50 dark:text-sky-300 sm:text-sm shadow-2xs select-none">
+                      <Globe className="h-3.5 w-3.5 shrink-0 animate-spin text-sky-500" />
+                      <span className="truncate min-w-0 font-medium" title={searchStatus.query || undefined}>
+                        {searchStatus.query
+                          ? t("chat.message.searching", {
+                              query:
+                                searchStatus.query.length > 28
+                                  ? searchStatus.query.slice(0, 28) + "…"
+                                  : searchStatus.query,
+                            })
+                          : t("chat.message.toolSearch")}
                       </span>
                       {streamStartedAt && (
-                        <ElapsedSeconds
-                          startedAt={streamStartedAt}
-                          className="font-mono text-xs opacity-80"
-                        />
+                        <span className="shrink-0 whitespace-nowrap flex items-center gap-1 font-mono text-[11px] sm:text-xs opacity-75 tabular-nums">
+                          <span className="opacity-40 select-none">·</span>
+                          <ElapsedSeconds startedAt={streamStartedAt} />
+                        </span>
                       )}
                     </div>
                   ) : (
-                    <div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-surface-3/50 px-3 py-1.5 text-xs text-muted-foreground sm:text-sm">
+                    <div className="inline-flex max-w-full items-center gap-1.5 sm:gap-2 rounded-full border border-border/60 bg-surface-3/50 px-3 py-1.5 text-xs text-muted-foreground sm:text-sm shadow-2xs select-none">
                       <Sparkles className="h-3.5 w-3.5 shrink-0 animate-spin text-primary" />
-                      <span>{t("chat.message.thinkingLive")}</span>
+                      <span className="truncate min-w-0 font-medium">{t("chat.message.thinkingLive")}</span>
                       {streamStartedAt && (
-                        <ElapsedSeconds
-                          startedAt={streamStartedAt}
-                          className="font-mono text-xs opacity-80"
-                        />
+                        <span className="shrink-0 whitespace-nowrap flex items-center gap-1 font-mono text-[11px] sm:text-xs opacity-75 tabular-nums">
+                          <span className="opacity-40 select-none">·</span>
+                          <ElapsedSeconds startedAt={streamStartedAt} />
+                        </span>
                       )}
                     </div>
                   )}

@@ -491,10 +491,12 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                           </span>
                         </div>
                         {tool.state === "result" && tool.result && (
-                          <div className="mt-1.5 break-words border-t border-border/40 pt-1.5 font-mono text-xs text-muted-foreground">
-                            {typeof tool.result === "string"
-                              ? tool.result
-                              : JSON.stringify(tool.result)}
+                          <div className="mt-1.5 max-h-48 overflow-y-auto rounded-md bg-surface-2/60 p-2 font-mono text-[11px] leading-relaxed text-muted-foreground break-words select-text border border-border/30">
+                            <pre className="whitespace-pre-wrap font-mono text-[11px]">
+                              {typeof tool.result === "string"
+                                ? tool.result
+                                : JSON.stringify(tool.result, null, 2)}
+                            </pre>
                           </div>
                         )}
                       </div>

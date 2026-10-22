@@ -320,6 +320,8 @@ export default {
     emptyAnswer:
       "（模型已完成思考推演，未输出正文内容。可能由于推理链较长触发单次 Token 截断，或上游服务提前中断。）",
     sourcesSummary: "参考了 {count} 个网页来源",
+    sourcesShowMore: "展开其余 {count} 个来源",
+    sourcesShowLess: "收起部分来源",
     aiImageTitle: "AI 生成图像",
     aiVideoTitle: "AI 生成视频",
   },

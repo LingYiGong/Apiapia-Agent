@@ -304,6 +304,8 @@ export default {
     emptyAnswer:
       "(The model completed its reasoning process without generating a final text response. This usually occurs when extended reasoning reaches the per-response token limit or the upstream connection ends early.)",
     sourcesSummary: "Cited {count} web sources",
+    sourcesShowMore: "Show {count} more sources",
+    sourcesShowLess: "Show fewer sources",
     aiImageTitle: "AI-generated image",
     aiVideoTitle: "AI-generated video",
   },

@@ -74,6 +74,7 @@ export interface GeneratedVideo {
 
 export interface Message {
   id?: string;
+  parent_id?: string | null;
   conversation_id?: string;
   role: "system" | "user" | "assistant" | "tool";
   content: string;
@@ -97,6 +98,7 @@ export interface Message {
   thinking_duration_ms?: number;
   ttft_ms?: number;
   suggested_questions?: string[];
+  memory_updated?: string[];
   created_at?: string;
 }
 
@@ -153,6 +155,8 @@ export interface UserSetting {
   stt_model?: string | null;
   tts_model?: string | null;
   system_prompt: string;
+  custom_instructions_about_user?: string;
+  custom_instructions_response_style?: string;
   temperature: number;
   memory_enabled: boolean;
   web_search_mode?: "auto" | "on" | "off";

@@ -21,6 +21,9 @@ import { useSpeechPlayer } from "@/hooks/useSpeechPlayer";
 import { cn } from "@/lib/utils";
 import {
   AlertTriangle,
+  Brain,
+  ChevronLeft,
+  ChevronRight,
   Cpu,
   Check,
   Clock,
@@ -63,6 +66,55 @@ interface ChatMessageItemProps {
   onQuote?: (quoteText: string, messageId?: string) => void;
   onSelectSuggestion?: (prompt: string) => void;
   onFileClick?: (file: { name: string; size?: number; type?: "image" | "document"; mime_type?: string; data_url?: string; text?: string }) => void;
+  siblingIndex?: number;
+  siblingCount?: number;
+  siblingIds?: string[];
+  onSwitchBranch?: (targetMessageId: string) => void;
+}
+
+function BranchNavigator({
+  current,
+  total,
+  siblingIds,
+  onSwitch,
+}: {
+  current?: number;
+  total?: number;
+  siblingIds?: string[];
+  onSwitch?: (id: string) => void;
+}) {
+  const { t } = useI18n();
+  if (!total || total <= 1 || !siblingIds || !onSwitch || !current) return null;
+
+  const currentIndex = current - 1;
+  const hasPrev = currentIndex > 0;
+  const hasNext = currentIndex < total - 1;
+
+  return (
+    <div className="inline-flex items-center gap-0.5 rounded-lg border border-border/60 bg-surface-2/70 px-1 py-0.5 text-xs font-mono text-muted-foreground select-none">
+      <button
+        type="button"
+        disabled={!hasPrev}
+        onClick={() => hasPrev && onSwitch(siblingIds[currentIndex - 1])}
+        className="flex h-5 w-5 items-center justify-center rounded-sm transition-colors hover:bg-surface-3 hover:text-foreground disabled:opacity-25 cursor-pointer disabled:cursor-not-allowed"
+        aria-label={t("chat.branch.prevVersion")}
+      >
+        <ChevronLeft className="h-3.5 w-3.5" />
+      </button>
+      <span className="px-1 text-[11px] font-medium tracking-tight text-foreground/80">
+        {current}/{total}
+      </span>
+      <button
+        type="button"
+        disabled={!hasNext}
+        onClick={() => hasNext && onSwitch(siblingIds[currentIndex + 1])}
+        className="flex h-5 w-5 items-center justify-center rounded-sm transition-colors hover:bg-surface-3 hover:text-foreground disabled:opacity-25 cursor-pointer disabled:cursor-not-allowed"
+        aria-label={t("chat.branch.nextVersion")}
+      >
+        <ChevronRight className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
 }
 
 
@@ -206,6 +258,10 @@ export const ChatMessageItem = memo(function ChatMessageItem({
   onQuote,
   onFileClick,
   onSelectSuggestion,
+  siblingIndex,
+  siblingCount,
+  siblingIds,
+  onSwitchBranch,
 }: ChatMessageItemProps) {
   const { t, fmt } = useI18n();
   const isUser = msg.role === "user";
@@ -470,6 +526,13 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                 </div>
               )}
 
+              {Array.isArray(msg.memory_updated) && msg.memory_updated.length > 0 && (
+                <div className="mb-2.5 inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-2.5 py-1 text-xs text-primary select-none">
+                  <Brain className="h-3.5 w-3.5 shrink-0" />
+                  <span>{t("chat.memory.badgePrefix")}{msg.memory_updated.join("；")}</span>
+                </div>
+              )}
+
               {renderMessageBody(msg.content, false, onImageClick)}
 
               {Array.isArray(msg.suggested_questions) && msg.suggested_questions.length > 0 && (
@@ -497,6 +560,13 @@ export const ChatMessageItem = memo(function ChatMessageItem({
         {!isUser && !isErrorMsg && (
           <div className="mt-2 flex flex-wrap items-center justify-between gap-2 px-0.5 text-xs text-muted-foreground select-none">
             <div className="flex items-center gap-1">
+              <BranchNavigator
+                current={siblingIndex}
+                total={siblingCount}
+                siblingIds={siblingIds}
+                onSwitch={onSwitchBranch}
+              />
+
               <CopyButton
                 isCopied={isCopied}
                 onClick={() => onCopy(msg.content, idx)}
@@ -626,20 +696,28 @@ export const ChatMessageItem = memo(function ChatMessageItem({
           </div>
         )}
 
-        {isUser && !editing && msg.id && onEditMessage && (
+        {isUser && !editing && (
           <div className="mt-2 flex flex-wrap items-center justify-end gap-1 px-0.5 text-xs text-muted-foreground select-none">
-            <ActionTooltip label={t("chat.message.editTip")} side="bottom">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={startEdit}
-                className="flex h-7 items-center gap-1.5 rounded-lg px-2 text-muted-foreground transition-colors hover:bg-surface-3/80 hover:text-foreground"
-              >
-                <PenLine className="h-4 w-4" />
-                <span className="text-xs">{t("chat.message.edit")}</span>
-              </Button>
-            </ActionTooltip>
+            <BranchNavigator
+              current={siblingIndex}
+              total={siblingCount}
+              siblingIds={siblingIds}
+              onSwitch={onSwitchBranch}
+            />
+            {msg.id && onEditMessage && (
+              <ActionTooltip label={t("chat.message.editTip")} side="bottom">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={startEdit}
+                  className="flex h-7 items-center gap-1.5 rounded-lg px-2 text-muted-foreground transition-colors hover:bg-surface-3/80 hover:text-foreground"
+                >
+                  <PenLine className="h-4 w-4" />
+                  <span className="text-xs">{t("chat.message.edit")}</span>
+                </Button>
+              </ActionTooltip>
+            )}
             {onQuote && (
               <ActionTooltip label={t("chat.message.quoteQuestion")} side="bottom">
                 <Button

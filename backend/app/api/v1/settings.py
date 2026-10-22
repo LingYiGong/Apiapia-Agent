@@ -293,6 +293,10 @@ async def update_user_settings(
         setting.tts_model = chosen_tts or speech_service.default_model_for(CAPABILITY_TTS)
     if update_data.system_prompt is not None:
         setting.system_prompt = update_data.system_prompt
+    if update_data.custom_instructions_about_user is not None:
+        setting.custom_instructions_about_user = update_data.custom_instructions_about_user
+    if update_data.custom_instructions_response_style is not None:
+        setting.custom_instructions_response_style = update_data.custom_instructions_response_style
     if update_data.temperature is not None:
         setting.temperature = update_data.temperature
     if update_data.memory_enabled is not None:

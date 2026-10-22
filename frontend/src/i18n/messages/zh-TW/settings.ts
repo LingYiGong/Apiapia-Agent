@@ -90,6 +90,17 @@ export default {
     },
   },
 
+  /** 自訂指令 (Custom Instructions) */
+  customInstructions: {
+    groupLabel: "自訂指令 (Custom Instructions)",
+    aboutUserLabel: "希望助理了解您的哪些背景資訊？（關於您）",
+    aboutUserDesc: "分享您的職業、技術棧、常駐地或興趣等。無論開啟哪輪新對話，助理都會參考這些上下文。",
+    aboutUserPlaceholder: "例如：我是一名全端工程師，主要使用 Python / TypeScript 開發；常駐台北；喜歡簡潔高效的程式碼。",
+    responseStyleLabel: "希望助理如何進行回覆？（回答風格與偏好）",
+    responseStyleDesc: "指定助理的語氣偏好、詳細程度、程式碼風格及格式要求等。",
+    responseStylePlaceholder: "例如：請開門見山，避免冗餘客套；寫程式碼時請包含完整的 TypeScript 型別標註；複雜方案請分步驟闡述。",
+  },
+
   saveBar: {
     saved: "已儲存",
     dirty: "尚未儲存的變更",

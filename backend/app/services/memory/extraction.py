@@ -518,13 +518,14 @@ def smart_extract_memories_task(
         logger.info("No facts extracted for user %s.", user_id)
         return
 
-    upsert_facts_to_memory(
+    count = upsert_facts_to_memory(
         user_id=user_id,
         raw_facts=facts,
         metadata=metadata,
         memory_model=resolved_model,
         min_importance=IMPORTANCE_THRESHOLD,
     )
+    return [str(f.get("fact")) for f in facts if f.get("fact")] if count else []
 
 
 # ── Message sanitization (unchanged from v1) ──────────────────────────────────
@@ -570,6 +571,6 @@ async def schedule_memory_extraction(
 ):
     """Run extraction on the executor so the caller's event loop keeps moving."""
     loop = asyncio.get_running_loop()
-    loop.run_in_executor(
+    return await loop.run_in_executor(
         None, smart_extract_memories_task, user_id, messages, metadata, memory_model
     )

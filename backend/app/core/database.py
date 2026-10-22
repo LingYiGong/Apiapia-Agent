@@ -67,6 +67,7 @@ async def init_db():
                     ALTER TABLE messages ADD COLUMN IF NOT EXISTS thinking_duration_ms integer DEFAULT 0;
                     ALTER TABLE messages ADD COLUMN IF NOT EXISTS finish_reason varchar(20) DEFAULT 'stop';
                     ALTER TABLE messages ADD COLUMN IF NOT EXISTS search_query varchar(255);
+                    ALTER TABLE messages ADD COLUMN IF NOT EXISTS parent_id varchar(36);
                 END IF;
 
                 IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'user_settings') THEN
@@ -81,6 +82,8 @@ async def init_db():
                     ALTER TABLE user_settings ALTER COLUMN default_model SET DEFAULT NULL;
                     UPDATE user_settings SET default_model = NULL WHERE default_model IN ('gpt-4o-mini', 'openrouter/free');
                     ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS web_search_mode varchar(10) DEFAULT 'auto';
+                    ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS custom_instructions_about_user text DEFAULT '';
+                    ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS custom_instructions_response_style text DEFAULT '';
                 END IF;
 
                 IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'users') THEN
@@ -130,6 +133,7 @@ async def init_db():
                 CREATE INDEX IF NOT EXISTS idx_conversations_user_last_msg ON conversations (user_id, is_deleted, last_message_at DESC);
                 CREATE INDEX IF NOT EXISTS idx_messages_conv_created ON messages (conversation_id, created_at ASC);
                 CREATE INDEX IF NOT EXISTS idx_messages_role_created ON messages (role, created_at);
+                CREATE INDEX IF NOT EXISTS idx_messages_parent_id ON messages (parent_id);
             END $$;
         """))
 

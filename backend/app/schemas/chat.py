@@ -20,6 +20,8 @@ class AttachmentPayload(BaseModel):
 
 class ChatRequest(BaseModel):
     conversation_id: Optional[str] = Field(default=None, max_length=36)
+    parent_message_id: Optional[str] = Field(default=None, max_length=36)
+    regenerate_message_id: Optional[str] = Field(default=None, max_length=36)
     message: str
     model: Optional[str] = Field(default=None, max_length=100)
     provider: Optional[str] = Field(default=None, max_length=50)

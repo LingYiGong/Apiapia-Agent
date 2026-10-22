@@ -25,6 +25,7 @@ class MessageResponse(MessageBase):
     thinking_duration_ms: Optional[int] = 0
     finish_reason: Optional[str] = "stop"
     search_query: Optional[str] = None
+    parent_id: Optional[str] = None
     created_at: datetime
 
     class Config:

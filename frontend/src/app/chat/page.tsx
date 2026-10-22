@@ -22,6 +22,7 @@ import { useWakeLock } from "@/hooks/useWakeLock";
 import { useWebSearchMode } from "@/hooks/useWebSearchMode";
 import { messageEditGuardFlag } from "@/lib/messageEditGuard";
 import { hydrateMessages } from "@/lib/message";
+import { getActiveThread, findDeepestLeafOfNode } from "@/lib/conversationTree";
 import { useIsKeyboardOpen } from "@/hooks/useIsKeyboardOpen";
 import { cn } from "@/lib/utils";
 import { FullPageSkeleton } from "@/components/common/PageSkeleton";
@@ -67,6 +68,7 @@ interface ActiveStreamSession {
   toolInvocations: ToolInvocation[];
   generatedImages: import("@/types").GeneratedImage[];
   generatedVideos: import("@/types").GeneratedVideo[];
+  memoryUpdated?: string[];
 }
 
 const getConversationInputStateKey = (id: string | null) => {
@@ -147,12 +149,37 @@ export default function ChatPage({
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const activeIdRef = useRef<string | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [allMessages, setAllMessages] = useState<Message[]>([]);
+  const allMessagesRef = useRef<Message[]>([]);
+  useEffect(() => {
+    allMessagesRef.current = allMessages;
+  }, [allMessages]);
+
+  const [selectedLeafId, setSelectedLeafId] = useState<string | null>(null);
+  const [branchSelections, setBranchSelections] = useState<Record<string, string>>({});
+
+  const { activeMessages: messages, siblingInfoMap } = React.useMemo(() => {
+    return getActiveThread(allMessages, selectedLeafId, branchSelections);
+  }, [allMessages, selectedLeafId, branchSelections]);
+
   const messagesRef = useRef<Message[]>([]);
-  const [regenerating, setRegenerating] = useState(false);
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
+
+  const setMessages = useCallback((updater: Message[] | ((prev: Message[]) => Message[])) => {
+    setAllMessages(updater);
+  }, []);
+
+  const handleSwitchBranch = useCallback((targetMessageId: string) => {
+    const newLeaf = findDeepestLeafOfNode(allMessagesRef.current, targetMessageId);
+    setSelectedLeafId(newLeaf);
+    const targetMsg = allMessagesRef.current.find((m) => m.id === targetMessageId);
+    if (targetMsg?.parent_id) {
+      setBranchSelections((prev) => ({ ...prev, [targetMsg.parent_id!]: targetMessageId }));
+    }
+  }, []);
+  const [regenerating, setRegenerating] = useState(false);
   const [availableModels, setAvailableModels] = useState<ModelCatalogItem[]>([]);
   const [currentModel, setCurrentModel] = useState<string>("");
   const defaultModelRef = useRef<string>("");
@@ -635,11 +662,18 @@ export default function ChatPage({
       const active = isSessionActive(session);
 
       if (active && (finalContent.trim() || hasMedia)) {
+        const assistantMsgId = doneMeta?.message_id || `asst_${Date.now()}`;
+        setSelectedLeafId(assistantMsgId);
+        if (session.userMessage?.id) {
+          setBranchSelections((prev) => ({ ...prev, [session.userMessage.id!]: assistantMsgId }));
+        }
         setMessages((prev) => [
           ...prev,
           {
             role: "assistant",
-            id: doneMeta?.message_id,
+            id: assistantMsgId,
+            parent_id: doneMeta?.parent_id || session.userMessage?.id,
+            memory_updated: session.memoryUpdated,
             content: finalContent,
             model: doneMeta?.model || session.model || currentModel,
             duration_ms: totalDurationMs,
@@ -694,9 +728,11 @@ export default function ChatPage({
           let step = 1;
           if (remaining > 60) {
             step = Math.min(remaining, Math.ceil(remaining / 6));
-          } else if (remaining > 25) {
+          } else if (remaining > 30) {
+            step = 4;
+          } else if (remaining > 15) {
             step = 3;
-          } else if (remaining > 8) {
+          } else if (remaining > 5) {
             step = 2;
           }
 
@@ -706,7 +742,7 @@ export default function ChatPage({
         } else if (session.isStreamCompleted) {
           finalizeSessionMessage(session);
         }
-      }, 20);
+      }, 16);
     },
     [clearStreamIntervals, isSessionActive, finalizeSessionMessage]
   );
@@ -732,6 +768,8 @@ export default function ChatPage({
     currentNewChatSessionIdRef.current = 0;
     setActiveId(id);
     activeIdRef.current = id;
+    setSelectedLeafId(null);
+    setBranchSelections({});
     setRetrievedMemories([]);
     setMobileTab("chat");
 
@@ -828,6 +866,8 @@ export default function ChatPage({
     currentNewChatSessionIdRef.current = 0;
     setActiveId(null);
     activeIdRef.current = null;
+    setSelectedLeafId(null);
+    setBranchSelections({});
     setMessages([]);
     setRetrievedMemories([]);
     setLoadingMessages(false);
@@ -874,6 +914,8 @@ export default function ChatPage({
         detachCurrentStreamView();
         activeIdRef.current = null;
         setActiveId(null);
+        setSelectedLeafId(null);
+        setBranchSelections({});
         setMessages([]);
         setRetrievedMemories([]);
         setLoadingMessages(false);
@@ -990,6 +1032,8 @@ export default function ChatPage({
         modelOverride?: string;
         singleTurnMode?: boolean;
         memoryEnabled?: boolean;
+        parentMessageId?: string;
+        regenerateMessageId?: string;
       }
     ) => {
       const currentConvId = activeIdRef.current;
@@ -1012,15 +1056,64 @@ export default function ChatPage({
 
       const effectiveModel = extraOptions?.modelOverride || currentModel;
 
-      const userMsg: Message = {
-        role: "user",
-        content: (text || "").trim(),
-        attachments: attachments && attachments.length > 0 ? attachments : undefined,
-        model: effectiveModel,
-        created_at: new Date().toISOString(),
-      };
+      const activeMsgs = messagesRef.current;
+      const effectiveParentId =
+        extraOptions?.parentMessageId !== undefined
+          ? extraOptions.parentMessageId
+          : activeMsgs.length > 0
+          ? activeMsgs[activeMsgs.length - 1].id
+          : undefined;
+
+      const isRegenerate = Boolean(extraOptions?.regenerateMessageId);
+      const clientMsgId = `client_msg_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
+      let userMsg: Message;
+      if (isRegenerate) {
+        const allMsgs = allMessagesRef.current;
+        const targetAsst = allMsgs.find((m) => m.id === extraOptions?.regenerateMessageId);
+        let existingUser =
+          (extraOptions?.parentMessageId ? allMsgs.find((m) => m.id === extraOptions.parentMessageId) : undefined) ||
+          (targetAsst?.parent_id ? allMsgs.find((m) => m.id === targetAsst.parent_id) : undefined);
+
+        if (!existingUser && extraOptions?.regenerateMessageId) {
+          const activeList = messagesRef.current;
+          const idx = activeList.findIndex((m) => m.id === extraOptions.regenerateMessageId);
+          let uIdx = idx - 1;
+          while (uIdx >= 0 && activeList[uIdx].role !== "user") uIdx--;
+          if (uIdx >= 0) existingUser = activeList[uIdx];
+        }
+
+        userMsg = existingUser || {
+          id: clientMsgId,
+          role: "user",
+          content: (text || "").trim(),
+          attachments: attachments && attachments.length > 0 ? attachments : undefined,
+          model: effectiveModel,
+          parent_id: effectiveParentId,
+          created_at: new Date().toISOString(),
+        };
+        if (userMsg.id) {
+          setSelectedLeafId(userMsg.id);
+        }
+      } else {
+        userMsg = {
+          id: clientMsgId,
+          role: "user",
+          content: (text || "").trim(),
+          attachments: attachments && attachments.length > 0 ? attachments : undefined,
+          model: effectiveModel,
+          parent_id: effectiveParentId,
+          created_at: new Date().toISOString(),
+        };
+        setSelectedLeafId(clientMsgId);
+        if (effectiveParentId) {
+          setBranchSelections((prev) => ({ ...prev, [effectiveParentId]: clientMsgId }));
+        } else {
+          setBranchSelections((prev) => ({ ...prev, __root__: clientMsgId }));
+        }
+        setMessages((prev) => [...prev, userMsg]);
+      }
       const baseMessages = [...messagesRef.current];
-      setMessages((prev) => [...prev, userMsg]);
 
       if (currentConvId) {
         const nowIso = new Date().toISOString();
@@ -1094,6 +1187,8 @@ export default function ChatPage({
         await streamChatResponse(
           {
             conversation_id: currentConvId || undefined,
+            parent_message_id: effectiveParentId,
+            regenerate_message_id: extraOptions?.regenerateMessageId,
             message: text,
             model: effectiveModel,
             memory_enabled: effectiveMemoryEnabled,
@@ -1115,6 +1210,16 @@ export default function ChatPage({
                 setConversations((list) =>
                   list.map((c) => (c.id === data.conversation_id ? { ...c, title: data.title } : c))
                 );
+              }
+            },
+            onMemoryUpdated: (data) => {
+              if (session.stopRequested) return;
+              if (data?.facts && data.facts.length > 0) {
+                session.memoryUpdated = data.facts;
+                toast.success(t("chat.memory.updated") || "🧠 记忆已更新", {
+                  description: data.facts.join("；"),
+                  duration: 4500,
+                });
               }
             },
             onSuggestions: (data) => {
@@ -1170,14 +1275,26 @@ export default function ChatPage({
                 }
               }
               if (meta.user_message_id) {
-                session.userMessage.id = meta.user_message_id;
+                const userMsgId = meta.user_message_id;
+                const oldTempId = session.userMessage.id;
+                session.userMessage.id = userMsgId;
                 if (isSessionActive(session)) {
+                  setSelectedLeafId((currLeaf: string | null): string | null => (currLeaf === oldTempId ? userMsgId : currLeaf));
+                  setBranchSelections((prev) => {
+                    const next = { ...prev };
+                    for (const k in next) {
+                      if (next[k] === oldTempId) {
+                        next[k] = userMsgId;
+                      }
+                    }
+                    return next;
+                  });
                   setMessages((prev) => {
                     for (let i = prev.length - 1; i >= 0; i--) {
                       const item = prev[i];
-                      if (item && item.role === "user" && !item.id) {
+                      if (item && item.role === "user" && (item.id === oldTempId || !item.id)) {
                         const next = prev.slice();
-                        next[i] = { ...item, id: meta.user_message_id };
+                        next[i] = { ...item, id: userMsgId };
                         return next;
                       }
                     }
@@ -1409,72 +1526,58 @@ export default function ChatPage({
         return;
       }
 
-      const before = messagesRef.current;
-      const rollback = () => setMessages(before);
-      let truncatedOnServer = false;
+      // ChatGPT 分支体验：不再截断删除后续历史，而是基于原消息的 parent_id 创建新分支！
+      const allMsgs = allMessagesRef.current;
+      const targetMsg = allMsgs.find((m) => m.id === messageId);
+      const parentMessageId = targetMsg?.parent_id || undefined;
 
-      try {
-        await apiRequest(`/conversations/${activeId}/messages/${messageId}/truncate`, {
-          method: "POST",
-        });
-        truncatedOnServer = true;
-        const cutIndex = before.findIndex((m) => m.id === messageId);
-        const originalUserMsg = cutIndex >= 0 ? before[cutIndex] : undefined;
-        setMessages(
-          cutIndex >= 0 ? before.slice(0, cutIndex) : before.filter((m) => m.id !== messageId)
-        );
-        await handleSendMessage(clean, originalUserMsg?.attachments);
-      } catch (err: any) {
-        if (!truncatedOnServer) {
-          rollback();
-          toast.error(err.message || t("chat.errors.editFailed"));
-          return;
-        }
-        detachCurrentStreamView();
-        void refreshFromServer();
-        toast.warning(t("chat.errors.resendFailedTitle"), {
-          description: t("chat.errors.resendFailedDesc", { reason: err?.message || t("chat.errors.networkReason") }),
-          duration: 5000,
-        });
-      }
+      await handleSendMessage(clean, targetMsg?.attachments, {
+        parentMessageId,
+      });
     },
-    [activeId, isStreaming, regenerating, handleSendMessage, detachCurrentStreamView, refreshFromServer, t]
+    [activeId, isStreaming, regenerating, handleSendMessage, t]
   );
 
   const handleRegenerate = useCallback(
     async (assistantId: string) => {
       if (!activeId || isStreaming || regenerating || !assistantId) return;
 
-      const list = messagesRef.current;
-      const idx = list.findIndex((m) => m.id === assistantId);
-      if (idx < 0) return;
+      const allMsgs = allMessagesRef.current;
+      const asstMsg = allMsgs.find((m) => m.id === assistantId);
+      if (!asstMsg) return;
 
-      let userIdx = idx - 1;
-      while (userIdx >= 0 && list[userIdx].role !== "user") userIdx--;
-      if (userIdx < 0) {
+      let userMsg = asstMsg.parent_id
+        ? allMsgs.find((m) => m.id === asstMsg.parent_id)
+        : undefined;
+
+      if (!userMsg) {
+        const activeList = messagesRef.current;
+        const idx = activeList.findIndex((m) => m.id === assistantId);
+        let uIdx = idx - 1;
+        while (uIdx >= 0 && activeList[uIdx].role !== "user") uIdx--;
+        if (uIdx >= 0) userMsg = activeList[uIdx];
+      }
+
+      if (!userMsg) {
         toast.error(t("chat.errors.regenerateNoSource"));
         return;
       }
-      const prompt = list[userIdx].content;
-      const attachments = list[userIdx].attachments;
 
-      const rollback = () => setMessages(list);
+      // ChatGPT 分支体验：保留原回答，以同一次提问为父节点分叉生成新回答版本！
+      const prompt = userMsg.content;
+      const attachments = userMsg.attachments;
 
       setRegenerating(true);
       try {
-        await apiRequest(`/conversations/${activeId}/messages/${assistantId}`, {
-          method: "DELETE",
+        await handleSendMessage(prompt, attachments, {
+          parentMessageId: userMsg.id,
+          regenerateMessageId: assistantId,
         });
-        setMessages(list.slice(0, idx));
-        await handleSendMessage(prompt, attachments);
-      } catch (err: any) {
-        rollback();
-        toast.error(err.message || t("chat.errors.regenerateFailed"));
       } finally {
         setRegenerating(false);
       }
     },
-    [activeId, isStreaming, regenerating, handleSendMessage]
+    [activeId, isStreaming, regenerating, handleSendMessage, t]
   );
 
   const deepLinkHandledRef = useRef(false);
@@ -1615,6 +1718,8 @@ export default function ChatPage({
                 onToggleTranslateMode={handleToggleTranslateMode}
                 vocabTargetLang={vocabTargetLang}
                 onSelectVocabLang={handleSelectVocabLang}
+                siblingInfoMap={siblingInfoMap}
+                onSwitchBranch={handleSwitchBranch}
               />
             </div>
           );

@@ -47,7 +47,7 @@ import { FullPageSkeleton, SettingsFormSkeleton } from "@/components/common/Page
 import type { MobileTab } from "@/config/navigation";
 import { useI18n } from "@/i18n";
 import type { MessageKey, TranslateValues } from "@/i18n";
-import { RefreshCw, Zap, Brain, Palette, Video, AudioLines, Sparkles } from "lucide-react";
+import { RefreshCw, Zap, Brain, Palette, Video, AudioLines, Sparkles, User, Sliders } from "lucide-react";
 import { toast } from "sonner";
 
 interface InitialSettings {
@@ -61,6 +61,8 @@ interface InitialSettings {
   systemPrompt: string;
   temperature: number;
   memoryEnabled: boolean;
+  customInstructionsAboutUser: string;
+  customInstructionsResponseStyle: string;
 }
 
 export interface SettingsViewProps {
@@ -152,6 +154,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [sttModel, setSttModel] = useState<string | null>(null);
   const [ttsModel, setTtsModel] = useState<string | null>(null);
   const [systemPrompt, setSystemPrompt] = useState("");
+  const [customInstructionsAboutUser, setCustomInstructionsAboutUser] = useState("");
+  const [customInstructionsResponseStyle, setCustomInstructionsResponseStyle] = useState("");
   const [temperature, setTemperature] = useState(0.7);
   const [memoryEnabled, setMemoryEnabled] = useState(true);
 
@@ -189,10 +193,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       sttModel !== initialSettings.sttModel ||
       ttsModel !== initialSettings.ttsModel ||
       systemPrompt !== initialSettings.systemPrompt ||
+      customInstructionsAboutUser !== initialSettings.customInstructionsAboutUser ||
+      customInstructionsResponseStyle !== initialSettings.customInstructionsResponseStyle ||
       Math.abs(temperature - initialSettings.temperature) > 0.001 ||
       memoryEnabled !== initialSettings.memoryEnabled
     );
-  }, [initialSettings, defaultModel, memoryModel, consolidationModel, imageModel, videoModel, sttModel, ttsModel, systemPrompt, temperature, memoryEnabled]);
+  }, [initialSettings, defaultModel, memoryModel, consolidationModel, imageModel, videoModel, sttModel, ttsModel, systemPrompt, customInstructionsAboutUser, customInstructionsResponseStyle, temperature, memoryEnabled]);
 
   const saveState: SaveState = { dirty: isDirty, saving: savingSettings, justSaved: saveSuccess };
 
@@ -399,6 +405,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         }
 
         const sPrompt = settingsRes.system_prompt || "";
+        const aboutUser = settingsRes.custom_instructions_about_user || "";
+        const responseStyle = settingsRes.custom_instructions_response_style || "";
         const temp = settingsRes.temperature ?? 0.7;
         const memEnabled = settingsRes.memory_enabled ?? true;
 
@@ -410,6 +418,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         setSttModel(sModel);
         setTtsModel(tModel);
         setSystemPrompt(sPrompt);
+        setCustomInstructionsAboutUser(aboutUser);
+        setCustomInstructionsResponseStyle(responseStyle);
         setTemperature(temp);
         setMemoryEnabled(memEnabled);
 
@@ -422,6 +432,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           sttModel: sModel,
           ttsModel: tModel,
           systemPrompt: sPrompt,
+          customInstructionsAboutUser: aboutUser,
+          customInstructionsResponseStyle: responseStyle,
           temperature: temp,
           memoryEnabled: memEnabled,
         });
@@ -469,6 +481,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setSttModel(initialSettings.sttModel);
     setTtsModel(initialSettings.ttsModel);
     setSystemPrompt(initialSettings.systemPrompt);
+    setCustomInstructionsAboutUser(initialSettings.customInstructionsAboutUser);
+    setCustomInstructionsResponseStyle(initialSettings.customInstructionsResponseStyle);
     setTemperature(initialSettings.temperature);
     setMemoryEnabled(initialSettings.memoryEnabled);
     toast.info(t("settings.saveBar.resetDone"));
@@ -496,6 +510,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             stt_model: sttModel,
             tts_model: ttsModel,
             system_prompt: systemPrompt,
+            custom_instructions_about_user: customInstructionsAboutUser,
+            custom_instructions_response_style: customInstructionsResponseStyle,
             temperature,
             memory_enabled: memoryEnabled,
           }),
@@ -513,6 +529,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           sttModel,
           ttsModel,
           systemPrompt,
+          customInstructionsAboutUser,
+          customInstructionsResponseStyle,
           temperature,
           memoryEnabled,
         });
@@ -526,7 +544,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         setSavingSettings(false);
       }
     },
-    [defaultModel, memoryModel, consolidationModel, imageModel, videoModel, sttModel, ttsModel, systemPrompt, temperature, memoryEnabled, user, savingSettings, t]
+    [defaultModel, memoryModel, consolidationModel, imageModel, videoModel, sttModel, ttsModel, systemPrompt, customInstructionsAboutUser, customInstructionsResponseStyle, temperature, memoryEnabled, user, savingSettings, t]
   );
 
   // Apple Mac Shortcut: Command + S / Ctrl + S to save
@@ -856,6 +874,55 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <p className="px-0.5 text-xs leading-relaxed text-muted-foreground">
                 {t("settings.persona.promptHint")}
               </p>
+            </Panel>
+          </div>
+
+          <div>
+            <SectionLabel>{t("settings.customInstructions.groupLabel")}</SectionLabel>
+            <Panel className="p-3 sm:p-4 space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 px-0.5">
+                  <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-primary/25 bg-primary/10 text-primary">
+                    <User className="h-3.5 w-3.5" />
+                  </span>
+                  <Label htmlFor="custom-instructions-user" className="text-xs font-semibold text-foreground cursor-pointer">
+                    {t("settings.customInstructions.aboutUserLabel")}
+                  </Label>
+                </div>
+                <p className="px-0.5 text-xs leading-relaxed text-muted-foreground">
+                  {t("settings.customInstructions.aboutUserDesc")}
+                </p>
+                <Textarea
+                  id="custom-instructions-user"
+                  value={customInstructionsAboutUser}
+                  onChange={(e) => setCustomInstructionsAboutUser(e.target.value)}
+                  rows={3}
+                  placeholder={t("settings.customInstructions.aboutUserPlaceholder")}
+                  className="resize-y rounded-xl border-border/60 bg-background text-xs sm:text-sm leading-relaxed font-sans"
+                />
+              </div>
+
+              <div className="space-y-2 pt-3 border-t border-border/40">
+                <div className="flex items-center gap-2 px-0.5">
+                  <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-primary/25 bg-primary/10 text-primary">
+                    <Sliders className="h-3.5 w-3.5" />
+                  </span>
+                  <Label htmlFor="custom-instructions-style" className="text-xs font-semibold text-foreground cursor-pointer">
+                    {t("settings.customInstructions.responseStyleLabel")}
+                  </Label>
+                </div>
+                <p className="px-0.5 text-xs leading-relaxed text-muted-foreground">
+                  {t("settings.customInstructions.responseStyleDesc")}
+                </p>
+                <Textarea
+                  id="custom-instructions-style"
+                  value={customInstructionsResponseStyle}
+                  onChange={(e) => setCustomInstructionsResponseStyle(e.target.value)}
+                  rows={3}
+                  placeholder={t("settings.customInstructions.responseStylePlaceholder")}
+                  className="resize-y rounded-xl border-border/60 bg-background text-xs sm:text-sm leading-relaxed font-sans"
+                />
+              </div>
             </Panel>
           </div>
 

@@ -32,6 +32,7 @@ export default {
     lightboxDownloadTip: "下載原圖",
     lightboxHint: "按 Esc 或點擊遮罩空白處關閉",
     lightboxHintTouch: "雙指可縮放，點擊空白處關閉",
+    pastedAsAttachment: "檢測到長文字/程式碼，已自動折疊為附件卡片，保持輸入框清爽",
   },
 
   creation: {
@@ -230,6 +231,18 @@ export default {
     gotoLibrary: "前往長期記憶庫",
     collapse: "收起記憶",
     expand: "檢視記憶",
+  },
+
+  /** 記憶即時提示 */
+  memory: {
+    updated: "🧠 記憶已更新",
+    badgePrefix: "已更新記憶：",
+  },
+
+  /** 分支與多版本翻頁 */
+  branch: {
+    prevVersion: "上一版本",
+    nextVersion: "下一版本",
   },
 
 

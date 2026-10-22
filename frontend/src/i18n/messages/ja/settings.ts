@@ -90,6 +90,17 @@ export default {
     },
   },
 
+  /** カスタム指示 (Custom Instructions) */
+  customInstructions: {
+    groupLabel: "カスタム指示 (Custom Instructions)",
+    aboutUserLabel: "アシスタントに知っておいてほしい背景情報は？（あなたについて）",
+    aboutUserDesc: "職業、技術スタック、拠点、関心事などを共有すると、すべての会話でこのコンテキストが参照されます。",
+    aboutUserPlaceholder: "例：フルスタックエンジニアで主に Python / TypeScript を使用。簡潔で保守性の高いコードを好みます。",
+    responseStyleLabel: "アシスタントにどのような回答を期待しますか？（スタイルと好み）",
+    responseStyleDesc: "トーン、詳細度、コード規約、書式の希望などを指定できます。",
+    responseStylePlaceholder: "例：前置きは省いて結論から回答してください。コードには TypeScript 型アノテーションを含めてください。",
+  },
+
   saveBar: {
     saved: "保存しました",
     dirty: "未保存の変更があります",

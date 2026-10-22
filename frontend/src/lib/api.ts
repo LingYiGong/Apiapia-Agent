@@ -158,6 +158,8 @@ export async function streamChatResponse(
     reasoning_effort?: string;
     system_prompt_override?: string;
     quoted_message_id?: string;
+    parent_message_id?: string;
+    regenerate_message_id?: string;
     quoted_content?: string;
     memory_enabled?: boolean;
     memory_score_threshold?: number;
@@ -177,6 +179,7 @@ export async function streamChatResponse(
       search_query?: string | null;
     }) => void;
     onTitle?: (data: { title: string; conversation_id: string }) => void;
+    onMemoryUpdated?: (data: { conversation_id?: string; facts: string[] }) => void;
     onSuggestions?: (data: { suggestions: string[]; conversation_id: string }) => void;
     onSearchStart?: (data: { query: string }) => void;
     onSearchResults?: (data: { query: string; results: SearchResultItem[] }) => void;
@@ -284,6 +287,8 @@ export async function streamChatResponse(
         callbacks.onMeta?.(parsed);
       } else if (parsed.type === "title") {
         callbacks.onTitle?.(parsed);
+      } else if (parsed.type === "memory_updated") {
+        callbacks.onMemoryUpdated?.(parsed);
       } else if (parsed.type === "suggestions") {
         callbacks.onSuggestions?.(parsed);
       } else if (parsed.type === "search_start") {

@@ -32,6 +32,7 @@ export default {
     lightboxDownloadTip: "元画像をダウンロード",
     lightboxHint: "Esc を押すか、オーバーレイの余白をクリックして閉じます",
     lightboxHintTouch: "ピンチで拡大縮小、画像の外をクリックして閉じます",
+    pastedAsAttachment: "長いテキスト/コードが検出されたため、添付カードに自動折りたたみされました",
   },
 
   creation: {
@@ -232,6 +233,18 @@ export default {
     gotoLibrary: "記憶庫を開く",
     collapse: "記憶を折りたたむ",
     expand: "記憶を表示",
+  },
+
+  /** 記憶のリアルタイム更新 */
+  memory: {
+    updated: "🧠 記憶を更新しました",
+    badgePrefix: "記憶を更新しました：",
+  },
+
+  /** ブランチとバージョン切り替え */
+  branch: {
+    prevVersion: "前のバージョン",
+    nextVersion: "次のバージョン",
   },
 
 

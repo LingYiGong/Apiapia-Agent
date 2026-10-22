@@ -91,6 +91,17 @@ export default {
     },
   },
 
+  /** Custom Instructions */
+  customInstructions: {
+    groupLabel: "Custom Instructions",
+    aboutUserLabel: "What would you like the assistant to know about you?",
+    aboutUserDesc: "Share your profession, workflow, tech stack, or interests. The assistant will consider this context in every conversation.",
+    aboutUserPlaceholder: "E.g. I am a full-stack engineer mainly working with Python and TypeScript; prefer clean and concise code solutions.",
+    responseStyleLabel: "How would you like the assistant to respond?",
+    responseStyleDesc: "Specify tone, level of detail, formatting preferences, and coding standards.",
+    responseStylePlaceholder: "E.g. Be direct and avoid unnecessary pleasantries; provide complete TypeScript types and comments for code.",
+  },
+
   saveBar: {
     saved: "Saved",
     dirty: "Unsaved changes",

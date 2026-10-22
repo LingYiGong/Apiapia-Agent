@@ -201,6 +201,8 @@ interface ChatAreaProps {
   onToggleTranslateMode?: (enabled: boolean) => void;
   vocabTargetLang?: string;
   onSelectVocabLang?: (lang: string) => void;
+  siblingInfoMap?: Record<string, { current: number; total: number; siblingIds: string[] }>;
+  onSwitchBranch?: (targetMessageId: string) => void;
 }
 
 export const ChatArea: React.FC<ChatAreaProps> = ({
@@ -229,6 +231,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   onToggleTranslateMode,
   vocabTargetLang: propVocabTargetLang,
   onSelectVocabLang,
+  siblingInfoMap,
+  onSwitchBranch,
 }) => {
   const { t, fmt, locale } = useI18n();
   const isTouchPrimary = useIsTouchPrimary();
@@ -461,6 +465,30 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     if (pastedFiles.length > 0) {
       e.preventDefault();
       handleFiles(pastedFiles);
+      return;
+    }
+
+    // ChatGPT 体验：检测超长文本或多行大代码块，自动将其转换为文本片段附件，防止挤爆输入框
+    const plainText = e.clipboardData?.getData("text") || "";
+    if (plainText.length > 1200 || plainText.split("\n").length > 30) {
+      e.preventDefault();
+      try {
+        const snippetName = `pasted-snippet-${attachments.length + 1}.txt`;
+        const encoded = btoa(unescape(encodeURIComponent(plainText)));
+        const newAttachment: AttachmentItem = {
+          id: `paste_${Date.now()}`,
+          name: snippetName,
+          size: new Blob([plainText]).size,
+          type: "document",
+          mime_type: "text/plain",
+          data_url: `data:text/plain;base64,${encoded}`,
+          text: plainText,
+        };
+        setAttachments((prev) => [...prev, newAttachment]);
+        toast.info(t("chat.composer.pastedAsAttachment") || "检测到长文本/代码，已自动折叠为附件卡片，输入框保持清爽");
+      } catch (err) {
+        // Fallback to normal paste if encoding fails
+      }
     }
   };
 
@@ -1122,6 +1150,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                     : undefined
                 }
                 onSelectSuggestion={(prompt) => onSendMessage(prompt)}
+                siblingIndex={siblingInfoMap?.[msg.id || ""]?.current}
+                siblingCount={siblingInfoMap?.[msg.id || ""]?.total}
+                siblingIds={siblingInfoMap?.[msg.id || ""]?.siblingIds}
+                onSwitchBranch={onSwitchBranch}
               />
             ))}
 
@@ -1174,7 +1206,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                   <div className="relative">
                     {renderMessageBody(streamingContent, true, handleImageClick)}
                     {(!streamingContent.includes("<think>") || streamingContent.includes("</think>")) && (
-                      <span className="ml-1.5 inline-block h-[18px] w-2 translate-y-0.5 animate-caret rounded-xs bg-primary/80" />
+                      <span className="ml-1 inline-block h-4 w-2 translate-y-0.5 rounded-full bg-primary animate-pulse shadow-[0_0_8px_rgba(var(--primary),0.6)]" />
                     )}
                   </div>
 

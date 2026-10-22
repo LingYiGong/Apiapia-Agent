@@ -18,11 +18,20 @@ class SystemPromptBuilder:
         self,
         memory_context: Optional[str] = None,
         deterministic_context: Optional[str] = None,
+        custom_about_user: Optional[str] = None,
+        custom_response_style: Optional[str] = None,
     ) -> str:
         sections = []
 
         # 1. 用户自定义助手人设 / 基础系统角色设定
         sections.append(f"{text('role_header')}\n{self.base_prompt}")
+
+        # 1.1 ChatGPT-style Custom Instructions
+        if custom_about_user and custom_about_user.strip():
+            sections.append(f"【用户背景与个性化说明 (Custom Instructions - User Background)】\n{custom_about_user.strip()}")
+
+        if custom_response_style and custom_response_style.strip():
+            sections.append(f"【用户期望的回答风格与偏好 (Custom Instructions - Response Style)】\n{custom_response_style.strip()}")
 
         # 1b. 回复语言指令（前半）
         sections.append(response_language_directive())
@@ -58,10 +67,14 @@ def build_system_prompt(
     base_prompt: Optional[str] = None,
     memory_context: Optional[str] = None,
     deterministic_context: Optional[str] = None,
+    custom_about_user: Optional[str] = None,
+    custom_response_style: Optional[str] = None,
 ) -> str:
     """快捷构建完整的防翻车系统提示词"""
     builder = SystemPromptBuilder(base_system_prompt=base_prompt)
     return builder.build(
         memory_context=memory_context,
         deterministic_context=deterministic_context,
+        custom_about_user=custom_about_user,
+        custom_response_style=custom_response_style,
     )

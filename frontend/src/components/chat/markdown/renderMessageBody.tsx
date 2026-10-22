@@ -427,19 +427,40 @@ function ThinkingBlock({
   hasBody: boolean;
 }) {
   const { t } = useI18n();
+  const [userToggled, setUserToggled] = React.useState<boolean | null>(null);
+  const isOpen = userToggled !== null ? userToggled : !hasBody;
+
   return (
     <details
-      open={!hasBody}
-      className="group min-w-0 max-w-full overflow-hidden rounded-xl border border-border/70 bg-surface-3/40 p-2.5 text-xs transition-all"
+      open={isOpen}
+      onToggle={(e) => {
+        const target = e.currentTarget as HTMLDetailsElement;
+        setUserToggled(target.open);
+      }}
+      className={cn(
+        "group min-w-0 max-w-full overflow-hidden rounded-2xl border transition-all",
+        isOpen
+          ? "border-border/80 bg-surface-3/30 p-3 shadow-2xs"
+          : "border-border/50 bg-surface-2/50 px-3 py-1.5 hover:bg-surface-3/60 cursor-pointer"
+      )}
     >
-      <summary className="flex cursor-pointer select-none items-center justify-between font-medium text-primary">
-        <span className="flex items-center gap-1.5">
-          <Brain className={cn("h-3.5 w-3.5 text-primary", !hasBody && "animate-pulse")} />
-          <span>{hasBody ? (t("chat.markdown.thoughtFinished") || "已深度思考") : (t("chat.markdown.thinkingTitle") || "思考过程")}</span>
+      <summary className="flex cursor-pointer select-none items-center justify-between text-xs font-medium text-muted-foreground transition-colors hover:text-foreground list-none">
+        <span className="flex items-center gap-2">
+          <Brain
+            className={cn(
+              "h-3.5 w-3.5 shrink-0 transition-colors",
+              !hasBody && streaming ? "text-primary animate-pulse" : "text-muted-foreground"
+            )}
+          />
+          <span className="font-medium tracking-tight">
+            {hasBody
+              ? (t("chat.markdown.thoughtFinished") || "已深度思考")
+              : (t("chat.markdown.thinkingTitle") || "思考过程...")}
+          </span>
         </span>
         <span
           aria-hidden="true"
-          className="text-xs text-muted-foreground transition-transform group-open:rotate-180"
+          className="ml-2 text-[10px] text-muted-foreground/70 transition-transform duration-200 group-open:rotate-180"
         >
           ▼
         </span>

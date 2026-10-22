@@ -462,16 +462,33 @@ async def chat_stream(
     if getattr(chat_req, "single_turn_mode", False):
         recent_msgs = []
     else:
-        # Read up to 100 raw messages, then dynamically truncate to a token budget (e.g. 24576 tokens)
-        msg_stmt = (
-            select(Message)
-            .where(Message.conversation_id == conv_id)
-            .order_by(Message.created_at.desc())
-            .limit(100)
-        )
-        raw_recent_msgs = (await db.execute(msg_stmt)).scalars().all()
-        # SQL DESC returns newest-first; reverse to chronological order (oldest -> newest)
-        chronological_raw_msgs = list(reversed(raw_recent_msgs))
+        # Tree-aware branch message resolution
+        target_parent_id = getattr(chat_req, "parent_message_id", None)
+        regen_message_id = getattr(chat_req, "regenerate_message_id", None)
+        all_conv_msgs = (await db.execute(
+            select(Message).where(Message.conversation_id == conv_id).order_by(Message.created_at.asc())
+        )).scalars().all()
+
+        msg_map = {m.id: m for m in all_conv_msgs} if all_conv_msgs else {}
+        regen_old_asst = msg_map.get(regen_message_id) if regen_message_id else None
+        regen_user_msg = msg_map.get(regen_old_asst.parent_id) if (regen_old_asst and regen_old_asst.parent_id) else None
+
+        if regen_user_msg:
+            target_parent_id = regen_user_msg.parent_id
+
+        if target_parent_id and all_conv_msgs:
+            branch_chain = []
+            curr = target_parent_id
+            visited = set()
+            while curr and curr in msg_map and curr not in visited:
+                visited.add(curr)
+                node = msg_map[curr]
+                branch_chain.append(node)
+                curr = getattr(node, "parent_id", None)
+            chronological_raw_msgs = list(reversed(branch_chain)) if branch_chain else all_conv_msgs[-100:]
+        else:
+            chronological_raw_msgs = all_conv_msgs[-100:]
+
         recent_msgs = truncate_conversation_history_by_budget(chronological_raw_msgs, max_tokens=24576)
 
     # 5. Retrieve relevant long-term memories if enabled (with score threshold & contextual enrichment)
@@ -496,10 +513,14 @@ async def chat_stream(
 
     # 6. Assemble messages payload for LLM Adapter (时基、确定性核验事实、防翻车规则、记忆、检索与排版规则)
     messages_payload = []
+    custom_about = getattr(user_settings, "custom_instructions_about_user", None) if user_settings else None
+    custom_style = getattr(user_settings, "custom_instructions_response_style", None) if user_settings else None
     combined_system_content = build_system_prompt(
         base_prompt=base_system_prompt,
         memory_context=memory_context_str,
-        deterministic_context=deterministic_context_str
+        deterministic_context=deterministic_context_str,
+        custom_about_user=custom_about,
+        custom_response_style=custom_style,
     )
     messages_payload.append({"role": "system", "content": combined_system_content})
 
@@ -651,16 +672,25 @@ async def chat_stream(
             saved_content_parts.append(f"![{img['name']}]({img['data_url']})")
     saved_user_content = "\n\n".join(saved_content_parts) if saved_content_parts else (chat_req.message or "附件")
 
-    user_msg_record = Message(
-        conversation_id=conv_id,
-        role="user",
-        content=saved_user_content,
-        model=model_to_use,
-        prompt_tokens=user_tokens,
-        user_attachments=json.dumps(stored_attachments, ensure_ascii=False) if stored_attachments else None,
-        created_at=user_created_at
-    )
-    db.add(user_msg_record)
+    if regen_user_msg:
+        user_msg_record = regen_user_msg
+        effective_user_parent_id = user_msg_record.parent_id
+    else:
+        effective_user_parent_id = getattr(chat_req, "parent_message_id", None)
+        if not effective_user_parent_id and recent_msgs:
+            effective_user_parent_id = getattr(recent_msgs[-1], "id", None)
+
+        user_msg_record = Message(
+            conversation_id=conv_id,
+            role="user",
+            content=saved_user_content,
+            model=model_to_use,
+            prompt_tokens=user_tokens,
+            parent_id=effective_user_parent_id,
+            user_attachments=json.dumps(stored_attachments, ensure_ascii=False) if stored_attachments else None,
+            created_at=user_created_at
+        )
+        db.add(user_msg_record)
 
     conv_rec = await db.get(Conversation, conv_id)
     if conv_rec:
@@ -960,6 +990,7 @@ async def chat_stream(
                 "type": "meta",
                 "conversation_id": conv_id,
                 "user_message_id": user_msg_record.id,
+                "parent_id": effective_user_parent_id,
                 "model": model_to_use,
                 "retrieved_memories": retrieved_memories,
                 "search_results": search_results if search_results else None,
@@ -1317,6 +1348,7 @@ async def chat_stream(
                         role="assistant",
                         content=assistant_content,
                         model=recorded_model_name,
+                        parent_id=user_msg_record.id,
                         token_usage=total_tokens,
                         prompt_tokens=prompt_tokens,
                         completion_tokens=completion_tokens,
@@ -1360,6 +1392,7 @@ async def chat_stream(
             "type": "done",
             "conversation_id": conv_id,
             "message_id": assistant_message_id,
+            "parent_id": user_msg_record.id,
             "model": recorded_model_name,
             "duration_ms": duration_ms,
             "ttft_ms": ttft_ms,
@@ -1449,15 +1482,23 @@ async def chat_stream(
                     {"role": "assistant", "content": clean_assistant}
                 ])
                 memory_model_to_use = getattr(user_settings, "memory_model", None) or "openai/gpt-4o-mini"
-                await schedule_memory_extraction(
-                    user_id=user_id,
-                    messages=extraction_messages,
-                    metadata={
-                        "conversation_id": conv_id,
-                        "source_messages": extraction_messages,
-                    },
-                    memory_model=memory_model_to_use
-                )
+                try:
+                    extracted_facts = await asyncio.wait_for(
+                        schedule_memory_extraction(
+                            user_id=user_id,
+                            messages=extraction_messages,
+                            metadata={
+                                "conversation_id": conv_id,
+                                "source_messages": extraction_messages,
+                            },
+                            memory_model=memory_model_to_use
+                        ),
+                        timeout=3.0
+                    )
+                    if extracted_facts and yield_allowed:
+                        yield f"data: {json.dumps({'type': 'memory_updated', 'conversation_id': conv_id, 'facts': extracted_facts}, ensure_ascii=False)}\n\n"
+                except Exception as mem_extract_err:
+                    logger.debug("Memory extraction inline wait skipped/failed: %s", mem_extract_err)
 
                 # Trigger dreaming summarization if message interval reached
                 try:

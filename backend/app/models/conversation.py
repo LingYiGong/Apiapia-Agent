@@ -63,6 +63,7 @@ class Message(Base):
     finish_reason = Column(String(20), nullable=True, default="stop")
     # The query that was actually sent to the web search provider
     search_query = Column(String(255), nullable=True)
+    parent_id = Column(String(36), ForeignKey("messages.id", ondelete="SET NULL"), nullable=True, index=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
     # Relationships

@@ -32,6 +32,7 @@ export default {
     lightboxDownloadTip: "Download the original",
     lightboxHint: "Press Esc or click outside to close",
     lightboxHintTouch: "Pinch to zoom, tap outside to close",
+    pastedAsAttachment: "Large text/code detected and collapsed into an attachment card",
   },
 
   creation: {
@@ -232,6 +233,18 @@ export default {
     gotoLibrary: "Open the memory library",
     collapse: "Collapse memories",
     expand: "View memories",
+  },
+
+  /** Real-time memory events */
+  memory: {
+    updated: "🧠 Memory updated",
+    badgePrefix: "Memory updated: ",
+  },
+
+  /** Branch navigation */
+  branch: {
+    prevVersion: "Previous version",
+    nextVersion: "Next version",
   },
 
 

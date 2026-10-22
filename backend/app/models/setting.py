@@ -18,6 +18,9 @@ class UserSetting(Base):
     stt_model = Column(String(120), default=None, nullable=True)
     tts_model = Column(String(120), default=None, nullable=True)
     system_prompt = Column(Text, default="你是一个智能、真诚、有洞察力的个人智能助理。请根据用户提供的历史背景和长期记忆为用户提供高质量服务。", nullable=False)
+    # ChatGPT-style Custom Instructions
+    custom_instructions_about_user = Column(Text, default="", nullable=True)
+    custom_instructions_response_style = Column(Text, default="", nullable=True)
     temperature = Column(Float, default=0.7, nullable=False)
     memory_enabled = Column(Boolean, default=True, nullable=False)
     # 'auto' | 'on' | 'off' — server-side so the preference follows the account

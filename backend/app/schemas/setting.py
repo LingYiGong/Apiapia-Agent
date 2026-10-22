@@ -16,6 +16,8 @@ class UserSettingUpdate(BaseModel):
     stt_model: Optional[str] = Field(default=None, max_length=120)
     tts_model: Optional[str] = Field(default=None, max_length=120)
     system_prompt: Optional[str] = None
+    custom_instructions_about_user: Optional[str] = None
+    custom_instructions_response_style: Optional[str] = None
     temperature: Optional[float] = Field(default=None, ge=0.0, le=2.0)
     memory_enabled: Optional[bool] = None
     web_search_mode: Optional[str] = Field(default=None, max_length=10)
@@ -40,6 +42,8 @@ class UserSettingResponse(BaseModel):
     stt_model: Optional[str] = None
     tts_model: Optional[str] = None
     system_prompt: str
+    custom_instructions_about_user: Optional[str] = ""
+    custom_instructions_response_style: Optional[str] = ""
     temperature: float
     memory_enabled: bool
     web_search_mode: str = "auto"

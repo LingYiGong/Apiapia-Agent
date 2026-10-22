@@ -37,6 +37,7 @@ export default {
     lightboxDownloadTip: "下载原图",
     lightboxHint: "按 Esc 或点击遮罩空白区域关闭",
     lightboxHintTouch: "双指可缩放，点击空白处关闭",
+    pastedAsAttachment: "检测到长文本/代码，已自动折叠为附件卡片，输入框保持清爽",
   },
 
   /** 「+」创作菜单 */
@@ -247,6 +248,18 @@ export default {
     gotoLibrary: "前往长期记忆库",
     collapse: "收起记忆",
     expand: "查看记忆",
+  },
+
+  /** 记忆实时提示 */
+  memory: {
+    updated: "🧠 记忆已更新",
+    badgePrefix: "已更新记忆：",
+  },
+
+  /** 分支与多版本翻页 */
+  branch: {
+    prevVersion: "上一版本",
+    nextVersion: "下一版本",
   },
 
 

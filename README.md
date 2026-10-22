@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.37.0-indigo?style=flat-square" alt="Version"></a>
+  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.38.0-indigo?style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
@@ -225,7 +225,39 @@ cat backup_xxx.sql | docker exec -i apiapia_postgres psql -U postgres -d apiapia
 
 ## 📜 Releases & Changelog
 
-### 🚀 Latest Release: v2.37.0 (2026-10-22)
+### 🚀 Latest Release: v2.38.0 (2026-10-22)
+
+This release brings **full alignment with ChatGPT core interaction paradigms: multi-version conversation branch trees, non-destructive regeneration with version paging, ChatGPT Custom Instructions, real-time memory extraction badges, 16ms high-refresh smooth typewriter, and smart long-text attachment folding**. The conversation architecture now models messages as an interconnected tree using `parent_id`. Triggering "Regenerate" no longer truncates past turns or injects duplicate user bubbles; instead, it derives an alternate assistant branch under the original user prompt with `< 1 / 2 >` version pagination. Custom Instructions allow users to specify "About You" and "Response Preferences" in Settings, which are persisted and dynamically injected into the developer/system context across all sessions. Real-time memory extraction badges surface remembered facts immediately above assistant replies with toast alerts, and pasting massive text or code snippets automatically converts into clean attachment cards.
+
+#### 1. ChatGPT Multi-Version Conversation Branching & Regeneration
+- **True Non-Destructive Regeneration**: Replaced destructive truncation and duplicate user bubble behaviors. Regeneration requests reference `regenerate_message_id`, prompting the backend to reuse the original user turn and mount alternative assistant completions under the same parent node.
+- **`< 1 / 2 >` Version Pagination (BranchNavigator)**: Renders version switchers under messages with siblings (both assistant replies and edited user prompts), allowing effortless switching between alternate responses.
+- **Deepest-Leaf Dynamic Tracing**: When switching branches, the UI dynamically navigates down to the deepest leaf node (`findDeepestLeafOfNode`), guaranteeing coherent multi-turn conversation threads across branching paths.
+- **Seamless Legacy Normalization**: Automatically normalizes flat legacy messages into valid parent-child tree linkages upon loading.
+
+#### 2. ChatGPT Custom Instructions
+- **User Background & Style Customization**: Added dedicated Custom Instructions settings:
+  1. "What would you like the assistant to know about you? (About You)" — Profession, tech stack, preferences, and interests;
+  2. "How would you like the assistant to respond? (Response Style)" — Tone, conciseness, code conventions, and format guidelines.
+- **Secure Persistence & Global System Injection**: Persisted in PostgreSQL `user_settings` and automatically formatted by `PromptBuilder` into Developer/System prompt context for every model invocation.
+
+#### 3. Real-Time Memory Extraction Badges
+- **Immediate Factual Feedback**: Real-time memory extraction delivers captured facts via SSE upon response completion.
+- **Purple Memory Badges & Notifications**: Assistant replies render purple memory badges (`🧠 Memory updated: ...`) accompanied by toast alerts, giving instant visibility into newly formed memories.
+
+#### 4. 16ms Smooth Typewriter & Visual Experience Polish
+- **16ms High-Refresh Typewriter Clock**: Reduced interval from 20ms to 16ms (60fps aligned) with refined micro-step curves (2-4 chars for short streams, adaptive for long chunks) for stutter-free fluid output.
+- **Pulsing Soft-Glow Caret**: The streaming cursor now pulses gently with soft glow effects, automatically hides during pure reasoning, and anchors smoothly behind active text.
+- **Adaptive Thinking Block**: Reasoning blocks unfold with subtle pulses during generation, automatically collapse to "Thought Process" once content arrives, and can be manually toggled anytime.
+- **Smart Long-Text / Code Folding**: Text pastes exceeding 1200 characters or 30 lines automatically fold into `.txt` attachment cards, keeping the composer tidy.
+
+#### 5. Full i18n & TypeScript Type Safety
+- **Four-Language Alignment**: Added complete translations for branch pagination, memory badges, custom instructions, and paste folding across `zh-CN`, `zh-TW`, `en`, and `ja`.
+- **TypeScript Verification**: Fully aligned with the strict `MessageKey` dictionary schema for error-free production builds.
+
+---
+
+### v2.37.0 (2026-10-22)
 
 This release focuses on **multi-session background streaming resilience, seamless session re-attachment, robust academic LaTeX environment rendering, ReAct inference pipeline safeguards, Windows font stack polish, and production container build compatibility**. The chat engine decouples frontend view rendering from network stream controllers, allowing users to freely switch conversations or start new chats without interrupting ongoing generations, with smooth typewriter catch-up upon return and pulsing generation badges in the sidebar. The Markdown renderer introduces native structural support for unfenced LaTeX algorithms, preambles, and theorem/proof environments with Q.E.D. symbols, while eliminating regex dollar-sign corruption and fixing Windows backslash font rendering.
 

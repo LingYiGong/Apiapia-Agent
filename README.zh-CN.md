@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.36.0-indigo?style=flat-square" alt="Version"></a>
+  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.37.0-indigo?style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
@@ -224,7 +224,33 @@ cat backup_xxx.sql | docker exec -i apiapia_postgres psql -U postgres -d apiapia
 
 ## 📜 版本发布与更新说明 (Release Notes)
 
-### 🚀 最新版本：v2.36.0 (2026-10-21)
+### 🚀 最新版本：v2.37.0 (2026-10-22)
+
+本版本聚焦于 **多会话后台无感推流、实时重连平滑追帧、学术 LaTeX 复杂环境原生渲染、ReAct 推理链路与字体栈加固**。全新推流调度机制实现前端视图与推流生命周期的彻底解耦，用户在模型生成期间可自由切换历史会话或开启新对话，后台持续生成并自动持久化，切回时打字机平滑追帧续接，侧边栏增加生成中动态光晕脉冲；Markdown 渲染引擎深度支持未围栏的 LaTeX 算法块、宏包导言与定理证明环境（带 Q.E.D. 证毕符），修复 Windows 反斜杠字体栈显示，并全面保障 Next.js ES5 生产构建。
+
+#### 1. 多会话后台无感流式生成与平滑重连
+- **视图脱离与流解耦**：将会话 UI 视图展示与网络推流控制器（`AbortController`）彻底解耦。切换历史记录或新建会话仅重置当前屏幕，后台静默保持长连接继续接收 Token 与工具结果。
+- **后台自动持久化**：后台推流完成后，由后端自动将完整的思考时长、引文、媒体与回复内容完整写入 PostgreSQL，并即时同步侧栏最后活跃时间。
+- **实时重连与平滑追帧**：切回正在生成的会话时，自动无缝重连并恢复打字机平滑追帧输出；若离开期间已生成完毕，直接从数据库拉取完整富文本历史展示。
+- **精准定向中断**：点击「停止回答」仅取消当前正在查看的会话，后台其他并发会话不受任何影响。
+- **侧边栏动态状态指示**：侧边栏历史会话列表新增实时光晕脉冲徽标，后台并发生成状态一目了然。
+
+#### 2. 学术 LaTeX 复杂语法原生渲染与容错增强
+- **算法与宏包自动高亮封装**：全面支持未加 Markdown 围栏的算法块（`\begin{algorithm}`）、导言区宏包（`\usepackage`）、自定义数学算子（`\DeclareMathOperator`），自动规范化封装为高亮代码块。
+- **定理与证明环境排版强化**：定理（`\begin{theorem}`）与证明（`\begin{proof}`）自动格式化为带衬线边框的学术引用块，并自动附加标准证毕符号（Q.E.D. $\blacksquare$）。
+- **`align` 环境自动标准化**：将独立 `\begin{align}` 环境自动规范化为 KaTeX 兼容的 `$$ \begin{aligned} ... \end{aligned} $$` 定界块。
+- **KaTeX 容错模式与字符保护**：开启 KaTeX 容错降级模式，消除复杂数学公式红屏；修复 JS 字符串替换中 `$` 与 `$'` 特殊字符引起的转义破坏。
+
+#### 3. ReAct 推理链路保护与 Windows 字体栈修复
+- **ReAct 泄漏过滤保护**：重构后端流式过滤器缓冲区，杜绝长文本误截断及推理过程泄漏问题。
+- **Windows CJK 反斜杠字体栈修复**：优化 Windows 系统字体回退栈，将 `"Segoe UI"` 优先级置于 `system-ui` 之前，消除日文/CJK 环境下反斜杠 `\` 误显示为日元符号 `¥` 的显示异常。
+
+#### 4. 生产容器构建兼容性保障 (ES5 Downlevel Iteration)
+- **ES5 Map 原生遍历**：将 `MapIterator` 遍历重构为 ES5 原生兼容的 `.forEach()` 调用，并在 `tsconfig.json` 中配置 `"downlevelIteration": true`，确保 Next.js 生产容器与 Docker 构建 100% 顺利通过。
+
+---
+
+### v2.36.0 (2026-10-21)
 
 本版本聚焦于 **ChatGPT 级交互体验重构、思考链自适应动态折叠、引文胶囊角标、LaTeX 公式规范与排版自适应**。全新交互全面对标 ChatGPT o1/o3、4o Search 与 Claude 3.7：推理流式生成期间自动展开并呈现微光脉动动画，正文输出瞬间自动平滑收起并切换为「已深度思考」；流式思考阶段隐去悬空光标；重构输出过滤算法对代码块实施占位符保护；系统提示词新增开门见山（Zero-Fluff）与代码语言标注规范；全基座模型 LaTeX 公式自动归一化；句尾来源链接升级为 Perplexity / ChatGPT 风格交互胶囊角标；表格移除强制单行并自适应折行；首轮会话标题通过 SSE 流即时刷新；回答末尾智能生成 3 条紧凑有深度的后续追问胶囊，支持一键点击发送与独立 REST 接口调用。
 

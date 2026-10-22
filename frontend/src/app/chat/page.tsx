@@ -44,6 +44,31 @@ interface ConversationInputState {
   creationMode: "chat" | "image" | "video";
 }
 
+interface ActiveStreamSession {
+  sessionId: number;
+  conversationId: string | null;
+  tempKey: string;
+  abortController: AbortController;
+  model: string;
+  userMessage: Message;
+  baseMessages: Message[];
+  startTime: number;
+  firstTokenTime: number | null;
+  targetContent: string;
+  displayedContent: string;
+  isStreamCompleted: boolean;
+  doneMeta: any;
+  stopRequested: boolean;
+  finalized: boolean;
+  retrievedMemories: any[];
+  searchResults: SearchResultItem[] | null;
+  searchStatus: { state: "idle" | "searching" | "done"; query?: string; count?: number };
+  suggestions: string[] | null;
+  toolInvocations: ToolInvocation[];
+  generatedImages: import("@/types").GeneratedImage[];
+  generatedVideos: import("@/types").GeneratedVideo[];
+}
+
 const getConversationInputStateKey = (id: string | null) => {
   return id ? `apiapia_chat_input_state:${id}` : "apiapia_chat_input_state:new";
 };
@@ -268,16 +293,6 @@ export default function ChatPage({
     count?: number;
   }>({ state: "idle" });
   const [streamingSearchResults, setStreamingSearchResults] = useState<SearchResultItem[] | null>(null);
-  const currentSearchResultsRef = useRef<SearchResultItem[] | null>(null);
-  const currentSuggestionsRef = useRef<string[] | null>(null);
-  const currentToolInvocationsRef = useRef<ToolInvocation[]>([]);
-  const currentGeneratedImagesRef = useRef<
-    import("@/types").GeneratedImage[]
-  >([]);
-  const currentGeneratedVideosRef = useRef<
-    import("@/types").GeneratedVideo[]
-  >([]);
-
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
   const [isWaitingForFirstToken, setIsWaitingForFirstToken] = useState(false);
@@ -285,60 +300,54 @@ export default function ChatPage({
   const [streamStartedAt, setStreamStartedAt] = useState<number | null>(null);
 
   const typewriterIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const startTimeRef = useRef<number>(0);
-  const firstTokenTimeRef = useRef<number | null>(null);
-  const targetContentRef = useRef<string>("");
-  const displayedContentRef = useRef<string>("");
-  const isStreamCompletedRef = useRef<boolean>(false);
-  const doneMetaRef = useRef<any>(null);
-  const currentStreamModelRef = useRef<string>("");
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const stopRequestedRef = useRef<boolean>(false);
-  const finalizedRef = useRef<boolean>(false);
   const streamSessionIdRef = useRef<number>(0);
+  const activeStreamsRef = useRef<Map<string, ActiveStreamSession>>(new Map());
+  const currentNewChatSessionIdRef = useRef<number>(0);
+  const [streamingConversationIds, setStreamingConversationIds] = useState<string[]>([]);
 
-  const clearStreamIntervals = () => {
+  const isSessionActive = useCallback((session: ActiveStreamSession) => {
+    if (session.conversationId) {
+      return activeIdRef.current === session.conversationId;
+    }
+    return activeIdRef.current === null && currentNewChatSessionIdRef.current === session.sessionId;
+  }, []);
+
+  const getActiveSession = useCallback((): ActiveStreamSession | null => {
+    const currentId = activeIdRef.current;
+    if (currentId) {
+      return activeStreamsRef.current.get(currentId) || null;
+    }
+    if (currentNewChatSessionIdRef.current) {
+      let found: ActiveStreamSession | null = null;
+      activeStreamsRef.current.forEach((session) => {
+        if (!found && session.sessionId === currentNewChatSessionIdRef.current) {
+          found = session;
+        }
+      });
+      return found;
+    }
+    return null;
+  }, []);
+
+  const updateStreamingIds = useCallback(() => {
+    const ids: string[] = [];
+    activeStreamsRef.current.forEach((session) => {
+      if (session.conversationId && !session.finalized && !session.stopRequested) {
+        ids.push(session.conversationId);
+      }
+    });
+    setStreamingConversationIds(ids);
+  }, []);
+
+  const clearStreamIntervals = useCallback(() => {
     if (typewriterIntervalRef.current) {
       clearInterval(typewriterIntervalRef.current);
       typewriterIntervalRef.current = null;
     }
-  };
+  }, []);
 
-  const abortInFlightStream = () => {
-    stopRequestedRef.current = true;
-    try {
-      abortControllerRef.current?.abort();
-    } catch (_) {}
-    abortControllerRef.current = null;
-  };
-
-  const resetStreamingState = useCallback(() => {
-    // 递增 session 编号，使所有旧的异步回调、打字机定时器彻底作废
-    streamSessionIdRef.current += 1;
-    stopRequestedRef.current = true;
-
-    try {
-      abortControllerRef.current?.abort();
-    } catch (_) {}
-    abortControllerRef.current = null;
-
-    if (typewriterIntervalRef.current) {
-      clearInterval(typewriterIntervalRef.current);
-      typewriterIntervalRef.current = null;
-    }
-
-    targetContentRef.current = "";
-    displayedContentRef.current = "";
-    isStreamCompletedRef.current = false;
-    doneMetaRef.current = null;
-    firstTokenTimeRef.current = null;
-    finalizedRef.current = false;
-    currentSearchResultsRef.current = null;
-    currentSuggestionsRef.current = null;
-    currentToolInvocationsRef.current = [];
-    currentGeneratedImagesRef.current = [];
-    currentGeneratedVideosRef.current = [];
-
+  const detachCurrentStreamView = useCallback(() => {
+    clearStreamIntervals();
     setIsStreaming(false);
     setIsWaitingForFirstToken(false);
     setStreamingContent("");
@@ -346,13 +355,24 @@ export default function ChatPage({
     setStreamStartedAt(null);
     setSearchStatus({ state: "idle" });
     setStreamingSearchResults(null);
-  }, []);
+  }, [clearStreamIntervals]);
+
+  const resetStreamingState = useCallback(() => {
+    detachCurrentStreamView();
+  }, [detachCurrentStreamView]);
 
   useEffect(() => {
     return () => {
-      resetStreamingState();
+      clearStreamIntervals();
+      activeStreamsRef.current.forEach((session) => {
+        try {
+          session.abortController.abort();
+        } catch (_) {}
+      });
+      activeStreamsRef.current.clear();
     };
-  }, [resetStreamingState]);
+  }, [clearStreamIntervals]);
+
 
   const [isMemoryOpen, setIsMemoryOpen] = useState(false);
 
@@ -578,6 +598,116 @@ export default function ChatPage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
+  const finalizeSessionMessage = useCallback(
+    (session: ActiveStreamSession) => {
+      if (session.finalized) return;
+      if (session.stopRequested && session.isStreamCompleted === false) return;
+      session.finalized = true;
+
+      clearStreamIntervals();
+
+      const doneMeta = session.doneMeta;
+      const finalContent = session.targetContent || session.displayedContent;
+
+      const finalThinkingMs =
+        session.firstTokenTime && session.startTime
+          ? Math.max(0, session.firstTokenTime - session.startTime)
+          : doneMeta?.thinking_duration_ms || 0;
+
+      const totalDurationMs =
+        doneMeta?.duration_ms ||
+        (session.startTime ? Math.max(20, Date.now() - session.startTime) : 0);
+
+      const searchResults = session.searchResults || doneMeta?.search_results;
+      const tools = session.toolInvocations;
+      const generatedImages = session.generatedImages;
+      const generatedVideos = session.generatedVideos;
+      const finishReason = doneMeta?.finish_reason || (session.stopRequested ? "abort" : "stop");
+
+      const hasMedia =
+        (generatedImages && generatedImages.length > 0) ||
+        (generatedVideos && generatedVideos.length > 0);
+
+      const active = isSessionActive(session);
+
+      if (active && (finalContent.trim() || hasMedia)) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            id: doneMeta?.message_id,
+            content: finalContent,
+            model: doneMeta?.model || session.model || currentModel,
+            duration_ms: totalDurationMs,
+            thinking_duration_ms: finalThinkingMs,
+            prompt_tokens: doneMeta?.prompt_tokens,
+            completion_tokens: doneMeta?.completion_tokens,
+            token_usage: doneMeta?.total_tokens,
+            search_results: searchResults && searchResults.length > 0 ? searchResults : undefined,
+            search_query: doneMeta?.search_query || undefined,
+            toolInvocations: tools && tools.length > 0 ? [...tools] : undefined,
+            generatedImages: generatedImages && generatedImages.length > 0 ? [...generatedImages] : undefined,
+            generatedVideos: generatedVideos && generatedVideos.length > 0 ? [...generatedVideos] : undefined,
+            finish_reason: finishReason,
+            suggested_questions: session.suggestions || doneMeta?.suggested_questions || undefined,
+            created_at: doneMeta?.created_at || new Date().toISOString(),
+          },
+        ]);
+      }
+
+      if (active) {
+        setIsStreaming(false);
+        setStreamStartedAt(null);
+        setIsWaitingForFirstToken(false);
+        setStreamingContent("");
+        setSearchStatus({ state: "idle" });
+        setStreamingSearchResults(null);
+      }
+
+      activeStreamsRef.current.delete(session.tempKey);
+      if (session.conversationId) {
+        activeStreamsRef.current.delete(session.conversationId);
+      }
+      updateStreamingIds();
+      loadConversations();
+    },
+    [clearStreamIntervals, isSessionActive, currentModel, updateStreamingIds, loadConversations]
+  );
+
+  const startTypewriter = useCallback(
+    (session: ActiveStreamSession) => {
+      clearStreamIntervals();
+      typewriterIntervalRef.current = setInterval(() => {
+        if (!isSessionActive(session) || session.stopRequested) {
+          clearStreamIntervals();
+          return;
+        }
+        const target = session.targetContent;
+        const current = session.displayedContent;
+        const remaining = target.length - current.length;
+
+        if (remaining > 0) {
+          let step = 1;
+          if (remaining > 60) {
+            step = Math.min(remaining, Math.ceil(remaining / 6));
+          } else if (remaining > 25) {
+            step = 3;
+          } else if (remaining > 8) {
+            step = 2;
+          }
+
+          const nextContent = target.slice(0, current.length + step);
+          session.displayedContent = nextContent;
+          setStreamingContent(nextContent);
+        } else if (session.isStreamCompleted) {
+          finalizeSessionMessage(session);
+        }
+      }, 20);
+    },
+    [clearStreamIntervals, isSessionActive, finalizeSessionMessage]
+  );
+
+
   const selectConversation = async (id: string) => {
     if (activeIdRef.current === id) {
       setMobileTab("chat");
@@ -592,14 +722,13 @@ export default function ChatPage({
       });
     }
 
-    // 切换到其他历史记录时，立即终止并重置当前等待思考或推流状态，避免残留到新选中的会话
-    resetStreamingState();
+    // 切换到其他历史记录时，仅脱离当前视图状态，绝不中断后台正在进行的流
+    detachCurrentStreamView();
 
+    currentNewChatSessionIdRef.current = 0;
     setActiveId(id);
     activeIdRef.current = id;
     setRetrievedMemories([]);
-    setMessages([]);
-    setLoadingMessages(true);
     setMobileTab("chat");
 
     const savedState = loadConversationInputState(id);
@@ -613,6 +742,39 @@ export default function ChatPage({
     if (targetConv?.model) {
       setCurrentModel(targetConv.model);
     }
+
+    // 检查是否有该会话正在后台推流
+    const activeStream = activeStreamsRef.current.get(id);
+    if (activeStream && !activeStream.finalized) {
+      setLoadingMessages(false);
+      setMessages([...activeStream.baseMessages, activeStream.userMessage]);
+      if (activeStream.retrievedMemories && activeStream.retrievedMemories.length > 0) {
+        setRetrievedMemories(activeStream.retrievedMemories);
+      }
+      if (
+        activeStream.isStreamCompleted &&
+        activeStream.targetContent.length === activeStream.displayedContent.length
+      ) {
+        finalizeSessionMessage(activeStream);
+      } else {
+        setIsStreaming(true);
+        setIsWaitingForFirstToken(activeStream.firstTokenTime === null);
+        setStreamStartedAt(activeStream.startTime);
+        setThinkingDuration(
+          activeStream.firstTokenTime
+            ? (activeStream.firstTokenTime - activeStream.startTime) / 1000
+            : null
+        );
+        setSearchStatus(activeStream.searchStatus);
+        setStreamingSearchResults(activeStream.searchResults);
+        setStreamingContent(activeStream.displayedContent || activeStream.targetContent);
+        startTypewriter(activeStream);
+      }
+      return;
+    }
+
+    setMessages([]);
+    setLoadingMessages(true);
 
     try {
       const [msgs, mems] = await Promise.all([
@@ -656,9 +818,10 @@ export default function ChatPage({
       });
     }
 
-    // 新打开聊天时，立即终止并重置上一次会话的等待思考或推流状态
-    resetStreamingState();
+    // 新打开聊天时，仅脱离当前视图状态，后台流保持继续运行
+    detachCurrentStreamView();
 
+    currentNewChatSessionIdRef.current = 0;
     setActiveId(null);
     activeIdRef.current = null;
     setMessages([]);
@@ -692,8 +855,19 @@ export default function ChatPage({
         localStorage.removeItem(`apiapia_chat_input_state:${id}`);
         localStorage.removeItem(`apiapia_chat_draft:${id}`);
       } catch (_) {}
+
+      const session = activeStreamsRef.current.get(id);
+      if (session) {
+        session.stopRequested = true;
+        try {
+          session.abortController.abort();
+        } catch (_) {}
+        activeStreamsRef.current.delete(id);
+        updateStreamingIds();
+      }
+
       if (activeIdRef.current === id) {
-        resetStreamingState();
+        detachCurrentStreamView();
         activeIdRef.current = null;
         setActiveId(null);
         setMessages([]);
@@ -704,6 +878,7 @@ export default function ChatPage({
       console.error("Failed to delete conversation:", err);
     }
   };
+
 
   const handleTogglePin = async (id: string, nextPinned: boolean) => {
     const prev = conversations;
@@ -795,77 +970,6 @@ export default function ChatPage({
     });
   }, []);
 
-  const finalizeAssistantMessage = () => {
-    if (finalizedRef.current) return;
-    if (stopRequestedRef.current && isStreamCompletedRef.current === false) return;
-    finalizedRef.current = true;
-
-    clearStreamIntervals();
-
-    const doneMeta = doneMetaRef.current;
-    const finalContent = targetContentRef.current || displayedContentRef.current;
-
-    const finalThinkingMs =
-      firstTokenTimeRef.current && startTimeRef.current
-        ? Math.max(0, firstTokenTimeRef.current - startTimeRef.current)
-        : doneMeta?.thinking_duration_ms || 0;
-
-    const totalDurationMs =
-      doneMeta?.duration_ms ||
-      (startTimeRef.current ? Math.max(20, Date.now() - startTimeRef.current) : 0);
-
-    const searchResults = currentSearchResultsRef.current || doneMeta?.search_results;
-    const tools = currentToolInvocationsRef.current;
-    const generatedImages = currentGeneratedImagesRef.current;
-    const generatedVideos = currentGeneratedVideosRef.current;
-    const finishReason = doneMeta?.finish_reason || (stopRequestedRef.current ? "abort" : "stop");
-
-    const hasMedia =
-      (generatedImages && generatedImages.length > 0) ||
-      (generatedVideos && generatedVideos.length > 0);
-
-    if (finalContent.trim() || hasMedia) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          id: doneMeta?.message_id,
-          content: finalContent,
-          model: doneMeta?.model || currentStreamModelRef.current || currentModel,
-          duration_ms: totalDurationMs,
-          thinking_duration_ms: finalThinkingMs,
-          prompt_tokens: doneMeta?.prompt_tokens,
-          completion_tokens: doneMeta?.completion_tokens,
-          token_usage: doneMeta?.total_tokens,
-          search_results: searchResults && searchResults.length > 0 ? searchResults : undefined,
-          search_query: doneMeta?.search_query || undefined,
-          toolInvocations: tools && tools.length > 0 ? [...tools] : undefined,
-          generatedImages: generatedImages && generatedImages.length > 0 ? [...generatedImages] : undefined,
-          generatedVideos: generatedVideos && generatedVideos.length > 0 ? [...generatedVideos] : undefined,
-          finish_reason: finishReason,
-          suggested_questions: currentSuggestionsRef.current || doneMeta?.suggested_questions || undefined,
-          created_at: doneMeta?.created_at || new Date().toISOString(),
-        },
-      ]);
-    }
-
-    setIsStreaming(false);
-    setStreamStartedAt(null);
-    setIsWaitingForFirstToken(false);
-    setStreamingContent("");
-    setSearchStatus({ state: "idle" });
-    setStreamingSearchResults(null);
-    currentSearchResultsRef.current = null;
-    currentSuggestionsRef.current = null;
-
-    currentToolInvocationsRef.current = [];
-    currentGeneratedImagesRef.current = [];
-    currentGeneratedVideosRef.current = [];
-    targetContentRef.current = "";
-    displayedContentRef.current = "";
-    loadConversations();
-  };
-
   const handleSendMessage = useCallback(
     async (
       text: string,
@@ -884,13 +988,25 @@ export default function ChatPage({
         memoryEnabled?: boolean;
       }
     ) => {
-      resetStreamingState();
+      const currentConvId = activeIdRef.current;
+      if (currentConvId) {
+        const existing = activeStreamsRef.current.get(currentConvId);
+        if (existing && !existing.finalized) {
+          existing.stopRequested = true;
+          try {
+            existing.abortController.abort();
+          } catch (_) {}
+          activeStreamsRef.current.delete(currentConvId);
+        }
+      }
+
       const currentSessionId = ++streamSessionIdRef.current;
-      stopRequestedRef.current = false;
-      finalizedRef.current = false;
+      const tempKey = currentConvId || `__new_chat_${currentSessionId}`;
+      if (!currentConvId) {
+        currentNewChatSessionIdRef.current = currentSessionId;
+      }
 
       const effectiveModel = extraOptions?.modelOverride || currentModel;
-      currentStreamModelRef.current = effectiveModel;
 
       const userMsg: Message = {
         role: "user",
@@ -899,14 +1015,43 @@ export default function ChatPage({
         model: effectiveModel,
         created_at: new Date().toISOString(),
       };
+      const baseMessages = [...messagesRef.current];
       setMessages((prev) => [...prev, userMsg]);
 
-      if (activeId) {
+      if (currentConvId) {
         const nowIso = new Date().toISOString();
         setConversations((list) =>
-          list.map((c) => (c.id === activeId ? { ...c, last_message_at: nowIso } : c))
+          list.map((c) => (c.id === currentConvId ? { ...c, last_message_at: nowIso } : c))
         );
       }
+
+      const session: ActiveStreamSession = {
+        sessionId: currentSessionId,
+        conversationId: currentConvId,
+        tempKey,
+        abortController: new AbortController(),
+        model: effectiveModel,
+        userMessage: userMsg,
+        baseMessages,
+        startTime: Date.now(),
+        firstTokenTime: null,
+        targetContent: "",
+        displayedContent: "",
+        isStreamCompleted: false,
+        doneMeta: null,
+        stopRequested: false,
+        finalized: false,
+        retrievedMemories: [],
+        searchResults: null,
+        searchStatus: { state: "idle" },
+        suggestions: null,
+        toolInvocations: [],
+        generatedImages: [],
+        generatedVideos: [],
+      };
+
+      activeStreamsRef.current.set(tempKey, session);
+      updateStreamingIds();
 
       setIsStreaming(true);
       setIsWaitingForFirstToken(true);
@@ -914,47 +1059,9 @@ export default function ChatPage({
       setThinkingDuration(null);
       setSearchStatus({ state: "idle" });
       setStreamingSearchResults(null);
-      currentSearchResultsRef.current = null;
-    currentSuggestionsRef.current = null;
-      currentToolInvocationsRef.current = [];
-      currentGeneratedImagesRef.current = [];
-      currentGeneratedVideosRef.current = [];
+      setStreamStartedAt(session.startTime);
 
-      startTimeRef.current = Date.now();
-      setStreamStartedAt(startTimeRef.current);
-      firstTokenTimeRef.current = null;
-      targetContentRef.current = "";
-      displayedContentRef.current = "";
-      isStreamCompletedRef.current = false;
-      doneMetaRef.current = null;
-      abortControllerRef.current = new AbortController();
-
-      typewriterIntervalRef.current = setInterval(() => {
-        if (streamSessionIdRef.current !== currentSessionId || stopRequestedRef.current) {
-          clearStreamIntervals();
-          return;
-        }
-        const target = targetContentRef.current;
-        const current = displayedContentRef.current;
-        const remaining = target.length - current.length;
-
-        if (remaining > 0) {
-          let step = 1;
-          if (remaining > 60) {
-            step = Math.min(remaining, Math.ceil(remaining / 6));
-          } else if (remaining > 25) {
-            step = 3;
-          } else if (remaining > 8) {
-            step = 2;
-          }
-
-          const nextContent = target.slice(0, current.length + step);
-          displayedContentRef.current = nextContent;
-          setStreamingContent(nextContent);
-        } else if (isStreamCompletedRef.current) {
-          finalizeAssistantMessage();
-        }
-      }, 20);
+      startTypewriter(session);
 
       const isTranslate = isTranslateModeRef.current;
       const effectiveSystemPrompt =
@@ -982,7 +1089,7 @@ export default function ChatPage({
       try {
         await streamChatResponse(
           {
-            conversation_id: activeId || undefined,
+            conversation_id: currentConvId || undefined,
             message: text,
             model: effectiveModel,
             memory_enabled: effectiveMemoryEnabled,
@@ -1007,72 +1114,95 @@ export default function ChatPage({
               }
             },
             onSuggestions: (data) => {
-              if (streamSessionIdRef.current !== currentSessionId || stopRequestedRef.current) return;
+              if (session.stopRequested) return;
               if (data?.suggestions && data.suggestions.length > 0) {
-                currentSuggestionsRef.current = data.suggestions;
-                setMessages((prev) => {
-                  for (let i = prev.length - 1; i >= 0; i--) {
-                    if (prev[i]?.role === "assistant") {
-                      const next = prev.slice();
-                      next[i] = { ...prev[i], suggested_questions: data.suggestions };
-                      return next;
+                session.suggestions = data.suggestions;
+                if (isSessionActive(session)) {
+                  setMessages((prev) => {
+                    for (let i = prev.length - 1; i >= 0; i--) {
+                      if (prev[i]?.role === "assistant") {
+                        const next = prev.slice();
+                        next[i] = { ...prev[i], suggested_questions: data.suggestions };
+                        return next;
+                      }
                     }
-                  }
-                  return prev;
-                });
+                    return prev;
+                  });
+                }
               }
             },
             onMeta: (meta) => {
-              if (streamSessionIdRef.current !== currentSessionId || stopRequestedRef.current) {
+              if (session.stopRequested) {
                 if (meta.conversation_id) {
                   loadConversations();
                 }
                 return;
               }
               if (meta.conversation_id) {
-                setActiveId(meta.conversation_id);
-                activeIdRef.current = meta.conversation_id;
-                saveConversationInputState(meta.conversation_id, {
-                  isTranslateMode: isTranslateModeRef.current,
-                  vocabTargetLang: vocabTargetLangRef.current,
-                  creationMode: creationModeRef.current,
-                });
+                const oldKey = session.tempKey;
+                session.conversationId = meta.conversation_id;
+                session.tempKey = meta.conversation_id;
+                activeStreamsRef.current.delete(oldKey);
+                activeStreamsRef.current.set(meta.conversation_id, session);
+                updateStreamingIds();
+
+                if (isSessionActive(session)) {
+                  setActiveId(meta.conversation_id);
+                  activeIdRef.current = meta.conversation_id;
+                  saveConversationInputState(meta.conversation_id, {
+                    isTranslateMode: isTranslateModeRef.current,
+                    vocabTargetLang: vocabTargetLangRef.current,
+                    creationMode: creationModeRef.current,
+                  });
+                }
                 loadConversations();
               }
               if (meta.retrieved_memories && meta.retrieved_memories.length > 0) {
-                setRetrievedMemories(meta.retrieved_memories);
+                session.retrievedMemories = meta.retrieved_memories;
+                if (isSessionActive(session)) {
+                  setRetrievedMemories(meta.retrieved_memories);
+                }
               }
               if (meta.user_message_id) {
-                setMessages((prev) => {
-                  for (let i = prev.length - 1; i >= 0; i--) {
-                    const item = prev[i];
-                    if (item && item.role === "user" && !item.id) {
-                      const next = prev.slice();
-                      next[i] = { ...item, id: meta.user_message_id };
-                      return next;
+                session.userMessage.id = meta.user_message_id;
+                if (isSessionActive(session)) {
+                  setMessages((prev) => {
+                    for (let i = prev.length - 1; i >= 0; i--) {
+                      const item = prev[i];
+                      if (item && item.role === "user" && !item.id) {
+                        const next = prev.slice();
+                        next[i] = { ...item, id: meta.user_message_id };
+                        return next;
+                      }
                     }
-                  }
-                  return prev;
-                });
+                    return prev;
+                  });
+                }
               }
             },
             onSearchStart: (data) => {
-              if (streamSessionIdRef.current !== currentSessionId || stopRequestedRef.current) return;
-              setSearchStatus({ state: "searching", query: data.query });
+              if (session.stopRequested) return;
+              session.searchStatus = { state: "searching", query: data.query };
+              if (isSessionActive(session)) {
+                setSearchStatus({ state: "searching", query: data.query });
+              }
             },
             onSearchResults: (data) => {
-              if (streamSessionIdRef.current !== currentSessionId || stopRequestedRef.current) return;
-              currentSearchResultsRef.current = data.results;
-              setStreamingSearchResults(data.results);
-              setSearchStatus({
+              if (session.stopRequested) return;
+              session.searchResults = data.results;
+              session.searchStatus = {
                 state: "done",
                 query: data.query,
                 count: data.results?.length || 0,
-              });
+              };
+              if (isSessionActive(session)) {
+                setStreamingSearchResults(data.results);
+                setSearchStatus(session.searchStatus);
+              }
             },
             onToolCall: (data) => {
-              if (streamSessionIdRef.current !== currentSessionId || stopRequestedRef.current) return;
-              currentToolInvocationsRef.current.push({
+              if (session.stopRequested) return;
+              session.toolInvocations.push({
                 toolCallId: data.toolCallId,
                 toolName: data.toolName,
                 args: data.args,
@@ -1080,18 +1210,18 @@ export default function ChatPage({
               });
             },
             onToolResult: (data) => {
-              if (streamSessionIdRef.current !== currentSessionId || stopRequestedRef.current) return;
-              const idx = currentToolInvocationsRef.current.findIndex(
+              if (session.stopRequested) return;
+              const idx = session.toolInvocations.findIndex(
                 (t) => t.toolCallId === data.toolCallId
               );
               if (idx !== -1) {
-                currentToolInvocationsRef.current[idx].state = "result";
-                currentToolInvocationsRef.current[idx].result = data.result;
+                session.toolInvocations[idx].state = "result";
+                session.toolInvocations[idx].result = data.result;
               }
             },
             onImageResult: (data) => {
-              if (streamSessionIdRef.current !== currentSessionId || stopRequestedRef.current) return;
-              currentGeneratedImagesRef.current.push({
+              if (session.stopRequested) return;
+              session.generatedImages.push({
                 id: data.imageId ?? undefined,
                 url: data.url,
                 prompt: data.prompt,
@@ -1100,8 +1230,8 @@ export default function ChatPage({
               });
             },
             onVideoResult: (data) => {
-              if (streamSessionIdRef.current !== currentSessionId || stopRequestedRef.current) return;
-              currentGeneratedVideosRef.current.push({
+              if (session.stopRequested) return;
+              session.generatedVideos.push({
                 id: data.videoId ?? undefined,
                 prompt: data.prompt,
                 provider: data.provider,
@@ -1109,91 +1239,120 @@ export default function ChatPage({
               });
             },
             onToken: (token) => {
-              if (streamSessionIdRef.current !== currentSessionId || stopRequestedRef.current) return;
-              if (firstTokenTimeRef.current === null) {
-                firstTokenTimeRef.current = Date.now();
-                setIsWaitingForFirstToken(false);
-                setThinkingDuration((firstTokenTimeRef.current - startTimeRef.current) / 1000);
+              if (session.stopRequested) return;
+              if (session.firstTokenTime === null) {
+                session.firstTokenTime = Date.now();
+                if (isSessionActive(session)) {
+                  setIsWaitingForFirstToken(false);
+                  setThinkingDuration((session.firstTokenTime - session.startTime) / 1000);
+                }
               }
-              targetContentRef.current += token;
+              session.targetContent += token;
             },
             onError: (err) => {
-              if (streamSessionIdRef.current !== currentSessionId || stopRequestedRef.current) return;
-              console.error("Stream error:", err);
-              clearStreamIntervals();
-              setIsStreaming(false);
-              setStreamStartedAt(null);
-              setIsWaitingForFirstToken(false);
-              setSearchStatus({ state: "idle" });
-              setMessages((prev) => [
-                ...prev,
-                {
-                  role: "assistant",
-                  content: err || t("chat.message.backendUnknownError"),
-                  finish_reason: "error",
-                },
-              ]);
+              session.isStreamCompleted = true;
+              if (isSessionActive(session)) {
+                clearStreamIntervals();
+                setIsStreaming(false);
+                setStreamStartedAt(null);
+                setIsWaitingForFirstToken(false);
+                setSearchStatus({ state: "idle" });
+                setMessages((prev) => [
+                  ...prev,
+                  {
+                    role: "assistant",
+                    content: err || t("chat.message.backendUnknownError"),
+                    finish_reason: "error",
+                  },
+                ]);
+              }
+              activeStreamsRef.current.delete(session.tempKey);
+              if (session.conversationId) {
+                activeStreamsRef.current.delete(session.conversationId);
+              }
+              updateStreamingIds();
             },
             onDone: (doneMeta) => {
-              if (streamSessionIdRef.current !== currentSessionId || stopRequestedRef.current) return;
-              isStreamCompletedRef.current = true;
-              doneMetaRef.current = doneMeta;
+              if (session.stopRequested) return;
+              session.isStreamCompleted = true;
+              session.doneMeta = doneMeta;
               if (doneMeta.search_results && doneMeta.search_results.length > 0) {
-                currentSearchResultsRef.current = doneMeta.search_results;
-                setStreamingSearchResults(doneMeta.search_results);
+                session.searchResults = doneMeta.search_results;
+                if (isSessionActive(session)) {
+                  setStreamingSearchResults(doneMeta.search_results);
+                }
               }
-              if (targetContentRef.current.length === displayedContentRef.current.length) {
-                finalizeAssistantMessage();
+              if (session.targetContent.length === session.displayedContent.length || !isSessionActive(session)) {
+                finalizeSessionMessage(session);
               }
             },
           },
-          { signal: abortControllerRef.current?.signal }
+          { signal: session.abortController.signal }
         );
       } catch (err: any) {
-        if (
-          streamSessionIdRef.current !== currentSessionId ||
-          stopRequestedRef.current ||
-          abortControllerRef.current?.signal.aborted
-        ) {
+        if (session.stopRequested || session.abortController.signal.aborted) {
           return;
         }
-        clearStreamIntervals();
-        setIsStreaming(false);
-        setStreamStartedAt(null);
-        setIsWaitingForFirstToken(false);
-        setSearchStatus({ state: "idle" });
-        const isApiError = err instanceof ApiError;
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content: isApiError ? `❌ ${err.message}` : `❌ ${t("chat.message.networkFailed", { reason: err?.message || err })}`,
-            finish_reason: "error",
-          },
-        ]);
+        session.isStreamCompleted = true;
+        if (isSessionActive(session)) {
+          clearStreamIntervals();
+          setIsStreaming(false);
+          setStreamStartedAt(null);
+          setIsWaitingForFirstToken(false);
+          setSearchStatus({ state: "idle" });
+          const isApiError = err instanceof ApiError;
+          setMessages((prev) => [
+            ...prev,
+            {
+              role: "assistant",
+              content: isApiError
+                ? `❌ ${err.message}`
+                : `❌ ${t("chat.message.networkFailed", { reason: err?.message || err })}`,
+              finish_reason: "error",
+            },
+          ]);
+        }
+        activeStreamsRef.current.delete(session.tempKey);
+        if (session.conversationId) {
+          activeStreamsRef.current.delete(session.conversationId);
+        }
+        updateStreamingIds();
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [activeId, currentModel, memoryEnabled, locale, resetStreamingState]
+    [
+      currentModel,
+      memoryEnabled,
+      locale,
+      clearStreamIntervals,
+      isSessionActive,
+      finalizeSessionMessage,
+      startTypewriter,
+      updateStreamingIds,
+      loadConversations,
+      t,
+    ]
   );
 
   const handleStopGenerating = () => {
-    if (!isStreaming) return;
-    if (finalizedRef.current) return;
-    stopRequestedRef.current = true;
-    abortInFlightStream();
+    const session = getActiveSession();
+    if (!session || session.finalized) return;
+    session.stopRequested = true;
+    try {
+      session.abortController.abort();
+    } catch (_) {}
     clearStreamIntervals();
 
-    doneMetaRef.current = {
+    session.doneMeta = {
       finish_reason: "abort",
       created_at: new Date().toISOString(),
     };
-    if (targetContentRef.current.length === displayedContentRef.current.length) {
-      finalizeAssistantMessage();
+    if (session.targetContent.length === session.displayedContent.length) {
+      finalizeSessionMessage(session);
     } else {
-      isStreamCompletedRef.current = true;
+      session.isStreamCompleted = true;
     }
   };
+
 
   const refreshFromServer = async () => {
     await loadConversations();
@@ -1217,7 +1376,7 @@ export default function ChatPage({
   });
 
   useWakeLock({
-    active: isStreaming || isWaitingForFirstToken || regenerating,
+    active: isStreaming || isWaitingForFirstToken || regenerating || streamingConversationIds.length > 0,
   });
 
   const handleEditMessage = useCallback(
@@ -1251,7 +1410,7 @@ export default function ChatPage({
           toast.error(err.message || t("chat.errors.editFailed"));
           return;
         }
-        resetStreamingState();
+        detachCurrentStreamView();
         void refreshFromServer();
         toast.warning(t("chat.errors.resendFailedTitle"), {
           description: t("chat.errors.resendFailedDesc", { reason: err?.message || t("chat.errors.networkReason") }),
@@ -1259,7 +1418,7 @@ export default function ChatPage({
         });
       }
     },
-    [activeId, isStreaming, regenerating, handleSendMessage, resetStreamingState]
+    [activeId, isStreaming, regenerating, handleSendMessage, detachCurrentStreamView, refreshFromServer, t]
   );
 
   const handleRegenerate = useCallback(
@@ -1336,6 +1495,7 @@ export default function ChatPage({
           onMovePinned={handleMovePinned}
           onReorderPinned={handleReorderPinned}
           loading={loadingConversations}
+          streamingIds={streamingConversationIds}
         />
 
         {(() => {

@@ -39,7 +39,7 @@
 
     /* ── 字体栈 ── */
     --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
-      "SF Pro", system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+      "SF Pro", "Segoe UI", Roboto, "Helvetica Neue", Arial,
       "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC",
       "Hiragino Sans", "Yu Gothic", "Meiryo", "Noto Sans JP",
       sans-serif;
@@ -73,7 +73,7 @@
      彻底解决 CJK 汉字同位异形体（Han Unification）导致的字形渲染混淆 */
   :root:lang(ja),
   [data-locale="ja"] {
-    --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro", system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro", "Segoe UI", Roboto, "Helvetica Neue", Arial, system-ui,
       "Hiragino Sans", "Yu Gothic", "Meiryo", "Noto Sans JP",
       "PingFang SC", "Microsoft YaHei", sans-serif;
   }
@@ -82,7 +82,7 @@
   :root:lang(zh-HK),
   [data-locale="zh-TW"],
   [data-locale="zh-HK"] {
-    --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro", system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro", "Segoe UI", Roboto, "Helvetica Neue", Arial, system-ui,
       "PingFang TC", "PingFang HK", "Microsoft JhengHei", "Noto Sans TC",
       "PingFang SC", "Microsoft YaHei", sans-serif;
   }
@@ -127,8 +127,8 @@
   /* 日文环境：优先日文字形，杜绝中日汉字字形混淆（Han Unification 歧义） */
   :root:lang(ja),
   [data-locale="ja"] {
-    --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro", system-ui,
-      "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro", "Segoe UI", Roboto, "Helvetica Neue", Arial, system-ui,
+
       "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", "Noto Sans JP",
       "PingFang SC", "Microsoft YaHei", sans-serif;
   }
@@ -136,8 +136,8 @@
   /* 繁体中文环境：优先台湾/香港标准字形 */
   :root:lang(zh-TW),
   [data-locale="zh-TW"] {
-    --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro", system-ui,
-      "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro", "Segoe UI", Roboto, "Helvetica Neue", Arial, system-ui,
+
       "PingFang TC", "Microsoft JhengHei", "Noto Sans TC",
       "PingFang SC", "Microsoft YaHei", sans-serif;
   }

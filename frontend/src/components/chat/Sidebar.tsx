@@ -53,6 +53,7 @@ interface SidebarProps {
   loading?: boolean;
   isOpen?: boolean;
   onToggleOpen?: () => void;
+  streamingIds?: string[];
 }
 
 /** 会话的最后活跃时间（排序与分组的唯一时间口径）。 */
@@ -72,6 +73,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   loading = false,
   isOpen = true,
   onToggleOpen,
+  streamingIds = [],
 }) => {
   const [search, setSearch] = useState("");
   const [dragId, setDragId] = useState<string | null>(null);
@@ -210,6 +212,12 @@ title={c.title || t("chat.history.untitled")}
                className="flex w-full min-w-0 items-center gap-1.5 text-left leading-snug"
              >
               {pinnedActive && <Pin className="h-3 w-3 shrink-0 text-primary" />}
+              {streamingIds?.includes(c.id) && (
+                <span className="relative flex h-2 w-2 shrink-0" title={t("chat.empty.a11yGenerating")}>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                </span>
+              )}
               <span className="min-w-0 flex-1 truncate font-normal">
                 {c.title || t("chat.history.untitled")}
               </span>

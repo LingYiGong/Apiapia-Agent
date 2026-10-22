@@ -191,21 +191,32 @@ def _resolve_image_to_data_url(
 
 
 LEAK_TRIGGERS = [
-    "<|tool",
+    "<|tool_call",
+    "<|tool_calls",
     "<|plugin",
     "<|action",
-    "<tool",
-    "<func",
-    "<action",
+    "<tool_call",
+    "<tool_calls",
+    "<function_call",
     "<invoke",
-    "<call",
-    "<plugin",
     "<code_interpreter",
     "[SEARCH:",
     "[ACTION:",
     "[TOOL:",
     "[google(",
     "[search(",
+    "<call>",
+    "<call ",
+    "<call\n",
+    "<action>",
+    "<action ",
+    "<action\n",
+    "<tool>",
+    "<tool ",
+    "<tool\n",
+    "<func>",
+    "<func ",
+    "<func\n",
     "User Safety:",
     "Response Safety:",
     "Input Safety:",
@@ -224,15 +235,15 @@ LEAK_CLOSING = [
     "<|tool_calls_end|>",
     "<|im_end|>",
     "</tool_call>",
+    "</tool_calls>",
     "</tool>",
+    "</function_call>",
     "</function>",
     "</action>",
     "</invoke>",
     "</call>",
     "</code_interpreter>",
-    "</plugin>",
-    "]",
-    "\n\n"
+    "</plugin>"
 ]
 
 
@@ -250,18 +261,22 @@ def sanitize_llm_output(text: str) -> str:
     if not text:
         return ""
 
-    # 0. Protect fenced code blocks (```...``` or ~~~...~~~) before applying tag-stripping regexes
+    # 0. Protect fenced code blocks (``` or ~~~), unclosed code blocks, and inline code (`...`)
     code_blocks: List[str] = []
     def _save_code_block(match: re.Match) -> str:
         code_blocks.append(match.group(0))
-        return f"__CODE_BLOCK_PLACEHOLDER_{len(code_blocks) - 1}__"
+        return f"__APIAPIA_CODE_BLOCK_{len(code_blocks) - 1}__"
 
-    protected = re.sub(r"(```[\s\S]*?```|~~~[\s\S]*?~~~)", _save_code_block, text)
+    protected = re.sub(
+        r"(```[\s\S]*?```|~~~[\s\S]*?~~~|```[^\n]*(?:\n[\s\S]*)?$|~~~[^\n]*(?:\n[\s\S]*)?$|`[^`\n]+`)",
+        _save_code_block,
+        text
+    )
     cleaned = protected
 
     # 1. Strip raw tool/function call containers and dangling arguments (without destructive |$)
     cleaned = re.sub(
-        r'<\/?(?:tool(?:_call)?|func(?:tion)?(?:_call)?|action|invoke|plugin_call|code_interpreter|call)[\s\S]*?(?:<\/(?:tool(?:_call)?|func(?:tion)?(?:_call)?|action|invoke|plugin_call|code_interpreter|call)>)',
+        r'<\/?(?:tool(?:_call)?|func(?:tion)?(?:_call)?|action|invoke|plugin_call|code_interpreter|call)\b[\s\S]*?(?:<\/(?:tool(?:_call)?|func(?:tion)?(?:_call)?|action|invoke|plugin_call|code_interpreter|call)>)',
         '',
         cleaned,
         flags=re.IGNORECASE
@@ -271,8 +286,8 @@ def sanitize_llm_output(text: str) -> str:
     cleaned = re.sub(r'\[(?:ACTION|SEARCH|TOOL|CALL|OBSERVATION|google|search):\s*[^\]]+\]', '', cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r'\[(?:google|search)\([^\]]*\)\]', '', cleaned, flags=re.IGNORECASE)
 
-    # 2. Strip ReAct-style leftover traces if present without execution
-    cleaned = re.sub(r'\n\s*(?:Action|Action Input|Observation):\s*[\s\S]*?(?=\n\s*(?:Thought|Final Answer)|$)', '', cleaned, flags=re.IGNORECASE)
+    # 2. Strip ReAct-style leftover traces if present without execution (scoped to avoid removing real text containing Action/Observation)
+    cleaned = re.sub(r'\n\s*Action:\s*[\w_]+(?:\s*\n\s*Action Input:\s*\{[\s\S]*?\})?(?:\s*\n\s*Observation:\s*[\s\S]*?(?=\n\s*(?:Thought|Final Answer|Action):|$))?', '', cleaned, flags=re.IGNORECASE)
 
     # 3. Strip Guardrail / Moderation classifier output
     cleaned = re.sub(
@@ -296,7 +311,11 @@ def sanitize_llm_output(text: str) -> str:
 
     # 6. Restore preserved code blocks
     for idx, block in enumerate(code_blocks):
+        cleaned = cleaned.replace(f"__APIAPIA_CODE_BLOCK_{idx}__", block)
         cleaned = cleaned.replace(f"__CODE_BLOCK_PLACEHOLDER_{idx}__", block)
+
+    # Clean up any leftover unresolvable placeholders
+    cleaned = re.sub(r'__(?:CODE_BLOCK_PLACEHOLDER|APIAPIA_CODE_BLOCK)_\d+__', '', cleaned)
 
     return cleaned.strip()
 
@@ -1017,8 +1036,14 @@ async def chat_stream(
                             if close_tag in suppress_buf:
                                 recovered = True
                                 break
-                        if recovered or len(suppress_buf) > 4000:
+                        if recovered:
                             suppressed = False
+                            suppress_buf = ""
+                            stream_window = ""
+                        elif len(suppress_buf) > 250:
+                            # False positive: release suppressed buffer so real content is never swallowed or lost
+                            suppressed = False
+                            yield f"data: {json.dumps({'type': 'content', 'conversation_id': conv_id, 'delta': suppress_buf}, ensure_ascii=False)}\n\n"
                             suppress_buf = ""
                             stream_window = ""
                         continue
@@ -1097,11 +1122,11 @@ async def chat_stream(
                     if matched_trigger:
                         continue
 
-                    # Check if stream_window ends with a prefix of "<think>" or any leak trigger
+                    # Check if stream_window ends with a prefix of "<think>" or a tool call trigger (min prefix length: 2)
                     hold_back = 0
-                    candidate_prefixes = ["<think>"] + LEAK_TRIGGERS
+                    candidate_prefixes = ["<think>", "<|tool", "<|plugin", "<|action", "<tool_call", "<function_call", "[ACTION:", "[SEARCH:"]
                     for trig in candidate_prefixes:
-                        for i in range(len(trig) - 1, 0, -1):
+                        for i in range(len(trig) - 1, 1, -1):
                             if stream_window.endswith(trig[:i]):
                                 hold_back = max(hold_back, i)
                                 break
@@ -1127,12 +1152,19 @@ async def chat_stream(
                             yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
                             stream_window = ""
 
-                # Flush remaining window if not suppressed
+                # Flush remaining window or any unrecovered suppression buffer
                 if stream_window and not suppressed:
                     delta_payload = {
                         "type": "content",
                         "conversation_id": conv_id,
                         "delta": stream_window
+                    }
+                    yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
+                elif suppressed and suppress_buf:
+                    delta_payload = {
+                        "type": "content",
+                        "conversation_id": conv_id,
+                        "delta": suppress_buf
                     }
                     yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
 

@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.36.0-indigo?style=flat-square" alt="Version"></a>
+  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.37.0-indigo?style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
@@ -225,7 +225,33 @@ cat backup_xxx.sql | docker exec -i apiapia_postgres psql -U postgres -d apiapia
 
 ## 📜 Releases & Changelog
 
-### 🚀 Latest Release: v2.36.0 (2026-10-21)
+### 🚀 Latest Release: v2.37.0 (2026-10-22)
+
+This release focuses on **multi-session background streaming resilience, seamless session re-attachment, robust academic LaTeX environment rendering, ReAct inference pipeline safeguards, Windows font stack polish, and production container build compatibility**. The chat engine decouples frontend view rendering from network stream controllers, allowing users to freely switch conversations or start new chats without interrupting ongoing generations, with smooth typewriter catch-up upon return and pulsing generation badges in the sidebar. The Markdown renderer introduces native structural support for unfenced LaTeX algorithms, preambles, and theorem/proof environments with Q.E.D. symbols, while eliminating regex dollar-sign corruption and fixing Windows backslash font rendering.
+
+#### 1. Multi-Session Background Streaming Resilience & Re-Attachment
+- **Decoupled View & Stream Lifecycle**: Completely separated UI view states from network stream controllers (`AbortController`). Switching history records or starting a new chat detaches the current view without aborting active background requests.
+- **Background Persistence**: In-flight streams continue generating in the background and safely persist the complete assistant response and metadata to PostgreSQL upon completion.
+- **Real-Time Re-Attachment & Catch-up Typewriter**: Returning to an actively generating session automatically re-attaches the UI and accelerates typewriter typing smoothly to catch up with streamed tokens.
+- **Targeted Stop Generation**: Clicking "Stop generating" strictly cancels generation for the currently viewed conversation without affecting other concurrent background generations.
+- **Sidebar Status Pulse**: Added real-time glowing pulse indicators on conversation items in the sidebar to visualize background generation progress.
+
+#### 2. Robust Academic LaTeX Environment Rendering
+- **Unfenced LaTeX Block Encapsulation**: Automatically detects unfenced `\begin{algorithm}`, preamble package imports (`\usepackage`), and custom math operators (`\DeclareMathOperator`), wrapping them into syntax-highlighted code blocks.
+- **Theorems & Proofs Styling**: Formats `\begin{theorem}` and `\begin{proof}` environments into elegant academic blockquotes with serif typography and standard Q.E.D. ($\blacksquare$) symbols.
+- **KaTeX Fault Tolerance**: Enabled `throwOnError: false, strict: false` in KaTeX configuration to gracefully handle minor syntax variations and eliminate red screen crashes.
+- **Safe Placeholder Replacement**: Replaced vulnerable JavaScript string replacements with safe global token substitution to prevent corruption from `$` and `$'` special patterns.
+
+#### 3. ReAct Pipeline Safeguards & Windows Font Stack Polish
+- **Leak Filter Protection**: Scoped ReAct loop leak filters to prevent accidental truncation of long assistant text.
+- **Windows CJK Backslash Polish**: Optimized the font fallback stack on Windows to prioritize `"Segoe UI"` before `system-ui`, preventing backslashes `\` from rendering as yen signs `¥` in CJK environments.
+
+#### 4. Production Build Compatibility (ES5 Downlevel Iteration)
+- **ES5 Map Traversal**: Refactored `MapIterator` loops into ES5-native `.forEach()` calls, combined with `"downlevelIteration": true` in `tsconfig.json` to ensure clean Next.js Docker builds.
+
+---
+
+### v2.36.0 (2026-10-21)
 
 This release brings a **comprehensive ChatGPT-grade interaction upgrade, adaptive reasoning presentation, rich web search cards, inline citation pills, LaTeX math standardization, and contextual follow-up recommendations**. The chat experience introduces dynamic reasoning accordion folding that smoothly auto-collapses as soon as answer tokens arrive, shields code blocks during sanitization, normalizes LaTeX formulas across all model providers, enriches web sources with clean hostnames, high-res Favicons and interactive citation pills, optimizes table text-wrapping, and streams real-time conversation titles and 3 actionable follow-up suggestion chips via SSE.
 

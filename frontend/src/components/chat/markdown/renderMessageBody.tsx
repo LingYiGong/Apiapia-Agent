@@ -16,35 +16,145 @@ import { CodeBlock } from "@/components/chat/markdown/CodeBlock";
 
 export type ImageClickHandler = (src: string, alt?: string) => void;
 
-/** 把模型可能输出的标准 LaTeX 括号分界符 \(...\) 与 \[...\] 转换为 remark-math 识别的 $...$ 与 $$...$$ */
+/** 把模型可能输出的标准 LaTeX 环境与分界符转换为 remark-math / KaTeX 兼容的格式，并处理粘连格式 */
 export function normalizeMathDelimiters(text: string): string {
   if (!text) return "";
-  let normalized = text.replace(/\\\[([\s\S]*?)\\\]/g, (_, math) => `\n$$\n${math.trim()}\n$$\n`);
+
+  let normalized = text;
+
+  // 1. 将标准 LaTeX 块级公式 \[ ... \] 转换为 $$ ... $$
+  normalized = normalized.replace(/\\\[([\s\S]*?)\\\]/g, (_, math) => `\n$$\n${math.trim()}\n$$\n`);
+
+  // 2. 将行内 LaTeX \( ... \) 转换为 $ ... $
   normalized = normalized.replace(/\\\(([\s\S]*?)\\\)/g, (_, math) => `$${math.trim()}$`);
+
+  // 3. 将裸露的 \begin{equation*?} ... \end{equation*?} 转换为 $$ ... $$
+  normalized = normalized.replace(
+    /\\begin\{equation\*?\}([\s\S]*?)\\end\{equation\*?\}/g,
+    (_, math) => `\n$$\n${math.trim()}\n$$\n`
+  );
+
+  // 4. 将裸露的 \begin{align*?} ... \end{align*?} 规范化并包裹为 $$ \begin{aligned} ... \end{aligned} $$
+  normalized = normalized.replace(
+    /\\begin\{align\*?\}([\s\S]*?)\\end\{align\*?\}/g,
+    (_, math) => `\n$$\n\\begin{aligned}\n${math.trim()}\n\\end{aligned}\n$$\n`
+  );
+
+  // 5. 分离可能与公式 $$ 粘连在同一行的 markdown 标题（如 "$$ #### 标题" 或 "### 标题 $$"）
+  normalized = normalized
+    .replace(/(\$\$)\s*(#{1,6}\s)/g, "$1\n\n$2")
+    .replace(/(#{1,6}[^\n]*?)\s*(\$\$)/g, "$1\n\n$2");
+
+  // 6. 自动增强包含对齐符 & 或换行符 \\ 的行间公式：
+  // 若未显式包含 aligned/matrix/cases 等环境，自动包裹 \begin{aligned} ... \end{aligned}，
+  // 彻底避免 KaTeX 报错 "KaTeX parse error: & is only permitted within an aligned environment"
+  normalized = normalized.replace(/\$\$([\s\S]*?)\$\$/g, (match, math) => {
+    const trimmed = math.trim();
+    if (!trimmed) return match;
+    if (
+      (/&|\\\\/.test(trimmed)) &&
+      !/\\begin\{(?:aligned|matrix|bmatrix|pmatrix|vmatrix|Vmatrix|cases|array|split)\}/.test(trimmed)
+    ) {
+      return `\n$$\n\\begin{aligned}\n${trimmed}\n\\end{aligned}\n$$\n`;
+    }
+    return `\n$$\n${trimmed}\n$$\n`;
+  });
+
   return normalized;
+}
+
+/**
+ * 自动识别并格式化模型未包裹在代码块中的学术 LaTeX 文档语法：
+ * 1. \begin{algorithm} ... \end{algorithm} 自动包裹为 ```latex 代码块
+ * 2. 连续的 \usepackage, \DeclareMathOperator, \documentclass 自动包裹为 ```latex 代码块
+ * 3. \begin{theorem|lemma|corollary|definition} 转换为标准 Markdown 引用卡片
+ * 4. \begin{proof} 转换为优雅的证明引用块
+ * 5. \newtheorem 声明自动清理
+ */
+export function autoFormatUnfencedLatex(text: string): string {
+  if (!text) return "";
+
+  let formatted = text;
+
+  // 1. 将未加代码块围栏的算法伪代码环境（\begin{algorithm} ... \end{algorithm}）自动包裹为 LaTeX 代码块
+  formatted = formatted.replace(
+    /(\\begin\{algorithm\*?\}(?:\[[^\]]*\])?[\s\S]*?\\end\{algorithm\*?\})/gi,
+    "\n\n```latex\n$1\n```\n\n"
+  );
+
+  // 2. 将定理/引理/推论/定义环境转换为美观的 Markdown 引用卡片
+  formatted = formatted
+    .replace(
+      /\\begin\{(theorem|lemma|corollary|definition|proposition)\}(?:\[([^\]]+)\])?([\s\S]*?)\\end\{\1\}/gi,
+      (_, type, title, body) => {
+        const typeNames: Record<string, string> = {
+          theorem: "定理",
+          lemma: "引理",
+          corollary: "推论",
+          definition: "定义",
+          proposition: "命题",
+        };
+        const label = typeNames[type.toLowerCase()] || type;
+        const header = title ? `**${label}（${title.trim()}）**` : `**${label}**`;
+        const lines = body.trim().split("\n").map((line: string) => `> ${line}`);
+        return `\n\n> ${header}\n${lines.join("\n")}\n\n`;
+      }
+    )
+    .replace(
+      /\\begin\{proof\}(?:\[([^\]]+)\])?([\s\S]*?)\\end\{proof\}/gi,
+      (_, title, body) => {
+        const header = title ? `*证明（${title.trim()}）*：` : `*证明*：`;
+        const lines = body.trim().split("\n").map((line: string) => `> ${line}`);
+        return `\n\n> ${header}\n${lines.join("\n")} ∎\n\n`;
+      }
+    );
+
+  // 3. 清理已转换定理环境残留的 \newtheorem 声明
+  formatted = formatted.replace(
+    /\\newtheorem\*?\{[^\}]+\}(?:\[[^\]]+\])?\{[^\}]+\}(?:\[[^\]]+\])?/gi,
+    ""
+  );
+
+  // 4. 将裸露的导言区指令（\usepackage, \DeclareMathOperator, \documentclass）成块包裹为代码块
+  formatted = formatted.replace(
+    /((?:(?:\\(?:usepackage|DeclareMathOperator\*?|documentclass)\b[^\n]*|%[^\n]*)\s*\n*)+)/gi,
+    (match) => {
+      const trimmed = match.trim();
+      if (!trimmed || (trimmed.startsWith("%") && !trimmed.includes("\\"))) return match;
+      return `\n\n\`\`\`latex\n${trimmed}\n\`\`\`\n\n`;
+    }
+  );
+
+  return formatted;
 }
 
 /** 剥掉模型泄漏的内部痕迹（工具调用容器、ReAct 轨迹、安全分类器输出等），保护代码块并归一化公式。 */
 export function sanitizeDisplayContent(raw: string): string {
   if (!raw) return "";
 
-  // 0. 隔离保护 markdown 围栏代码块（``` 与 ~~~），防止代码内部的内容被正则误伤
+  // 0. 隔离保护 markdown 围栏代码块（``` 与 ~~~）、未闭合流式代码块以及行内代码（`...`），防止代码内部的内容被正则误伤
   const codeBlocks: string[] = [];
-  const protectedText = raw.replace(/(```[\s\S]*?```|~~~[\s\S]*?~~~)/g, (match) => {
-    codeBlocks.push(match);
-    return `__CODE_BLOCK_PLACEHOLDER_${codeBlocks.length - 1}__`;
-  });
+  const protectedText = raw.replace(
+    /(```[\s\S]*?```|~~~[\s\S]*?~~~|```[^\n]*(?:\n[\s\S]*)?$|~~~[^\n]*(?:\n[\s\S]*)?$|`[^`\n]+`)/g,
+    (match) => {
+      codeBlocks.push(match);
+      return `__APIAPIA_CODE_BLOCK_${codeBlocks.length - 1}__`;
+    }
+  );
 
-  // 1. 标准化数学公式分界符 \[...\] -> $$...$$, \(...\) -> $...$
-  let cleaned = normalizeMathDelimiters(protectedText)
-    // 2. 裸的工具/函数调用容器与悬空的参数标签
-    .replace(/<\/?(?:tool(?:_call)?|func(?:tion)?(?:_call)?|action|invoke|plugin_call|code_interpreter|call)[\s\S]*?(?:<\/(?:tool(?:_call)?|func(?:tion)?(?:_call)?|action|invoke|plugin_call|code_interpreter|call)>|$)/gi, "")
-    .replace(/<\|(?:tool(?:_call|_calls)?_start|action_start|plugin_start)\|?>[\s\S]*?(?:<\|(?:tool(?:_call|_calls)?_end|action_end|plugin_end)\|?>|$)/gi, "")
+  // 1. 对正文中遗漏了代码块围栏的学术 LaTeX 文档语法进行自动排版与代码块封装
+  const autoFormattedText = autoFormatUnfencedLatex(protectedText);
+
+  // 2. 标准化数学公式分界符 \[...\] -> $$...$$, \(...\) -> $...$ 以及对齐环境容错
+  let cleaned = normalizeMathDelimiters(autoFormattedText)
+    // 2. 裸的工具/函数调用容器与悬空的参数标签（增加词边界 \b，避免误伤 callback, caller 等正常变量名）
+    .replace(/<\/?(?:tool(?:_call)?|func(?:tion)?(?:_call)?|action|invoke|plugin_call|code_interpreter|call)\b[\s\S]*?(?:<\/(?:tool(?:_call)?|func(?:tion)?(?:_call)?|action|invoke|plugin_call|code_interpreter|call)>)/gi, "")
+    .replace(/<\|(?:tool(?:_call|_calls)?_start|action_start|plugin_start)\|?>[\s\S]*?(?:<\|(?:tool(?:_call|_calls)?_end|action_end|plugin_end)\|?>)/gi, "")
     .replace(/<\/?(?:arg_key|arg_value|parameter|parameters|arguments)[\s\S]*?>/gi, "")
     .replace(/\[(?:ACTION|SEARCH|TOOL|CALL|OBSERVATION|google|search):\s*[^\]]+\]/gi, "")
     .replace(/\[(?:google|search)\([^\]]*\)\]/gi, "")
-    // 3. ReAct 残留
-    .replace(/\n\s*(?:Action|Action Input|Observation):\s*[\s\S]*?(?=\n\s*(?:Thought|Final Answer)|$)/gi, "")
+    // 3. ReAct 残留（精确定位 Agent 工具调用，避免误删科学文章中包含 Action/Observation 的段落）
+    .replace(/\n\s*Action:\s*[\w_]+(?:\s*\n\s*Action Input:\s*\{[\s\S]*?\})?(?:\s*\n\s*Observation:\s*[\s\S]*?(?=\n\s*(?:Thought|Final Answer|Action):|$))?/gi, "")
     // 4. 护栏/内容审核分类器的输出
     .replace(/(?:Thus (?:both|all) are safe|We must output exactly that format|Safety Assessment:|Content Moderation:)[\s\S]*/gi, "")
     .replace(/(?:(?:User|Input|Prompt|Response|Output|Assistant)\s*(?:Safety|Moderation|Guard|Risk|Category|Harm)\s*[:=]\s*\w+[\s\n\r]*)+/gi, "")
@@ -54,9 +164,25 @@ export function sanitizeDisplayContent(raw: string): string {
     .replace(/<\/?(?:scratchpad|internal|reflection|antThinking)>/gi, "");
 
   // 7. 还原受保护的代码块
+  // 注意：绝对不能直接使用 cleaned.replace(placeholder, codeBlocks[i])！
+  // 因为 JS 的 String.prototype.replace 会把 replacement 里的 "$'"（后随文本）、"$$"（转义为$）等特殊替换符号求值，
+  // 导致包含 '$' 的代码（如 MathJax/KaTeX 配置、正则、LaTeX 公式）发生全文递归嵌套与占位符泄漏。
+  // 使用 split(placeholder).join(block) 保证 100% 字面无害精确替换。
   for (let i = 0; i < codeBlocks.length; i++) {
-    cleaned = cleaned.replace(`__CODE_BLOCK_PLACEHOLDER_${i}__`, codeBlocks[i]);
+    const placeholder = `__APIAPIA_CODE_BLOCK_${i}__`;
+    cleaned = cleaned.split(placeholder).join(codeBlocks[i]);
   }
+
+  // 兼容旧版遗留的占位符格式
+  for (let i = 0; i < codeBlocks.length; i++) {
+    const oldPlaceholder = `__CODE_BLOCK_PLACEHOLDER_${i}__`;
+    if (cleaned.includes(oldPlaceholder)) {
+      cleaned = cleaned.split(oldPlaceholder).join(codeBlocks[i]);
+    }
+  }
+
+  // 清除任何历史数据遗留、无法还原的孤立占位符，避免在前端暴露占位符字符串
+  cleaned = cleaned.replace(/__(?:CODE_BLOCK_PLACEHOLDER|APIAPIA_CODE_BLOCK)_\d+__/g, "");
 
   return cleaned.trim();
 }
@@ -89,7 +215,16 @@ function renderWithBreaks(node: React.ReactNode): React.ReactNode {
  * 产生新数组引用，和 components 一样让 react-markdown 认为配置变了从而重解析。
  */
 const remarkPlugins = [remarkGfm, remarkMath];
-const rehypePlugins = [rehypeKatex];
+const rehypePlugins: any[] = [
+  [
+    rehypeKatex,
+    {
+      output: "htmlAndMathml",
+      throwOnError: false,
+      strict: false,
+    },
+  ],
+];
 
 const BODY_TEXT = "text-base sm:text-body leading-[1.62] text-foreground/95";
 
@@ -195,7 +330,7 @@ const baseMarkdownComponents: Record<string, any> = {
   td: ({ node, children, ...props }: any) => (
     <td
       {...props}
-      className="border-b border-border/50 px-3.5 py-2.5 align-top text-xs text-foreground/90 sm:text-sm min-w-[100px] max-w-sm whitespace-normal break-words sm:whitespace-pre-wrap [overflow-wrap:anywhere]"
+      className="border-b border-border/50 px-3.5 py-2.5 align-top text-xs text-foreground/90 sm:text-sm min-w-[100px] max-w-xl whitespace-normal break-words sm:whitespace-pre-wrap [overflow-wrap:anywhere]"
     >
       {renderWithBreaks(children)}
     </td>
@@ -203,7 +338,8 @@ const baseMarkdownComponents: Record<string, any> = {
   // 交回给 CodeBlock 自己画外壳
   pre: ({ children }: any) => <>{children}</>,
   code: ({ node, inline, className, children, ...props }: any) => {
-    const isInline = inline || !className;
+    const isMultiline = typeof children === "string" ? children.includes("\n") : Array.isArray(children) && children.length > 1;
+    const isInline = inline ?? (!className && !isMultiline);
     if (isInline) {
       return (
         <code

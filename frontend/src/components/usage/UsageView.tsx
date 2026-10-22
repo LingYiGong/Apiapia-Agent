@@ -100,6 +100,7 @@ export const UsageView: React.FC<UsageViewProps> = ({
   const [inspectData, setInspectData] = useState<{ conversation: any; messages: any[] } | null>(null);
   const [inspectLoading, setInspectLoading] = useState(false);
   const [restoreLoading, setRestoreLoading] = useState<string | null>(null);
+  const [purgeLoading, setPurgeLoading] = useState(false);
   const [modelSortKey, setModelSortKey] = useState<"cost" | "tokens">("cost");
 
   const { ask: askConfirm, dialog: confirmDialog } = useConfirm();
@@ -289,6 +290,29 @@ export const UsageView: React.FC<UsageViewProps> = ({
     }
   };
 
+  const handlePurgeDeleted = () => {
+    if (!auditUser) return;
+    askConfirm({
+      title: t("usage.audit.purgeTitle"),
+      description: t("usage.audit.purgeDesc", { username: auditUser.username }),
+      confirmText: t("usage.audit.purgeConfirm"),
+      danger: true,
+      onConfirm: async () => {
+        setPurgeLoading(true);
+        try {
+          await apiRequest(`/stats/admin/users/${auditUser.id}/deleted-conversations`, { method: "DELETE" });
+          await fetchAuditList(auditUser.id);
+          await fetchStats();
+          toast.success(t("usage.audit.purgeDone"));
+        } catch (err: any) {
+          toast.error(err.message || t("usage.audit.purgeFailed"));
+        } finally {
+          setPurgeLoading(false);
+        }
+      },
+    });
+  };
+
   const userActions: UserActions = {
     onToggleAllModels: handleToggleAllModels,
     onToggleActive: handleToggleActive,
@@ -468,6 +492,8 @@ export const UsageView: React.FC<UsageViewProps> = ({
           onInspect={handleInspectMessages}
           onRestore={handleAdminRestore}
           restoringId={restoreLoading}
+          onPurgeDeleted={handlePurgeDeleted}
+          purgeLoading={purgeLoading}
         />
       )}
 

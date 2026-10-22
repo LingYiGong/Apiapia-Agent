@@ -775,6 +775,8 @@ export function AuditDialog({
   onInspect,
   onRestore,
   restoringId,
+  onPurgeDeleted,
+  purgeLoading,
 }: {
   open: boolean;
   username: string;
@@ -787,6 +789,8 @@ export function AuditDialog({
   onInspect: (conversationId: string) => void;
   onRestore: (conversationId: string, title: string) => void;
   restoringId: string | null;
+  onPurgeDeleted: () => void;
+  purgeLoading: boolean;
 }) {
   const { t, fmt } = useI18n();
   const visible = conversations.filter((c) => {
@@ -852,6 +856,19 @@ export function AuditDialog({
             <RefreshCw className={cn("h-4 w-4", loading && "animate-spin text-primary")} />
             <span>{t("usage.audit.refresh")}</span>
           </Button>
+          {conversations.some((c) => c.is_deleted) && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onPurgeDeleted}
+              disabled={purgeLoading || loading}
+              className="h-7 cursor-pointer gap-1 rounded-full border-destructive/30 px-2.5 text-xs text-destructive hover:bg-destructive/10"
+            >
+              <Trash2 className={cn("h-4 w-4", purgeLoading && "animate-pulse")} />
+              <span>{t("usage.audit.purgeDeleted")}</span>
+            </Button>
+          )}
         </div>
 
         <div className="max-h-[60vh] flex-1 space-y-3 overflow-y-auto p-6 overscroll-contain">

@@ -11,6 +11,7 @@ from app.core.i18n import tr
 from app.models.user import User
 from app.models.conversation import Conversation, Message
 from app.api.v1.deps import get_current_user, get_current_admin
+from app.api.v1.conversations import _purge_message_media
 
 logger = logging.getLogger("stats")
 router = APIRouter(prefix="/stats", tags=["stats"])
@@ -644,6 +645,44 @@ async def get_admin_user_conversations(
             "total_tokens": int(r.total_tokens)
         })
     return results
+
+
+@router.delete("/admin/users/{user_id}/deleted-conversations")
+async def purge_admin_user_deleted_conversations(
+    user_id: str,
+    admin_user: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Permanently remove one user's soft-deleted conversations and their media."""
+    user = await db.get(User, user_id)
+    if not user:
+        raise ApiError(status_code=status.HTTP_404_NOT_FOUND, code="USER_NOT_FOUND")
+
+    convs = (
+        await db.execute(
+            select(Conversation).where(
+                Conversation.user_id == user_id,
+                Conversation.is_deleted == True,
+            )
+        )
+    ).scalars().all()
+    message_count = 0
+    for conv in convs:
+        messages = (
+            await db.execute(select(Message).where(Message.conversation_id == conv.id))
+        ).scalars().all()
+        for message in messages:
+            _purge_message_media(message)
+            await db.delete(message)
+            message_count += 1
+        await db.delete(conv)
+
+    await db.commit()
+    logger.info(
+        "Admin %s permanently purged %d deleted conversations (%d messages) for user %s",
+        admin_user.id, len(convs), message_count, user_id,
+    )
+    return {"deleted_conversations": len(convs), "deleted_messages": message_count}
 
 
 @router.get("/admin/conversations/{conversation_id}/messages")

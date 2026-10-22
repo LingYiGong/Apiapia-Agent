@@ -306,10 +306,14 @@ export default function ChatPage({
   const [streamingConversationIds, setStreamingConversationIds] = useState<string[]>([]);
 
   const isSessionActive = useCallback((session: ActiveStreamSession) => {
-    if (session.conversationId) {
+    if (activeIdRef.current) {
       return activeIdRef.current === session.conversationId;
     }
-    return activeIdRef.current === null && currentNewChatSessionIdRef.current === session.sessionId;
+    return (
+      activeIdRef.current === null &&
+      currentNewChatSessionIdRef.current !== 0 &&
+      currentNewChatSessionIdRef.current === session.sessionId
+    );
   }, []);
 
   const getActiveSession = useCallback((): ActiveStreamSession | null => {
@@ -1139,6 +1143,7 @@ export default function ChatPage({
                 return;
               }
               if (meta.conversation_id) {
+                const wasActive = isSessionActive(session);
                 const oldKey = session.tempKey;
                 session.conversationId = meta.conversation_id;
                 session.tempKey = meta.conversation_id;
@@ -1146,9 +1151,10 @@ export default function ChatPage({
                 activeStreamsRef.current.set(meta.conversation_id, session);
                 updateStreamingIds();
 
-                if (isSessionActive(session)) {
+                if (wasActive) {
                   setActiveId(meta.conversation_id);
                   activeIdRef.current = meta.conversation_id;
+                  currentNewChatSessionIdRef.current = 0;
                   saveConversationInputState(meta.conversation_id, {
                     isTranslateMode: isTranslateModeRef.current,
                     vocabTargetLang: vocabTargetLangRef.current,
@@ -1276,6 +1282,20 @@ export default function ChatPage({
               if (session.stopRequested) return;
               session.isStreamCompleted = true;
               session.doneMeta = doneMeta;
+              if (doneMeta.conversation_id && !session.conversationId) {
+                const wasActive = isSessionActive(session);
+                const oldKey = session.tempKey;
+                session.conversationId = doneMeta.conversation_id;
+                session.tempKey = doneMeta.conversation_id;
+                activeStreamsRef.current.delete(oldKey);
+                activeStreamsRef.current.set(doneMeta.conversation_id, session);
+                updateStreamingIds();
+                if (wasActive) {
+                  setActiveId(doneMeta.conversation_id);
+                  activeIdRef.current = doneMeta.conversation_id;
+                  currentNewChatSessionIdRef.current = 0;
+                }
+              }
               if (doneMeta.search_results && doneMeta.search_results.length > 0) {
                 session.searchResults = doneMeta.search_results;
                 if (isSessionActive(session)) {

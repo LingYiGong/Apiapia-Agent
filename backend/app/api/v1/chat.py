@@ -459,12 +459,20 @@ async def chat_stream(
 
     # 4. Fetch recent conversation messages using Token-Budget Sliding Window
     # When single_turn_mode is True (e.g., translation / vocab tutor), skip history context entirely
-    if getattr(chat_req, "single_turn_mode", False):
-        recent_msgs = []
-    else:
-        # Tree-aware branch message resolution
-        target_parent_id = getattr(chat_req, "parent_message_id", None)
-        regen_message_id = getattr(chat_req, "regenerate_message_id", None)
+    single_turn_mode = getattr(chat_req, "single_turn_mode", False)
+    regen_message_id = getattr(chat_req, "regenerate_message_id", None)
+    # Tree-aware branch message resolution
+    target_parent_id = getattr(chat_req, "parent_message_id", None)
+    # Always initialised: these are referenced later even when no history is loaded,
+    # so that single-turn requests never raise UnboundLocalError.
+    regen_old_asst = None
+    regen_user_msg = None
+    recent_msgs = []
+
+    # A regeneration request must still be resolved to its original user message even
+    # in single-turn mode, otherwise the same question is inserted a second time and
+    # the new answer does not fork from the regenerated one.
+    if not single_turn_mode or regen_message_id:
         all_conv_msgs = (await db.execute(
             select(Message).where(Message.conversation_id == conv_id).order_by(Message.created_at.asc())
         )).scalars().all()
@@ -476,20 +484,21 @@ async def chat_stream(
         if regen_user_msg:
             target_parent_id = regen_user_msg.parent_id
 
-        if target_parent_id and all_conv_msgs:
-            branch_chain = []
-            curr = target_parent_id
-            visited = set()
-            while curr and curr in msg_map and curr not in visited:
-                visited.add(curr)
-                node = msg_map[curr]
-                branch_chain.append(node)
-                curr = getattr(node, "parent_id", None)
-            chronological_raw_msgs = list(reversed(branch_chain)) if branch_chain else all_conv_msgs[-100:]
-        else:
-            chronological_raw_msgs = all_conv_msgs[-100:]
+        if not single_turn_mode:
+            if target_parent_id and all_conv_msgs:
+                branch_chain = []
+                curr = target_parent_id
+                visited = set()
+                while curr and curr in msg_map and curr not in visited:
+                    visited.add(curr)
+                    node = msg_map[curr]
+                    branch_chain.append(node)
+                    curr = getattr(node, "parent_id", None)
+                chronological_raw_msgs = list(reversed(branch_chain)) if branch_chain else all_conv_msgs[-100:]
+            else:
+                chronological_raw_msgs = all_conv_msgs[-100:]
 
-        recent_msgs = truncate_conversation_history_by_budget(chronological_raw_msgs, max_tokens=24576)
+            recent_msgs = truncate_conversation_history_by_budget(chronological_raw_msgs, max_tokens=24576)
 
     # 5. Retrieve relevant long-term memories if enabled (with score threshold & contextual enrichment)
     retrieved_memories = []

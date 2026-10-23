@@ -375,14 +375,30 @@ export async function streamChatResponse(
     }
   };
 
+  const onAbort = () => {
+    try {
+      void reader.cancel();
+    } catch (_) {}
+  };
+  if (opts?.signal) {
+    if (opts.signal.aborted) {
+      onAbort();
+      return;
+    }
+    opts.signal.addEventListener("abort", onAbort, { once: true });
+  }
+
   try {
     while (true) {
       if (opts?.signal?.aborted) break;
       const { done, value } = await reader.read();
       if (done) {
-        consumeText(decoder.decode(), true);
+        if (!opts?.signal?.aborted) {
+          consumeText(decoder.decode(), true);
+        }
         break;
       }
+      if (opts?.signal?.aborted) break;
       consumeText(decoder.decode(value, { stream: true }));
     }
     if (!sawDone && !sawError && !opts?.signal?.aborted) {
@@ -392,10 +408,21 @@ export async function streamChatResponse(
     // Intentional stop via AbortController: exit silently without onError
     if (e?.name === "AbortError" || opts?.signal?.aborted) {
       try {
-        reader.cancel();
+        void reader.cancel();
       } catch (_) {}
       return;
     }
+    // If 'done' was already received, the main assistant reply is complete;
+    // any network reset during trailing title/suggestions/memory events must not
+    // abort finalization or discard the completed reply.
+    if (sawDone) {
+      console.warn("SSE stream closed after 'done' event while awaiting trailing metadata:", e);
+      return;
+    }
     throw e;
+  } finally {
+    if (opts?.signal) {
+      opts.signal.removeEventListener("abort", onAbort);
+    }
   }
 }

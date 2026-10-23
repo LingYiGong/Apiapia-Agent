@@ -199,6 +199,7 @@ export default {
     streamInterrupted: "模型連線在完成事件前中斷，回答可能不完整。",
     streamUnsupported: "目前瀏覽器不支援串流回應（ReadableStream 不可用）",
     modelStreamFailed: "模型的串流回應異常終止。",
+    abortedPlaceholder: "*(使用者已中止本次回答)*",
     suggestedQuestions: "推薦追問：",
   },
 

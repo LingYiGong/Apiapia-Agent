@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.38.0-indigo?style=flat-square" alt="Version"></a>
+  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.39.0-indigo?style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
@@ -201,7 +201,30 @@ cat backup_xxx.sql | docker exec -i apiapia_postgres psql -U postgres -d apiapia
 
 ## 📜 リリースノート (Release Notes)
 
-### 🚀 最新リリース：v2.27.0 (2026-10-16)
+### 🚀 最新リリース：v2.39.0 (2026-10-23)
+
+本バージョンは**ストリーミング完了時の回答消失防止、全経路での即時「生成を停止」（Stop Generating）、思考タグ `<think>` ステートマシンのスコープ厳格化、データベース永続化の耐障害性強化、および 4 言語 i18n 辞書の完全同期**に焦点を当てたアップデートです。回答完了直後に内容が消えてしまう 6 つの競合状態を解消し、ブラウザの `ReadableStream` から Next.js プロキシ、FastAPI 非同期ジェネレーターまで中断シグナルを即座に伝播させることで、ウェブ検索・ツール実行・推論・本文生成のどの段階でも停止ボタンが即座に反応し、次のメッセージをすぐ送信できるようになりました。
+
+#### 1. 全経路での即時「生成を停止」（Stop Generating）とフリーズ解消
+- **Next.js リバースプロキシの連動中断 (`route.ts`)**：`/api/backend/[...path]` ストリームプロキシに `AbortController` を導入し、クライアント切断（`req.signal`）および `ReadableStream.cancel()` を検知した瞬間に上流 FastAPI へのリクエストを中断・解放します。
+- **ストリームリーダーの即時ブロック解除 (`api.ts`)**：`streamChatResponse` 内で `AbortSignal` に `{ once: true }` の `abort` リスナーを登録し、停止クリック時に即座に `reader.cancel()` を呼び出して待機中の `await reader.read()` を即復帰させます。
+- **UI ステートの無条件アンロック (`chat/page.tsx`)**：`getActiveSession()` のフォールバック検索を強化し、`handleStopGenerating` で `detachCurrentStreamView()` と `setRegenerating(false)` を確実に実行。最初のトークン到着前や思考途中で停止した場合も `<think>` タグを適切に閉じて多言語の中止メッセージを表示し、ボタンが固まって送信できなくなる問題を根絶しました。
+- **SSE 初回フレームでの即時メタ通知とジェネレーター解放 (`chat.py`)**：`sse_event_stream()` 開始直後に `initial_meta_chunk`（`conversation_id`・`user_message_id`）を送信し、`finally` ブロックで `next_token_task` のキャンセルと `await token_iter.aclose()` を明示的に実行します。
+
+#### 2. ストリーミング完了時の回答消失防止・ロールバック保護
+- **`done` 受信後の切断エラー無視**：SSE の `done` イベント受信後にソケット切断エラーが発生しても無視するようにし、完了済みの回答がエラーハンドラで上書きされる問題を修正しました。
+- **バックグラウンド完了時のタイマー隔離**：`finalizeSessionMessage` 内の `clearStreamIntervals()` をアクティブなフォアグラウンドセッション（`if (active)`）のみに限定し、バックグラウンドセッションの完了が現在のタイプライター表示を止めてしまう競合を防止しました。
+- **途中エラー時の部分回答保持**：ストリーミング途中で通信エラーが発生した場合でも、すでに出力された本文を消去せず末尾にエラーメッセージを追記して保持します。
+- **完了直後の再取得クールダウンとローカル状態マージ (`refreshFromServer`)**：ストリーム完了後 5 秒間のクールダウン（`lastFinalizedAtRef`）とアクティブストリーム保護を追加し、画面フォーカス時の `refreshFromServer` で `suggested_questions`・`memory_updated`・ローカル一時メッセージ（`asst_...`）が消える問題を防止しました。
+- **新規チャット作成時の下書き引き継ぎ (`ChatArea.tsx`)**：新規チャットの初回ストリーミング中に `conversationId` が割り当てられた際、入力中の下書きを `:new` から新 ID へスムーズに移行します。
+
+#### 3. `<think>` 思考ブロックのスコープ厳格化と DB 永続化の強化
+- **先頭ブロック限定の `<think>` 解析**：バックエンド（`chat.py`）とフロントエンド（`renderMessageBody.tsx`）の双方で `<think>` の解析を本文開始前の先頭ブロックのみに限定し、本文中で `<think>` タグやツール呼び出しについて言及した際に以降のテキストが消失する問題を解消しました。
+- **外部キー検証とカラム長ガード (`chat.py`)**：DB 保存前に `parent_message_id` の存在を検証して `ForeignKeyViolationError` によるロールバックを防止し、`model`・`search_query`・`finish_reason` の文字列長をスキーマ上限内に安全に切り詰めます。
+
+---
+
+### v2.27.0 (2026-10-16)
 
 本バージョンは**モデル選択器のモバイル操作性の刷新**です。长期以来「パネルが狭く、選択しにくい」という課題を抱えていたモバイル側のパネルを**全幅ボトムシート**に変更し、画面高の半分近くを占めていたカテゴリ絞り込みを**1行のチップ**に圧縮しました。その過程で「無料」フィルタが有料モデルまで含めていた不具合も是正し、不要なコードの整理も行いました。
 

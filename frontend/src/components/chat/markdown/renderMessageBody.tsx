@@ -147,16 +147,17 @@ export function sanitizeDisplayContent(raw: string): string {
 
   // 2. 标准化数学公式分界符 \[...\] -> $$...$$, \(...\) -> $...$ 以及对齐环境容错
   let cleaned = normalizeMathDelimiters(autoFormattedText)
-    // 2. 裸的工具/函数调用容器与悬空的参数标签（增加词边界 \b，避免误伤 callback, caller 等正常变量名）
-    .replace(/<\/?(?:tool(?:_call)?|func(?:tion)?(?:_call)?|action|invoke|plugin_call|code_interpreter|call)\b[\s\S]*?(?:<\/(?:tool(?:_call)?|func(?:tion)?(?:_call)?|action|invoke|plugin_call|code_interpreter|call)>)/gi, "")
+    // 2. 裸的工具/函数调用容器与悬空的参数标签（增加词边界 \b 与闭合标签回溯匹配 \1，避免误伤正常文本）
+    .replace(/<(tool(?:_call|_calls)?|func(?:tion)?(?:_call)?|action|invoke|plugin_call|code_interpreter|call)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, "")
+    .replace(/<\/?(?:tool_call|tool_calls|function_call|plugin_call|code_interpreter)\b[^>\n]*>/gi, "")
     .replace(/<\|(?:tool(?:_call|_calls)?_start|action_start|plugin_start)\|?>[\s\S]*?(?:<\|(?:tool(?:_call|_calls)?_end|action_end|plugin_end)\|?>)/gi, "")
-    .replace(/<\/?(?:arg_key|arg_value|parameter|parameters|arguments)[\s\S]*?>/gi, "")
+    .replace(/<\/?(?:arg_key|arg_value|parameter|parameters|arguments)\b[^>\n]*>/gi, "")
     .replace(/\[(?:ACTION|SEARCH|TOOL|CALL|OBSERVATION|google|search):\s*[^\]]+\]/gi, "")
     .replace(/\[(?:google|search)\([^\]]*\)\]/gi, "")
     // 3. ReAct 残留（精确定位 Agent 工具调用，避免误删科学文章中包含 Action/Observation 的段落）
     .replace(/\n\s*Action:\s*[\w_]+(?:\s*\n\s*Action Input:\s*\{[\s\S]*?\})?(?:\s*\n\s*Observation:\s*[\s\S]*?(?=\n\s*(?:Thought|Final Answer|Action):|$))?/gi, "")
-    // 4. 护栏/内容审核分类器的输出
-    .replace(/(?:Thus (?:both|all) are safe|We must output exactly that format|Safety Assessment:|Content Moderation:)[\s\S]*/gi, "")
+    // 4. 护栏/内容审核分类器的输出（仅剥离分类器单行泄漏，避免误删包含相关词汇的正常长文）
+    .replace(/(?:Thus (?:both|all) are safe|We must output exactly that format)[^\n]*(?:\n|$)/gi, "")
     .replace(/(?:(?:User|Input|Prompt|Response|Output|Assistant)\s*(?:Safety|Moderation|Guard|Risk|Category|Harm)\s*[:=]\s*\w+[\s\n\r]*)+/gi, "")
     // 5. 幻觉出的多余轮次（结尾的 User:/Human:）
     .replace(/\n+\s*(?:(?:User|Human|System)\s*:[^\n]+[\s\n\r]*)+$/gi, "")
@@ -453,9 +454,9 @@ function ThinkingBlock({
             )}
           />
           <span className="font-medium tracking-tight">
-            {hasBody
-              ? (t("chat.markdown.thoughtFinished") || "已深度思考")
-              : (t("chat.markdown.thinkingTitle") || "思考过程...")}
+            {hasBody || !streaming
+              ? t("chat.markdown.thoughtFinished")
+              : t("chat.markdown.thinkingTitle")}
           </span>
         </span>
         <span
@@ -491,22 +492,28 @@ export function renderMessageBody(
 
   const components = getMessageComponents(onImageClick);
 
-  if (content.includes("<think>")) {
-    const thinkEndIndex = content.lastIndexOf("</think>");
+  if (/^\s*<think>/i.test(content)) {
     let thought = "";
-    let mainContent = "";
+    let mainContent = content;
 
-    if (thinkEndIndex !== -1) {
-      const thinkMatches = Array.from(content.matchAll(/<think>([\s\S]*?)<\/think>/gi));
-      if (thinkMatches.length > 0) {
-        thought = thinkMatches.map((m) => m[1].trim()).filter(Boolean).join(" ");
-        mainContent = content.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
-      } else {
-        thought = content.substring(content.indexOf("<think>") + 7, thinkEndIndex).trim();
-        mainContent = content.substring(thinkEndIndex + 8).trim();
+    const leadingClosedMatch = mainContent.match(/^(?:\s*<think>([\s\S]*?)<\/think>\s*)+/i);
+    if (leadingClosedMatch) {
+      const closedBlocks = Array.from(
+        leadingClosedMatch[0].matchAll(/<think>([\s\S]*?)<\/think>/gi)
+      );
+      thought = closedBlocks.map((m) => m[1].trim()).filter(Boolean).join("\n\n");
+      mainContent = mainContent.slice(leadingClosedMatch[0].length).trim();
+
+      // If another unclosed <think> immediately follows before any visible body text starts
+      if (/^\s*<think>/i.test(mainContent) && !/<\/think>/i.test(mainContent)) {
+        const trailingThought = mainContent.replace(/^\s*<think>/i, "").trim();
+        if (trailingThought) {
+          thought = thought ? `${thought}\n\n${trailingThought}` : trailingThought;
+        }
+        mainContent = "";
       }
     } else {
-      thought = content.substring(content.indexOf("<think>") + 7).trim();
+      thought = content.replace(/^\s*<think>/i, "").trim();
       mainContent = "";
     }
 

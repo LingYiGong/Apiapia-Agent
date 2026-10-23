@@ -100,13 +100,14 @@ TITLE_GENERATION_PROMPT = (
 
 
 def _strip_thinking_blocks(text: str) -> str:
-    """Strip closed <think>...</think>, orphaned ...</think>, and unclosed <think>... blocks."""
+    """Strip closed leading <think>...</think> blocks, orphaned ...</think>, and unclosed leading <think>... blocks."""
     if not text:
         return ""
-    cleaned = re.sub(r"<think>[\s\S]*?</think>", "", str(text), flags=re.IGNORECASE).strip()
-    if "</think>" in cleaned.lower():
+    cleaned = re.sub(r"^(?:\s*<think>[\s\S]*?</think>\s*)+", "", str(text), flags=re.IGNORECASE).strip()
+    if re.match(r"^\s*<think>", cleaned, flags=re.IGNORECASE) and "</think>" not in cleaned.lower():
+        return ""
+    if "</think>" in cleaned.lower() and not re.search(r"<think>", cleaned, flags=re.IGNORECASE):
         cleaned = re.split(r"</think>", cleaned, flags=re.IGNORECASE)[-1].strip()
-    cleaned = re.sub(r"<think>[\s\S]*$", "", cleaned, flags=re.IGNORECASE).strip()
     return cleaned
 
 
@@ -451,8 +452,6 @@ LEAK_TRIGGERS = [
     "Thus both are safe",
     "Thus all are safe",
     "We must output exactly that format",
-    "Safety Assessment:",
-    "Content Moderation:",
     "\nUser:",
     "\nHuman:"
 ]
@@ -503,22 +502,28 @@ def sanitize_llm_output(text: str) -> str:
 
     # 1. Strip raw tool/function call containers and dangling arguments (without destructive |$)
     cleaned = re.sub(
-        r'<\/?(?:tool(?:_call)?|func(?:tion)?(?:_call)?|action|invoke|plugin_call|code_interpreter|call)\b[\s\S]*?(?:<\/(?:tool(?:_call)?|func(?:tion)?(?:_call)?|action|invoke|plugin_call|code_interpreter|call)>)',
+        r'<(tool(?:_call|_calls)?|func(?:tion)?(?:_call)?|action|invoke|plugin_call|code_interpreter|call)\b[^>]*>[\s\S]*?<\/\1\s*>',
+        '',
+        cleaned,
+        flags=re.IGNORECASE
+    )
+    cleaned = re.sub(
+        r'<\/?(?:tool_call|tool_calls|function_call|plugin_call|code_interpreter)\b[^>\n]*>',
         '',
         cleaned,
         flags=re.IGNORECASE
     )
     cleaned = re.sub(r'<\|(?:tool(?:_call|_calls)?_start|action_start|plugin_start)\|?>[\s\S]*?(?:<\|(?:tool(?:_call|_calls)?_end|action_end|plugin_end)\|?>)', '', cleaned, flags=re.IGNORECASE)
-    cleaned = re.sub(r'<\/?(?:arg_key|arg_value|parameter|parameters|arguments)[\s\S]*?>', '', cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r'<\/?(?:arg_key|arg_value|parameter|parameters|arguments)\b[^>\n]*>', '', cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r'\[(?:ACTION|SEARCH|TOOL|CALL|OBSERVATION|google|search):\s*[^\]]+\]', '', cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r'\[(?:google|search)\([^\]]*\)\]', '', cleaned, flags=re.IGNORECASE)
 
     # 2. Strip ReAct-style leftover traces if present without execution (scoped to avoid removing real text containing Action/Observation)
     cleaned = re.sub(r'\n\s*Action:\s*[\w_]+(?:\s*\n\s*Action Input:\s*\{[\s\S]*?\})?(?:\s*\n\s*Observation:\s*[\s\S]*?(?=\n\s*(?:Thought|Final Answer|Action):|$))?', '', cleaned, flags=re.IGNORECASE)
 
-    # 3. Strip Guardrail / Moderation classifier output
+    # 3. Strip Guardrail / Moderation classifier output (single-line scoped so normal prose is not wiped)
     cleaned = re.sub(
-        r'(?:Thus (?:both|all) are safe|We must output exactly that format|Safety Assessment:|Content Moderation:)[\s\S]*',
+        r'(?:Thus (?:both|all) are safe|We must output exactly that format)[^\n]*(?:\n|$)',
         '',
         cleaned,
         flags=re.IGNORECASE
@@ -926,6 +931,18 @@ async def chat_stream(
         effective_user_parent_id = user_msg_record.parent_id
     else:
         effective_user_parent_id = getattr(chat_req, "parent_message_id", None)
+        if effective_user_parent_id:
+            if all_conv_msgs:
+                if not any(m.id == effective_user_parent_id for m in all_conv_msgs):
+                    effective_user_parent_id = (
+                        getattr(recent_msgs[-1], "id", None)
+                        if recent_msgs
+                        else getattr(all_conv_msgs[-1], "id", None)
+                    )
+            else:
+                parent_rec = await db.get(Message, effective_user_parent_id)
+                if not parent_rec or parent_rec.conversation_id != conv_id:
+                    effective_user_parent_id = None
         if not effective_user_parent_id and recent_msgs:
             effective_user_parent_id = getattr(recent_msgs[-1], "id", None)
 
@@ -933,7 +950,7 @@ async def chat_stream(
             conversation_id=conv_id,
             role="user",
             content=saved_user_content,
-            model=model_to_use,
+            model=(model_to_use[:100] if model_to_use else None),
             prompt_tokens=user_tokens,
             parent_id=effective_user_parent_id,
             user_attachments=json.dumps(stored_attachments, ensure_ascii=False) if stored_attachments else None,
@@ -1008,6 +1025,19 @@ async def chat_stream(
         yield_allowed = True
 
         try:
+            # 0a. Immediately emit initial metadata chunk so the frontend binds conversation_id
+            # and user_message_id right away (even if the user clicks Stop during search/thinking).
+            initial_meta_chunk = {
+                "type": "meta",
+                "conversation_id": conv_id,
+                "user_message_id": user_msg_record.id,
+                "parent_id": effective_user_parent_id,
+                "model": model_to_use,
+                "retrieved_memories": retrieved_memories,
+                "created_at": user_created_at.isoformat(),
+            }
+            yield f"data: {json.dumps(initial_meta_chunk, ensure_ascii=False, default=str)}\n\n"
+
             # 0. Intelligent web search decision & context-aware query generation (ChatGPT style)
             if search_mode != "off":
                 need_search, search_query, search_queries, search_topic, search_time_range = await evaluate_and_generate_search_query(
@@ -1268,6 +1298,7 @@ async def chat_stream(
             suppressed = False
             in_thinking = False
             has_seen_thinking = False
+            has_emitted_body_text = False
             thinking_start_time = None
             thinking_end_time = None
             suppress_buf = ""
@@ -1329,6 +1360,8 @@ async def chat_stream(
                         elif len(suppress_buf) > 250:
                             # False positive: release suppressed buffer so real content is never swallowed or lost
                             suppressed = False
+                            if suppress_buf.strip():
+                                has_emitted_body_text = True
                             yield f"data: {json.dumps({'type': 'content', 'conversation_id': conv_id, 'delta': suppress_buf}, ensure_ascii=False)}\n\n"
                             suppress_buf = ""
                             stream_window = ""
@@ -1373,19 +1406,22 @@ async def chat_stream(
                                     stream_window = ""
                             continue
 
-                    # Outside thinking block: check for "<think>"
-                    if "<think>" in stream_window:
+                    # Outside thinking block: only enter "<think>" if at the very start of the reply
+                    # (before any visible body text has been emitted) so literal "<think>" in answer prose/code
+                    # never triggers an auto-appended "</think>" at stream completion.
+                    if not has_seen_thinking and not has_emitted_body_text and "<think>" in stream_window:
                         idx = stream_window.find("<think>")
                         pre_part = stream_window[:idx]
-                        if pre_part:
-                            yield f"data: {json.dumps({'type': 'content', 'conversation_id': conv_id, 'delta': pre_part}, ensure_ascii=False)}\n\n"
-                        yield f"data: {json.dumps({'type': 'content', 'conversation_id': conv_id, 'delta': '<think>'}, ensure_ascii=False)}\n\n"
-                        in_thinking = True
-                        has_seen_thinking = True
-                        if thinking_start_time is None:
-                            thinking_start_time = time.time()
-                        stream_window = stream_window[idx + len("<think>"):]
-                        continue
+                        if not pre_part.strip():
+                            if pre_part:
+                                yield f"data: {json.dumps({'type': 'content', 'conversation_id': conv_id, 'delta': pre_part}, ensure_ascii=False)}\n\n"
+                            yield f"data: {json.dumps({'type': 'content', 'conversation_id': conv_id, 'delta': '<think>'}, ensure_ascii=False)}\n\n"
+                            in_thinking = True
+                            has_seen_thinking = True
+                            if thinking_start_time is None:
+                                thinking_start_time = time.time()
+                            stream_window = stream_window[idx + len("<think>"):]
+                            continue
 
                     # Check leak triggers outside thinking
                     matched_trigger = False
@@ -1394,15 +1430,17 @@ async def chat_stream(
                             trig_pos = stream_window.find(trig)
                             safe_part = stream_window[:trig_pos]
                             if safe_part:
+                                if safe_part.strip():
+                                    has_emitted_body_text = True
                                 delta_payload = {
                                     "type": "content",
                                     "conversation_id": conv_id,
                                     "delta": safe_part
                                 }
                                 yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
+                            suppress_buf = stream_window[trig_pos:]
                             stream_window = ""
                             suppressed = True
-                            suppress_buf = token
                             matched_trigger = True
                             break
                     if matched_trigger:
@@ -1410,7 +1448,9 @@ async def chat_stream(
 
                     # Check if stream_window ends with a prefix of "<think>" or a tool call trigger (min prefix length: 2)
                     hold_back = 0
-                    candidate_prefixes = ["<think>", "<|tool", "<|plugin", "<|action", "<tool_call", "<function_call", "[ACTION:", "[SEARCH:"]
+                    candidate_prefixes = ["<|tool", "<|plugin", "<|action", "<tool_call", "<function_call", "[ACTION:", "[SEARCH:"]
+                    if not has_seen_thinking and not has_emitted_body_text:
+                        candidate_prefixes.insert(0, "<think>")
                     for trig in candidate_prefixes:
                         for i in range(len(trig) - 1, 1, -1):
                             if stream_window.endswith(trig[:i]):
@@ -1422,6 +1462,8 @@ async def chat_stream(
                         if safe_len > 0:
                             to_send = stream_window[:safe_len]
                             stream_window = stream_window[safe_len:]
+                            if to_send.strip():
+                                has_emitted_body_text = True
                             delta_payload = {
                                 "type": "content",
                                 "conversation_id": conv_id,
@@ -1430,6 +1472,8 @@ async def chat_stream(
                             yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
                     else:
                         if stream_window:
+                            if stream_window.strip():
+                                has_emitted_body_text = True
                             delta_payload = {
                                 "type": "content",
                                 "conversation_id": conv_id,
@@ -1457,6 +1501,16 @@ async def chat_stream(
             finally:
                 if next_token_task and not next_token_task.done():
                     next_token_task.cancel()
+                    try:
+                        await next_token_task
+                    except (asyncio.CancelledError, StopAsyncIteration, Exception):
+                        pass
+                aclose_fn = getattr(token_iter, "aclose", None)
+                if callable(aclose_fn):
+                    try:
+                        await aclose_fn()
+                    except Exception:
+                        pass
 
             # Ensure <think> tag is cleanly closed if model aborted mid-thought
             if in_thinking:
@@ -1587,6 +1641,11 @@ async def chat_stream(
         if actual_model_id and actual_model_id.lower() != model_to_use.lower():
             clean_sub_model = actual_model_id.split("/")[-1].replace(":free", "")
             recorded_model_name = f"{model_to_use} ({clean_sub_model})"
+        if recorded_model_name and len(recorded_model_name) > 100:
+            recorded_model_name = recorded_model_name[:100]
+
+        safe_search_query = (search_query[:255] if search_query else None) if need_search else None
+        safe_finish_reason = (finish_reason[:20] if finish_reason else "stop")
 
         async def _save_assistant_reply() -> Optional[str]:
             try:
@@ -1609,9 +1668,9 @@ async def chat_stream(
                         completion_tokens=completion_tokens,
                         duration_ms=duration_ms,
                         thinking_duration_ms=thinking_duration_ms,
-                        finish_reason=finish_reason,
+                        finish_reason=safe_finish_reason,
                         search_results=json.dumps(search_results, ensure_ascii=False) if search_results else None,
-                        search_query=search_query if need_search else None,
+                        search_query=safe_search_query,
                         tool_invocations=json.dumps(tool_invocations, ensure_ascii=False) if tool_invocations else None,
                         generated_images=json.dumps(generated_images, ensure_ascii=False) if generated_images else None,
                         generated_videos=json.dumps(generated_videos, ensure_ascii=False) if generated_videos else None,
@@ -1704,6 +1763,7 @@ async def chat_stream(
             "conversation_id": conv_id,
             "message_id": assistant_message_id,
             "parent_id": user_msg_record.id,
+            "content": assistant_content,
             "model": recorded_model_name,
             "duration_ms": duration_ms,
             "ttft_ms": ttft_ms,
@@ -1714,7 +1774,7 @@ async def chat_stream(
             "created_at": reply_created_at.isoformat(),
             "finish_reason": finish_reason,
             "search_results": search_results if search_results else None,
-            "search_query": search_query if need_search else None,
+            "search_query": safe_search_query,
             "search_answer": search_answer,
             "tool_invocations": tool_invocations if tool_invocations else None,
             "generated_images": generated_images if generated_images else None,

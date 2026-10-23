@@ -309,9 +309,28 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   }, []);
 
   const draftKey = conversationId ? `apiapia_chat_draft:${conversationId}` : "apiapia_chat_draft:new";
+  const prevConvIdRef = useRef<string | null>(conversationId);
 
   // 切换 / 新建对话时按新会话恢复草稿，并把输入框高度与临时附件/引用状态一并复位。
+  // 注意：若是从新对话 (null) 首次获得后端分配的 conversationId（当前已有消息或正在流式输出），
+  // 属于同一会话就地绑定 ID，不应清空用户此时正在输入的草稿或附件。
   React.useEffect(() => {
+    const prevConvId = prevConvIdRef.current;
+    prevConvIdRef.current = conversationId;
+    const isBindingNewChatId =
+      prevConvId === null && conversationId !== null && (messages.length > 0 || isStreaming);
+
+    if (isBindingNewChatId) {
+      try {
+        const pendingDraft = localStorage.getItem("apiapia_chat_draft:new");
+        if (pendingDraft) {
+          localStorage.setItem(draftKey, pendingDraft);
+          localStorage.removeItem("apiapia_chat_draft:new");
+        }
+      } catch (_) {}
+      return;
+    }
+
     let saved = "";
     try {
       saved = localStorage.getItem(draftKey) || "";
@@ -322,7 +341,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     setAttachments([]);
     setActiveQuote(null);
     setShowCommandsMenu(false);
-  }, [draftKey]);
+  }, [draftKey, conversationId, messages.length, isStreaming]);
 
   const updateInput = React.useCallback(
     (next: string) => {

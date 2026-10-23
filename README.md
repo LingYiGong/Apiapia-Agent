@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.38.0-indigo?style=flat-square" alt="Version"></a>
+  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.39.0-indigo?style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
@@ -225,7 +225,30 @@ cat backup_xxx.sql | docker exec -i apiapia_postgres psql -U postgres -d apiapia
 
 ## 📜 Releases & Changelog
 
-### 🚀 Latest Release: v2.38.0 (2026-10-22)
+### 🚀 Latest Release: v2.39.0 (2026-10-23)
+
+This release focuses on **streaming completion reliability (preventing replies from suddenly disappearing), instant end-to-end "Stop Generating" abort propagation, scoped `<think>` reasoning state-machine hardening, database persistence safeguards, and four-language i18n alignment**. We audited and eliminated six race conditions that could cause an assistant reply to vanish right upon completion, fixed the "Stop Generating" button getting stuck during web search, tool execution, or first-token latency, and hardened both the Next.js API proxy and FastAPI SSE stream lifecycle.
+
+#### 1. Instant End-to-End "Stop Generating" Abort Propagation
+- **Next.js Reverse Proxy Stream Cancellation (`route.ts`)**: Forwarded client disconnect signals (`req.signal` and `ReadableStream.cancel()`) via an `AbortController` to immediately abort the upstream FastAPI `fetch` request and cancel the upstream reader.
+- **Immediate Client Reader Unblocking (`api.ts`)**: Registered a `{ once: true }` `"abort"` listener on `AbortSignal` inside `streamChatResponse` to invoke `reader.cancel()` immediately, unblocking pending `await reader.read()` calls the instant the user clicks Stop.
+- **Unconditional UI State Unlock (`chat/page.tsx`)**: Hardened `handleStopGenerating` with fallback session resolution and unconditional `detachCurrentStreamView()` / `setRegenerating(false)` resets so the composer never gets stuck in a disabled state; stopping before the first token or mid-thinking now cleanly finalizes the message with a localized aborted indicator.
+- **Immediate Initial Meta Frame & Generator Cleanup (`chat.py`)**: Emits `initial_meta_chunk` (`conversation_id` and `user_message_id`) as the very first SSE frame before search evaluation or media generation, and explicitly awaits task cancellation plus `await token_iter.aclose()` in the `finally` block.
+
+#### 2. Anti-Disappearing Reply & Streaming Completion Safeguards
+- **Post-`done` Trailing Error Immunity**: Ignored socket-close errors in `streamChatResponse` once the SSE `done` event has already been received (`sawDone`), preventing completed replies from being overwritten by a trailing error handler.
+- **Background Stream Timer Isolation**: Scoped `clearStreamIntervals()` inside `finalizeSessionMessage` to active foreground sessions (`if (active)`) so a finishing background stream never kills the foreground session's typewriter timer.
+- **Partial Content Retention on Mid-Stream Error**: If a network interruption occurs mid-stream after partial text has already been generated, the partial reply is preserved with the error appended below instead of wiping out the entire message.
+- **Post-Finalization Resume Cooldown & Local State Preservation**: Added a 5-second cooldown (`lastFinalizedAtRef`) and active-stream guard to `refreshFromServer` (`visibilitychange` / `focus`), while merging local `suggested_questions`, `memory_updated`, and unsaved local assistant messages (`asst_...`) so server refreshes never erase newly completed replies.
+- **New-Chat Draft Preservation**: Preserved composer drafts (`apiapia_chat_draft:new` → `apiapia_chat_draft:${conversationId}`) when a brand-new chat receives its first `conversationId` mid-stream.
+
+#### 3. Scoped `<think>` State Machine & Database Persistence Hardening
+- **Leading-Only `<think>` Parsing**: Restricted `<think>` tag state transitions in both backend (`chat.py`) and frontend (`renderMessageBody.tsx`) to the leading reasoning block before visible body text begins, and removed greedy mid-body regexes so discussing `<think>` tags or tool calls in normal prose never swallows the rest of the reply.
+- **Foreign-Key Validation & Column Length Guards**: Validated `parent_message_id` against existing messages in the conversation before inserting into PostgreSQL (eliminating `ForeignKeyViolationError` when a client passes a local temporary ID) and truncated `model`, `search_query`, and `finish_reason` to their exact schema limits.
+
+---
+
+### v2.38.0 (2026-10-22)
 
 This release brings **full alignment with ChatGPT core interaction paradigms: multi-version conversation branch trees, non-destructive regeneration with version paging, ChatGPT Custom Instructions, real-time memory extraction badges, 16ms high-refresh smooth typewriter, and smart long-text attachment folding**. The conversation architecture now models messages as an interconnected tree using `parent_id`. Triggering "Regenerate" no longer truncates past turns or injects duplicate user bubbles; instead, it derives an alternate assistant branch under the original user prompt with `< 1 / 2 >` version pagination. Custom Instructions allow users to specify "About You" and "Response Preferences" in Settings, which are persisted and dynamically injected into the developer/system context across all sessions. Real-time memory extraction badges surface remembered facts immediately above assistant replies with toast alerts, and pasting massive text or code snippets automatically converts into clean attachment cards.
 

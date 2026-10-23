@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.38.0-indigo?style=flat-square" alt="Version"></a>
+  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.39.0-indigo?style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
@@ -200,7 +200,30 @@ cat backup_xxx.sql | docker exec -i apiapia_postgres psql -U postgres -d apiapia
 
 ## 📜 版本發布與更新說明 (Release Notes)
 
-### 🚀 最新版本：v2.27.0 (2026-10-16)
+### 🚀 最新版本：v2.39.0 (2026-10-23)
+
+本版本聚焦於 **串流輸出完成防丟字加固、全鏈路即時「停止產生」（Stop Generating）、深度思考 `<think>` 狀態機精準作用域化、資料庫外鍵與欄長容錯保護以及四語國際化同步對齊**。系統性排查並根除了模型回覆剛結束時偶發整段內容突然消失的 6 類競態隱患，徹底打通了從瀏覽器 `ReadableStream`、Next.js 反向代理到 FastAPI 非同步產生器的全鏈路中斷訊號傳遞，確保在聯網檢索、工具呼叫、深度思考或正文產生任意階段點擊「停止產生」均能毫秒級即時回應並立即恢復對話輸入。
+
+#### 1. 全鏈路即時「停止產生」（Stop Generating）與防卡死修復
+- **Next.js 反向代理級聯中斷 (`route.ts`)**：在 `/api/backend/[...path]` 串流代理中新增 `AbortController`，同時監聽客戶端斷開訊號（`req.signal`）與下游 `ReadableStream.cancel()`，一旦前端點擊停止立即級聯中止上游 FastAPI 請求並釋放讀取鎖。
+- **前端串流讀取器零延遲解阻塞 (`api.ts`)**：在 `streamChatResponse` 中為 `AbortSignal` 註冊 `{ once: true }` 一次性 `abort` 監聽器，觸發時立即呼叫 `reader.cancel()`，使阻塞在等待首字或慢速推理中的 `await reader.read()` 瞬間返回。
+- **UI 狀態無條件兜底解鎖 (`chat/page.tsx`)**：增強 `getActiveSession()` 會話回退查找，並在 `handleStopGenerating` 中無條件執行 `detachCurrentStreamView()` 與 `setRegenerating(false)`；在首字到達前或思考中途點擊停止時，自動閉合 `<think>` 標籤並產生多語言中止提示，徹底杜絕停止按鈕卡死、無法繼續發訊息的問題。
+- **SSE 首幀即時綁定與底層產生器清理 (`chat.py`)**：後端進入 `sse_event_stream()` 首幀即刻下發 `initial_meta_chunk`（含 `conversation_id` 與 `user_message_id`），無需等待聯網評估或生圖完成即可綁定會話；並在 `finally` 區塊中明確取消掛起的 `next_token_task` 並呼叫 `await token_iter.aclose()` 釋放上游大模型連線。
+
+#### 2. 串流輸出完成防吞字與防回滾保護
+- **忽略 `done` 事件後的連線關閉尾隨異常**：修復部分代理或瀏覽器在 SSE `done` 事件下發後關閉連線拋出網路異常、進而觸發 `onError` 把已完成的回覆覆蓋為空或錯誤氣泡的問題。
+- **背景串流完成計時器隔離**：在 `finalizeSessionMessage` 中將 `clearStreamIntervals()` 嚴格限定在目前前景激活會話（`if (active)`），防止背景會話剛好產生完畢時誤殺目前前景會話正在執行的打字機計時器。
+- **串流中途異常保留已產生正文**：當串流輸出中途發生網路中斷且已輸出部分正文時，完整保留已產生的半截回覆並在末尾追加錯誤說明，不再將整條回覆清空。
+- **串流結束冷卻期與本機狀態合併保護 (`refreshFromServer`)**：新增 5 秒串流完成冷卻期（`lastFinalizedAtRef`）與活躍串流守衛，防止串流剛結束時視窗聚焦觸發 `refreshFromServer` 拉取到尚未落庫的舊列表；同時在拉取合併時保留本機 `suggested_questions`、`memory_updated` 以及未落庫的本機臨時訊息（`asst_...`）。
+- **新建對話串流草稿平滑遷移 (`ChatArea.tsx`)**：新建對話首輪串流收到後端分配的 `conversationId` 時，自動將輸入框中的草稿從 `:new` 平滑遷移至新對話 ID，防止串流期間正在輸入的下一條草稿被清空。
+
+#### 3. `<think>` 思考狀態機精準作用域化與資料庫持久化加固
+- **僅限開頭引導區的 `<think>` 狀態機**：前後端統一將 `<think>` 解析約束在可見正文開始前的引導思考區塊內，並移除 `sanitizeDisplayContent` 對程式碼區塊外部正文的貪婪正則，徹底杜絕模型在正文中舉例討論 `<think>` 標籤、工具呼叫或安全規則時整段回覆被吞空。
+- **資料庫外鍵校驗與欄長截斷保護 (`chat.py`)**：訊息入庫前動態校驗前端傳入的 `parent_message_id` 是否真實存在於目前對話（消除前端傳入臨時 ID 引發的 `ForeignKeyViolationError` 交易回滾），並對 `model`、`search_query`、`finish_reason` 執行欄寬安全截斷，確保模型回覆 100% 可靠落庫。
+
+---
+
+### v2.27.0 (2026-10-16)
 
 本版本是一次聚焦於**模型選擇器行動端互動重構**的重要更新。針對行動端「面板太窄、點選不便」的長期痛點，選擇器在手機端改為**通欄底部抽屜**，分類篩選由佔掉近半螢幕的直排列表**壓縮為單行膠囊**，並順帶修正了「免費」分組把低價付費模型混入其中的語義缺陷，同時完成一輪死程式碼清理。
 

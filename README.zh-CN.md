@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.38.0-indigo?style=flat-square" alt="Version"></a>
+  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.39.0-indigo?style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
@@ -224,7 +224,30 @@ cat backup_xxx.sql | docker exec -i apiapia_postgres psql -U postgres -d apiapia
 
 ## 📜 版本发布与更新说明 (Release Notes)
 
-### 🚀 最新版本：v2.38.0 (2026-10-22)
+### 🚀 最新版本：v2.39.0 (2026-10-23)
+
+本版本聚焦于 **流式输出完成防丢字加固、全链路即时「停止生成」（Stop Generating）、深度思考 `<think>` 状态机精准作用域化、数据库外键与列长容错保护以及四语国际化同步对齐**。系统性排查并根除了模型回复刚结束时偶发整段内容突然消失的 6 类竞态隐患，彻底打通了从浏览器 `ReadableStream`、Next.js 反向代理到 FastAPI 异步生成器的全链路中断信号传递，确保在联网检索、工具调用、深度思考或正文生成任意阶段点击「停止生成」均能毫秒级即时响应并立即恢复对话输入。
+
+#### 1. 全链路即时「停止生成」（Stop Generating）与防卡死修复
+- **Next.js 反向代理级联中断 (`route.ts`)**：在 `/api/backend/[...path]` 流式代理中新增 `AbortController`，同时监听客户端断开信号（`req.signal`）与下游 `ReadableStream.cancel()`，一旦前端点击停止立即级联中止上游 FastAPI 请求并释放读取锁。
+- **前端流读取器零延迟解阻塞 (`api.ts`)**：在 `streamChatResponse` 中为 `AbortSignal` 注册 `{ once: true }` 一次性 `abort` 监听器，触发时立即调用 `reader.cancel()`，使阻塞在等待首字或慢速推理中的 `await reader.read()` 瞬间返回。
+- **UI 状态无条件兜底解锁 (`chat/page.tsx`)**：增强 `getActiveSession()` 会话回退查找，并在 `handleStopGenerating` 中无条件执行 `detachCurrentStreamView()` 与 `setRegenerating(false)`；在首字到达前或思考中途点击停止时，自动闭合 `<think>` 标签并生成多语言中止提示，彻底杜绝停止按钮卡死、无法继续发消息的问题。
+- **SSE 首帧即时绑定与底层生成器清理 (`chat.py`)**：后端进入 `sse_event_stream()` 首帧即刻下发 `initial_meta_chunk`（含 `conversation_id` 与 `user_message_id`），无需等待联网评估或生图完成即可绑定会话；并在 `finally` 块中显式取消挂起的 `next_token_task` 并调用 `await token_iter.aclose()` 释放上游大模型连接。
+
+#### 2. 流式输出完成防吞字与防回滚保护
+- **忽略 `done` 事件后的连接关闭尾随异常**：修复部分代理或浏览器在 SSE `done` 事件下发后关闭连接抛出网络异常、进而触发 `onError` 把已完成的回复覆盖为空或错误气泡的问题。
+- **后台流完成定时器隔离**：在 `finalizeSessionMessage` 中将 `clearStreamIntervals()` 严格限定在当前前台激活会话（`if (active)`），防止后台会话刚好生成完毕时误杀当前前台会话正在运行的打字机定时器。
+- **流式中途异常保留已生成正文**：当流式输出中途发生网络中断且已输出部分正文时，完整保留已生成的半截回复并在末尾追加错误说明，不再将整条回复清空。
+- **流结束冷却期与本地状态合并保护 (`refreshFromServer`)**：新增 5 秒流完成冷却期（`lastFinalizedAtRef`）与活跃流守卫，防止流刚结束时窗口聚焦触发 `refreshFromServer` 拉取到尚未落库的旧列表；同时在拉取合并时保留本地 `suggested_questions`、`memory_updated` 以及未落库的本地临时消息（`asst_...`）。
+- **新建会话流式草稿平滑迁移 (`ChatArea.tsx`)**：新建会话首轮流式收到后端分配的 `conversationId` 时，自动将输入框中的草稿从 `:new` 平滑迁移至新会话 ID，防止流式期间正在输入的下一条草稿被清空。
+
+#### 3. `<think>` 思考状态机精准作用域化与数据库持久化加固
+- **仅限头部引导区的 `<think>` 状态机**：前后端统一将 `<think>` 解析约束在可见正文开始前的引导思考块内，并移除 `sanitizeDisplayContent` 对代码块外部正文的贪婪正则，彻底杜绝模型在正文中举例讨论 `<think>` 标签、工具调用或安全规则时整段回复被吞空。
+- **数据库外键校验与列长截断保护 (`chat.py`)**：消息入库前动态校验前端传入的 `parent_message_id` 是否真实存在于当前会话（消除前端传入临时 ID 引发的 `ForeignKeyViolationError` 事务回滚），并对 `model`、`search_query`、`finish_reason` 执行列宽安全截断，确保模型回复 100% 可靠落库。
+
+---
+
+### v2.38.0 (2026-10-22)
 
 本版本聚焦于 **ChatGPT 级交互体验全方位对齐：多版本对话分支树、同级重新生成翻页、ChatGPT 自定义指令（Custom Instructions）、长期记忆实时沉淀与更新反馈、16ms 极速微步打字机与大文本自动卡片折叠**。重构对话树状血缘架构，点击「重新生成」时不再粗暴删除原回答或发送重复提问气泡，而是以相同提问为根派生新回答分支，并通过 `< 1 / 2 >` 版本指示器在多版本回答间无缝翻页；全新引入 ChatGPT 自定义指令系统，用户可在设置中心录入背景信息与回答风格偏好，后端持久化并全局自动注入 System Prompt；模型回答上方实时展示长期记忆沉淀紫色徽标与即时通知；打字机刷新率提升至 16ms 极速微步，结合柔光呼吸脉冲光标带来极致丝滑流式阅读体验；超长文本/代码粘贴自动转化为附件卡片保持输入框清爽；全站四国语言严格类型对齐。
 

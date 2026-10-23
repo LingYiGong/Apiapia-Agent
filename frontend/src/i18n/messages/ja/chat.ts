@@ -201,6 +201,7 @@ export default {
     streamInterrupted: "完了イベントの前に接続が切れました。回答が途中で止まっている可能性があります。",
     streamUnsupported: "このブラウザはストリーミング応答に対応していません（ReadableStream が利用不可）",
     modelStreamFailed: "モデルのストリームが予期せず終了しました。",
+    abortedPlaceholder: "*(ユーザーにより回答の生成が停止されました)*",
     suggestedQuestions: "おすすめの質問：",
   },
 

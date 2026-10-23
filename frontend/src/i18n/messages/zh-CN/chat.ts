@@ -214,6 +214,7 @@ export default {
     streamInterrupted: "模型连接在完成事件前中断，回答可能不完整。",
     streamUnsupported: "当前浏览器不支持流式响应（ReadableStream 不可用）",
     modelStreamFailed: "模型流式响应异常终止。",
+    abortedPlaceholder: "*(用户已中止本次回答)*",
     suggestedQuestions: "推荐追问：",
   },
 

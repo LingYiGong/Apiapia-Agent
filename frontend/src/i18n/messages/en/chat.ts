@@ -201,6 +201,7 @@ export default {
     streamInterrupted: "The model connection ended before completion; the answer may be incomplete.",
     streamUnsupported: "This browser can't handle streaming responses (ReadableStream unavailable)",
     modelStreamFailed: "The model's stream ended unexpectedly.",
+    abortedPlaceholder: "*(Generation stopped by user)*",
     suggestedQuestions: "Suggested follow-ups:",
   },
 

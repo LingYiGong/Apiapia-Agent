@@ -330,6 +330,7 @@ export default function ChatPage({
   const streamSessionIdRef = useRef<number>(0);
   const activeStreamsRef = useRef<Map<string, ActiveStreamSession>>(new Map());
   const currentNewChatSessionIdRef = useRef<number>(0);
+  const lastFinalizedAtRef = useRef<number>(0);
   const [streamingConversationIds, setStreamingConversationIds] = useState<string[]>([]);
 
   const isSessionActive = useCallback((session: ActiveStreamSession) => {
@@ -346,7 +347,15 @@ export default function ChatPage({
   const getActiveSession = useCallback((): ActiveStreamSession | null => {
     const currentId = activeIdRef.current;
     if (currentId) {
-      return activeStreamsRef.current.get(currentId) || null;
+      const direct = activeStreamsRef.current.get(currentId);
+      if (direct) return direct;
+      let byConv: ActiveStreamSession | null = null;
+      activeStreamsRef.current.forEach((session) => {
+        if (!byConv && !session.finalized && session.conversationId === currentId) {
+          byConv = session;
+        }
+      });
+      if (byConv) return byConv;
     }
     if (currentNewChatSessionIdRef.current) {
       let found: ActiveStreamSession | null = null;
@@ -355,9 +364,17 @@ export default function ChatPage({
           found = session;
         }
       });
-      return found;
+      if (found) return found;
     }
-    return null;
+    let fallback: ActiveStreamSession | null = null;
+    activeStreamsRef.current.forEach((session) => {
+      if (!fallback && !session.finalized && !session.stopRequested) {
+        if (!currentId && !session.conversationId) {
+          fallback = session;
+        }
+      }
+    });
+    return fallback;
   }, []);
 
   const updateStreamingIds = useCallback(() => {
@@ -646,15 +663,20 @@ export default function ChatPage({
   }, [user]);
 
   const finalizeSessionMessage = useCallback(
-    (session: ActiveStreamSession) => {
+    (session: ActiveStreamSession, forceActive = false) => {
       if (session.finalized) return;
       if (session.stopRequested && session.isStreamCompleted === false) return;
       session.finalized = true;
+      lastFinalizedAtRef.current = Date.now();
 
-      clearStreamIntervals();
+      const active = forceActive || isSessionActive(session);
+      if (active) {
+        clearStreamIntervals();
+      }
 
       const doneMeta = session.doneMeta;
-      const finalContent = session.targetContent || session.displayedContent;
+      let finalContent =
+        session.targetContent || session.displayedContent || doneMeta?.content || "";
 
       const finalThinkingMs =
         session.firstTokenTime && session.startTime
@@ -675,20 +697,28 @@ export default function ChatPage({
         (generatedImages && generatedImages.length > 0) ||
         (generatedVideos && generatedVideos.length > 0);
 
-      const active = isSessionActive(session);
+      if (session.stopRequested) {
+        const abortedText = t("chat.message.abortedPlaceholder");
+        if (!finalContent.trim() && !hasMedia) {
+          finalContent = abortedText;
+        } else if (/^\s*<think>/i.test(finalContent) && !/<\/think>/i.test(finalContent)) {
+          finalContent = `${finalContent}\n</think>\n\n${abortedText}`;
+        }
+      }
 
       if (active && (finalContent.trim() || hasMedia)) {
         const assistantMsgId = doneMeta?.message_id || `asst_${Date.now()}`;
+        const parentMsgId = doneMeta?.parent_id || session.userMessage?.id;
         setSelectedLeafId(assistantMsgId);
-        if (session.userMessage?.id) {
-          setBranchSelections((prev) => ({ ...prev, [session.userMessage.id!]: assistantMsgId }));
+        if (parentMsgId) {
+          setBranchSelections((prev) => ({ ...prev, [parentMsgId]: assistantMsgId }));
         }
         setMessages((prev) => [
           ...prev,
           {
             role: "assistant",
             id: assistantMsgId,
-            parent_id: doneMeta?.parent_id || session.userMessage?.id,
+            parent_id: parentMsgId,
             memory_updated: session.memoryUpdated,
             content: finalContent,
             model: doneMeta?.model || session.model || currentModel,
@@ -711,6 +741,7 @@ export default function ChatPage({
 
       if (active) {
         setIsStreaming(false);
+        setRegenerating(false);
         setStreamStartedAt(null);
         setIsWaitingForFirstToken(false);
         setStreamingContent("");
@@ -725,7 +756,7 @@ export default function ChatPage({
       updateStreamingIds();
       loadConversations();
     },
-    [clearStreamIntervals, isSessionActive, currentModel, updateStreamingIds, loadConversations]
+    [clearStreamIntervals, isSessionActive, currentModel, updateStreamingIds, loadConversations, t]
   );
 
   const startTypewriter = useCallback(
@@ -805,6 +836,9 @@ export default function ChatPage({
     const activeStream = activeStreamsRef.current.get(id);
     if (activeStream && !activeStream.finalized) {
       setLoadingMessages(false);
+      if (activeStream.userMessage?.id) {
+        setSelectedLeafId(activeStream.userMessage.id);
+      }
       setMessages([...activeStream.baseMessages, activeStream.userMessage]);
       if (activeStream.retrievedMemories && activeStream.retrievedMemories.length > 0) {
         setRetrievedMemories(activeStream.retrievedMemories);
@@ -1063,6 +1097,16 @@ export default function ChatPage({
           } catch (_) {}
           activeStreamsRef.current.delete(currentConvId);
         }
+      } else if (currentNewChatSessionIdRef.current) {
+        activeStreamsRef.current.forEach((existing, key) => {
+          if (existing.sessionId === currentNewChatSessionIdRef.current && !existing.finalized) {
+            existing.stopRequested = true;
+            try {
+              existing.abortController.abort();
+            } catch (_) {}
+            activeStreamsRef.current.delete(key);
+          }
+        });
       }
 
       const currentSessionId = ++streamSessionIdRef.current;
@@ -1074,12 +1118,13 @@ export default function ChatPage({
       const effectiveModel = extraOptions?.modelOverride || currentModel;
 
       const activeMsgs = messagesRef.current;
-      const effectiveParentId =
+      const localParentId =
         extraOptions?.parentMessageId !== undefined
           ? extraOptions.parentMessageId
           : activeMsgs.length > 0
           ? activeMsgs[activeMsgs.length - 1].id
           : undefined;
+      const effectiveParentId = currentConvId ? localParentId : undefined;
 
       const isRegenerate = Boolean(extraOptions?.regenerateMessageId);
       const clientMsgId = `client_msg_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
@@ -1106,7 +1151,7 @@ export default function ChatPage({
           content: (text || "").trim(),
           attachments: attachments && attachments.length > 0 ? attachments : undefined,
           model: effectiveModel,
-          parent_id: effectiveParentId,
+          parent_id: localParentId,
           created_at: new Date().toISOString(),
         };
         if (userMsg.id) {
@@ -1119,18 +1164,18 @@ export default function ChatPage({
           content: (text || "").trim(),
           attachments: attachments && attachments.length > 0 ? attachments : undefined,
           model: effectiveModel,
-          parent_id: effectiveParentId,
+          parent_id: localParentId,
           created_at: new Date().toISOString(),
         };
         setSelectedLeafId(clientMsgId);
-        if (effectiveParentId) {
-          setBranchSelections((prev) => ({ ...prev, [effectiveParentId]: clientMsgId }));
+        if (localParentId) {
+          setBranchSelections((prev) => ({ ...prev, [localParentId]: clientMsgId }));
         } else {
           setBranchSelections((prev) => ({ ...prev, __root__: clientMsgId }));
         }
         setMessages((prev) => [...prev, userMsg]);
       }
-      const baseMessages = [...messagesRef.current];
+      const baseMessages = allMessagesRef.current.filter((m) => m.id !== userMsg.id);
 
       if (currentConvId) {
         const nowIso = new Date().toISOString();
@@ -1234,6 +1279,18 @@ export default function ChatPage({
               if (session.stopRequested) return;
               if (data?.facts && data.facts.length > 0) {
                 session.memoryUpdated = data.facts;
+                if (isSessionActive(session)) {
+                  setMessages((prev) => {
+                    for (let i = prev.length - 1; i >= 0; i--) {
+                      if (prev[i]?.role === "assistant") {
+                        const next = prev.slice();
+                        next[i] = { ...prev[i], memory_updated: data.facts };
+                        return next;
+                      }
+                    }
+                    return prev;
+                  });
+                }
                 toast.success(t("chat.memory.updated") || "🧠 记忆已更新", {
                   description: data.facts.join("；"),
                   duration: 4500,
@@ -1259,22 +1316,21 @@ export default function ChatPage({
               }
             },
             onMeta: (meta) => {
-              if (session.stopRequested) {
-                if (meta.conversation_id) {
-                  loadConversations();
-                }
-                return;
-              }
+              const wasActive = isSessionActive(session);
               if (meta.conversation_id) {
-                const wasActive = isSessionActive(session);
+                const isNewConvId = session.conversationId !== meta.conversation_id;
                 const oldKey = session.tempKey;
                 session.conversationId = meta.conversation_id;
                 session.tempKey = meta.conversation_id;
-                activeStreamsRef.current.delete(oldKey);
-                activeStreamsRef.current.set(meta.conversation_id, session);
-                updateStreamingIds();
+                if (!session.finalized && !session.stopRequested) {
+                  activeStreamsRef.current.delete(oldKey);
+                  activeStreamsRef.current.set(meta.conversation_id, session);
+                  updateStreamingIds();
+                } else {
+                  activeStreamsRef.current.delete(oldKey);
+                }
 
-                if (wasActive) {
+                if (wasActive && !activeIdRef.current) {
                   setActiveId(meta.conversation_id);
                   activeIdRef.current = meta.conversation_id;
                   currentNewChatSessionIdRef.current = 0;
@@ -1284,7 +1340,12 @@ export default function ChatPage({
                     creationMode: creationModeRef.current,
                   });
                 }
-                loadConversations();
+                if (isNewConvId) {
+                  loadConversations();
+                }
+              }
+              if (session.stopRequested) {
+                return;
               }
               if (meta.retrieved_memories && meta.retrieved_memories.length > 0) {
                 session.retrievedMemories = meta.retrieved_memories;
@@ -1292,10 +1353,10 @@ export default function ChatPage({
                   setRetrievedMemories(meta.retrieved_memories);
                 }
               }
-              if (meta.user_message_id) {
+              if (meta.user_message_id && session.userMessage.id !== meta.user_message_id) {
                 const userMsgId = meta.user_message_id;
                 const oldTempId = session.userMessage.id;
-                session.userMessage.id = userMsgId;
+                session.userMessage = { ...session.userMessage, id: userMsgId };
                 if (isSessionActive(session)) {
                   setSelectedLeafId((currLeaf: string | null): string | null => (currLeaf === oldTempId ? userMsgId : currLeaf));
                   setBranchSelections((prev) => {
@@ -1391,19 +1452,60 @@ export default function ChatPage({
               session.targetContent += token;
             },
             onError: (err) => {
+              if (session.finalized) return;
+              if (session.doneMeta) {
+                finalizeSessionMessage(session);
+                return;
+              }
               session.isStreamCompleted = true;
+              session.finalized = true;
+              lastFinalizedAtRef.current = Date.now();
               if (isSessionActive(session)) {
                 clearStreamIntervals();
                 setIsStreaming(false);
                 setStreamStartedAt(null);
                 setIsWaitingForFirstToken(false);
+                setStreamingContent("");
                 setSearchStatus({ state: "idle" });
+                setStreamingSearchResults(null);
+
+                const partialContent = (session.targetContent || session.displayedContent || "").trim();
+                const errText = err || t("chat.message.backendUnknownError");
+                const combinedContent = partialContent
+                  ? `${partialContent}\n\n---\n\n${errText}`
+                  : errText;
+                const assistantMsgId = `err_asst_${Date.now()}`;
+                const parentMsgId = session.userMessage?.id;
+                setSelectedLeafId(assistantMsgId);
+                if (parentMsgId) {
+                  setBranchSelections((prev) => ({ ...prev, [parentMsgId]: assistantMsgId }));
+                }
                 setMessages((prev) => [
                   ...prev,
                   {
                     role: "assistant",
-                    content: err || t("chat.message.backendUnknownError"),
+                    id: assistantMsgId,
+                    parent_id: parentMsgId,
+                    content: combinedContent,
+                    model: session.model || currentModel,
+                    search_results:
+                      session.searchResults && session.searchResults.length > 0
+                        ? session.searchResults
+                        : undefined,
+                    toolInvocations:
+                      session.toolInvocations && session.toolInvocations.length > 0
+                        ? [...session.toolInvocations]
+                        : undefined,
+                    generatedImages:
+                      session.generatedImages && session.generatedImages.length > 0
+                        ? [...session.generatedImages]
+                        : undefined,
+                    generatedVideos:
+                      session.generatedVideos && session.generatedVideos.length > 0
+                        ? [...session.generatedVideos]
+                        : undefined,
                     finish_reason: "error",
+                    created_at: new Date().toISOString(),
                   },
                 ]);
               }
@@ -1445,25 +1547,64 @@ export default function ChatPage({
           { signal: session.abortController.signal }
         );
       } catch (err: any) {
-        if (session.stopRequested || session.abortController.signal.aborted) {
+        if (session.stopRequested || session.abortController.signal.aborted || session.finalized) {
+          return;
+        }
+        if (session.doneMeta) {
+          finalizeSessionMessage(session);
           return;
         }
         session.isStreamCompleted = true;
+        session.finalized = true;
+        lastFinalizedAtRef.current = Date.now();
         if (isSessionActive(session)) {
           clearStreamIntervals();
           setIsStreaming(false);
           setStreamStartedAt(null);
           setIsWaitingForFirstToken(false);
+          setStreamingContent("");
           setSearchStatus({ state: "idle" });
+          setStreamingSearchResults(null);
           const isApiError = err instanceof ApiError;
+          const errText = isApiError
+            ? `❌ ${err.message}`
+            : `❌ ${t("chat.message.networkFailed", { reason: err?.message || err })}`;
+          const partialContent = (session.targetContent || session.displayedContent || "").trim();
+          const combinedContent = partialContent
+            ? `${partialContent}\n\n---\n\n${errText}`
+            : errText;
+          const assistantMsgId = `err_asst_${Date.now()}`;
+          const parentMsgId = session.userMessage?.id;
+          setSelectedLeafId(assistantMsgId);
+          if (parentMsgId) {
+            setBranchSelections((prev) => ({ ...prev, [parentMsgId]: assistantMsgId }));
+          }
           setMessages((prev) => [
             ...prev,
             {
               role: "assistant",
-              content: isApiError
-                ? `❌ ${err.message}`
-                : `❌ ${t("chat.message.networkFailed", { reason: err?.message || err })}`,
+              id: assistantMsgId,
+              parent_id: parentMsgId,
+              content: combinedContent,
+              model: session.model || currentModel,
+              search_results:
+                session.searchResults && session.searchResults.length > 0
+                  ? session.searchResults
+                  : undefined,
+              toolInvocations:
+                session.toolInvocations && session.toolInvocations.length > 0
+                  ? [...session.toolInvocations]
+                  : undefined,
+              generatedImages:
+                session.generatedImages && session.generatedImages.length > 0
+                  ? [...session.generatedImages]
+                  : undefined,
+              generatedVideos:
+                session.generatedVideos && session.generatedVideos.length > 0
+                  ? [...session.generatedVideos]
+                  : undefined,
               finish_reason: "error",
+              created_at: new Date().toISOString(),
             },
           ]);
         }
@@ -1490,35 +1631,96 @@ export default function ChatPage({
 
   const handleStopGenerating = () => {
     const session = getActiveSession();
-    if (!session || session.finalized) return;
+    if (!session || session.finalized) {
+      detachCurrentStreamView();
+      setRegenerating(false);
+      updateStreamingIds();
+      return;
+    }
     session.stopRequested = true;
+    session.isStreamCompleted = true;
+    session.displayedContent = session.targetContent;
     try {
       session.abortController.abort();
     } catch (_) {}
     clearStreamIntervals();
 
     session.doneMeta = {
+      ...session.doneMeta,
       finish_reason: "abort",
       created_at: new Date().toISOString(),
     };
-    if (session.targetContent.length === session.displayedContent.length) {
-      finalizeSessionMessage(session);
-    } else {
-      session.isStreamCompleted = true;
-    }
+    finalizeSessionMessage(session, true);
+    detachCurrentStreamView();
+    setRegenerating(false);
   };
 
 
   const refreshFromServer = async () => {
+    if (
+      isStreaming ||
+      regenerating ||
+      activeStreamsRef.current.size > 0 ||
+      Date.now() - lastFinalizedAtRef.current < 5000
+    ) {
+      return;
+    }
+
     await loadConversations();
 
     const id = activeIdRef.current;
-    if (!id || messageEditGuardFlag.current) return;
+    if (
+      !id ||
+      messageEditGuardFlag.current ||
+      isStreaming ||
+      regenerating ||
+      activeStreamsRef.current.has(id) ||
+      Date.now() - lastFinalizedAtRef.current < 5000
+    ) {
+      return;
+    }
 
     try {
       const msgs = await apiRequest<Message[]>(`/conversations/${id}/messages`);
-      if (activeIdRef.current === id) {
-        setMessages(hydrateMessages(msgs));
+      if (
+        activeIdRef.current === id &&
+        !activeStreamsRef.current.has(id) &&
+        Date.now() - lastFinalizedAtRef.current >= 5000
+      ) {
+        const serverHydrated = hydrateMessages(msgs);
+        setMessages((prev) => {
+          if (prev.length === 0) return serverHydrated;
+          const prevById = new Map<string, Message>();
+          for (const m of prev) {
+            if (m.id) prevById.set(m.id, m);
+          }
+          const merged = serverHydrated.map((m) => {
+            const existing = m.id ? prevById.get(m.id) : undefined;
+            if (!existing) return m;
+            return {
+              ...m,
+              suggested_questions: m.suggested_questions || existing.suggested_questions,
+              memory_updated: m.memory_updated || existing.memory_updated,
+            };
+          });
+          const serverIds = new Set(merged.map((m) => m.id).filter(Boolean));
+          for (const m of prev) {
+            if (
+              m.role === "assistant" &&
+              m.id &&
+              !serverIds.has(m.id) &&
+              (m.id.startsWith("asst_") || m.id.startsWith("err_asst_"))
+            ) {
+              const hasServerSiblingForSameParent =
+                m.parent_id &&
+                merged.some((sm) => sm.role === "assistant" && sm.parent_id === m.parent_id);
+              if (!hasServerSiblingForSameParent) {
+                merged.push(m);
+              }
+            }
+          }
+          return merged;
+        });
       }
     } catch (err) {
       console.error("Failed to refresh conversation on resume:", err);

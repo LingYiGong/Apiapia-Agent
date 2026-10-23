@@ -38,9 +38,9 @@ class OpenAIProvider(LLMProvider):
         temperature: float = 0.7,
         **kwargs
     ) -> AsyncGenerator[str, None]:
-        # Adapt messages for o1 / o3 reasoning models (they prefer 'developer' role instead of 'system')
+        # Adapt messages for o1 / o3 / o4 reasoning models (they prefer 'developer' role instead of 'system')
         model_lower = model.lower()
-        is_openai_reasoning = any(k in model_lower for k in ["o1", "o3", "o3-mini"])
+        is_openai_reasoning = any(k in model_lower for k in ["o1", "o3", "o3-mini", "o4"])
 
         prepared_messages = []
         for msg in messages:
@@ -178,7 +178,7 @@ class OpenAIProvider(LLMProvider):
         **kwargs
     ) -> str:
         model_lower = model.lower()
-        is_openai_reasoning = any(k in model_lower for k in ["o1", "o3", "o3-mini"])
+        is_openai_reasoning = any(k in model_lower for k in ["o1", "o3", "o3-mini", "o4"])
         prepared_messages = []
         for msg in messages:
             role = msg.get("role")
@@ -236,11 +236,12 @@ class OpenAIProvider(LLMProvider):
         if response.choices:
             self.last_finish_reason = response.choices[0].finish_reason
             msg = response.choices[0].message
-            content = msg.content or ""
+            content = self._text_part(getattr(msg, "content", None))
             reasoning = getattr(msg, "reasoning_content", None) or getattr(msg, "reasoning", None)
             if not reasoning and hasattr(msg, "model_extra") and isinstance(msg.model_extra, dict):
                 reasoning = msg.model_extra.get("reasoning_content") or msg.model_extra.get("reasoning")
-            if reasoning:
-                return f"<think>\n{reasoning}\n</think>\n\n{content}"
+            reasoning_text = self._text_part(reasoning)
+            if reasoning_text:
+                return f"<think>\n{reasoning_text}\n</think>\n\n{content}"
             return content
         return ""

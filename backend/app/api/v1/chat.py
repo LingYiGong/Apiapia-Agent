@@ -14,6 +14,7 @@ from sqlalchemy import select
 from app.core.database import get_db, AsyncSessionLocal
 from app.core.config import settings as app_settings
 from app.core.errors import ApiError
+from app.core.i18n import get_locale, language_name
 from app.models.user import User
 from app.models.conversation import Conversation, Message
 from app.models.setting import UserSetting
@@ -63,12 +64,218 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 logger = logging.getLogger("chat_api")
 _background_persist_tasks: set = set()
 
+DEFAULT_CONVERSATION_TITLES = frozenset({
+    "新建对话",
+    "新對話",
+    "New Chat",
+    "新しいチャット",
+    "未命名对话",
+    "未命名對話",
+    "Untitled",
+})
+
+DEFAULT_TITLE_BY_LOCALE = {
+    "zh-CN": "新建对话",
+    "zh-TW": "新對話",
+    "en": "New Chat",
+    "ja": "新しいチャット",
+}
+
+ANALYZE_PREFIX_BY_LOCALE = {
+    "zh-CN": "分析",
+    "zh-TW": "分析",
+    "en": "Analyze",
+    "ja": "分析",
+}
+
 TITLE_GENERATION_PROMPT = (
     "你是一个对话标题生成器。根据用户的第一句提问和助手的回答，"
-    "为这段对话拟一个简短准确的中文标题。\n"
-    "要求：不超过 20 个字，直接输出标题本身，不要引号、标点结尾、解释或任何前缀。\n\n"
-    "用户提问：{user}\n\n助手回答（截断）：{assistant}\n\n标题："
+    "为这段对话拟一个简短准确的标题。\n"
+    "要求：\n"
+    "1. 语言跟随用户提问的主要语言（若用户仅上传附件或无明确语种，则使用{language}）。\n"
+    "2. 中文或日文控制在 6～18 个字以内，英文控制在 3～7 个词以内。\n"
+    "3. 直接输出最终标题本身，严禁输出思考过程、引号、书名号、Markdown 格式、句末标点或“标题：”等任何前缀。\n\n"
+    "用户提问：{user}\n\n助手回答（节选）：{assistant}\n\n标题："
 )
+
+
+def _strip_thinking_blocks(text: str) -> str:
+    """Strip closed <think>...</think>, orphaned ...</think>, and unclosed <think>... blocks."""
+    if not text:
+        return ""
+    cleaned = re.sub(r"<think>[\s\S]*?</think>", "", str(text), flags=re.IGNORECASE).strip()
+    if "</think>" in cleaned.lower():
+        cleaned = re.split(r"</think>", cleaned, flags=re.IGNORECASE)[-1].strip()
+    cleaned = re.sub(r"<think>[\s\S]*$", "", cleaned, flags=re.IGNORECASE).strip()
+    return cleaned
+
+
+def _extract_clean_single_line(raw_text: str) -> str:
+    """Extract a clean single-line summary snippet from raw user text or document content."""
+    if not raw_text:
+        return ""
+    text = _strip_thinking_blocks(raw_text)
+    text = re.sub(r"!\[[^\]]*\]\([^)]*\)", "", text)
+    text = re.sub(r"https?://\S+", "", text)
+    without_fences = re.sub(r"```[\s\S]*?```|~~~[\s\S]*?~~~", "", text).strip()
+    target = (
+        without_fences
+        if without_fences
+        else re.sub(r"^(?:```|~~~)\w*\s*|(?:```|~~~)\s*$", "", text, flags=re.MULTILINE).strip()
+    )
+
+    for line in target.splitlines():
+        clean_line = re.sub(r"^[\s#*>\-`•\d.、]+", "", line).strip()
+        clean_line = re.sub(r"[*_`~]+", "", clean_line).strip()
+        clean_line = re.sub(r"\s+", " ", clean_line)
+        if clean_line:
+            return clean_line
+    return ""
+
+
+def _build_initial_title(
+    message: Optional[str],
+    attachments: Optional[List[Any]] = None,
+    parsed_docs: Optional[List[Dict[str, Any]]] = None,
+) -> str:
+    """Build a clean initial fallback title from user message, pasted snippet, or attachments."""
+    locale = get_locale()
+    default_title = DEFAULT_TITLE_BY_LOCALE.get(locale, "新建对话")
+    analyze_prefix = ANALYZE_PREFIX_BY_LOCALE.get(locale, "分析")
+
+    candidate = _extract_clean_single_line(message or "")
+
+    if not candidate and parsed_docs:
+        first_doc = parsed_docs[0]
+        doc_name = first_doc.get("name") or ""
+        doc_text = first_doc.get("extracted_text") or ""
+        if doc_name.startswith("pasted-snippet-") and doc_text:
+            candidate = _extract_clean_single_line(doc_text)
+        if not candidate and doc_name:
+            candidate = f"{analyze_prefix}: {doc_name}"
+
+    if not candidate and attachments:
+        first_att = attachments[0]
+        att_name = (
+            getattr(first_att, "name", None)
+            or (first_att.get("name") if isinstance(first_att, dict) else "")
+            or ""
+        )
+        if att_name and not att_name.startswith("pasted-snippet-"):
+            candidate = f"{analyze_prefix}: {att_name}"
+
+    if not candidate:
+        return default_title
+
+    return (candidate[:30].rstrip() + "...") if len(candidate) > 30 else candidate
+
+
+def _clean_generated_title(raw: str) -> str:
+    """Sanitize and normalize raw LLM title output into a clean single-line title."""
+    if not raw:
+        return ""
+    cleaned = _strip_thinking_blocks(str(raw))
+    cleaned = sanitize_llm_output(cleaned).strip()
+    if not cleaned:
+        return ""
+
+    cleaned = re.sub(r"^```\w*\s*|\s*```$", "", cleaned).strip()
+
+    lines = [line.strip() for line in cleaned.splitlines() if line.strip()]
+    if not lines:
+        return ""
+
+    preamble_pat = re.compile(
+        r"^(?:好的|当然|没问题|为您|以下是|这是|根据|建议|Sure|Certainly|Here\s+is|Based\s+on).*[:：]?\s*$",
+        re.IGNORECASE,
+    )
+    chosen_line = lines[0]
+    if len(lines) > 1 and preamble_pat.match(chosen_line):
+        for candidate in lines[1:]:
+            if not preamble_pat.match(candidate):
+                chosen_line = candidate
+                break
+
+    title = re.sub(r"^[\s#*>\-•]+", "", chosen_line).strip()
+    title = re.sub(
+        r"^(?:对话标题|会话标题|對話標題|會話標題|标题|標題|主题|主題|题目|題目|Conversation\s+Title|Title|Topic|Subject|件名|タイトル)\s*[:：\-—]\s*",
+        "",
+        title,
+        flags=re.IGNORECASE,
+    ).strip()
+
+    title = re.sub(r"[*_`~]+", "", title).strip()
+    title = (
+        title.lstrip(" \t\r\n\"'“”‘’《「『【〔([(:：-—")
+        .rstrip(" \t\r\n\"'“”‘’》」』】〕)]):：。，,.;；!！?？-—～~")
+    )
+    title = re.sub(r"\s+", " ", title).strip()
+
+    if len(title) > 50:
+        title = title[:50].rstrip(" \t\r\n\"'“”‘’《「『》」』。，,.;；:：-—")
+    return title if len(title) >= 2 else ""
+
+
+def _prepare_user_text_for_title(
+    message: Optional[str],
+    parsed_docs: Optional[List[Dict[str, Any]]] = None,
+    parsed_images: Optional[List[Dict[str, Any]]] = None,
+) -> str:
+    """Prepare rich user context for title generation, including attachment names and extracted text."""
+    parts: List[str] = []
+    if message and message.strip():
+        parts.append(message.strip())
+
+    if parsed_docs:
+        for doc in parsed_docs[:2]:
+            doc_name = doc.get("name") or "file"
+            doc_text = (doc.get("extracted_text") or "").strip()
+            if doc_text:
+                parts.append(f"[附件 {doc_name}]: {doc_text[:300]}")
+            else:
+                parts.append(f"[附件: {doc_name}]")
+
+    if not parts and parsed_images:
+        img_name = parsed_images[0].get("name") or "图片"
+        parts.append(f"[上传图片: {img_name}]")
+
+    return "\n".join(parts)[:500] if parts else "(附件)"
+
+
+def _prepare_assistant_text_for_title(
+    assistant_content: str,
+    generated_images: Optional[List[Dict[str, Any]]] = None,
+    generated_videos: Optional[List[Dict[str, Any]]] = None,
+) -> str:
+    """Prepare concise, readable assistant context for title generation (handling wordcards & media)."""
+    clean_text = _strip_thinking_blocks(assistant_content)
+    vocab_match = re.search(r"```(?:wordcard|word|vocab)\s*([\s\S]*?)```", clean_text, flags=re.IGNORECASE)
+    if vocab_match:
+        try:
+            card_data = json.loads(vocab_match.group(1).strip())
+            if isinstance(card_data, dict):
+                word = card_data.get("word") or card_data.get("term") or ""
+                meaning = (
+                    card_data.get("meaning")
+                    or card_data.get("translation")
+                    or card_data.get("definition")
+                    or ""
+                )
+                if word:
+                    return f"词汇解析：{word} {meaning}".strip()
+        except Exception:
+            pass
+
+    if not clean_text and generated_images:
+        img_prompt = generated_images[0].get("prompt") or ""
+        if img_prompt:
+            return f"[已生成图片: {img_prompt}]"
+    if not clean_text and generated_videos:
+        vid_prompt = generated_videos[0].get("prompt") or ""
+        if vid_prompt:
+            return f"[已生成视频: {vid_prompt}]"
+
+    return clean_text[:500] if clean_text else assistant_content[:500]
 
 
 async def _generate_conversation_title(
@@ -95,26 +302,46 @@ async def _generate_conversation_title(
         provider=provider_name, model=model, api_key=api_key, base_url=base_url
     )
     prompt = TITLE_GENERATION_PROMPT.format(
+        language=language_name(get_locale()),
         user=(user_text or "")[:500],
         assistant=(assistant_text or "")[:500],
     )
-    raw = await provider.complete(
-        messages=[{"role": "user", "content": prompt}],
-        model=model,
-        temperature=0.2,
-        max_tokens=30,
-    )
-    if not raw:
-        return ""
+    messages = [{"role": "user", "content": prompt}]
 
-    raw_clean = re.sub(r"<think>[\s\S]*?</think>", "", str(raw)).strip()
-    title = sanitize_llm_output(raw_clean).strip()
-    # Strip common decorations the model may still add. lstrip/rstrip with an
-    # explicit character set (rather than a quote-heavy regex) keeps the intent
-    # obvious and avoids quoting pitfalls.
-    title = title.lstrip(" \t\r\n\"'“”‘’《「『:：-—").rstrip(" \t\r\n\"'“”‘’》」』。，,;；:：")
-    title = title.splitlines()[0].strip() if title else ""
-    return title if 1 < len(title) <= 40 else ""
+    extra_kwargs: Dict[str, Any] = {}
+    if any(k in (model or "").lower() for k in ("o1", "o3", "o4")):
+        extra_kwargs["reasoning_effort"] = "low"
+
+    try:
+        raw = await provider.complete(
+            messages=messages,
+            model=model,
+            temperature=0.2,
+            max_tokens=800,
+            **extra_kwargs,
+        )
+        title = _clean_generated_title(raw)
+        if title:
+            return title
+    except Exception as primary_err:
+        logger.warning("Primary title generation call failed for model %s: %s", model, primary_err)
+
+    # Fallback retry for OpenRouter when a specific free/reasoning model rate-limits or exhausts tokens in <think>
+    if (provider_name or "").lower() == "openrouter" and model != "openrouter/free":
+        try:
+            raw_fallback = await provider.complete(
+                messages=messages,
+                model="openrouter/free",
+                temperature=0.2,
+                max_tokens=800,
+            )
+            title = _clean_generated_title(raw_fallback)
+            if title:
+                return title
+        except Exception as fallback_err:
+            logger.debug("OpenRouter fallback title generation failed: %s", fallback_err)
+
+    return ""
 
 
 FOLLOWUP_SUGGESTIONS_PROMPT = (
@@ -148,11 +375,11 @@ async def _generate_followup_suggestions(
             messages=[{"role": "user", "content": prompt}],
             model=model,
             temperature=0.7,
-            max_tokens=100,
+            max_tokens=500,
         )
         if not raw:
             return []
-        clean_raw = re.sub(r"<think>[\s\S]*?</think>", "", str(raw)).strip()
+        clean_raw = _strip_thinking_blocks(str(raw))
         lines = [
             line.strip().lstrip("1234567890.、 -*•")
             for line in clean_raw.splitlines()
@@ -374,7 +601,32 @@ async def chat_stream(
             code="TRIAL_VIDEO_GEN_FORBIDDEN",
         )
 
-    # 2. Fetch or create conversation
+    # 2. Parse Attachments (Images & Documents/PDFs) with Untrusted XML Shielding
+    parsed_images = []
+    parsed_docs = []
+    if chat_req.attachments:
+        for att in chat_req.attachments:
+            parsed = parse_attachment(att.name, att.mime_type or "", att.data_url)
+            if parsed["type"] == "image":
+                parsed_images.append(parsed)
+            else:
+                parsed_docs.append(parsed)
+
+    # 2.1 Automatically detect and download remote files/URLs in message
+    if chat_req.message:
+        detected_urls = extract_urls(chat_req.message)
+        for u in detected_urls[:3]:
+            try:
+                parsed_res = await fetch_and_parse_url(u)
+                if parsed_res:
+                    if parsed_res["type"] == "image":
+                        parsed_images.append(parsed_res)
+                    else:
+                        parsed_docs.append(parsed_res)
+            except Exception as e:
+                logger.warning("Failed to auto-fetch remote file from URL %s: %s", u, e)
+
+    # 3. Fetch or create conversation
     conversation = None
     if chat_req.conversation_id:
         stmt = select(Conversation).where(
@@ -394,14 +646,11 @@ async def chat_stream(
         await db.commit()
         is_first_turn = False
     else:
-        # Create new conversation with title generated from user input
-        first_input = chat_req.message.strip() if chat_req.message else ""
-        if not first_input and chat_req.attachments:
-            first_input = f"分析: {chat_req.attachments[0].name}"
-        conv_title = (first_input[:30] + "...") if len(first_input) > 30 else first_input
+        # Create new conversation with clean initial title derived from user input or attachments
+        conv_title = _build_initial_title(chat_req.message, chat_req.attachments, parsed_docs)
         conversation = Conversation(
             user_id=user_id,
-            title=conv_title.strip() or "新建对话",
+            title=conv_title,
             model=model_to_use
         )
         db.add(conversation)
@@ -410,31 +659,9 @@ async def chat_stream(
         is_first_turn = True
 
     conv_id = conversation.id
-
-    # 3. Parse Attachments (Images & Documents/PDFs) with Untrusted XML Shielding
-    parsed_images = []
-    parsed_docs = []
-    if chat_req.attachments:
-        for att in chat_req.attachments:
-            parsed = parse_attachment(att.name, att.mime_type or "", att.data_url)
-            if parsed["type"] == "image":
-                parsed_images.append(parsed)
-            else:
-                parsed_docs.append(parsed)
-
-    # 3.1 Automatically detect and download remote files/URLs in message
-    if chat_req.message:
-        detected_urls = extract_urls(chat_req.message)
-        for u in detected_urls[:3]:
-            try:
-                parsed_res = await fetch_and_parse_url(u)
-                if parsed_res:
-                    if parsed_res["type"] == "image":
-                        parsed_images.append(parsed_res)
-                    else:
-                        parsed_docs.append(parsed_res)
-            except Exception as e:
-                logger.warning("Failed to auto-fetch remote file from URL %s: %s", u, e)
+    should_generate_title = is_first_turn or (
+        (conversation.title or "").strip() in DEFAULT_CONVERSATION_TITLES
+    )
 
     # Assemble prompt text for LLM (including quoted reply & safe untrusted document text)
     user_text_parts = []
@@ -468,6 +695,7 @@ async def chat_stream(
     regen_old_asst = None
     regen_user_msg = None
     recent_msgs = []
+    all_conv_msgs = []
 
     # A regeneration request must still be resolved to its original user message even
     # in single-turn mode, otherwise the same question is inserted a second time and
@@ -483,6 +711,18 @@ async def chat_stream(
 
         if regen_user_msg:
             target_parent_id = regen_user_msg.parent_id
+
+        # If this conversation has never had a valid assistant response (e.g. turn 1 errored/aborted),
+        # or if the user is regenerating/editing the root turn of a 1-turn conversation, trigger title generation.
+        has_prior_valid_assistant = any(
+            m.role == "assistant"
+            and (not regen_old_asst or m.id != regen_old_asst.id)
+            and getattr(m, "finish_reason", "stop") not in ("error", "abort")
+            and not (m.content or "").startswith("**❌ 模型调用失败")
+            for m in all_conv_msgs
+        )
+        if not has_prior_valid_assistant:
+            should_generate_title = True
 
         if not single_turn_mode:
             if target_parent_id and all_conv_msgs:
@@ -593,7 +833,7 @@ async def chat_stream(
 
         # Strip historical <think>...</think> blocks to avoid polluting context and blowing token budgets
         if "<think>" in cleaned_content:
-            cleaned_content = re.sub(r"<think>[\s\S]*?</think>", "", cleaned_content).strip()
+            cleaned_content = _strip_thinking_blocks(cleaned_content)
 
         # Clean markdown image tags from text representation to avoid confusing the model with unreachable URLs
         cleaned_content = re.sub(r"!\[([^\]]*)\]\(data:image\/[^;]+;base64,[^)]+\)", r"[附图: \1]", cleaned_content)
@@ -701,9 +941,15 @@ async def chat_stream(
         )
         db.add(user_msg_record)
 
+    # If editing/regenerating the root turn in a 1-turn conversation, also refresh the title
+    if not single_turn_mode and effective_user_parent_id is None and len(all_conv_msgs) <= 2:
+        should_generate_title = True
+
     conv_rec = await db.get(Conversation, conv_id)
     if conv_rec:
         conv_rec.last_message_at = user_created_at
+        if (conv_rec.title or "").strip() in DEFAULT_CONVERSATION_TITLES:
+            conv_rec.title = _build_initial_title(chat_req.message, chat_req.attachments, parsed_docs)
 
     await db.commit()
     # Explicitly release the db connection back to the pool before starting
@@ -1223,7 +1469,7 @@ async def chat_stream(
 
             # Check if assistant reply yielded any visible main body outside of <think>...</think>
             current_raw_reply = "".join(full_assistant_reply)
-            has_body_text = bool(re.sub(r"<think>[\s\S]*?</think>", "", current_raw_reply).strip())
+            has_body_text = bool(_strip_thinking_blocks(current_raw_reply))
             if not has_body_text and finish_reason in ("stop", "length", None) and not error_text:
                 logger.warning("Model finished without body text for conversation %s, triggering auto-completion fallback", conv_id)
                 try:
@@ -1239,7 +1485,7 @@ async def chat_stream(
                     )
                     if recovered and recovered.strip():
                         recovered_text = sanitize_llm_output(recovered).strip()
-                        recovered_text = re.sub(r"<think>[\s\S]*?</think>", "", recovered_text).strip()
+                        recovered_text = _strip_thinking_blocks(recovered_text)
                         if recovered_text:
                             yield f"data: {json.dumps({'type': 'content', 'conversation_id': conv_id, 'delta': recovered_text}, ensure_ascii=False)}\n\n"
                             full_assistant_reply.append(recovered_text)
@@ -1381,6 +1627,62 @@ async def chat_stream(
                 )
                 return None
 
+        is_successful_turn = bool(
+            assistant_content.strip()
+            and finish_reason not in ("error", "abort")
+            and not error_text
+        )
+
+        # Start title generation and follow-up suggestion tasks concurrently with DB reply persistence
+        user_for_title = _prepare_user_text_for_title(chat_req.message, parsed_docs, parsed_images)
+        title_task: Optional[asyncio.Task] = None
+        suggestions_task: Optional[asyncio.Task] = None
+
+        if is_successful_turn and should_generate_title:
+            clean_assistant_for_title = _prepare_assistant_text_for_title(
+                assistant_content, generated_images, generated_videos
+            )
+
+            async def _run_and_persist_title() -> Optional[str]:
+                try:
+                    new_title = await _generate_conversation_title(
+                        user_for_title,
+                        clean_assistant_for_title,
+                        model_to_use,
+                        provider_name,
+                        api_key=caller_api_key,
+                        base_url=caller_base_url,
+                    )
+                    if new_title:
+                        persisted = new_title[:50]
+                        async with AsyncSessionLocal() as title_db:
+                            t_stmt = select(Conversation).where(Conversation.id == conv_id)
+                            t_rec = (await title_db.execute(t_stmt)).scalar_one_or_none()
+                            if t_rec:
+                                t_rec.title = persisted
+                                await title_db.commit()
+                        return persisted
+                except Exception as title_err:
+                    logger.warning("Failed to generate conversation title: %s", title_err)
+                return None
+
+            title_task = asyncio.create_task(_run_and_persist_title())
+            _background_persist_tasks.add(title_task)
+            title_task.add_done_callback(_background_persist_tasks.discard)
+
+        if is_successful_turn and getattr(chat_req, "suggest_followups", False):
+            clean_assistant_for_sug = _strip_thinking_blocks(assistant_content) or assistant_content[:600]
+            suggestions_task = asyncio.create_task(
+                _generate_followup_suggestions(
+                    user_for_title,
+                    clean_assistant_for_sug,
+                    model_to_use,
+                    provider_name,
+                    api_key=caller_api_key,
+                    base_url=caller_base_url,
+                )
+            )
+
         # Persist assistant reply before emitting done payload
         assistant_message_id = None
         if assistant_content.strip():
@@ -1421,56 +1723,39 @@ async def chat_stream(
         if yield_allowed and finish_reason != "error":
             yield f"data: {json.dumps(done_payload, ensure_ascii=False)}\n\n"
 
-        # 10. Background housekeeping: conversation title + memory extraction (only for valid, successful turns)
-        if assistant_content.strip() and finish_reason not in ("error", "abort") and not error_text:
-            # Generate conversation title on first turn
-            if is_first_turn:
-                clean_assistant_for_title = re.sub(r"<think>[\s\S]*?</think>", "", assistant_content).strip() or assistant_content[:500]
+        # 10. Background housekeeping: conversation title + follow-up suggestions + memory extraction
+        if is_successful_turn:
+            if title_task is not None:
                 try:
-                    new_title = await _generate_conversation_title(
-                        chat_req.message or "(附件)",
-                        clean_assistant_for_title,
-                        model_to_use,
-                        provider_name,
-                        api_key=caller_api_key,
-                        base_url=caller_base_url,
-                    )
-                    if new_title:
-                        async with AsyncSessionLocal() as title_db:
-                            t_stmt = select(Conversation).where(Conversation.id == conv_id)
-                            t_rec = (await title_db.execute(t_stmt)).scalar_one_or_none()
-                            if t_rec:
-                                t_rec.title = new_title[:40]
-                                await title_db.commit()
-                        if yield_allowed:
-                            yield f"data: {json.dumps({'type': 'title', 'conversation_id': conv_id, 'title': new_title[:40]}, ensure_ascii=False)}\n\n"
+                    # Shield so client disconnect after 'done' never cancels DB title persistence
+                    new_title = await asyncio.shield(title_task)
+                    if new_title and yield_allowed:
+                        yield f"data: {json.dumps({'type': 'title', 'conversation_id': conv_id, 'title': new_title}, ensure_ascii=False)}\n\n"
+                except (asyncio.CancelledError, GeneratorExit):
+                    yield_allowed = False
+                    was_cancelled = True
                 except Exception as title_err:
-                    logger.warning("Failed to generate conversation title: %s", title_err)
+                    logger.warning("Failed to emit conversation title: %s", title_err)
 
-            # Generate ChatGPT-style follow-up suggestion chips if requested
-            if getattr(chat_req, "suggest_followups", False):
-                clean_assistant_for_sug = re.sub(r"<think>[\s\S]*?</think>", "", assistant_content).strip() or assistant_content[:600]
+            if suggestions_task is not None:
                 try:
-                    suggestions = await _generate_followup_suggestions(
-                        chat_req.message or "(附件)",
-                        clean_assistant_for_sug,
-                        model_to_use,
-                        provider_name,
-                        api_key=caller_api_key,
-                        base_url=caller_base_url,
-                    )
-                    if suggestions and yield_allowed:
-                        yield f"data: {json.dumps({'type': 'suggestions', 'conversation_id': conv_id, 'suggestions': suggestions}, ensure_ascii=False)}\n\n"
+                    if yield_allowed:
+                        suggestions = await suggestions_task
+                        if suggestions and yield_allowed:
+                            yield f"data: {json.dumps({'type': 'suggestions', 'conversation_id': conv_id, 'suggestions': suggestions}, ensure_ascii=False)}\n\n"
+                    else:
+                        suggestions_task.cancel()
+                except (asyncio.CancelledError, GeneratorExit):
+                    yield_allowed = False
+                    was_cancelled = True
                 except Exception as sug_err:
                     logger.warning("Failed to generate follow-up suggestions: %s", sug_err)
 
             # Schedule memory extraction in background if enabled and not aborted
             if use_memory:
-                clean_assistant = assistant_content
-                if "<think>" in clean_assistant:
-                    clean_assistant = re.sub(r"<think>[\s\S]*?</think>", "", clean_assistant).strip()
-                    if not clean_assistant:
-                        clean_assistant = assistant_content[:2000]
+                clean_assistant = _strip_thinking_blocks(assistant_content)
+                if not clean_assistant:
+                    clean_assistant = assistant_content[:2000]
 
                 user_content_for_memory = chat_req.message.strip() if chat_req.message else (
                     memory_text("uploaded_file").format(name=parsed_docs[0]['name']) if parsed_docs else memory_text("uploaded_image")
@@ -1482,7 +1767,7 @@ async def chat_stream(
                         pm_role = getattr(pm, "role", None) or (pm.get("role") if isinstance(pm, dict) else "user")
                         pm_content = getattr(pm, "content", None) or (pm.get("content") if isinstance(pm, dict) else "")
                         if pm_content and pm_role in ("user", "assistant"):
-                            cleaned_pm = re.sub(r"<think>[\s\S]*?</think>", "", str(pm_content)).strip()
+                            cleaned_pm = _strip_thinking_blocks(str(pm_content))
                             if cleaned_pm:
                                 extraction_messages.append({"role": pm_role, "content": cleaned_pm[:600]})
 
@@ -1595,7 +1880,7 @@ async def get_followup_suggestions(
         db, current_user.id, provider_name, model_to_use
     )
 
-    clean_assistant = re.sub(r"<think>[\s\S]*?</think>", "", assistant_text).strip()
+    clean_assistant = _strip_thinking_blocks(assistant_text)
     return await _generate_followup_suggestions(
         user_text,
         clean_assistant,

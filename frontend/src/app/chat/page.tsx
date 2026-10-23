@@ -486,16 +486,32 @@ export default function ChatPage({
 
   const [loadingConversations, setLoadingConversations] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
+  const loadConversationsSeqRef = useRef(0);
+  const generatedTitlesRef = useRef<Map<string, string>>(new Map());
 
   const loadConversations = async () => {
     // 首屏该打开哪一条由下面的 activeId 恢复逻辑负责，这里只负责把列表拉回来。
+    const seq = ++loadConversationsSeqRef.current;
     try {
       const list = await apiRequest<Conversation[]>("/conversations");
-      setConversations(list);
+      if (seq !== loadConversationsSeqRef.current) return;
+      setConversations(
+        list.map((c) => {
+          const overrideTitle = generatedTitlesRef.current.get(c.id);
+          if (!overrideTitle) return c;
+          if (c.title === overrideTitle) {
+            generatedTitlesRef.current.delete(c.id);
+            return c;
+          }
+          return { ...c, title: overrideTitle };
+        })
+      );
     } catch (err) {
       console.error("Failed to load conversations:", err);
     } finally {
-      setLoadingConversations(false);
+      if (seq === loadConversationsSeqRef.current) {
+        setLoadingConversations(false);
+      }
     }
   };
 
@@ -984,6 +1000,7 @@ export default function ChatPage({
   };
 
   const handleRenameConversation = async (id: string, newTitle: string) => {
+    generatedTitlesRef.current.set(id, newTitle);
     setConversations((list) => list.map((c) => (c.id === id ? { ...c, title: newTitle } : c)));
     try {
       await apiRequest(`/conversations/${id}`, {
@@ -1207,6 +1224,7 @@ export default function ChatPage({
           {
             onTitle: (data) => {
               if (data?.title && data?.conversation_id) {
+                generatedTitlesRef.current.set(data.conversation_id, data.title);
                 setConversations((list) =>
                   list.map((c) => (c.id === data.conversation_id ? { ...c, title: data.title } : c))
                 );

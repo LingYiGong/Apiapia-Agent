@@ -348,6 +348,14 @@ export default {
 
   media: {
     zoomAlt: "Enlarge {alt}",
+    clickToPreview: "Click to preview",
+  },
+  filePreview: {
+    pdfNoInline: "PDF recorded. Click the button in the top-right or below to download and view it.",
+    lineCount: "{count} lines",
+    binaryDownloadHint: "This file format cannot be previewed inline. Click the button below to download it.",
+    noCachedContent: "Only the filename was recorded in history; no cached content is available for download.",
+    downloadFile: "Download file",
   },
   /**
    * Smart translate mode (vocab_tutor / two-way translation).

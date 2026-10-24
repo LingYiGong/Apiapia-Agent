@@ -2,10 +2,6 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 
-export interface UseClipboardOptions {
-  duration?: number;
-}
-
 export function useClipboard(duration = 2000) {
   const [copied, setCopied] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);

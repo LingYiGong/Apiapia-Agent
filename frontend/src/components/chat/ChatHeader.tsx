@@ -3,7 +3,6 @@
 import React from "react";
 import { ModelCatalogItem } from "@/types";
 import { ModelSelect } from "@/components/common/ModelSelect";
-import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { ActionTooltip } from "@/components/common/ActionTooltip";
 import { UserAvatarMenu } from "@/components/layout/UserAvatarDropdown";
@@ -16,7 +15,6 @@ import {
   MoreHorizontal,
   Edit2,
   RefreshCw,
-  PanelLeftClose,
   PanelLeftOpen,
 } from "lucide-react";
 import {
@@ -361,9 +359,9 @@ export const DesktopChatHeader: React.FC<DesktopChatHeaderProps> = ({
         )}
       >
         <div className="flex min-w-0 flex-1 items-center gap-2">
-          {onToggleSidebar && (
+          {onToggleSidebar && !isSidebarOpen && (
             <ActionTooltip
-              label={isSidebarOpen ? t("chat.sidebar.collapse") : t("chat.sidebar.expand")}
+              label={t("chat.sidebar.expand")}
               shortcut="⌘B"
             >
               <Button
@@ -372,13 +370,9 @@ export const DesktopChatHeader: React.FC<DesktopChatHeaderProps> = ({
                 size="icon"
                 onClick={onToggleSidebar}
                 className="h-8 w-8 shrink-0 rounded-lg text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground active:scale-95"
-                aria-label={isSidebarOpen ? t("chat.sidebar.collapse") : t("chat.sidebar.expand")}
+                aria-label={t("chat.sidebar.expand")}
               >
-                {isSidebarOpen ? (
-                  <PanelLeftClose className="h-4 w-4" />
-                ) : (
-                  <PanelLeftOpen className="h-4 w-4" />
-                )}
+                <PanelLeftOpen className="h-4 w-4" />
               </Button>
             </ActionTooltip>
           )}

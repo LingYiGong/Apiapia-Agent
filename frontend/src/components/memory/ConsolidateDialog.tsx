@@ -3,12 +3,9 @@
 import React, { useState, useEffect, useMemo } from "react";
 import {
   Sparkles,
-  Trash2,
   RefreshCw,
-  Plus,
   CheckCircle2,
   AlertTriangle,
-  ArrowRight,
   Loader2,
   Clock,
   ShieldCheck,

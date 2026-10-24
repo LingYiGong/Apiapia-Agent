@@ -55,6 +55,18 @@ export default {
     consolidationGuideTitle: "Recommended consolidation models & rationale (click to select):",
     consolidationCurrentSelected: "Selected",
     manualModel: "✍️ Enter another model ID…",
+    consolidationPresets: {
+      tagFreeRecommended: "Free Pick",
+      tagFree: "Free",
+      tagBestValue: "Best Value",
+      tagHighestAccuracy: "Highest Accuracy",
+      tagFastStable: "Fast & Reliable",
+      descGemma4: "Google DeepMind 30.7B instruction-tuned model; fast with native JSON adherence and rigorous fact extraction",
+      descNemotronSuper: "120B MoE architecture; excels at synthesizing multi-turn profiles and temporal disambiguation",
+      descDeepseekFlash: "Top-tier semantic comprehension and strict JSON compliance with ultra-low cost per consolidation",
+      descSonnet55: "Flagship reasoning model for subtle temporal shifts, conditional updates, and high-precision memory refactoring",
+      descGpt6Luna: "Fast, cost-effective OpenAI workhorse that strictly follows memory consolidation schemas",
+    },
   },
 
   about: {
@@ -75,6 +87,7 @@ export default {
     groupLabel: "System prompt",
     groupDesc: "Default persona and global guidance",
     resetDefault: "Restore the standard default",
+    defaultPromptValue: "You are an intelligent, sincere, and insightful personal AI assistant. Provide high-quality assistance based on the user's background and long-term memory.",
     promptHint:
       "This prompt serves as the assistant's foundational system instructions. Leave empty to apply standard system defaults.",
     promptPhCustom: "Describe the assistant's role, tone and rules…",
@@ -136,7 +149,7 @@ export default {
   picker: {
     placeholder: "Choose a model",
     loading: "Loading…",
-    selectAria: "Choose {kind}",
+    selectAria: "Choose {kind}{current}",
     selectAriaCurrent: ", currently {name}",
     title: "Choose {kind}",
     /** A11y description for the mobile bottom sheet (visually hidden). */

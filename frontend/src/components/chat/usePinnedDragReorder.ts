@@ -18,9 +18,6 @@ import type { Conversation } from "@/types";
 /** 拖拽一步的行距。必须与 SwipeableConversationCard 的实际高度保持一致。 */
 export const ITEM_STEP = 74;
 
-/** 列表间距。改这里要同步改 ITEM_STEP。 */
-export const LIST_GAP = 6;
-
 export interface PinnedDragReorder {
   draggingId: string | null;
   dragDeltaY: number;

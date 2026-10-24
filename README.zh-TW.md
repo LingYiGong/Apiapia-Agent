@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.39.0-indigo?style=flat-square" alt="Version"></a>
+  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.40.0-indigo?style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
@@ -200,7 +200,34 @@ cat backup_xxx.sql | docker exec -i apiapia_postgres psql -U postgres -d apiapia
 
 ## 📜 版本發布與更新說明 (Release Notes)
 
-### 🚀 最新版本：v2.39.0 (2026-10-23)
+### 🚀 最新版本：v2.40.0 (2026-10-24)
+
+本版本聚焦於 **全站前端樣式深度巡檢、像素級對齊修復、Tailwind CSS 配置加固、冗餘樣式／死程式碼瘦身以及 891 鍵四語國際化字典全量對齊**。排查並修復了 `tailwind.config.ts` 漏掃配置目錄導致圖示底色被 Purge 裁剪、`text-3xs` 未定義導致字號回退為 `16px`、串流游標 HSL 陰影語法錯誤以及滑桿拖曳縮放失效等問題；消除了用量大盤 KPI 卡片雙層分隔線錯位、桌面端聊天頂欄與記憶側欄 `5px` 高度錯位、記憶卡片底欄貼邊等對齊瑕疵；合併清理了約 70 行冗餘樣式與無用匯入，並將檔案預覽、記憶整理推薦卡片等殘留硬編碼文案全面納入四語強型別字典。
+
+#### 1. Tailwind 配置與樣式失效 Bug 修復
+- **補全 Tailwind 掃描路徑 (`tailwind.config.ts`)**：在 `content` 中新增 `./src/config/**`、`./src/hooks/**`、`./src/lib/**`，修復 `navigation.ts` 中動態拼接的圖示配色（如右上角頭像選單中的「偏好設定」灰底方塊）被正式建置裁剪遺失的問題。
+- **補齊 `text-3xs` 字階與修正無效工具類**：在 `tailwind.config.ts` 中補充 `"3xs": ["10px", { lineHeight: "14px", letterSpacing: "0.06px" }]`，解決 `FilePreviewModal` 與 `MessageMedia` 文件晶片字號回退成 `16px` 的問題；將 `backdrop-blur-xs` 修正為 `backdrop-blur-sm`，並將串流打字游標陰影修正為合法的 `shadow-[0_0_8px_hsl(var(--primary)/0.6)]`。
+- **修復 `Slider` 拖曳放大動效與兩端圓點溢出 (`slider.tsx`)**：為 `<input type="range">` 增加 `peer` 類名使 `peer-active:scale-110` 正常觸發，並透過 `calc(${percentage}% + (${10 - percentage * 0.2}px))` 使 `20px` 滑桿圓點在 `0.0` 與 `2.0` 兩端嚴格內切於軌道，與下方刻度文字精準對齊。
+
+#### 2. 全站像素級對齊修復（Alignment）
+- **用量大盤首張 KPI 卡片底欄對齊 (`StatCard.tsx`)**：移除 `LiveDotStat` 內部重複的 `border-t border-border/30 pt-2`（由外層 `StatCard` 統一提供分隔線與上內距），消除「註冊使用者」卡片底部的雙層橫線與 `9px` 縱向錯位。
+- **桌面端聊天頂欄與右側記憶側欄頂欄高度對齊 (`MemorySidebar.tsx`)**：將 `MemorySidebar` 頂欄高度統一為 `h-[var(--toolbar-h)]`（`48px`）與 `border-b border-border/40`，消除與左側 `DesktopChatHeader` 交界處的 `5px` 錯位。
+- **記憶管理卡片底欄間距與單行內文垂直置中 (`MemoryCard.tsx`)**：為 `/memory` 主清單卡片（`size="md"`）補齊 `space-y-2.5` 與內文 `py-0.5`，使底部分隔線上下間距對稱、單行記憶文字與左右 `32px` 圖示視覺置中對齊。
+- **會話審計工具欄歸組與彈窗標題防撞 (`UsagePanels.tsx`, `dialog.tsx`)**：將會話審計彈窗工具欄中的「重新整理」與「徹底清空已刪」按鈕歸組靠右排列；為 `DialogHeader` 增加 `pr-8` 右側留白，防止長標題或徽章與右上角關閉按鈕重疊。
+
+#### 3. 視覺一致性提升、互動去重與冗餘程式碼清理
+- **消除重複按鈕 (`ChatHeader.tsx`, `SettingsView.tsx`)**：桌面端側邊欄展開時僅保留側邊欄內部的收起按鈕，`DesktopChatHeader` 僅在側欄收起時渲染展開按鈕 `<PanelLeftOpen />`；移除設定頁表單底部多餘的 `md:hidden` 提交按鈕（行動端統一由底部浮動 `<SaveActionBar>` 承載），並為「AI 繪圖模型」區塊補齊 `border-t` 分隔線。
+- **使用者訊息行內編輯態去巢狀化 (`ChatMessageItem.tsx`)**：進入編輯態時直接將外層使用者氣泡切換為帶高亮描邊的編輯容器，內部 `<textarea>` 採用無邊框透明背景，告別「圓角灰氣泡套圓角白輸入框」的雙層巢狀與雙倍內距。
+- **彈窗深色頭部適配與程式碼表面 Token 統一 (`UpdatePrompt.tsx`, `WordCard.tsx`)**：為版本更新彈窗的深紫漸層頭部適配淺白關閉圖示，並將 `WordCard` 預備態硬編碼的 `bg-[#0d0d0d]` 統一為 `bg-code`。
+- **冗餘樣式與死程式碼瘦身**：移除 `tailwind.config.ts` 中 0 引用的擴充配置（`sheet` 圓角、`overlay` 陰影、`prose`/`bubble` 行高、命名 `zIndex`、`caret` 動畫），合併 `globals.css` 中重複定義的 `:root:lang(ja)` / `:root:lang(zh-TW)` 字體規則與 `html, body` 區塊，清理 9 處未使用 `import` 及多處無用樣式重置類。
+
+#### 4. 四語國際化（i18n）深度巡檢與全量補齊（891 鍵）
+- **修復多語言佔位符不一致**：在繁中、英文、日文的 `settings.picker.selectAria` 中補齊 `{current}` 插值佔位符，確保無障礙讀屏在四語環境下均能播報目前選中模型。
+- **清零介面硬編碼中文文案**：將 `FilePreviewModal`、`MessageMedia`、`ChatArea` 以及 `SettingsView`（記憶整理推薦模型卡片與恢復預設系統提示詞）中的硬編碼中文全部抽入 `zh-CN` / `zh-TW` / `en` / `ja` 四語強型別字典（每語種 891 鍵，0 缺失、0 佔位符偏差）。
+
+---
+
+### v2.39.0 (2026-10-23)
 
 本版本聚焦於 **串流輸出完成防丟字加固、全鏈路即時「停止產生」（Stop Generating）、深度思考 `<think>` 狀態機精準作用域化、資料庫外鍵與欄長容錯保護以及四語國際化同步對齊**。系統性排查並根除了模型回覆剛結束時偶發整段內容突然消失的 6 類競態隱患，徹底打通了從瀏覽器 `ReadableStream`、Next.js 反向代理到 FastAPI 非同步產生器的全鏈路中斷訊號傳遞，確保在聯網檢索、工具呼叫、深度思考或正文產生任意階段點擊「停止產生」均能毫秒級即時回應並立即恢復對話輸入。
 

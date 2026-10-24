@@ -54,6 +54,18 @@ export default {
     consolidationGuideTitle: "推奨整理モデルと選定理由（カードをクリックして選択）：",
     consolidationCurrentSelected: "選択中",
     manualModel: "✍️ 別のモデル ID を入力…",
+    consolidationPresets: {
+      tagFreeRecommended: "無料おすすめ",
+      tagFree: "無料",
+      tagBestValue: "高コスパ",
+      tagHighestAccuracy: "最高精度",
+      tagFastStable: "高速・安定",
+      descGemma4: "Google DeepMind 30.7B 指示調整モデル。応答が速く、JSON 形式への準拠と事実抽出が厳密",
+      descNemotronSuper: "120B パラメータ MoE 構造。複数の履歴を横断したプロファイル抽出と時系列整理に最適",
+      descDeepseekFlash: "意味理解と JSON 準拠に優れ、極めて低コストかつ安定して記憶整理を実行可能",
+      descSonnet55: "複雑な論理推論フラッグシップ。時系列の変化や暗黙の好みの識別に優れ、高品質な記憶再構築に最適",
+      descGpt6Luna: "OpenAI の高速・高コスパ主力モデル。データ整理フォーマットに厳密に従う日常整理向け",
+    },
   },
 
   about: {
@@ -74,6 +86,7 @@ export default {
     groupLabel: "システムプロンプト",
     groupDesc: "既定の人格と全体的な指針",
     resetDefault: "標準の既定に戻す",
+    defaultPromptValue: "あなたは知的で誠実、洞察力に優れたパーソナル AI アシスタントです。ユーザーの背景情報と長期記憶に基づいて高品質なサポートを提供してください。",
     promptHint:
       "このプロンプトはアシスタントの基盤システム指示として機能します。空欄の場合は標準の既定システム指示が適用されます。",
     promptPhCustom: "役割、話し方、指針、ルールを入力…",
@@ -135,7 +148,7 @@ export default {
   picker: {
     placeholder: "モデルを選択",
     loading: "読み込み中…",
-    selectAria: "{kind}を選択",
+    selectAria: "{kind}を選択{current}",
     selectAriaCurrent: "、現在 {name}",
     title: "{kind}を選択",
     /** モバイル下部のシート用のアクセシビリティ説明（視覚的には非表示） */

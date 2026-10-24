@@ -83,46 +83,46 @@ const MEMORY_MODEL_PRESET_IDS = [
 interface RecommendedConsolidationModel {
   id: string;
   name: string;
-  tag: string;
+  tagKey: MessageKey;
   isFree: boolean;
-  desc: string;
+  descKey: MessageKey;
 }
 
 const RECOMMENDED_CONSOLIDATION_MODELS: RecommendedConsolidationModel[] = [
   {
     id: "google/gemma-4-31b-it:free",
     name: "Google Gemma 4 31B (Free)",
-    tag: "免费推荐",
+    tagKey: "settings.memoryGroup.consolidationPresets.tagFreeRecommended",
     isFree: true,
-    desc: "Google DeepMind 30.7B 指令微调模型，免排队响应快，原生遵循 JSON 格式，事实提炼严谨",
+    descKey: "settings.memoryGroup.consolidationPresets.descGemma4",
   },
   {
     id: "nvidia/nemotron-3-super-120b-a12b:free",
     name: "NVIDIA Nemotron 3 Super (Free)",
-    tag: "免费",
+    tagKey: "settings.memoryGroup.consolidationPresets.tagFree",
     isFree: true,
-    desc: "120B 参数 MoE 架构，擅长跨多条历史记录综合提炼高维画像与时序消歧",
+    descKey: "settings.memoryGroup.consolidationPresets.descNemotronSuper",
   },
   {
     id: "deepseek/deepseek-v4.1-flash",
     name: "DeepSeek V4.1 Flash",
-    tag: "超高性价比",
+    tagKey: "settings.memoryGroup.consolidationPresets.tagBestValue",
     isFree: false,
-    desc: "中文语义理解顶尖，原生对 JSON 格式高度遵从，单次整理成本极低且调用稳定",
+    descKey: "settings.memoryGroup.consolidationPresets.descDeepseekFlash",
   },
   {
     id: "anthropic/claude-sonnet-5.5",
     name: "Claude Sonnet 5.5",
-    tag: "最高精度",
+    tagKey: "settings.memoryGroup.consolidationPresets.tagHighestAccuracy",
     isFree: false,
-    desc: "复杂逻辑推理旗舰，对细微时序更迭、条件变更与隐含偏好辨析严谨，适合高质量记忆库重构",
+    descKey: "settings.memoryGroup.consolidationPresets.descSonnet55",
   },
   {
     id: "openai/gpt-6-luna",
     name: "GPT-6 Luna",
-    tag: "极速稳定",
+    tagKey: "settings.memoryGroup.consolidationPresets.tagFastStable",
     isFree: false,
-    desc: "OpenAI 极速高性价比主力，严格遵循数据脱水格式规范，适合日常自动化整理",
+    descKey: "settings.memoryGroup.consolidationPresets.descGpt6Luna",
   },
 ];
 
@@ -671,7 +671,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <ModelMissingNotice id={defaultModel} />
               )}
 
-              <div className="mt-1 pt-4">
+              <div className="mt-1 pt-4 border-t border-border/30">
                 <div className="flex items-center gap-2 px-0.5">
                   <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-violet-500/25 bg-violet-500/10 text-violet-600 dark:text-violet-400">
                     <Palette className="h-3.5 w-3.5" />
@@ -855,7 +855,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   variant="ghost"
                   size="sm"
                   onClick={() =>
-                    setSystemPrompt("你是一个智能、真诚、有洞察力的个人智能助理。请根据用户提供的历史背景和长期记忆为用户提供高质量服务。")
+                    setSystemPrompt(t("settings.persona.defaultPromptValue"))
                   }
                   className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
                 >
@@ -1037,7 +1037,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                                         : "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20"
                                     )}
                                   >
-                                    {item.tag}
+                                    {t(item.tagKey)}
                                   </span>
                                   <span className="font-semibold text-xs text-foreground truncate">
                                     {item.name}
@@ -1053,7 +1053,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                                 {item.id}
                               </span>
                               <p className="text-xs text-muted-foreground leading-relaxed mt-0.5">
-                                {item.desc}
+                                {t(item.descKey)}
                               </p>
                             </button>
                           );
@@ -1113,17 +1113,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </div>
               </dl>
             </Panel>
-          </div>
-
-          <div className="flex justify-end md:hidden">
-            <Button
-              type="submit"
-              size="sm"
-              disabled={savingSettings || !isDirty}
-              className="h-9 cursor-pointer rounded-full px-5 text-xs font-semibold"
-            >
-              {savingSettings ? t("settings.saveBar.savingLong") : t("settings.saveBar.save")}
-            </Button>
           </div>
         </form>
       )}

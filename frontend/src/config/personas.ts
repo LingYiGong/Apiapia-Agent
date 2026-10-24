@@ -1,4 +1,4 @@
-import { LOCALE_META, DEFAULT_LOCALE } from "@/i18n";
+import { DEFAULT_LOCALE } from "@/i18n";
 import type { Locale, MessageKey, Translator } from "@/i18n";
 
 /**

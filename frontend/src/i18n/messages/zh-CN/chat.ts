@@ -365,9 +365,17 @@ export default {
     langAr: "阿拉伯语",
   },
 
-  /** 附件缩略图 */
+  /** 附件缩略图与文件预览 */
   media: {
     zoomAlt: "放大查看 {alt}",
+    clickToPreview: "点击查看预览",
+  },
+  filePreview: {
+    pdfNoInline: "PDF 文件已记录，点击右上角或下方按钮直接下载查看。",
+    lineCount: "{count} 行",
+    binaryDownloadHint: "该文件格式无需内嵌展示，点击下方按钮即可直接下载到本地查看。",
+    noCachedContent: "该文件仅在历史记录中记录了文件名，无缓存内容可供下载。",
+    downloadFile: "下载文件",
   },
   /**
    * 智能翻译模式（vocab_tutor / 双向互译）。

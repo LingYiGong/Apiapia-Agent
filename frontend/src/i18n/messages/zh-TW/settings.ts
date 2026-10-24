@@ -54,6 +54,18 @@ export default {
     consolidationGuideTitle: "推薦整理模型及選用理由（點擊卡片可快速選用）：",
     consolidationCurrentSelected: "當前選用",
     manualModel: "✍️ 手動輸入其他模型 ID…",
+    consolidationPresets: {
+      tagFreeRecommended: "免費推薦",
+      tagFree: "免費",
+      tagBestValue: "超高性價比",
+      tagHighestAccuracy: "最高精度",
+      tagFastStable: "極速穩定",
+      descGemma4: "Google DeepMind 30.7B 指令微調模型，免排隊回應快，原生遵循 JSON 格式，事實提煉嚴謹",
+      descNemotronSuper: "120B 參數 MoE 架構，擅長跨多條歷史記錄綜合提煉高維畫像與時序消歧",
+      descDeepseekFlash: "中文語義理解頂尖，原生對 JSON 格式高度遵從，單次整理成本極低且呼叫穩定",
+      descSonnet55: "複雜邏輯推理旗艦，對細微時序更迭、條件變更與隱含偏好辨析嚴謹，適合高品質記憶庫重構",
+      descGpt6Luna: "OpenAI 極速高性價比主力，嚴格遵循資料脫水格式規範，適合日常自動化整理",
+    },
   },
 
   about: {
@@ -74,6 +86,7 @@ export default {
     groupLabel: "系統提示詞 (System Prompt)",
     groupDesc: "預設人設與全域指導原則",
     resetDefault: "恢復通用預設",
+    defaultPromptValue: "你是一個智能、真誠、有洞察力的個人智能助理。請根據使用者提供的歷史背景和長期記憶為使用者提供高品質服務。",
     promptHint:
       "該指令將作為所有對話的基礎系統人設。若留空，系統將使用通用預設設定。",
     promptPhCustom: "輸入自訂的人設指令、語氣偏好與準則…",
@@ -135,7 +148,7 @@ export default {
   picker: {
     placeholder: "請選擇模型",
     loading: "載入中…",
-    selectAria: "選擇{kind}",
+    selectAria: "選擇{kind}{current}",
     selectAriaCurrent: "，目前 {name}",
     title: "選擇{kind}",
     /** 行動版底部抽屜的無障礙描述（視覺隱藏，抽屜沒有可見副標題） */

@@ -58,7 +58,6 @@
     --header-h-desktop: 56px;
     --toolbar-h: 48px;
     --tabbar-h: 49px;
-    --desktop-min-h: 600px;
     --sidebar-w: 16rem;
     --sidebar-w-lg: 18rem;
 
@@ -74,7 +73,7 @@
   :root:lang(ja),
   [data-locale="ja"] {
     --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro", "Segoe UI", Roboto, "Helvetica Neue", Arial, system-ui,
-      "Hiragino Sans", "Yu Gothic", "Meiryo", "Noto Sans JP",
+      "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", "Noto Sans JP",
       "PingFang SC", "Microsoft YaHei", sans-serif;
   }
 
@@ -123,24 +122,6 @@
     --success: 134 76% 60%; /* #30D158 */
     --success-foreground: 0 0% 0%;
   }
-
-  /* 日文环境：优先日文字形，杜绝中日汉字字形混淆（Han Unification 歧义） */
-  :root:lang(ja),
-  [data-locale="ja"] {
-    --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro", "Segoe UI", Roboto, "Helvetica Neue", Arial, system-ui,
-
-      "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", "Noto Sans JP",
-      "PingFang SC", "Microsoft YaHei", sans-serif;
-  }
-
-  /* 繁体中文环境：优先台湾/香港标准字形 */
-  :root:lang(zh-TW),
-  [data-locale="zh-TW"] {
-    --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro", "Segoe UI", Roboto, "Helvetica Neue", Arial, system-ui,
-
-      "PingFang TC", "Microsoft JhengHei", "Noto Sans TC",
-      "PingFang SC", "Microsoft YaHei", sans-serif;
-  }
 }
 
 @layer base {
@@ -157,6 +138,10 @@
   html,
   body {
     @apply bg-background text-foreground;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
   }
   html {
     -webkit-tap-highlight-color: transparent;
@@ -183,15 +168,6 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
-}
-
-html,
-body {
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  overscroll-behavior: none;
-  background-color: hsl(var(--background));
 }
 
 .overflow-y-auto {
@@ -291,9 +267,4 @@ input[type="search"]::-webkit-search-results-decoration {
 ::selection {
   background-color: hsl(var(--primary) / 0.35);
   color: inherit;
-}
-
-/* 确保顶部 Toast 提示框位于头部栏下方 */
-[data-sonner-toaster][data-y-position="top"] {
-  top: calc(max(var(--header-h), var(--header-h-desktop)) + var(--sat) + 0.6rem) !important;
 }

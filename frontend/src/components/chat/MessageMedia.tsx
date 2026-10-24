@@ -128,9 +128,9 @@ export function DocChip({
           onPreview();
         }
       }}
-      title={`${name}${size ? ` (${fmt.fileSize(size)})` : ""}${onPreview ? " - 点击预览查看" : ""}`}
+      title={`${name}${size ? ` (${fmt.fileSize(size)})` : ""}${onPreview ? ` - ${t("chat.media.clickToPreview")}` : ""}`}
       className={cn(
-        "group flex max-w-[240px] items-center gap-1.5 rounded-xl border border-indigo-400/40 bg-indigo-700/80 px-2.5 py-1.5 text-xs text-white shadow-xs backdrop-blur-xs transition-all",
+        "group flex max-w-[240px] items-center gap-1.5 rounded-xl border border-indigo-400/40 bg-indigo-700/80 px-2.5 py-1.5 text-xs text-white shadow-xs backdrop-blur-sm transition-all",
         onPreview && "cursor-pointer hover:border-indigo-300 hover:bg-indigo-700 active:scale-[0.98]"
       )}
     >

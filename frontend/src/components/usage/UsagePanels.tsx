@@ -845,30 +845,32 @@ export function AuditDialog({
             onValueChange={onFilterChange}
             options={filterOptions}
           />
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={onRefresh}
-            disabled={loading}
-            className="h-7 cursor-pointer gap-1 rounded-full px-2.5 text-xs text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground"
-          >
-            <RefreshCw className={cn("h-4 w-4", loading && "animate-spin text-primary")} />
-            <span>{t("usage.audit.refresh")}</span>
-          </Button>
-          {conversations.some((c) => c.is_deleted) && (
+          <div className="flex items-center gap-2">
             <Button
               type="button"
-              variant="outline"
+              variant="ghost"
               size="sm"
-              onClick={onPurgeDeleted}
-              disabled={purgeLoading || loading}
-              className="h-7 cursor-pointer gap-1 rounded-full border-destructive/30 px-2.5 text-xs text-destructive hover:bg-destructive/10"
+              onClick={onRefresh}
+              disabled={loading}
+              className="h-7 cursor-pointer gap-1 rounded-full px-2.5 text-xs text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground"
             >
-              <Trash2 className={cn("h-4 w-4", purgeLoading && "animate-pulse")} />
-              <span>{t("usage.audit.purgeDeleted")}</span>
+              <RefreshCw className={cn("h-4 w-4", loading && "animate-spin text-primary")} />
+              <span>{t("usage.audit.refresh")}</span>
             </Button>
-          )}
+            {conversations.some((c) => c.is_deleted) && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={onPurgeDeleted}
+                disabled={purgeLoading || loading}
+                className="h-7 cursor-pointer gap-1 rounded-full border-destructive/30 px-2.5 text-xs text-destructive hover:bg-destructive/10"
+              >
+                <Trash2 className={cn("h-4 w-4", purgeLoading && "animate-pulse")} />
+                <span>{t("usage.audit.purgeDeleted")}</span>
+              </Button>
+            )}
+          </div>
         </div>
 
         <div className="max-h-[60vh] flex-1 space-y-3 overflow-y-auto p-6 overscroll-contain">

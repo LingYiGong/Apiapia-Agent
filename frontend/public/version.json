@@ -1,12 +1,12 @@
 {
-  "version": "2.39.0",
-  "buildTime": "2026-10-23T22:00:00Z",
-  "title": "v2.39.0 流式输出防丢字加固、全链路即时停止生成与多语言同步更新",
+  "version": "2.40.0",
+  "buildTime": "2026-10-24T15:30:00Z",
+  "title": "v2.40.0 全站 UI 像素级对齐修复、Tailwind 样式加固、冗余样式瘦身与四语字典补齐",
   "changelog": [
-    "全链路即时停止生成（Stop Generating）：Next.js 反向代理（route.ts）新增客户端断开监听（req.signal + ReadableStream.cancel）并级联中止上游 FastAPI 请求；前端流读取器注册一次性 abort 监听器立即调用 reader.cancel() 解除阻塞；后端在 SSE 建流首帧即刻下发 initial_meta_chunk（含 conversation_id 与 user_message_id），并在 finally 块中显式取消挂起的 token 任务与关闭底层生成器（token_iter.aclose()），彻底解决思考/检索/生成阶段点击停止后按钮卡死无法继续发消息的问题",
-    "流式完成防吞字与防回滚保护：修复流式输出刚结束时偶发整段回复消失的 6 类竞态隐患——忽略已收到 done 事件后的连接关闭尾随异常、后台会话完成时禁止误杀当前前台会话的打字机定时器、流式中途异常时保留已输出的半截正文并在末尾追加错误提示、done 事件载荷新增完整 content 兜底并在流结束 5 秒冷却期内阻止页面聚焦刷新（refreshFromServer）覆盖本地刚生成的消息与推荐追问、新建会话首轮流式收到会话 ID 时平滑迁移输入框草稿",
-    "深度思考标签（<think>）与 Markdown 清洗精准作用域化：前后端统一将 <think> 状态机约束在回复开头的引导思考块内，并移除对代码块外部正文的贪婪正则误伤，彻底杜绝模型在正文中讨论 <think> 标签、工具调用示例或安全规则时整段回复被吞空",
-    "数据库持久化容错加固：后端入库前动态校验前端传入的 parent_message_id 是否存在于当前会话以消除外键冲突（ForeignKeyViolationError），并对模型名、搜索词与 finish_reason 做列长截断保护，确保长对话与异常流下消息 100% 落库",
-    "多语言（i18n）四语同步对齐：简中、繁中、英文、日文四语全量补齐用户中止生成占位文案（chat.message.abortedPlaceholder）与思考块完成态状态映射"
+    "Tailwind 配置与样式失效 Bug 修复：补全 tailwind.config.ts 的 content 扫描路径（新增 src/config、src/hooks、src/lib），修复右上角头像菜单中「偏好设置」图标底色被 Purge 裁剪的问题；补充 3xs（10px）字号令牌，修正文件预览模态框与附件芯片字号回退成 16px 的异常；修复流式光标 HSL 发光阴影语法与 Slider 滑块 peer-active 缩放动效",
+    "全站像素级对齐修复（Alignment）：移除用量大盘 LiveDotStat 重复的顶部边框与内边距，使首张 KPI 卡片与同行其余卡片底栏严格对齐；将桌面端右侧记忆栏顶栏高度统一为 var(--toolbar-h)（48px），消除与聊天顶栏交界处的 5px 错位；补齐记忆管理页卡片底部分割线上间距与单行正文垂直居中；修正会话审计弹窗工具栏按钮归组、Slider 圆点两端内切对齐以及弹窗标题栏右侧防重叠留白",
+    "视觉一致性提升与交互去重：桌面端侧边栏展开时仅保留侧栏内部收起按钮，消除与聊天顶栏并排出现两个重复收起按钮的问题；移除设置页表单底部多余的移动端保存按钮（统一由浮动 SaveActionBar 承载）并补齐 AI 绘图模型区块分割线；优化用户消息行内编辑态为单层高亮描边容器，告别「气泡套输入框」双层嵌套；适配版本更新弹窗深色渐变头部的浅白关闭按钮",
+    "冗余样式与死代码清理：清理 tailwind.config.ts 中 0 引用的扩展 Token（sheet、overlay 阴影、prose/bubble 行高、命名 zIndex、caret 动画），合并 globals.css 中重复的 CJK 字体规则与 html/body 声明，移除 9 处未使用 import 及多处无用重置类",
+    "四语国际化（i18n）深度巡检与全量对齐：修复繁中、英文、日文模型选择器无障碍标签缺失 {current} 占位符的问题，并将文件预览弹窗、附件悬停提示、记忆整理推荐模型卡片与默认系统提示词全面纳入 891 键四语强类型字典"
   ]
 }

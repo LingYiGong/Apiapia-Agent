@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.39.0-indigo?style=flat-square" alt="Version"></a>
+  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.40.0-indigo?style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
@@ -201,7 +201,34 @@ cat backup_xxx.sql | docker exec -i apiapia_postgres psql -U postgres -d apiapia
 
 ## 📜 リリースノート (Release Notes)
 
-### 🚀 最新リリース：v2.39.0 (2026-10-23)
+### 🚀 最新リリース：v2.40.0 (2026-10-24)
+
+本バージョンは**フロントエンド全体のスタイル監査、ピクセル単位の整列修正、Tailwind CSS 設定の強化、不要なスタイル・デッドコードの削減、および 891 キーの 4 言語 i18n 辞書の完全同期**を実施したアップデートです。`tailwind.config.ts` のスキャンパス漏れによるアイコン配色の消失、未定義の `text-3xs` による `16px` フォールバック、ストリーミングカーソルの HSL シャドウ構文エラー、スライダーのドラッグ拡大アニメーション不具合を解消しました。また、利用量ダッシュボードの KPI カード二重ボーダーずれ、デスクトップのチャットヘッダーと記憶サイドバー間の `5px` の高さ不一致、記憶カードの余白不足などをピクセル単位で修正し、ファイルプレビューや記憶整理推奨カードなどのハードコード文言をすべて 4 言語辞書へ統合しました。
+
+#### 1. Tailwind 設定とスタイル不具合の修正
+- **Tailwind スキャン対象の拡張 (`tailwind.config.ts`)**：`content` に `./src/config/**`、`./src/hooks/**`、`./src/lib/**` を追加し、`navigation.ts` 内のアイコン配色クラス（アバターメニューの「環境設定」アイコン背景など）がビルド時にパージされる問題を修正しました。
+- **`text-3xs` トークンの追加と無効ユーティリティの修正**：`tailwind.config.ts` に `"3xs": ["10px", { lineHeight: "14px", letterSpacing: "0.06px" }]` を定義し、`FilePreviewModal` や `MessageMedia` のバッジ文字が `16px` に戻ってしまう問題を解消。Tailwind v3 に存在しない `backdrop-blur-xs` を `backdrop-blur-sm` に修正し、ストリーミングカーソルの発光シャドウ構文を `shadow-[0_0_8px_hsl(var(--primary)/0.6)]` に修正しました。
+- **スライダーのドラッグ拡大と両端の収まり修正 (`slider.tsx`)**：`<input type="range">` に `peer` を付与して `peer-active:scale-110` を有効化し、`calc(${percentage}% + (${10 - percentage * 0.2}px))` により `20px` のつまみが `0.0` と `2.0` の両端でトラック内にぴったり収まり、下部ラベルと整列するようにしました。
+
+#### 2. ピクセル単位の整列（アライメント）修正
+- **利用量 KPI カードフッターの整列 (`StatCard.tsx`)**：`LiveDotStat` 内で重複していた `border-t border-border/30 pt-2` を削除し、先頭 KPI カード（「登録ユーザー」）の二重ボーダーと `9px` の縦ずれを解消しました。
+- **デスクトップのチャットヘッダーと記憶サイドバーの高さ統一 (`MemorySidebar.tsx`)**：`MemorySidebar` ヘッダーを `h-[var(--toolbar-h)]`（`48px`）および `border-b border-border/40` に統一し、`DesktopChatHeader` との境界の `5px` の段差を解消しました。
+- **記憶カードの余白と 1 行テキストの垂直中央揃え (`MemoryCard.tsx`)**：`/memory` のカード（`size="md"`）に `space-y-2.5` と本文の `py-0.5` を追加し、下部ボーダーの上余白と左右 `32px` アイコンに対する垂直位置を整えました。
+- **監査ダイアログのボタン配置とダイアログタイトル余白 (`UsagePanels.tsx`, `dialog.tsx`)**：会話監査ダイアログの「更新」と「削除済みを完全消去」ボタンを右側にグループ化し、`DialogHeader` に `pr-8` を追加して右上の閉じるボタンとの重なりを防止しました。
+
+#### 3. 視覚的一貫性の向上・重複ボタン削除・デッドコード整理
+- **重複ボタンの解消 (`ChatHeader.tsx`, `SettingsView.tsx`)**：サイドバー展開時はサイドバー内の閉じるボタンのみを表示し、`DesktopChatHeader` 側の重複ボタンを非表示化。設定画面フォーム末尾の重複したモバイル保存ボタン（`md:hidden`）を削除して下部フローティング `<SaveActionBar>` に一本化し、「AI 画像生成モデル」セクションの上部ボーダーを追加しました。
+- **ユーザーメッセージ編集モードの単層化 (`ChatMessageItem.tsx`)**：編集時は外側のユーザーバブル自体をハイライト枠付きの編集コンテナへ切り替え、二重ネストと二重パディングを解消しました。
+- **更新ダイアログのコントラスト改善とコード背景トークン統一 (`UpdatePrompt.tsx`, `WordCard.tsx`)**：`UpdatePrompt` の濃い紫グラデーションヘッダーに合わせて閉じるボタンを明るい白調に調整し、`WordCard` のハードコードされた `bg-[#0d0d0d]` を `bg-code` に統一しました。
+- **未使用スタイルと不要コードの削除**：未参照の Tailwind トークン（`rounded-sheet`、`shadow-overlay`、`leading-prose`、名前付き `zIndex`、`animate-caret`）や `--desktop-min-h` の削除、`globals.css` 内の重複した CJK フォント規則および `html, body` ブロックの統合、9 件の未使用 `import` の削除を実施しました。
+
+#### 4. 4 言語 i18n 監査と完全ローカライズ（全 891 キー）
+- **プレースホルダー整合性の修正**：繁体字・英語・日本語の `settings.picker.selectAria` に不足していた `{current}` プレースホルダーを補完しました。
+- **ハードコード文言の完全解消**：`FilePreviewModal`、`MessageMedia`、`ChatArea`、および `SettingsView`（記憶整理推奨モデルカードと既定システムプロンプト復元）の文言をすべて 4 言語辞書（各言語 891 キー、欠落 0、プレースホルダー不一致 0）へ統合しました。
+
+---
+
+### v2.39.0 (2026-10-23)
 
 本バージョンは**ストリーミング完了時の回答消失防止、全経路での即時「生成を停止」（Stop Generating）、思考タグ `<think>` ステートマシンのスコープ厳格化、データベース永続化の耐障害性強化、および 4 言語 i18n 辞書の完全同期**に焦点を当てたアップデートです。回答完了直後に内容が消えてしまう 6 つの競合状態を解消し、ブラウザの `ReadableStream` から Next.js プロキシ、FastAPI 非同期ジェネレーターまで中断シグナルを即座に伝播させることで、ウェブ検索・ツール実行・推論・本文生成のどの段階でも停止ボタンが即座に反応し、次のメッセージをすぐ送信できるようになりました。
 

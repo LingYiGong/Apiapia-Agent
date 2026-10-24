@@ -420,7 +420,7 @@ export function WordCard({
   // 如果流式生成尚未完成或无法解析为单词卡，友好展示预备态
   if (!data || !data.word) {
     return (
-      <div className="my-3 overflow-hidden rounded-2xl border border-border/70 bg-[#0d0d0d] p-4 text-xs font-mono text-muted-foreground">
+      <div className="my-3 overflow-hidden rounded-2xl border border-border/70 bg-code p-4 text-xs font-mono text-muted-foreground">
         <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground/75">
           <span className="flex items-center gap-1.5 text-primary">
             <Loader2 className="h-3 w-3 animate-spin" />

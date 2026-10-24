@@ -27,8 +27,6 @@ import {
   Square,
   Sparkles,
   Clock,
-  Zap,
-  Paperclip,
   X,
   FileText,
   Download,
@@ -37,7 +35,6 @@ import {
   ChevronDown,
   RotateCw,
   Quote,
-  Sliders,
   Terminal,
   Video,
   Plus,
@@ -1181,7 +1178,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         {/* Current Streaming Message (ChatGPT style seamless container) */}
         {isStreaming && (
           <div className="max-w-3xl w-full mx-auto">
-            <div className="w-full bg-transparent border-0 shadow-none px-0 py-0.5 text-foreground leading-[1.75] text-subhead sm:text-base min-w-0 break-words [overflow-wrap:anywhere]">
+            <div className="w-full py-0.5 text-foreground leading-[1.75] text-subhead sm:text-base min-w-0 break-words [overflow-wrap:anywhere]">
               {isWaitingForFirstToken || !streamingContent ? (
                 /* Stage 1: Waiting / Thinking Live Indicator */
                 <div className="py-1">
@@ -1231,7 +1228,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                   <div className="relative">
                     {renderMessageBody(streamingContent, true, handleImageClick)}
                     {(!streamingContent.includes("<think>") || streamingContent.includes("</think>")) && (
-                      <span className="ml-1 inline-block h-4 w-2 translate-y-0.5 rounded-full bg-primary animate-pulse shadow-[0_0_8px_rgba(var(--primary),0.6)]" />
+                      <span className="ml-1 inline-block h-4 w-2 translate-y-0.5 rounded-full bg-primary animate-pulse shadow-[0_0_8px_hsl(var(--primary)/0.6)]" />
                     )}
                   </div>
 
@@ -1438,7 +1435,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                       setPreviewFile(att);
                     }
                   }}
-                  title={`${att.name} (${fmt.fileSize(att.size)}) - 点击查看预览`}
+                  title={`${att.name} (${fmt.fileSize(att.size)}) - ${t("chat.media.clickToPreview")}`}
                   className="relative group shrink-0 flex items-center gap-2 p-1.5 pr-2 rounded-xl bg-card border border-border/70 dark:bg-surface-3 shadow-xs cursor-pointer hover:border-primary/50 transition-all select-none active:scale-[0.99]"
                 >
                   {att.type === "image" ? (

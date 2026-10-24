@@ -6,6 +6,9 @@ const config: Config = {
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/config/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/hooks/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/lib/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   prefix: "",
   theme: {
@@ -70,7 +73,6 @@ const config: Config = {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
         xs: "calc(var(--radius) - 6px)",
-        sheet: "24px",
         overlay: "22px",
       },
       fontFamily: {
@@ -80,24 +82,12 @@ const config: Config = {
       boxShadow: {
         "2xs": "0 1px 1px 0 rgb(0 0 0 / 0.04)",
         xs: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
-        overlay: "0 20px 50px 0 rgb(0 0 0 / 0.22)",
-        "overlay-lg": "0 24px 60px 0 rgb(0 0 0 / 0.6)",
-      },
-      lineHeight: {
-        prose: "1.62",
-        bubble: "1.7",
-      },
-      zIndex: {
-        content: "10",
-        chrome: "20",
-        sticky: "30",
-        bar: "40",
-        overlay: "50",
       },
       dropShadow: {
         xs: "0 1px 1px 0 rgb(0 0 0 / 0.06)",
       },
       fontSize: {
+        "3xs": ["10px", { lineHeight: "14px", letterSpacing: "0.06px" }],
         "2xs": ["11px", { lineHeight: "15px", letterSpacing: "0.06px" }],
         xs: ["12px", { lineHeight: "17px", letterSpacing: "0px" }],
         footnote: ["13px", { lineHeight: "18px", letterSpacing: "-0.08px" }],
@@ -116,14 +106,9 @@ const config: Config = {
           "0%": { backgroundPosition: "-200% 0" },
           "100%": { backgroundPosition: "200% 0" },
         },
-        caret: {
-          "0%, 49%": { opacity: "1" },
-          "50%, 100%": { opacity: "0" },
-        },
       },
       animation: {
         shimmer: "shimmer 1.5s infinite linear",
-        caret: "caret 1.06s steps(1, end) infinite",
       },
     },
   },

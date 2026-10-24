@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.39.0-indigo?style=flat-square" alt="Version"></a>
+  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.40.0-indigo?style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
@@ -225,7 +225,34 @@ cat backup_xxx.sql | docker exec -i apiapia_postgres psql -U postgres -d apiapia
 
 ## 📜 Releases & Changelog
 
-### 🚀 Latest Release: v2.39.0 (2026-10-23)
+### 🚀 Latest Release: v2.40.0 (2026-10-24)
+
+This release delivers a **comprehensive frontend visual audit, pixel-level alignment fixes, Tailwind CSS purge & token hardening, dead-style pruning, and full 891-key four-language i18n synchronization**. We resolved missing Tailwind scan paths that purged dynamic navigation icon tints, fixed undefined font-size/blur utilities (`text-3xs`, `backdrop-blur-xs`) and invalid HSL shadow syntax, eliminated double-border KPI card misalignments and 5px header height mismatches between the chat toolbar and memory sidebar, streamlined inline message editing and redundant buttons, and localized every remaining hardcoded string across `zh-CN`, `zh-TW`, `en`, and `ja`.
+
+#### 1. Tailwind CSS Configuration & Broken Utility Fixes
+- **Expanded Tailwind Content Scan (`tailwind.config.ts`)**: Added `./src/config/**`, `./src/hooks/**`, and `./src/lib/**` to `content`, preventing dynamic icon tint classes in `navigation.ts` (such as the Settings squircle in `UserAvatarDropdown`) from being stripped during production builds.
+- **`text-3xs` Token & Utility Corrections**: Defined `"3xs": ["10px", { lineHeight: "14px", letterSpacing: "0.06px" }]` in `tailwind.config.ts` so `FilePreviewModal` and `MessageMedia` badges no longer fall back to `16px`; replaced Tailwind v4-only `backdrop-blur-xs` with `backdrop-blur-sm` and fixed the streaming caret glow syntax (`hsl(var(--primary)/0.6)`).
+- **Slider Active Scale & Edge Inset (`slider.tsx`)**: Added `peer` to `<input type="range">` so `peer-active:scale-110` triggers on drag, and used `calc(${percentage}% + (${10 - percentage * 0.2}px))` so the 20px thumb stays strictly inset within the track at `0.0` and `2.0`.
+
+#### 2. Pixel-Level Alignment Fixes
+- **KPI Card Footer Alignment (`StatCard.tsx`)**: Removed the duplicate `border-t border-border/30 pt-2` inside `LiveDotStat` (already provided by `StatCard`'s footer wrapper), eliminating the double border and 9px vertical offset on the first KPI card in `/usage`.
+- **Desktop Chat Toolbar & Memory Sidebar Header Alignment (`MemorySidebar.tsx`)**: Standardized the memory sidebar header to `h-[var(--toolbar-h)]` (`48px`) and `border-b border-border/40` to match `DesktopChatHeader` to the pixel.
+- **Memory Card Spacing & Single-Line Vertical Centering (`MemoryCard.tsx`)**: Added `space-y-2.5` and `py-0.5` to `size="md"` cards in `/memory` so the footer border has balanced top spacing and single-line text centers visually with the `32px` icon and action buttons.
+- **Dialog Header & Audit Toolbar Grouping (`UsagePanels.tsx`, `dialog.tsx`)**: Grouped the Refresh and Purge Deleted buttons on the right side of the conversation audit toolbar, and added `pr-8` to `DialogHeader` so titles/badges never collide with the top-right close button.
+
+#### 3. Visual Harmony, De-duplication & Dead-Code Cleanup
+- **De-duplicated Sidebar Collapse & Mobile Save Controls**: Hid the duplicate `<PanelLeftClose />` button in `DesktopChatHeader` when the sidebar is already expanded, and removed the redundant inline mobile submit button at the bottom of `SettingsView` in favor of the floating `<SaveActionBar>`.
+- **Single-Layer User Message Inline Editing (`ChatMessageItem.tsx`)**: Transformed the outer user bubble directly into a highlighted edit container when `editing` is active, eliminating the nested bordered textarea inside a padded gray bubble.
+- **Update Prompt Contrast & Code Surface Tokens (`UpdatePrompt.tsx`, `WordCard.tsx`)**: Styled the close button in `UpdatePrompt` with light-on-dark contrast over the indigo/purple banner, and replaced hardcoded `bg-[#0d0d0d]` in `WordCard` with `bg-code`.
+- **Unused Style & Code Pruning**: Removed unreferenced tokens (`rounded-sheet`, `shadow-overlay`, `leading-prose`, custom `zIndex` aliases, `animate-caret`, `--desktop-min-h`), merged duplicate CJK `:lang()` rules and `html, body` blocks in `globals.css`, and cleaned up 9 unused imports.
+
+#### 4. Four-Language i18n Audit & Full Localization (891 Keys)
+- **Placeholder Parity Fix**: Added the missing `{current}` interpolation placeholder to `settings.picker.selectAria` in `zh-TW`, `en`, and `ja` so screen readers announce the active model across all languages.
+- **Zero Hardcoded UI Copy**: Localized all remaining strings in `FilePreviewModal`, `MessageMedia`, `ChatArea`, and `SettingsView` (`RECOMMENDED_CONSOLIDATION_MODELS` and default system prompt reset) across all 4 dictionaries (`891` keys per locale, 0 missing keys, 0 placeholder mismatches).
+
+---
+
+### v2.39.0 (2026-10-23)
 
 This release focuses on **streaming completion reliability (preventing replies from suddenly disappearing), instant end-to-end "Stop Generating" abort propagation, scoped `<think>` reasoning state-machine hardening, database persistence safeguards, and four-language i18n alignment**. We audited and eliminated six race conditions that could cause an assistant reply to vanish right upon completion, fixed the "Stop Generating" button getting stuck during web search, tool execution, or first-token latency, and hardened both the Next.js API proxy and FastAPI SSE stream lifecycle.
 

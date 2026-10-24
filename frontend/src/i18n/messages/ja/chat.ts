@@ -325,6 +325,14 @@ export default {
 
   media: {
     zoomAlt: "{alt} を拡大",
+    clickToPreview: "クリックしてプレビュー",
+  },
+  filePreview: {
+    pdfNoInline: "PDF ファイルが記録されています。右上または下のボタンからダウンロードしてご覧ください。",
+    lineCount: "{count} 行",
+    binaryDownloadHint: "このファイル形式はインライン表示に対応していません。下のボタンからダウンロードしてご覧ください。",
+    noCachedContent: "履歴にはファイル名のみが記録されており、ダウンロード可能なキャッシュがありません。",
+    downloadFile: "ファイルをダウンロード",
   },
   /**
    * スマート翻訳モード（vocab_tutor / 双方向翻訳）。

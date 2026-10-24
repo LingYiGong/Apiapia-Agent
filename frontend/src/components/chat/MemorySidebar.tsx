@@ -63,7 +63,7 @@ export function MemorySidebar({
    */
   const renderMemoryContent = ({ bottomInset }: { bottomInset: boolean }) => (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex shrink-0 items-center gap-2 border-b border-border/50 px-3 py-2.5">
+      <div className="flex h-[var(--toolbar-h)] shrink-0 items-center gap-2 border-b border-border/40 px-3">
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
           <Brain className="h-4 w-4" />
         </div>

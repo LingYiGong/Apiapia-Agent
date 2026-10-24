@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n";
 import { useClipboard } from "@/hooks/useClipboard";
 import { downloadAttachment } from "@/lib/fileUpload";
-import { WordCard, parseWordData } from "./WordCard";
+import { WordCard } from "./WordCard";
 
 /**
  * 代码块 / SVG 矢量画作 的渲染。

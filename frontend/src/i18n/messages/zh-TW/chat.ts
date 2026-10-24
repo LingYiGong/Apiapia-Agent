@@ -324,6 +324,14 @@ export default {
 
   media: {
     zoomAlt: "放大檢視 {alt}",
+    clickToPreview: "點擊檢視預覽",
+  },
+  filePreview: {
+    pdfNoInline: "PDF 檔案已記錄，點擊右上角或下方按鈕直接下載檢視。",
+    lineCount: "{count} 行",
+    binaryDownloadHint: "該檔案格式無需內嵌展示，點擊下方按鈕即可直接下載到本機檢視。",
+    noCachedContent: "該檔案僅在歷史記錄中記錄了檔名，無快取內容可供下載。",
+    downloadFile: "下載檔案",
   },
   /** 智慧翻譯模式（vocab_tutor / 雙向互譯）。與「詞彙導師」人設分開管理。 */
   translate: {

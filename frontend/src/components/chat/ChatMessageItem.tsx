@@ -311,7 +311,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
   const renderUserBody = () => {
     if (editing) {
       return (
-        <div className="flex min-w-[260px] max-w-full flex-col gap-2">
+        <div className="flex w-full flex-col gap-2">
           <textarea
             autoFocus
             value={draft}
@@ -326,9 +326,9 @@ export const ChatMessageItem = memo(function ChatMessageItem({
             }}
             rows={3}
             aria-label={t("chat.message.editAria")}
-            className="w-full resize-none rounded-2xl border border-primary/40 bg-background px-4 py-3 text-subhead leading-relaxed focus:outline-none focus:ring-2 focus:ring-primary/30"
+            className="w-full resize-none bg-transparent px-1 py-0.5 text-subhead leading-relaxed text-foreground focus:outline-none"
           />
-          <div className="flex items-center justify-end gap-2">
+          <div className="flex items-center justify-end gap-2 pt-1">
             <Button
               type="button"
               variant="ghost"
@@ -411,17 +411,23 @@ export const ChatMessageItem = memo(function ChatMessageItem({
       <div
         className={cn(
           "flex min-w-0 flex-col",
-          isUser ? "max-w-[85%] items-end sm:max-w-[75%]" : "w-full max-w-full items-start"
+          isUser
+            ? editing
+              ? "w-full max-w-full items-end sm:max-w-[75%]"
+              : "max-w-[85%] items-end sm:max-w-[75%]"
+            : "w-full max-w-full items-start"
         )}
       >
         <div
           className={cn(
             "min-w-0 max-w-full break-words [overflow-wrap:anywhere]",
             isUser
-              ? "rounded-[24px] bg-[#f4f4f4] px-5 py-3 text-subhead leading-relaxed text-foreground shadow-2xs dark:bg-surface-3"
+              ? editing
+                ? "w-full rounded-[24px] border border-primary/40 bg-surface-1 px-4 py-3 text-subhead leading-relaxed text-foreground shadow-sm ring-2 ring-primary/15 dark:bg-surface-3"
+                : "rounded-[24px] bg-[#f4f4f4] px-5 py-3 text-subhead leading-relaxed text-foreground shadow-2xs dark:bg-surface-3"
               : isErrorMsg
               ? "w-full rounded-2xl border border-destructive/30 bg-destructive/5 p-3.5 shadow-sm"
-              : "w-full border-0 bg-transparent px-0 py-0.5 text-foreground leading-[1.75] shadow-none"
+              : "w-full py-0.5 text-foreground leading-[1.75]"
           )}
         >
           {isUser ? (

@@ -74,8 +74,8 @@ export function StatCard({
 /** 「xx 正常」之类的绿点状态条。 */
 export function LiveDotStat({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-1.5 border-t border-border/30 pt-2 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+    <div className="flex items-center gap-1.5 truncate text-xs font-medium text-emerald-600 dark:text-emerald-400">
+      <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-emerald-500" />
       <span className="truncate">{children}</span>
     </div>
   );

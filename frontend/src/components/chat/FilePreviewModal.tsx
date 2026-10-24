@@ -176,7 +176,7 @@ export function FilePreviewModal({
                 <FileText className="h-16 w-16 text-rose-500/80" />
                 <h4 className="text-base font-semibold">{file.name}</h4>
                 <p className="max-w-sm text-xs text-muted-foreground">
-                  PDF 文件已记录，点击右上角或下方按钮直接下载查看。
+                  {t("chat.filePreview.pdfNoInline")}
                 </p>
                 <Button onClick={handleDownload} className="mt-2 gap-2">
                   <Download className="h-4 w-4" />
@@ -188,7 +188,7 @@ export function FilePreviewModal({
             <div className="flex h-full w-full flex-col overflow-hidden rounded-xl border border-border/60 bg-surface-3/50">
               <div className="flex items-center justify-between border-b border-border/50 px-3 py-1.5 text-3xs font-mono text-muted-foreground">
                 <span>UTF-8 PREVIEW</span>
-                <span>{decodedText.split("\n").length} 行</span>
+                <span>{t("chat.filePreview.lineCount", { count: decodedText.split("\n").length })}</span>
               </div>
               <pre className="flex-1 overflow-auto p-4 font-mono text-xs sm:text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap break-words [overflow-wrap:anywhere] select-text">
                 {decodedText}
@@ -202,13 +202,13 @@ export function FilePreviewModal({
               <h4 className="text-base font-semibold text-foreground">{file.name}</h4>
               <p className="max-w-sm text-xs text-muted-foreground">
                 {hasContent
-                  ? "该文件格式无需内嵌展示，点击下方按钮即可直接下载到本地查看。"
-                  : "该文件仅在历史记录中记录了文件名，无缓存内容可供下载。"}
+                  ? t("chat.filePreview.binaryDownloadHint")
+                  : t("chat.filePreview.noCachedContent")}
               </p>
               {hasContent && (
                 <Button onClick={handleDownload} className="mt-2 gap-2 rounded-xl px-5">
                   <Download className="h-4 w-4" />
-                  <span>下载文件</span>
+                  <span>{t("chat.filePreview.downloadFile")}</span>
                 </Button>
               )}
             </div>

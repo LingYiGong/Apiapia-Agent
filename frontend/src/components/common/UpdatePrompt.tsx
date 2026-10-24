@@ -134,9 +134,9 @@ export const UpdatePrompt: React.FC = () => {
 
   return (
     <Dialog open={showModal} onOpenChange={handleOpenChange}>
-        <DialogContent className="max-w-md p-0 overflow-hidden gap-0">
+        <DialogContent className="max-w-md gap-0 overflow-hidden p-0 [&>button]:text-white/80 [&>button:hover]:bg-white/15 [&>button:hover]:text-white">
           {/* Header banner */}
-          <div className="relative bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-700 p-5 text-white">
+          <div className="relative bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-700 p-5 pr-12 text-white">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="h-10 w-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-inner">

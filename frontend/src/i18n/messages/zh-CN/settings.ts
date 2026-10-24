@@ -56,6 +56,18 @@ export default {
     consolidationGuideTitle: "推荐整理模型及选用理由（点击卡片可快速选用）：",
     consolidationCurrentSelected: "当前选用",
     manualModel: "✍️ 手动输入其它模型 ID…",
+    consolidationPresets: {
+      tagFreeRecommended: "免费推荐",
+      tagFree: "免费",
+      tagBestValue: "超高性价比",
+      tagHighestAccuracy: "最高精度",
+      tagFastStable: "极速稳定",
+      descGemma4: "Google DeepMind 30.7B 指令微调模型，免排队响应快，原生遵循 JSON 格式，事实提炼严谨",
+      descNemotronSuper: "120B 参数 MoE 架构，擅长跨多条历史记录综合提炼高维画像与时序消歧",
+      descDeepseekFlash: "中文语义理解顶尖，原生对 JSON 格式高度遵从，单次整理成本极低且调用稳定",
+      descSonnet55: "复杂逻辑推理旗舰，对细微时序更迭、条件变更与隐含偏好辨析严谨，适合高质量记忆库重构",
+      descGpt6Luna: "OpenAI 极速高性价比主力，严格遵循数据脱水格式规范，适合日常自动化整理",
+    },
   },
 
   about: {
@@ -77,6 +89,7 @@ export default {
     groupLabel: "系统提示词 (System Prompt)",
     groupDesc: "默认人设与全局指导原则",
     resetDefault: "恢复通用默认",
+    defaultPromptValue: "你是一个智能、真诚、有洞察力的个人智能助理。请根据用户提供的历史背景和长期记忆为用户提供高质量服务。",
     promptHint:
       "该指令将作为所有对话的基础系统人设。若留空，系统将使用通用默认设定。",
     promptPhCustom: "输入自定义的人设指令、口吻偏好与准则…",

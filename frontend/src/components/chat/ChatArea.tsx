@@ -23,7 +23,7 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { ChatMessageItem } from "./ChatMessageItem";
 import { renderMessageBody, SearchSources } from "./markdown";
 import {
-  Send,
+  ArrowUp,
   Square,
   Sparkles,
   Clock,
@@ -336,7 +336,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       saved = localStorage.getItem(draftKey) || "";
     } catch (_) {}
     setInput(saved);
-    if (textareaRef.current) textareaRef.current.style.height = "auto";
+    // 高度统一交给 growTextarea 的 layout effect 处理（支持恢复多行草稿）
     // 切换会话或点击新建时，重置上一会话的未发送附件、引用状态与斜杠菜单
     setAttachments([]);
     setActiveQuote(null);
@@ -511,12 +511,19 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     }
   };
 
-  const growTextarea = () => {
+  const growTextarea = useCallback(() => {
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, 180)}px`;
-  };
+    // 高度上限交给 CSS 的 max-h-32 / sm:max-h-44，这里不再写死 180px
+    el.style.height = `${el.scrollHeight}px`;
+  }, []);
+
+  // 输入框高度的唯一来源：打字、切换会话/恢复草稿、斜杠命令插入、语音转写、上箭头召回
+  // 都会改动 input，在这里统一重算，避免某条路径漏调导致多行内容被压成一行。
+  useLayoutEffect(() => {
+    growTextarea();
+  }, [input, growTextarea]);
 
   const insertTranscript = (text: string) => {
     const clean = (text || "").trim();
@@ -525,10 +532,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       return;
     }
     updateInput(input.trim() ? `${input.trim()} ${clean}` : clean);
-    requestAnimationFrame(() => {
-      growTextarea();
-      textareaRef.current?.focus();
-    });
+    // 高度由 input 的 layout effect 统一重算
+    textareaRef.current?.focus();
   };
 
   const runTranscription = async (blob: Blob, filename?: string) => {
@@ -713,7 +718,6 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         e.preventDefault();
         updateInput(lastUserMsg.content);
         requestAnimationFrame(() => {
-          growTextarea();
           if (textareaRef.current) {
             textareaRef.current.setSelectionRange(lastUserMsg.content.length, lastUserMsg.content.length);
           }
@@ -779,11 +783,6 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       setSelectedCommandIdx(0);
     } else {
       setShowCommandsMenu(false);
-    }
-
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 180)}px`;
     }
   };
 
@@ -1078,7 +1077,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       size="icon"
       disabled={isStreaming || isUploading}
       className={cn(
-        "h-9 w-9 rounded-full shrink-0 mb-0.5 transition-colors",
+        "h-9 w-9 rounded-full shrink-0 transition-colors [&_svg]:size-5",
         creationMode === "image" && "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20",
         creationMode === "video" && "border-purple-500/40 bg-purple-500/10 text-purple-600 dark:text-purple-400 hover:bg-purple-500/20",
         isTranslateMode && creationMode === "chat" && "border-indigo-500/40 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/20"
@@ -1086,13 +1085,13 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       aria-label={t("chat.creation.menuLabel")}
     >
       {creationMode === "image" ? (
-        <Palette className="h-4 w-4" />
+        <Palette className="h-5 w-5" />
       ) : creationMode === "video" ? (
-        <Video className="h-4 w-4" />
+        <Video className="h-5 w-5" />
       ) : isTranslateMode ? (
-        <Languages className="h-4 w-4" />
+        <Languages className="h-5 w-5" />
       ) : (
-        <Plus className="h-4 w-4" />
+        <Plus className="h-5 w-5" />
       )}
     </Button>
   );
@@ -1296,7 +1295,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             }
           }}
           ref={composerContainerRef}
-          className="max-w-3xl mx-auto rounded-2xl sm:rounded-3xl border border-border/70 dark:border-border/50 bg-background/90 dark:bg-surface-2/90 backdrop-blur-xl p-1 sm:p-1.5 shadow-[0_2px_12px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.35)] focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/20 transition-all flex flex-col"
+          className="max-w-3xl mx-auto rounded-[28px] border border-border/70 dark:border-border/50 bg-background/90 dark:bg-surface-2/90 backdrop-blur-xl p-2 shadow-[0_2px_12px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.35)] focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/20 transition-all flex flex-col"
         >
           {showCommandsMenu && filteredCommands.length > 0 && (
             <div className="mx-1 mb-2 rounded-xl border border-border/80 bg-background/95 backdrop-blur-xl shadow-xl overflow-hidden p-1 z-30 animate-in fade-in slide-in-from-bottom-2 duration-150">
@@ -1498,7 +1497,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             </div>
           )}
 
-          <div className="flex items-end gap-1">
+          <div className="flex items-end gap-1.5">
             <input
               ref={fileInputRef}
               type="file"
@@ -1639,14 +1638,17 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 disabled={recorder.unsupported || isTranscribing}
                 onClick={toggleRecording}
                 aria-label={recorder.isRecording ? t("chat.speech.stopRecording") : t("chat.speech.voiceInput")}
-                className="h-9 w-9 shrink-0 rounded-full transition-colors"
+                className={cn(
+                  "h-9 w-9 shrink-0 rounded-full transition-colors",
+                  !recorder.isRecording && "[&_svg]:size-5"
+                )}
               >
                 {isTranscribing ? (
-                  <RotateCw className="h-4 w-4 animate-spin" />
+                  <RotateCw className="h-5 w-5 animate-spin" />
                 ) : recorder.isRecording ? (
                   <Square className="h-4 w-4 fill-current" />
                 ) : (
-                  <Mic className="h-4 w-4" />
+                  <Mic className="h-5 w-5" />
                 )}
               </Button>
             </ActionTooltip>
@@ -1667,7 +1669,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                   : t("chat.composer.placeholderChat")
               }
               aria-label={t("chat.composer.ariaLabel")}
-              className="border-0 bg-transparent shadow-none focus-visible:ring-0 px-2.5 sm:px-3 py-2 text-base sm:text-body max-h-32 sm:max-h-44 leading-relaxed resize-none min-h-[36px]"
+              className="min-h-9 max-h-32 sm:max-h-44 flex-1 min-w-0 resize-none border-0 bg-transparent px-2 py-1.5 text-base leading-6 shadow-none focus-visible:ring-0"
             />
             {isStreaming ? (
               <ActionTooltip label={t("chat.composer.stop")} side="top">
@@ -1675,7 +1677,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                   variant="destructive"
                   size="icon"
                   onClick={() => onStopGenerating?.()}
-                  className="h-9 w-9 sm:h-10 sm:w-10 rounded-full shrink-0 ml-1 mb-1 shadow-sm"
+                  className="h-9 w-9 rounded-full shrink-0 shadow-none"
                 >
                   <Square className="h-4 w-4 fill-current" />
                   <span className="sr-only">{t("chat.composer.stop")}</span>
@@ -1692,9 +1694,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                   onClick={handleSend}
                   disabled={(!input.trim() && attachments.length === 0) || isStreaming || isUploading}
                   size="icon"
-                  className="h-9 w-9 sm:h-10 sm:w-10 rounded-full shrink-0 ml-1 mb-1 shadow-sm"
+                  className="h-9 w-9 rounded-full shrink-0 shadow-none bg-foreground text-background hover:bg-foreground/90 disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100 [&_svg]:size-5"
                 >
-                  <Send className="h-4 w-4" />
+                  <ArrowUp className="h-5 w-5" />
                   <span className="sr-only">{t("chat.composer.send")}</span>
                 </Button>
               </ActionTooltip>

@@ -101,7 +101,7 @@ export type UnrankedModelOption = Omit<ModelOption, "rank">;
  */
 const FEATURED_PIN_ORDER: readonly string[] = [
   "nvidia/nemotron-3-ultra-550b-a55b:free",
-  "minimax/minimax-m3.1-flash:free",
+  "google/gemma-4-31b-it:free",
   "openrouter/free",
 ];
 

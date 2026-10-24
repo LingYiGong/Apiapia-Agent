@@ -17,9 +17,9 @@ export interface ModelGuide {
  * 把模型 id 归一化成可以跨变体匹配的形式。
  *
  * 目录里同一个模型会出现好几种写法：`anthropic/claude-sonnet-5.5`、
- * `anthropic/claude-sonnet-5.5:batch`、`anthropic/claude-opus-4.5` 之类的历史快照，
+ * `anthropic/claude-sonnet-5.5:batch` 之类的历史快照，
  * 以及 `~anthropic/claude-sonnet-latest` 这种「永远指向最新版」的重定向别名。
- * 去掉这些后缀后，一条画像就能覆盖它们全部，**分类计数也不会被变体灌水**。
+ * 去掉这些后缀后，一条画像就能覆盖它们全部，分类计数也不会被变体灌水。
  *
  * 剥后缀有顺序讲究：`:batch` 会把整个尾巴截掉，所以必须**先把这类后缀剥干净，
  * 再剥 `-pro`**。反过来 `foo-pro:batch` 会因为结尾是 `:batch` 而剥不掉 `-pro`。
@@ -41,34 +41,23 @@ function guide(reasonKey: MessageKey, priceTier: PriceTier): ModelGuide {
   return { reasonKey, priceTier };
 }
 
+// 免费档 3 款
+const NEMOTRON_ULTRA = guide("settings.modelGuide.reason.nemotronUltra", "standard");
+const GEMMA_4 = guide("settings.modelGuide.reason.gemma4", "standard");
+const FREE_ROUTER = guide("settings.modelGuide.reason.freeRouter", "free");
+
+// 正常档 5 款
 const SONNET = guide("settings.modelGuide.reason.sonnet", "standard");
 const GPT_SOL = guide("settings.modelGuide.reason.gptSol61", "standard");
 const GEMINI_FLASH = guide("settings.modelGuide.reason.gemini38", "standard");
-const GLM = guide("settings.modelGuide.reason.glm53", "standard");
-const GPT_LUNA = guide("settings.modelGuide.reason.gptLuna", "budget");
-const GLM_FLASH = guide("settings.modelGuide.reason.glm53Flash", "budget");
-const OPUS = guide("settings.modelGuide.reason.opus55", "premium");
-const FREE_ROUTER = guide("settings.modelGuide.reason.freeRouter", "free");
-
-const DEEPSEEK_PRO = guide("settings.modelGuide.reason.deepseekPro", "standard");
-const GROK47 = guide("settings.modelGuide.reason.grok47", "standard");
+const DEEPSEEK_FLASH = guide("settings.modelGuide.reason.deepseekFlash", "budget");
 const QWEN_MAX = guide("settings.modelGuide.reason.qwenMax", "standard");
 
+// 聪明档 4 款
+const OPUS = guide("settings.modelGuide.reason.opus55", "premium");
 const GPT_ASTRA = guide("settings.modelGuide.reason.gptAstra", "premium");
+const GEMINI_ARGON = guide("settings.modelGuide.reason.geminiArgon", "premium");
 const KIMI_K3 = guide("settings.modelGuide.reason.kimiK3", "premium");
-
-const DEEPSEEK_FLASH = guide("settings.modelGuide.reason.deepseekFlash", "budget");
-const QWEN_FLASH = guide("settings.modelGuide.reason.qwen38Flash", "budget");
-const MINIMAX_M3 = guide("settings.modelGuide.reason.minimaxM3", "budget");
-const MIMO_FLASH = guide("settings.modelGuide.reason.mimoFlash", "budget");
-
-/**
- * 「免费」档置顶的三个模型（顺序由 lib/models.ts 的 FEATURED_PIN_ORDER 决定）。
- * 画像同时覆盖付费线路，所以理由文案里不写「免费」，免费标签由 is_free 决定。
- */
-const NEMOTRON_ULTRA = guide("settings.modelGuide.reason.nemotronUltra", "standard");
-const MINIMAX_M31_FLASH = guide("settings.modelGuide.reason.minimaxM31Flash", "budget");
-const HAIKU = guide("settings.modelGuide.reason.haiku55", "budget");
 
 /**
  * 命中规则。顺序即匹配顺序：精确 id 先于正则。
@@ -79,33 +68,26 @@ const GUIDES: ReadonlyArray<{
   patterns?: readonly RegExp[];
   guide: ModelGuide;
 }> = [
-  // 「免费」档优先展示的三个模型，顺序与 lib/models.ts 的 FEATURED_PIN_ORDER 保持一致。
+  // 「免费」档置顶的三个模型，顺序与 lib/models.ts 的 FEATURED_PIN_ORDER 保持一致。
   {
     ids: ["nvidia/nemotron-3-ultra-550b-a55b"],
     guide: NEMOTRON_ULTRA,
   },
   {
-    ids: ["minimax/minimax-m3.1-flash"],
-    guide: MINIMAX_M31_FLASH,
+    ids: ["google/gemma-4-31b-it", "google/gemma-4-26b-a4b-it"],
+    patterns: [/gemma-4/],
+    guide: GEMMA_4,
   },
   {
     ids: ["openrouter/free"],
     guide: FREE_ROUTER,
   },
-  {
-    ids: ["anthropic/claude-opus-5.5"],
-    patterns: [/claude-opus-5\.5/, /claude-opus-latest/],
-    guide: OPUS,
-  },
+
+  // 「正常」档主力模型
   {
     ids: ["anthropic/claude-sonnet-5.5"],
     patterns: [/claude-sonnet-5\.5/, /claude-sonnet-latest/],
     guide: SONNET,
-  },
-  {
-    ids: ["anthropic/claude-haiku-5.5"],
-    patterns: [/claude-haiku-5/],
-    guide: HAIKU,
   },
   {
     ids: ["openai/gpt-6.1-sol"],
@@ -113,33 +95,9 @@ const GUIDES: ReadonlyArray<{
     guide: GPT_SOL,
   },
   {
-    ids: ["openai/gpt-6-luna"],
-    patterns: [/gpt-6-luna/, /gpt-luna-latest/],
-    guide: GPT_LUNA,
-  },
-  {
-    ids: ["openai/gpt-6-astra"],
-    patterns: [/gpt-6-astra/, /gpt-astra-latest/],
-    guide: GPT_ASTRA,
-  },
-  {
     ids: ["google/gemini-3.8-flash"],
     patterns: [/gemini-3\.8-flash/, /gemini-flash-latest/],
     guide: GEMINI_FLASH,
-  },
-  {
-    ids: ["z-ai/glm-5.3"],
-    patterns: [/z-ai\/glm-latest/],
-    guide: GLM,
-  },
-  {
-    ids: ["z-ai/glm-5.3-flash"],
-    patterns: [/glm-flash-latest/],
-    guide: GLM_FLASH,
-  },
-  {
-    ids: ["deepseek/deepseek-v4-pro-0813", "deepseek/deepseek-v4"],
-    guide: DEEPSEEK_PRO,
   },
   {
     ids: ["deepseek/deepseek-v4.1-flash"],
@@ -147,33 +105,31 @@ const GUIDES: ReadonlyArray<{
     guide: DEEPSEEK_FLASH,
   },
   {
-    ids: ["x-ai/grok-4.7"],
-    patterns: [/grok-4\.7/, /grok-latest/],
-    guide: GROK47,
-  },
-  {
-    ids: ["moonshotai/kimi-k3"],
-    patterns: [/kimi-latest/],
-    guide: KIMI_K3,
-  },
-  {
     ids: ["qwen/qwen3.8-max-0902", "qwen/qwen3.8-max"],
     patterns: [/qwen3\.8-max/],
     guide: QWEN_MAX,
   },
+
+  // 「聪明」档旗舰模型
   {
-    ids: ["qwen/qwen3.8-flash"],
-    patterns: [/qwen3\.8-flash/],
-    guide: QWEN_FLASH,
+    ids: ["anthropic/claude-opus-5.5"],
+    patterns: [/claude-opus-5\.5/, /claude-opus-latest/],
+    guide: OPUS,
   },
   {
-    ids: ["minimax/minimax-m3"],
-    guide: MINIMAX_M3,
+    ids: ["openai/gpt-6-astra"],
+    patterns: [/gpt-6-astra/, /gpt-astra-latest/],
+    guide: GPT_ASTRA,
   },
   {
-    ids: ["xiaomi/mimo-v2.6-flash"],
-    patterns: [/mimo-v2\.6$/, /mimo-v2\.5$/],
-    guide: MIMO_FLASH,
+    ids: ["google/gemini-4-argon"],
+    patterns: [/gemini-4-argon/, /gemini-argon-latest/],
+    guide: GEMINI_ARGON,
+  },
+  {
+    ids: ["moonshotai/kimi-k3.1", "moonshotai/kimi-k3"],
+    patterns: [/kimi-latest/],
+    guide: KIMI_K3,
   },
 ];
 

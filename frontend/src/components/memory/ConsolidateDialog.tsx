@@ -390,12 +390,12 @@ export function ConsolidateDialog({
                   type="button"
                   size="sm"
                   variant="outline"
-                  onClick={() => onRetry("nvidia/nemotron-3-super-120b-a12b:free")}
+                  onClick={() => onRetry("nvidia/nemotron-3-ultra-550b-a55b:free")}
                   className="w-full justify-between h-9 rounded-xl border-border/50 bg-surface-2/60 text-xs font-medium hover:bg-surface-3 transition-colors text-left px-3"
                 >
                   <div className="flex items-center min-w-0">
                     <Sparkles className="h-3.5 w-3.5 text-amber-500 mr-2 shrink-0" />
-                    <span className="truncate">NVIDIA Nemotron 3 Super (Free)</span>
+                    <span className="truncate">NVIDIA Nemotron 3 Ultra (Free)</span>
                   </div>
                   <span className="text-2xs px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 shrink-0 ml-2">
                     {t("memory.consolidation.retryHeavyComputeTag")}

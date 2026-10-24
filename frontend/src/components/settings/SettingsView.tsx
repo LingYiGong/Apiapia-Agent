@@ -97,11 +97,11 @@ const RECOMMENDED_CONSOLIDATION_MODELS: RecommendedConsolidationModel[] = [
     descKey: "settings.memoryGroup.consolidationPresets.descGemma4",
   },
   {
-    id: "nvidia/nemotron-3-super-120b-a12b:free",
-    name: "NVIDIA Nemotron 3 Super (Free)",
-    tagKey: "settings.memoryGroup.consolidationPresets.tagFree",
+    id: "nvidia/nemotron-3-ultra-550b-a55b:free",
+    name: "NVIDIA Nemotron 3 Ultra (Free)",
+    tagKey: "settings.memoryGroup.consolidationPresets.tagFreeUltra",
     isFree: true,
-    descKey: "settings.memoryGroup.consolidationPresets.descNemotronSuper",
+    descKey: "settings.memoryGroup.consolidationPresets.descNemotronUltra",
   },
   {
     id: "deepseek/deepseek-v4.1-flash",
@@ -111,18 +111,25 @@ const RECOMMENDED_CONSOLIDATION_MODELS: RecommendedConsolidationModel[] = [
     descKey: "settings.memoryGroup.consolidationPresets.descDeepseekFlash",
   },
   {
+    id: "google/gemini-3.8-flash",
+    name: "Google Gemini 3.8 Flash",
+    tagKey: "settings.memoryGroup.consolidationPresets.tagLongContext",
+    isFree: false,
+    descKey: "settings.memoryGroup.consolidationPresets.descGeminiFlash",
+  },
+  {
+    id: "openai/gpt-6.1-sol",
+    name: "OpenAI GPT-6.1 Sol",
+    tagKey: "settings.memoryGroup.consolidationPresets.tagFastStable",
+    isFree: false,
+    descKey: "settings.memoryGroup.consolidationPresets.descGptSol61",
+  },
+  {
     id: "anthropic/claude-sonnet-5.5",
     name: "Claude Sonnet 5.5",
     tagKey: "settings.memoryGroup.consolidationPresets.tagHighestAccuracy",
     isFree: false,
     descKey: "settings.memoryGroup.consolidationPresets.descSonnet55",
-  },
-  {
-    id: "openai/gpt-6-luna",
-    name: "GPT-6 Luna",
-    tagKey: "settings.memoryGroup.consolidationPresets.tagFastStable",
-    isFree: false,
-    descKey: "settings.memoryGroup.consolidationPresets.descGpt6Luna",
   },
 ];
 

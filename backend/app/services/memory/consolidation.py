@@ -132,13 +132,13 @@ def preview_consolidation(
         else:
             candidates.extend([
                 "google/gemma-4-31b-it:free",
-                "nvidia/nemotron-3-super-120b-a12b:free",
+                "nvidia/nemotron-3-ultra-550b-a55b:free",
                 "openrouter/free",
             ])
     else:
         candidates.extend([
             "google/gemma-4-31b-it:free",
-            "nvidia/nemotron-3-super-120b-a12b:free",
+            "nvidia/nemotron-3-ultra-550b-a55b:free",
             "openrouter/free",
         ])
 

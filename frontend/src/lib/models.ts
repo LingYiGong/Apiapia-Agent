@@ -158,17 +158,6 @@ export function getModelPriorityScore(m: UnrankedModelOption, isVocabMode = fals
   return 30;
 }
 
-/** 计算去重后的真实模型数 */
-export function countDistinctModels(
-  options: readonly ModelOption[],
-  match: (o: ModelOption) => boolean,
-): number {
-  const seen = new Set<string>();
-  for (const o of options) {
-    if (match(o)) seen.add(normalizeModelId(o.id));
-  }
-  return seen.size;
-}
 
 /** 语言模型目录适配：启发式判定免费 / 多模态，画像查表，优先级 + 名称排序。 */
 export function toChatModelOptions(models: ModelCatalogItem[], isVocabMode = false): ModelOption[] {

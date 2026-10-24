@@ -17,7 +17,6 @@ import {
 } from "@/components/common/modelFilterGroups";
 import { useIsTrialMode } from "@/hooks/useIsTrialMode";
 import {
-  countDistinctModels,
   toAudioModelOptions,
   toChatModelOptions,
   toImageModelOptions,
@@ -113,7 +112,6 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
       return {
         ...group,
         count: matched.length,
-        distinctCount: countDistinctModels(options, group.match),
         available: matched.length > 0,
       };
     });

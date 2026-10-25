@@ -225,469 +225,63 @@ cat backup_xxx.sql | docker exec -i apiapia_postgres psql -U postgres -d apiapia
 
 ## 📜 Releases & Changelog
 
-### 🚀 Latest Release: v2.41.0 (2026-10-25)
+### 🚀 v2.41.0 (2026-10-25)
 
-This release delivers a **model catalog refresh, memory-consolidation default migration, and full four-language i18n synchronization**. The free multimodal flagship moves from Google Gemma 4 31B to NVIDIA Nemotron 3.5 Super VL (12B-active MoE, native multimodality, long-context), the normal tier gains OpenAI GPT-6 Luna for ultra-low-cost high-volume work, and the smart tier gains Anthropic Claude Fable 5.1 for long-horizon agentic coding. Memory consolidation now defaults to NVIDIA Nemotron 3 Ultra 550B instead of Gemma 4, with database defaults and existing rows migrated automatically. All four dictionaries were re-audited so the retired Gemma 4 copy is gone and every new model carries a localized selection rationale.
+**Model catalog refresh · memory consolidation migration · four-language sync**
 
-#### 1. Model Catalog & Tier Refresh
-- **Free Multimodal Flagship Replaced**: Swapped `google/gemma-4-31b-it:free` for `nvidia/nemotron-3.5-super-vl:free` across featured pins, tier definitions, and model guides — a 12B-active MoE with native multimodality, stronger vision and long-context handling at zero cost.
-- **Normal Tier Expanded to Six**: Added `openai/gpt-6-luna` (about $0.1/$0.5 per 1M tokens) for summaries, classification, and batch workloads; updated DeepSeek to the `deepseek/deepseek-v4.1-flash-1017` endpoint.
-- **Smart Tier Expanded to Five**: Added `anthropic/claude-fable-5.1` for autonomous knowledge work and long-horizon agentic coding; moved GPT-6 Astra to the `gpt-6-astra-pro` endpoint.
-- **Legacy Alias Normalization (`credentials.py`)**: Mapped the retired `deepseek/deepseek-chat` alias to `deepseek-v4.1-flash-1017` and `google/gemini-2.0-flash-exp:free` to `nvidia/nemotron-3.5-super-vl:free` so stored credentials keep resolving.
-
-#### 2. Memory Consolidation Default Migration
-- **Default Model Switched to Nemotron 3 Ultra**: Changed `consolidation_model` defaults in the SQLAlchemy model, Pydantic schema, database bootstrap SQL, and the settings UI from Gemma 4 31B to `nvidia/nemotron-3-ultra-550b-a55b:free`.
-- **Automatic Row Migration**: Existing settings rows still pointing at `openrouter/free` are migrated to the new default on startup.
-- **Fallback Chain & UI Cleanup**: Updated the consolidation fallback candidates to Nemotron 3 Ultra → Nemotron 3.5 Super VL → `openrouter/free`, and removed the obsolete Gemma 4 retry shortcut and recommended card from the dialog and settings page.
-
-#### 3. Four-Language i18n Synchronization
-- **Obsolete Copy Removed**: Dropped the retired `tagFreeRecommended`, `descGemma4`, and `retryRecommendTag` keys from `en`, `ja`, `zh-CN`, and `zh-TW` so no language exposes Gemma 4 remnants.
-- **New Model Rationales Localized**: Added native-language `modelGuide.reason` entries for `nemotron35Vl`, `gpt6Luna`, and `fable51` in all four dictionaries; each locale now carries the same 14 curated-model reasons with matching key order and placeholder parity.
+- **Models**: Free multimodal flagship moves from Gemma 4 31B to NVIDIA Nemotron 3.5 Super VL; Normal tier adds GPT-6 Luna; Smart tier adds Claude Fable 5.1; DeepSeek updates to `deepseek-v4.1-flash-1017`; GPT-6 Astra moves to `gpt-6-astra-pro`.
+- **Memory**: `consolidation_model` defaults to Nemotron 3 Ultra 550B; fallback chain becomes Nemotron 3 Ultra → Nemotron 3.5 Super VL → `openrouter/free`; obsolete Gemma 4 retry/recommended UI is removed.
+- **i18n**: Retired Gemma 4 keys are removed from all four locales; native rationales are added for the three new models.
 
 ---
 
 ### v2.40.0 (2026-10-24)
 
-This release delivers a **comprehensive frontend visual audit, pixel-level alignment fixes, Tailwind CSS purge & token hardening, dead-style pruning, and full 891-key four-language i18n synchronization**. We resolved missing Tailwind scan paths that purged dynamic navigation icon tints, fixed undefined font-size/blur utilities (`text-3xs`, `backdrop-blur-xs`) and invalid HSL shadow syntax, eliminated double-border KPI card misalignments and 5px header height mismatches between the chat toolbar and memory sidebar, streamlined inline message editing and redundant buttons, and localized every remaining hardcoded string across `zh-CN`, `zh-TW`, `en`, and `ja`.
+**Frontend visual audit · Tailwind hardening · four-language sync**
 
-#### 1. Tailwind CSS Configuration & Broken Utility Fixes
-- **Expanded Tailwind Content Scan (`tailwind.config.ts`)**: Added `./src/config/**`, `./src/hooks/**`, and `./src/lib/**` to `content`, preventing dynamic icon tint classes in `navigation.ts` (such as the Settings squircle in `UserAvatarDropdown`) from being stripped during production builds.
-- **`text-3xs` Token & Utility Corrections**: Defined `"3xs": ["10px", { lineHeight: "14px", letterSpacing: "0.06px" }]` in `tailwind.config.ts` so `FilePreviewModal` and `MessageMedia` badges no longer fall back to `16px`; replaced Tailwind v4-only `backdrop-blur-xs` with `backdrop-blur-sm` and fixed the streaming caret glow syntax (`hsl(var(--primary)/0.6)`).
-- **Slider Active Scale & Edge Inset (`slider.tsx`)**: Added `peer` to `<input type="range">` so `peer-active:scale-110` triggers on drag, and used `calc(${percentage}% + (${10 - percentage * 0.2}px))` so the 20px thumb stays strictly inset within the track at `0.0` and `2.0`.
-
-#### 2. Pixel-Level Alignment Fixes
-- **KPI Card Footer Alignment (`StatCard.tsx`)**: Removed the duplicate `border-t border-border/30 pt-2` inside `LiveDotStat` (already provided by `StatCard`'s footer wrapper), eliminating the double border and 9px vertical offset on the first KPI card in `/usage`.
-- **Desktop Chat Toolbar & Memory Sidebar Header Alignment (`MemorySidebar.tsx`)**: Standardized the memory sidebar header to `h-[var(--toolbar-h)]` (`48px`) and `border-b border-border/40` to match `DesktopChatHeader` to the pixel.
-- **Memory Card Spacing & Single-Line Vertical Centering (`MemoryCard.tsx`)**: Added `space-y-2.5` and `py-0.5` to `size="md"` cards in `/memory` so the footer border has balanced top spacing and single-line text centers visually with the `32px` icon and action buttons.
-- **Dialog Header & Audit Toolbar Grouping (`UsagePanels.tsx`, `dialog.tsx`)**: Grouped the Refresh and Purge Deleted buttons on the right side of the conversation audit toolbar, and added `pr-8` to `DialogHeader` so titles/badges never collide with the top-right close button.
-
-#### 3. Visual Harmony, De-duplication & Dead-Code Cleanup
-- **De-duplicated Sidebar Collapse & Mobile Save Controls**: Hid the duplicate `<PanelLeftClose />` button in `DesktopChatHeader` when the sidebar is already expanded, and removed the redundant inline mobile submit button at the bottom of `SettingsView` in favor of the floating `<SaveActionBar>`.
-- **Single-Layer User Message Inline Editing (`ChatMessageItem.tsx`)**: Transformed the outer user bubble directly into a highlighted edit container when `editing` is active, eliminating the nested bordered textarea inside a padded gray bubble.
-- **Update Prompt Contrast & Code Surface Tokens (`UpdatePrompt.tsx`, `WordCard.tsx`)**: Styled the close button in `UpdatePrompt` with light-on-dark contrast over the indigo/purple banner, and replaced hardcoded `bg-[#0d0d0d]` in `WordCard` with `bg-code`.
-- **Unused Style & Code Pruning**: Removed unreferenced tokens (`rounded-sheet`, `shadow-overlay`, `leading-prose`, custom `zIndex` aliases, `animate-caret`, `--desktop-min-h`), merged duplicate CJK `:lang()` rules and `html, body` blocks in `globals.css`, and cleaned up 9 unused imports.
-
-#### 4. Four-Language i18n Audit & Full Localization (891 Keys)
-- **Placeholder Parity Fix**: Added the missing `{current}` interpolation placeholder to `settings.picker.selectAria` in `zh-TW`, `en`, and `ja` so screen readers announce the active model across all languages.
-- **Zero Hardcoded UI Copy**: Localized all remaining strings in `FilePreviewModal`, `MessageMedia`, `ChatArea`, and `SettingsView` (`RECOMMENDED_CONSOLIDATION_MODELS` and default system prompt reset) across all 4 dictionaries (`891` keys per locale, 0 missing keys, 0 placeholder mismatches).
+- **Tailwind**: Restored missing content scan paths, added the `text-3xs` token, and fixed invalid blur/shadow syntax and slider drag scaling.
+- **Alignment**: Removed duplicate KPI card borders, matched chat toolbar/memory sidebar header height, and fixed memory card spacing and dialog header overlap.
+- **Cleanup & i18n**: Removed duplicate sidebar/mobile save buttons, simplified inline editing, pruned dead styles/imports, and localized all remaining hardcoded strings (`891` keys × 4 locales).
 
 ---
 
 ### v2.39.0 (2026-10-23)
 
-This release focuses on **streaming completion reliability (preventing replies from suddenly disappearing), instant end-to-end "Stop Generating" abort propagation, scoped `<think>` reasoning state-machine hardening, database persistence safeguards, and four-language i18n alignment**. We audited and eliminated six race conditions that could cause an assistant reply to vanish right upon completion, fixed the "Stop Generating" button getting stuck during web search, tool execution, or first-token latency, and hardened both the Next.js API proxy and FastAPI SSE stream lifecycle.
+**Streaming reliability · instant Stop Generating · database safeguards**
 
-#### 1. Instant End-to-End "Stop Generating" Abort Propagation
-- **Next.js Reverse Proxy Stream Cancellation (`route.ts`)**: Forwarded client disconnect signals (`req.signal` and `ReadableStream.cancel()`) via an `AbortController` to immediately abort the upstream FastAPI `fetch` request and cancel the upstream reader.
-- **Immediate Client Reader Unblocking (`api.ts`)**: Registered a `{ once: true }` `"abort"` listener on `AbortSignal` inside `streamChatResponse` to invoke `reader.cancel()` immediately, unblocking pending `await reader.read()` calls the instant the user clicks Stop.
-- **Unconditional UI State Unlock (`chat/page.tsx`)**: Hardened `handleStopGenerating` with fallback session resolution and unconditional `detachCurrentStreamView()` / `setRegenerating(false)` resets so the composer never gets stuck in a disabled state; stopping before the first token or mid-thinking now cleanly finalizes the message with a localized aborted indicator.
-- **Immediate Initial Meta Frame & Generator Cleanup (`chat.py`)**: Emits `initial_meta_chunk` (`conversation_id` and `user_message_id`) as the very first SSE frame before search evaluation or media generation, and explicitly awaits task cancellation plus `await token_iter.aclose()` in the `finally` block.
-
-#### 2. Anti-Disappearing Reply & Streaming Completion Safeguards
-- **Post-`done` Trailing Error Immunity**: Ignored socket-close errors in `streamChatResponse` once the SSE `done` event has already been received (`sawDone`), preventing completed replies from being overwritten by a trailing error handler.
-- **Background Stream Timer Isolation**: Scoped `clearStreamIntervals()` inside `finalizeSessionMessage` to active foreground sessions (`if (active)`) so a finishing background stream never kills the foreground session's typewriter timer.
-- **Partial Content Retention on Mid-Stream Error**: If a network interruption occurs mid-stream after partial text has already been generated, the partial reply is preserved with the error appended below instead of wiping out the entire message.
-- **Post-Finalization Resume Cooldown & Local State Preservation**: Added a 5-second cooldown (`lastFinalizedAtRef`) and active-stream guard to `refreshFromServer` (`visibilitychange` / `focus`), while merging local `suggested_questions`, `memory_updated`, and unsaved local assistant messages (`asst_...`) so server refreshes never erase newly completed replies.
-- **New-Chat Draft Preservation**: Preserved composer drafts (`apiapia_chat_draft:new` → `apiapia_chat_draft:${conversationId}`) when a brand-new chat receives its first `conversationId` mid-stream.
-
-#### 3. Scoped `<think>` State Machine & Database Persistence Hardening
-- **Leading-Only `<think>` Parsing**: Restricted `<think>` tag state transitions in both backend (`chat.py`) and frontend (`renderMessageBody.tsx`) to the leading reasoning block before visible body text begins, and removed greedy mid-body regexes so discussing `<think>` tags or tool calls in normal prose never swallows the rest of the reply.
-- **Foreign-Key Validation & Column Length Guards**: Validated `parent_message_id` against existing messages in the conversation before inserting into PostgreSQL (eliminating `ForeignKeyViolationError` when a client passes a local temporary ID) and truncated `model`, `search_query`, and `finish_reason` to their exact schema limits.
+- **Stop Generating**: Abort signals propagate from the Next.js proxy to the FastAPI SSE stream and unblock the client immediately; UI state always unlocks.
+- **Reply integrity**: Completed replies no longer disappear after `done`; partial content is preserved on mid-stream errors; background timers stay isolated.
+- **Reasoning & persistence**: `<thinking>` parsing is scoped to the leading block; `parent_message_id` is validated and long columns are truncated.
 
 ---
 
 ### v2.38.0 (2026-10-22)
 
-This release brings **full alignment with ChatGPT core interaction paradigms: multi-version conversation branch trees, non-destructive regeneration with version paging, ChatGPT Custom Instructions, real-time memory extraction badges, 16ms high-refresh smooth typewriter, and smart long-text attachment folding**. The conversation architecture now models messages as an interconnected tree using `parent_id`. Triggering "Regenerate" no longer truncates past turns or injects duplicate user bubbles; instead, it derives an alternate assistant branch under the original user prompt with `< 1 / 2 >` version pagination. Custom Instructions allow users to specify "About You" and "Response Preferences" in Settings, which are persisted and dynamically injected into the developer/system context across all sessions. Real-time memory extraction badges surface remembered facts immediately above assistant replies with toast alerts, and pasting massive text or code snippets automatically converts into clean attachment cards.
+**ChatGPT-style branching · Custom Instructions · memory badges**
 
-#### 1. ChatGPT Multi-Version Conversation Branching & Regeneration
-- **True Non-Destructive Regeneration**: Replaced destructive truncation and duplicate user bubble behaviors. Regeneration requests reference `regenerate_message_id`, prompting the backend to reuse the original user turn and mount alternative assistant completions under the same parent node.
-- **`< 1 / 2 >` Version Pagination (BranchNavigator)**: Renders version switchers under messages with siblings (both assistant replies and edited user prompts), allowing effortless switching between alternate responses.
-- **Deepest-Leaf Dynamic Tracing**: When switching branches, the UI dynamically navigates down to the deepest leaf node (`findDeepestLeafOfNode`), guaranteeing coherent multi-turn conversation threads across branching paths.
-- **Seamless Legacy Normalization**: Automatically normalizes flat legacy messages into valid parent-child tree linkages upon loading.
-
-#### 2. ChatGPT Custom Instructions
-- **User Background & Style Customization**: Added dedicated Custom Instructions settings:
-  1. "What would you like the assistant to know about you? (About You)" — Profession, tech stack, preferences, and interests;
-  2. "How would you like the assistant to respond? (Response Style)" — Tone, conciseness, code conventions, and format guidelines.
-- **Secure Persistence & Global System Injection**: Persisted in PostgreSQL `user_settings` and automatically formatted by `PromptBuilder` into Developer/System prompt context for every model invocation.
-
-#### 3. Real-Time Memory Extraction Badges
-- **Immediate Factual Feedback**: Real-time memory extraction delivers captured facts via SSE upon response completion.
-- **Purple Memory Badges & Notifications**: Assistant replies render purple memory badges (`🧠 Memory updated: ...`) accompanied by toast alerts, giving instant visibility into newly formed memories.
-
-#### 4. 16ms Smooth Typewriter & Visual Experience Polish
-- **16ms High-Refresh Typewriter Clock**: Reduced interval from 20ms to 16ms (60fps aligned) with refined micro-step curves (2-4 chars for short streams, adaptive for long chunks) for stutter-free fluid output.
-- **Pulsing Soft-Glow Caret**: The streaming cursor now pulses gently with soft glow effects, automatically hides during pure reasoning, and anchors smoothly behind active text.
-- **Adaptive Thinking Block**: Reasoning blocks unfold with subtle pulses during generation, automatically collapse to "Thought Process" once content arrives, and can be manually toggled anytime.
-- **Smart Long-Text / Code Folding**: Text pastes exceeding 1200 characters or 30 lines automatically fold into `.txt` attachment cards, keeping the composer tidy.
-
-#### 5. Full i18n & TypeScript Type Safety
-- **Four-Language Alignment**: Added complete translations for branch pagination, memory badges, custom instructions, and paste folding across `zh-CN`, `zh-TW`, `en`, and `ja`.
-- **TypeScript Verification**: Fully aligned with the strict `MessageKey` dictionary schema for error-free production builds.
+- **Branching**: Messages form a parent-child tree; Regenerate creates an alternative branch with `< 1 / 2 >` pagination instead of truncating history.
+- **Custom Instructions**: "About You" and "Response Style" are persisted in PostgreSQL and injected into every model call.
+- **Experience**: Real-time memory badges/toasts, a 16ms typewriter, and automatic folding of long pastes into attachments.
 
 ---
 
 ### v2.37.0 (2026-10-22)
 
-This release focuses on **multi-session background streaming resilience, seamless session re-attachment, robust academic LaTeX environment rendering, ReAct inference pipeline safeguards, Windows font stack polish, and production container build compatibility**. The chat engine decouples frontend view rendering from network stream controllers, allowing users to freely switch conversations or start new chats without interrupting ongoing generations, with smooth typewriter catch-up upon return and pulsing generation badges in the sidebar. The Markdown renderer introduces native structural support for unfenced LaTeX algorithms, preambles, and theorem/proof environments with Q.E.D. symbols, while eliminating regex dollar-sign corruption and fixing Windows backslash font rendering.
+**Background streaming resilience · LaTeX environments · container builds**
 
-#### 1. Multi-Session Background Streaming Resilience & Re-Attachment
-- **Decoupled View & Stream Lifecycle**: Completely separated UI view states from network stream controllers (`AbortController`). Switching history records or starting a new chat detaches the current view without aborting active background requests.
-- **Background Persistence**: In-flight streams continue generating in the background and safely persist the complete assistant response and metadata to PostgreSQL upon completion.
-- **Real-Time Re-Attachment & Catch-up Typewriter**: Returning to an actively generating session automatically re-attaches the UI and accelerates typewriter typing smoothly to catch up with streamed tokens.
-- **Targeted Stop Generation**: Clicking "Stop generating" strictly cancels generation for the currently viewed conversation without affecting other concurrent background generations.
-- **Sidebar Status Pulse**: Added real-time glowing pulse indicators on conversation items in the sidebar to visualize background generation progress.
-
-#### 2. Robust Academic LaTeX Environment Rendering
-- **Unfenced LaTeX Block Encapsulation**: Automatically detects unfenced `\begin{algorithm}`, preamble package imports (`\usepackage`), and custom math operators (`\DeclareMathOperator`), wrapping them into syntax-highlighted code blocks.
-- **Theorems & Proofs Styling**: Formats `\begin{theorem}` and `\begin{proof}` environments into elegant academic blockquotes with serif typography and standard Q.E.D. ($\blacksquare$) symbols.
-- **KaTeX Fault Tolerance**: Enabled `throwOnError: false, strict: false` in KaTeX configuration to gracefully handle minor syntax variations and eliminate red screen crashes.
-- **Safe Placeholder Replacement**: Replaced vulnerable JavaScript string replacements with safe global token substitution to prevent corruption from `$` and `$'` special patterns.
-
-#### 3. ReAct Pipeline Safeguards & Windows Font Stack Polish
-- **Leak Filter Protection**: Scoped ReAct loop leak filters to prevent accidental truncation of long assistant text.
-- **Windows CJK Backslash Polish**: Optimized the font fallback stack on Windows to prioritize `"Segoe UI"` before `system-ui`, preventing backslashes `\` from rendering as yen signs `¥` in CJK environments.
-
-#### 4. Production Build Compatibility (ES5 Downlevel Iteration)
-- **ES5 Map Traversal**: Refactored `MapIterator` loops into ES5-native `.forEach()` calls, combined with `"downlevelIteration": true` in `tsconfig.json` to ensure clean Next.js Docker builds.
+- **Multi-session streaming**: The view is decoupled from the stream; switching chats or starting a new one leaves generation running and persists the final reply.
+- **LaTeX**: Native support for unfenced algorithms, preambles, theorem/proof environments and QED symbols; fixed dollar-sign regex and Windows font rendering.
+- **Stability**: Hardened the ReAct pipeline and production container builds.
 
 ---
 
 ### v2.36.0 (2026-10-21)
 
-This release brings a **comprehensive ChatGPT-grade interaction upgrade, adaptive reasoning presentation, rich web search cards, inline citation pills, LaTeX math standardization, and contextual follow-up recommendations**. The chat experience introduces dynamic reasoning accordion folding that smoothly auto-collapses as soon as answer tokens arrive, shields code blocks during sanitization, normalizes LaTeX formulas across all model providers, enriches web sources with clean hostnames, high-res Favicons and interactive citation pills, optimizes table text-wrapping, and streams real-time conversation titles and 3 actionable follow-up suggestion chips via SSE.
-
-#### 1. ChatGPT-Grade Adaptive Reasoning Fold & Floating Caret Polish
-- **Streaming State & Auto-Collapse**: Reasoning blocks (`<think>`) expand with a gentle pulse during generation; as soon as the first answer token arrives, the block automatically folds and flips to "Thought Process" without user intervention.
-- **Floating Caret Polish**: Hides dangling caret cursor during pure reasoning mode, engaging the typing caret only when answer body tokens begin streaming.
-- **Syntax & Code Protection**: Fenced markdown code blocks (``` and ~~~) are shielded with placeholders before sanitization, preventing programming tags from being stripped.
-
-#### 2. Rich Web Search Sources & Inline Citation Pills
-- **Inline Citation Pills (Perplexity / ChatGPT Search Style)**: In-text citations such as `[Source: GitHub](url)` or `[1](url)` are automatically rendered as interactive rounded badges with site icons and external links, replacing disruptive raw blue underlines.
-- **Clean Domains & Favicons**: Search sources parse clean hostnames (stripping `www.`) and fetch high-resolution site favicons via Google S2, replacing generic numbered badges.
-
-#### 3. LaTeX Math Standardization & Auto-Normalization
-- **Universal LaTeX Normalization**: Pre-processes bracketed LaTeX delimiters (`\[...\]` and `\(...\)`) into remark-math standard syntax (`$$...$$` and `$...$`), ensuring 100% mathematical formula rendering across OpenAI, Anthropic, DeepSeek, and open-source models.
-- **Backend LaTeX Guidelines**: System prompt explicitly enforces valid LaTeX notation and distinguishes currency from math delimiters.
-
-#### 4. Anti-Fluff Protocol & Code Formatting
-- **Zero-Fluff (Directness)**: System prompt instructs models to omit polite preambles ("Certainly!", "Sure thing", "Here is the answer:") and dive straight into the core response.
-- **Code Language Enforcement**: Enforces explicit language identifiers on all fenced code blocks for accurate syntax highlighting.
-- **Adaptive Table Wrapping**: Removed aggressive `nowrap` on table cells, allowing natural wrapping with max width limits to eliminate extreme horizontal scrolling on mobile.
-
-#### 5. Real-Time Conversation Title Push & Follow-up Suggestion Chips
-- **Instant Sidebar Renaming**: Conversation titles generated on the first turn are immediately streamed to the client via `type: "title"` SSE events, updating the sidebar without manual refresh.
-- **Smart Follow-ups**: Analyzes conversation context to generate 3 concise, highly relevant next questions with clickable chips and a dedicated `POST /api/v1/chat/suggestions` REST endpoint.
-- **Telemetry & Multi-Language**: Tracks Time-To-First-Token (`ttft_ms`) alongside total duration; fully localized across 4 languages.
-
----
-
-### v2.34.0 (2026-10-21)
-
-This release focuses on **universal file preview and download support, frontend architecture refactoring, and static bundle optimization**. The chat interface introduces a unified file preview modal supporting native PDF iframe reading, lossless UTF-8 text decoding with line numbering, full-text copy, and one-click downloading. Historical conversation attachments are fully preserved through message hydration refactoring, while duplicate model selectors and redundant code were pruned, SVG assets optimized by 99.8%, and Docker build types aligned.
-
-#### 1. Universal Attachment Preview & Download
-- **Universal Modal (FilePreviewModal)**: Radix UI dialog supporting native PDF viewing, code/data/text file UTF-8 decoding with line counts, and one-click direct download for Office and binary files.
-- **Lossless Text Decoding**: Replaced error-prone `atob` with WHATWG `TextDecoder("utf-8")` to cleanly render multi-byte CJK text, source code, and emoji without garbled characters.
-- **Enhanced Interactions**:
-  - Pending attachments in the composer support click-to-preview, quick download, and delete.
-  - Document badges and image thumbnails in message bubbles support preview and hover quick download.
-- **Message Hydration**: Rebuilt `hydrateMessage` to automatically unpack `user_attachments` from backend JSON, ensuring uploaded attachments remain viewable and downloadable after refresh or session switching.
-
-#### 2. Architecture & Code Consolidation
-- **Clipboard Hook**: Created unified `useClipboard` hook, eliminating duplicate timers in CodeBlock and WordCard, and dropped redundant `useCopyFeedback` alias.
-- **Model Selector Consolidation**: Merged image, video, and audio selectors into `ModelSelect.tsx` and removed 3 duplicate component files.
-- **Memory Safety**: Centralized download triggers in `fileUpload.ts` with automatic `URL.revokeObjectURL` cleanup to eliminate long-session memory leaks.
-- **Route Navigation**: Used `router.replace` on the root redirect to prevent browser back-button history loops.
-
-#### 3. Asset Pruning & Build Fixes
-- **Vector Graphics Optimization**: Compressed `apiapia-logo.svg` (835KB -> 2.2KB) and `icon.svg` (417KB -> 780B), shrinking file size by **99.8%**.
-- **Unused Image Cleanup**: Removed 4 unreferenced large JPG images from `frontend/public/` (original assets safely retained in `icons/`), saving **~931KB** from the build image.
-- **Badge Variant Conformance**: Added standard `outline` variant to `badge.tsx` to resolve Next.js production Docker TypeScript check errors.
-- **Git Hygiene**: Added `.codex/` to `.gitignore` to prevent editor configs from entering version control.
-
----
-
-### v2.33.0 (2026-10-20)
-
-This release focuses on **a tiered language-model picker, exact pricing, and cleanup of the legacy category system**. The picker now uses Free / Normal / Smart / Custom cards: Free contains only the three pinned free models, Normal and Smart use curated lists, and only Custom exposes the full catalog. OpenRouter prompt/completion prices are now synced and shown per 1M tokens, while the old filter-chip UI, scenario tags, and redundant i18n keys have been removed.
-
-#### 1. Tiered Model Picker
-- **Four clear tiers**: Free, Normal, Smart, and Custom each carry a one-line explanation, so users can judge cost and fit before scanning the list.
-- **Strict free tier**: the Free card shows only Nemotron, MiniMax M3.1 Flash, and `openrouter/free` — no low-cost paid models.
-- **Full catalog only in Custom**: Normal and Smart use curated lists; Custom removes tier limits and searches/filters every model by name or vendor.
-- **Initial tier follows the current model**: the picker opens the curated tier containing the selected model, uncurated models open Custom, and no selection falls back to Free.
-
-#### 2. Exact Pricing
-- **Prompt/completion prices**: backend OpenRouter sync now stores `pricing.prompt` / `pricing.completion`, converted to USD per 1M tokens in the UI.
-- **Comparable at a glance**: model rows show input/output prices such as `$2 / $10 /M`; free models display Free.
-- **No guessing**: when exact pricing is unavailable, the qualitative tier remains; when neither exists, no price is shown.
-
-#### 3. Legacy Category & Dead-Code Cleanup
-- **Scenario tags removed**: Writing & Translation, Deep Reasoning, Coding & Dev, Vision & Docs, and Fast & Free tags are gone from model rows and picker filters.
-- **Old chip filter removed**: deleted `ModelFilterChips`, `buildFilterBlocks`, and the unused filter predicates, leaving the tier cards as the single entry point.
-- **Unused data and copy removed**: dropped use-case profiles, caveat hints, featured flags, and the corresponding four-locale message keys that no longer render.
-
-#### 4. Interaction & Trial Mode
-- **Always-visible scrollbar**: the model list scrolls independently while the header, search box, and tier cards stay fixed.
-- **Tier switch behavior**: changing tiers clears the search, returns to the top, and highlights the first row; a model is committed only by clicking a row or pressing Enter.
-- **Trial mode**: when only free models are available, only Free and Custom are shown, so users cannot enter an empty tier.
-- **Four locales synchronized**: tier descriptions, pricing tooltips, and empty-search copy updated in Simplified Chinese, Traditional Chinese, English, and Japanese.
-
----
-
-### v2.32.0 (2026-10-19)
-
-This release focuses on **memory consolidation and dehydration engine refactoring, chat streaming scope safety fixes, frontend UX copy distillation, and unified multi-language branding around Apiapia's cat assistant identity**. It upgrades the memory consolidation workflow with curated models and snapshot rollback, eliminates an `UnboundLocalError` in streaming chat, streamlines UI copy across the platform, and harmonizes the cat mascot narrative across all 4 locales.
-
-#### 1. Memory Consolidation & Dehydration Engine Refactoring
-- **Curated consolidation models**: retired deprecated and slow models in favor of proven high-context options (NVIDIA Nemotron 3 Ultra, Qwen 2.5 72B, Gemini 2.5 Flash, Claude 3.5 Sonnet) for reliable, fast structured output.
-- **Diff preview & snapshot rollback**: users can clearly review planned merges, updates, and removals before committing, with one-click snapshot rollback support to prevent accidental data loss.
-- **Accurate time estimation & timeout resilience**: added defensive timeout handling and realistic progress indicators (~10-30s per run) to improve user expectations.
-
-#### 2. Chat Streaming Scope Safety Fix
-- **UnboundLocalError elimination**: fixed a variable hoisting issue in `chat.py` where `messages_payload` was referenced before assignment in error recovery branches, ensuring 100% reliable streaming generations and token accounting.
-
-#### 3. Frontend Production Build Type Safety
-- **Strict mouse event typing**: resolved a type incompatibility in `MemoryView.tsx` where an optional argument handler was passed directly to button `onClick`, ensuring flawless Next.js and Docker standalone production builds.
-
-#### 4. UX Copy Distillation & Professional Tone
-- **Reduced colloquial filler**: systematically trimmed redundant text across settings, memory views, audit panels, and creation menus, aligning the interface with modern SaaS product standards.
-- **Accurate security & permission terms**: corrected misleading "end-to-end encryption" claims to "isolated tenant data security" and standardized model entitlement labels.
-
-#### 5. Unified Cat Assistant Mascot Brand Identity Across All Locales
-- **Core identity alignment**: revitalized Apiapia's authentic mascot identity—a smart cat assistant with long-term memory—across auth subtitles, meta descriptions, and empty chat states.
-- **Full locale synchronization**: 100% synchronized key hierarchy and polished natural phrasing across Simplified Chinese, Traditional Chinese, English, and Japanese.
-
----
-
-### v2.31.0 (2026-10-19)
-
-This release focuses on **multi-turn and long conversation timeline integrity, LLM payload normalization, expanded context token budgets, and prompt caching architecture stabilization**. It resolves chronological inversion and context truncation issues in multi-turn chats, guarantees strictly alternating user/assistant message roles across all model providers, expands token history budget to 24,576 tokens, and hardens Anthropic, Gemini, and OpenAI provider adapters.
-
-#### 1. Multi-Turn & Long Conversation Timeline & Context Truncation Fixes
-- **Chronological timeline inversion fix**: Resolved a double-reversal bug where SQL descending order combined with token budgeting reversed conversation history, causing long chats to send messages backwards and drop newest turns first. History is now strictly chronological, prioritizing the most recent context.
-- **User-first context boundary**: Automatically strips leading assistant messages when conversation history is truncated by token budget, ensuring conversation context starts cleanly with a user query.
-- **Poisoned turn filtering**: Filtered out messages with `finish_reason == "error"` or empty contents to prevent failed/cancelled turns from polluting subsequent context.
-
-#### 2. Expanded Conversation Token Budget & Large Document Guard
-- **3x history token budget**: Increased the sliding window history token budget from 8,192 to 24,576 tokens (`DEFAULT_MAX_CONTEXT_TOKENS`), allowing models to retain much longer conversational memory.
-- **Document history cap**: Added a 3,000 token single-document cap for historical turns to prevent large document attachments from monopolizing the context budget and crowding out conversational dialogue.
-
-#### 3. Global LLM Payload Normalization Pipeline
-- **Strict role alternation (`user` -> `assistant`)**: Added `normalize_messages_payload` before all model provider dispatches. Merges consecutive `user` turns (e.g. from regenerations or search augmentations) and drops orphan assistant messages, eliminating HTTP 400 payload errors across OpenAI, Claude, and Gemini.
-
-#### 4. Prompt Caching Architecture Optimization & Type Safety
-- **Safe system prompt concatenation**: Replaced string in-place addition on list-based system prompts with `append_system_context`, completely eliminating Python `list += str` character-splitting issues and restoring Anthropic prompt caching reliability.
-- **Anthropic provider caching preservation**: Updated `_prepare_messages` to handle structured list system prompts without string serialization mangling while preserving ephemeral cache control markers.
-
-#### 5. Multi-Provider Adapter Hardening
-- **Gemini**: Added empty parts filtering and combined adjacent same-role messages into unified contents.
-- **OpenAI & Reasoning Models**: Added `developer` role conversion for `o3` and `o3-mini`, and corrected DeepSeek-R1 handling to retain `temperature` and omit unsupported `reasoning_effort`.
-- **Search evaluator**: Corrected message ordering in topic extraction so search queries accurately reflect the user's latest conversation intent.
-
----
-
-### v2.30.0 (2026-10-19)
-
-This release focuses on **Single Source of Truth (SSOT) architecture refactoring for default models, default model upgrade to NVIDIA Nemotron 3 Ultra, and memory retrieval isolation for Smart Translate**. It eliminates scattered hardcoded model ID strings across the entire codebase, ships NVIDIA's 550B open-weight frontier reasoning model out of the box, and ensures single-turn translate mode does not carry redundant conversational memory.
-
-#### 1. Single Source of Truth (SSOT) for Default Model
-- **One place to configure across the system**: eliminated over 10 hardcoded model ID strings previously scattered across user registration, user settings, access gating, database migrations, and frontend UI. The system default model is now configured in exactly one place: `DEFAULT_MODEL` in `.env` or `config.py`.
-- **User preference precedence & dynamic inheritance**: `user_settings.default_model` is now nullable. Users who haven't customized their model setting dynamically inherit the system default; once a user chooses a custom model in settings, their preference always takes precedence. Changing the system default in `.env` immediately takes effect for all default-inheriting users without database migrations.
-- **Backend-driven frontend**: the `/models/configured` endpoint dynamically marks `is_default: true` and sends `default_model`. The frontend model selector relies on dynamic flags rather than hardcoded client strings.
-
-#### 2. Default Model Upgraded to NVIDIA Nemotron 3 Ultra
-- **550B open-weight frontier reasoning model**: system default is now `nvidia/nemotron-3-ultra-550b-a55b:free` (MoE architecture with 55B active parameters).
-- **Elevated logical planning and reasoning ceiling**: purpose-built for deep reasoning, multi-step agentic planning, and long-context orchestration, fully available out of the box at zero cost.
-
-#### 3. Single-Turn Memory Isolation for Smart Translate
-- **Clean translation context**: fixed an issue where personal long-term memories were unnecessarily retrieved and injected into translation prompts. Introduced `single_turn_mode` to ensure translation output remains pure, deterministic, and fast while reducing context token consumption.
-
----
-
-### v2.29.0 (2026-10-17)
-
-This release reworks the **mobile "+" panel into a bottom sheet** and cleans up dead code across the component library. On narrow screens the creation panel used to pop up over the conversation — nearly 300px tall with six entry points, covering most of a 360px-wide screen and putting the bottom rows out of thumb reach. It now rises from the bottom edge, matching the visual language of the memory drawer and the model picker, while wide screens keep the original dropdown. Both forms render one shared panel definition, so they cannot drift apart.
-
-#### 1. Mobile "+" Panel: Bottom Sheet Instead of Dropdown
-- **Thumb-reachable, tap-to-dismiss**: below the `md` breakpoint the panel opens as a bottom sheet (rounded top, drag handle, safe-area bottom padding) and closes by tapping the scrim. Desktop keeps the popover above the composer.
-- **One shared panel body**: search/filter markup, click handlers and state live in a single `renderCreationPanel`; only the container and each row's element type differ.
-- **Deliberate close behavior**: every one-off action (camera / gallery / file / audio / image / video / translate) dismisses the sheet on tap, while **web search stays open** because it cycles through three modes with live state in the row — on desktop the same effect comes from `e.preventDefault()` blocking Radix's select.
-
-#### 2. Mobile Text Alignment Fix
-- **Descriptions no longer drift to the center**: the UA stylesheet sets `text-align: center` on `<button>`, and an inherited `text-align` always loses to an element's own declaration. Writing `text-left` on an ancestor container therefore did nothing, and the description text under each feature silently centered itself. The `text-left` now lives on the row component itself. Desktop was never affected — `DropdownMenuItem` renders a `div`, which has no such default.
-
-#### 3. Copy Trimmed to Single Lines
-- **28 strings across four locales** reduced to fit one line (~20 CJK characters at the ~240px available on a 360px screen). Longer copy doubled each row's height; five rows pushed the sheet past one screen and the last row — **Smart translate** — was clipped by the bottom safe area.
-
-#### 4. Touch Target & Dead Code
-- **"Back to plain chat" hit area**: a pure-padding change lifts the target from 17px to 29px tall, meeting the WCAG 2.2 minimum target size.
-- **18 unused exports removed**: shadcn primitives with zero references across the app (`SelectGroup` / `SelectLabel` / `SelectSeparator`, `TableFooter` / `TableCaption`, `DialogPortal` / `DialogOverlay` / `DialogTrigger`, `SheetPortal` / `SheetOverlay` / `SheetClose` / `SheetFooter`, `AvatarImage`, `PopoverAnchor`, `AlertTitle`, and the `badgeVariants` / `buttonVariants` cva handles), plus one dead import in `ChatArea`.
-
----
-
-### v2.28.0 (2026-10-16)
-
-This release focuses on **Mobile & Desktop Core UX Optimizations**: iOS safe area notch/Dynamic Island content resilience, virtual keyboard viewport avoidance, collapsible dual sidebars with keyboard shortcuts, rapid prompt recall, and modern developer typography standards.
-
-#### 1. iOS Safe Area & Dynamic Island Resilience
-- **Outer Header Padding Lift**: Moved top safe-area padding (`pt-[var(--sat)]`) to the outer `<header>` element so the toolbar expands naturally on notch/island devices while inner action items maintain an unconstrained 48px height with centered alignment, completely eliminating content squishing and bottom border clipping.
-
-#### 2. Mobile Soft Keyboard Detection & TabBar Viewport Avoidance
-- **Zero-Accidental-Tab-Switching**: Implemented `useIsKeyboardOpen` leveraging the Visual Viewport API and focus listeners. When the virtual keyboard pops up on mobile, `<MobileTabBar>` automatically hides (`hidden`), freeing 50–80px of vertical space and preventing accidental tab jumps while typing.
-
-#### 3. Desktop Collapsible Dual Sidebars & Global ⌘B / Ctrl+B Shortcut
-- **100% Screen Space Reclaim**: Desktop history and memory sidebars can now be toggled independently. Added a collapse button to the sidebar header and dual toggle buttons in the desktop toolbar with memory item badges. Sidebar open/collapsed state is persisted to `localStorage` and toggleable via `⌘B` / `Ctrl+B`.
-
-#### 4. Prompt History Recall on Empty Input (ArrowUp)
-- **ChatGPT / Discord-Style Prompt Recall**: Pressing the `↑` (ArrowUp) key on an empty composer instantly retrieves the last user message and sets the cursor at the end for rapid prompt tweaking and resending.
-
-#### 5. Developer Monospace Font Stack & CJK Han Unification Standards
-- **Modern Monospace Stack**: Enhanced `--font-mono` prioritizing `SF Mono`, `JetBrains Mono`, `Cascadia Code`, and `Fira Code`.
-- **CJK Han Unification Glyph Fix**: Added `:root:lang(ja), [data-locale="ja"]` and `:root:lang(zh-TW), [data-locale="zh-TW"]` font overrides to ensure Japanese and Traditional Chinese glyphs render according to native typographic norms rather than falling back to Simplified Chinese glyph variants.
-
-#### 6. CodeBlock Design Tokens & Zero-Dependency Streaming Syntax Highlighting
-- **Token Convergence**: Replaced hardcoded `#0d0d0d` and `#1f1f23` with design tokens `bg-code`, `bg-code-header`, and `text-code-foreground`.
-- **Zero-Dependency Highlighting**: Implemented a lightweight, synchronous regex-based tokenizer covering keywords, strings, comments, numbers, booleans, and functions with zero external bundle overhead and smooth streaming performance.
-
-#### 7. Strict i18n Dictionary Alignment & ActionTooltip Shortcuts
-- **Complete Four-Language Keys**: Wired `chat.sidebar` and `chat.recall` toggle keys across all 4 locales (zh-CN, zh-TW, en, ja).
-- **Shortcut Badge Support**: Added optional `shortcut` prop to `ActionTooltip` for elegant shortcut rendering.
-
----
-
-### v2.27.0 (2026-10-16)
-
-This release rebuilds the **model selector for mobile**. The picker no longer floats as a cramped panel pinned to a narrow trigger in the top bar: on phones it now opens as a **full-width bottom sheet**, and the category filter — which previously consumed roughly half the screen height — is **compressed into a single row of chips**. Along the way we corrected a real defect in the "Free" filter and removed a layer of dead code.
-
-#### 1. Mobile Form Refactor: Bottom Sheet Replaces the Top Sliver
-- **Full-width bottom sheet**: below the `md` breakpoint the picker opens as a bottom sheet (`86dvh` fixed height, rounded top, drag handle, `env(safe-area-inset-bottom)` inset). It used to be anchored to a narrow trigger inside the top bar and float above the conversation, reading as "a thin board stuck to the top of the screen" while most of the phone's vertical space sat unused.
-- **Desktop keeps the popover; both share one panel**: search, filtering, keyboard handling and ARIA wiring are literally the same markup, so the two forms cannot drift apart.
-- **The soft keyboard no longer appears on open**: the dialog's default auto-focus is intercepted, which previously summoned the keyboard straight over the model list. Per-model use-case badges were reduced from three to two to stop them wrapping on narrow screens.
-
-#### 2. Category Filter Compressed Into a Single Row
-- **~335px → 32px**: the seven groups now render as one row of chips — horizontally scrollable and snapping per chip on phones, auto-wrapping on desktop (a hidden-scrollbar horizontal scroll on desktop amounts to "you can't reach it").
-- **Nested scrolling eliminated**: the panel previously had *two* scroll areas, each capped at `38dvh`, so every single opening meant scrolling a tiny inner list just to reach "All". There is now **exactly one scroll area** in the whole panel, and the reclaimed height goes entirely to the model list — roughly 40% more room on a phone.
-- **Opens already positioned**: the selected category is scrolled into view on open, so a choice parked at the far end of the row is never mistaken for a lost selection.
-
-#### 3. Reordered Filters & a Corrected "Free" Group
-- **New order**: Free → Recommended → Deep Reasoning → Writing & Translation → Vision & Docs → Coding & Dev → All.
-- **"Fast & Free" → "Free"**: the predicate was tightened to plain `is_free`. The old one was "tagged `fastFree` **or** `is_free`", which swept in paid models whose price tier is merely *budget* (`GLM-Flash`, `Qwen-Flash`, `MiniMax-M3`, `MiMo`) — a user filtering for "Free" would still have had to pay.
-- **Trimmed names**: `Writing & Translation` and `Vision & Docs` lost a word each in the Chinese locales.
-- **No more guessing a default filter**: when the requested default group is unavailable the picker now shows the full list instead of silently landing in some category.
-
-#### 4. Removed Misleading Colour Coding & the Fake Hierarchy Arrow
-- **Dropped the green/amber/primary palette**: the seven groups span four *different* kinds — a price constraint (Free), four capability dimensions, a ranking (Recommended) and a fallback (All). Colour-coding them claimed they were mutually comparable, which is precisely the unscientific part. Selection is now a single primary-filled style; group semantics are carried by block dividers instead (Free / Recommended ｜ scenarios ｜ All).
-- **Removed the rotating chevron**: it implied a disclosure hierarchy that does not exist — tapping it just swaps the result set.
-
-#### 5. Dead Code Removal
-- **Dropped uncalled implementations**: `sortByPinnedThenActivity` (all three call sites had moved to the grouped `groupByTimeBuckets`), the `UserAvatarDropdown` compatibility aliases (leftovers from the rename to `UserAvatarMenu`, whose comment claimed "5 views use it" while 0 did), and `RECOMMENDED_CHAT_MODELS` — an ordered recommendation list whose only consumer, the settings recommendation cards, had already been removed, leaving its own comment describing a UI that no longer exists.
-- **Full import-graph audit**: every source file was checked for references, confirming no unused files, components or dependencies. `@radix-ui/react-slider` was never installed in the first place (the slider is hand-rolled) and stays that way.
-
----
-
-### v2.26.0 (2026-10-16)
-
-This release brings a comprehensive refactor of **site-wide typography and reading hierarchy across Mobile and PC**, systematic readability improvements for high-DPI screens, and a zero-redundancy audit of the multi-language (i18n) codebase.
-
-#### 1. Typography Hierarchy Refactor & Markdown Heading Inversion Fix
-- **Heading Scale Rationalization**: Completely resolved the legacy issue where `h3` (15px) and `h4-h6` (13px) rendered smaller than the 16px body text. Re-engineered a responsive heading scale from `h1` (24/28px) down to `h6` (14px).
-- **Desktop Code Block Alignment**: Elevated code block font size to 14px on desktop, fully matching GitHub, VS Code, and ChatGPT desktop standards. Action badges and buttons scaled to 12px.
-- **Enhanced Tables & Inline Code**: Upgraded table cells and inline code to responsive `text-xs sm:text-sm` for effortless scanning of dense tabular data.
-
-#### 2. CJK Line-Height Optimization & Systematic Micro-Text Elevation
-- **Breathing Room for CJK Glyphs**: Tuned `2xs` (11px) and `xs` (12px) line heights to 15px and 17px, preventing descender clipping and stroke collision for complex Chinese and Japanese characters.
-- **Micro-Text Elevation to 12px/14px**: Upgraded chat message action bars, usage analytics, model rankings, cost trends, conversation histories, memory consolidation diffs, and media cards from 11px micro-text to legible 12px/14px.
-- **Mobile Touch Interaction Enhancements**: Increased default opacity for metadata and action triggers on touchscreens to prevent washed-out text without hover capabilities.
-
-#### 3. Elimination of Invalid CSS Classes & Design Token Unification
-- **Eradication of `text-3xs`**: Replaced all instances of undefined `text-3xs` with standard design tokens across language switchers, slash commands, and audio speed buttons.
-- **Arbitrary Pixel Cleanup**: Normalized non-standard `text-[10px]` into system tokens.
-
-#### 4. Zero-Redundancy Multi-Language (i18n) Cleanup
-- **Pruned 83 Unused i18n Keys**: Removed orphaned translation keys across all 4 locales (Simplified Chinese, Traditional Chinese, English, Japanese) using AST verification.
-- **Backend Error Code Cleanup & Missing Key Wiring**: Pruned unreferenced `NO_LLM_CREDENTIALS` error code and properly wired missing login placeholder translations.
-
-#### 5. Model Feature Guide Tags & Catalog Synchronization
-- **Intuitive Guide Tags**: Integrated visual pricing tags and capability badges to facilitate seamless model selection.
-- **Streamlined Catalog Fetching**: Optimized model synchronization flow, eliminating redundant local file fallbacks.
-
----
-
-### v2.25.0 (2026-10-14)
-
-This release introduces independent configuration for the **Memory Consolidation Model (Consolidation LLM)**, real-time stage progress animation during AI memory deduplication, zero-barrier default model scheduling with `openrouter/free`, and synchronized recommendation models.
-
-#### 1. Independent Memory Consolidation Model Configuration
-- **Consolidation LLM Configuration**: Dedicated selector under Memory Settings allowing administrators to configure custom models for memory timeline deduplication and conflict resolution.
-- **Universal Model Picker**: Reuses the native `<ModelSelect>` component with full search, categorisation, and custom model ID inputs.
-
-#### 2. Curated Recommendation Cards with One-Click Selection
-- **Synchronized OpenRouter Catalog**: Curated 11 cutting-edge models from the latest catalog (e.g. `openrouter/free`, `nvidia/nemotron-3-ultra-550b-a55b:free`, `nvidia/nemotron-3.5-super-vl:free`, `deepseek/deepseek-v4.1-flash-1017`, `anthropic/claude-sonnet-5.5`).
-- **One-Click Quick Selection**: Card-style recommendations with detailed reasoning for memory summarization and click-to-select capability.
-
-#### 3. Real-Time Stage State Machine for Memory Consolidation
-- **Multi-Stage Visual Timeline**: 4-stage execution animation (Data Retrieval & Domain Clustering → Temporal Matrix Construction → Global LLM Reasoning & Denoising → Safety Threshold Validation & Diff Generation).
-- **Elapsed Timer & Progress Bar**: Real-time second counter and stage-aligned progress indicator during analysis.
-
-#### 4. Out-of-the-Box Zero-Barrier Default Model
-- **`openrouter/free` as System Default**: Default language model and consolidation model set to OpenRouter's official aggregated free model router.
-- **Legacy Compatibility & 404 Prevention**: Automatic endpoint alias normalization mapping retired model names to active catalog models with smooth database migration.
-
----
-
-### v2.24.0 (2026-10-13)
-
-This release is a major update that lands the **site-wide internationalization architecture**. A self-developed lightweight i18n framework gives full four-language coverage — Simplified Chinese / Traditional Chinese / English / Japanese — across the frontend UI, backend error responses, AI prompts and memory extraction. At the same time, the target language of smart translation is no longer hardcoded to Chinese and now follows the interface language.
-
-#### 1. Four-Language i18n Framework (Zero Third-Party Dependencies)
-- **Self-developed i18n, no URL prefix**: language preference is stored in `localStorage` and a same-named cookie; switching takes effect instantly without triggering a route change.
-- **Full coverage of four layers**: frontend UI copy, backend HTTP error responses, the AI system prompt scaffold, and long-term memory extraction & retrieval triggers — all rendered per language.
-- **Type-level key validation**: compile-time checked literal union keys for `t("...")`. Four dictionary tables are forced to align structurally.
-- **Localized formatting**: dates, weekday names, numbers, currency, file sizes and relative times follow the interface language.
-
-#### 2. Three Language-Switching Entry Points
-- **Top bar on the login page**: signed-out users can change language before seeing any error messages.
-- **Desktop top bar**: persistent entry adjacent to the theme switcher.
-- **Preferences · Interface Appearance**: dedicated configuration row with dual-language labels.
-
-#### 3. Smart Translation Target Language Follows UI Language
-- **Local language decided by UI**: English UI translates to English, Japanese UI to Japanese, Traditional Chinese to Traditional Chinese.
-- **Same-language degradation**: identical source-target pairs gracefully degrade to one-way "foreign language → local language" translation.
-
-#### 4. Bilingual Strategy for AI Prompts
-- **Scaffold follows the language**: persona, headings, time statements, search guidance, and formatting rules follow the selected language.
-- **Guardrail preserved**: reasoning trap examples maintain the high-precision disambiguation anchors.
-- **Two-sided language instructions**: opening and trailing prompts pin down output style and language recency.
-
-#### 5. Backend Error Message Localization
-- **Error code + parameterized copy**: exceptions specify codes while localized copy is resolved dynamically in `core/messages.py`.
-- **Standard `Accept-Language` header**: seamlessly integrates with reverse proxies, CDNs, and custom API consumers.
-
-#### 6. Multi-File Selection & Payload Budget Alignment
-- **Fixed multi-file selection**: multi-file selection across documents and photos now processes every item reliably.
-- **Budget alignment**: 10 attachments, 20MB per file, 40MB aggregate limit aligned with the 56MB request body gate.
-
-<details>
-<summary><b>📜 Click to expand past release notes (v2.23.0 ~ v2.22.0)</b></summary>
-
-<br />
-
-#### v2.23.0 Release Notes
-- **Chat Input State Memory & Smart Conversation Restore**: Creative states (smart translation, target languages) are remembered per conversation and restored seamlessly.
-- **Production Build Rigor**: Strict index-access guards eliminating `noUncheckedIndexedAccess: true` hazards during Docker container builds.
-- **Backend Model Catalog Refactor**: Decoupled catalog persistence helpers (`catalog.py`) from server lifespan startup tasks.
-- **Sync Permission Convergence**: Live model synchronization endpoints restricted to administrators.
-
-#### v2.22.0 Release Notes
-- **Consolidated Creation Menu**: Smart translation, image generation, video generation, and audio transcription unified into the `+` menu.
-- **Smart Translation & Grammar Breakdown**: Added Japanese furigana readings, deep verb inflection analysis, and transferable example sentences.
-- **Single-Turn Translation Isolation**: Instant translation runs context-free with recommended fast model auto-switching.
-- **Custom Global System Prompt**: Configurable base system prompt module under Settings.
-
-</details>
+**ChatGPT-grade interaction upgrade**
+
+- **Reasoning UI**: Reasoning blocks auto-fold when answer tokens arrive; the caret stays hidden during pure reasoning; fenced code is protected during sanitization.
+- **Web search**: Rich source cards with clean domains and high-res favicons, plus inline citation pills.
+- **Chat flow**: LaTeX normalization across providers, zero-fluff system prompt, real-time title push, and 3 follow-up suggestion chips.
 
 ---
 

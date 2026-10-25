@@ -4,6 +4,7 @@ import json
 import logging
 import re
 import time
+import urllib.parse
 from datetime import datetime, timezone
 from typing import AsyncGenerator, List, Dict, Any, Optional
 from pydantic import BaseModel
@@ -473,7 +474,119 @@ LEAK_CLOSING = [
 ]
 
 
-def sanitize_llm_output(text: str) -> str:
+_MARKDOWN_LINK_RE = re.compile(r"\[([^\]]*)\]\((https?://[^)\s]+)\)")
+
+
+def _url_path_for_match(url: str) -> str:
+    """Return a decoded path for comparing two URLs without being confused by %XX encoding."""
+    try:
+        return urllib.parse.unquote(urllib.parse.urlsplit(url).path or "")
+    except Exception:
+        return ""
+
+
+def _has_degenerate_repetition(value: str) -> bool:
+    """Detect the repetition loop that long URL generation sometimes falls into.
+
+    Catches both a single character repeated 16+ times and a short encoded
+    sequence (such as ``%E6%96%AF``) repeated many times. Legitimate URLs almost
+    never contain either pattern at this density.
+    """
+    if not value:
+        return False
+    if re.search(r"(.)\1{15,}", value):
+        return True
+    if re.search(r"(.{2,20})\1{7,}", value):
+        return True
+    return False
+
+
+def _repair_markdown_links(
+    text: str, search_results: Optional[List[Dict[str, Any]]] = None
+) -> str:
+    """Repair hallucinated or degenerate URLs in Markdown links.
+
+    The model is instructed to copy real URLs from the search results. Long,
+    percent-encoded URLs (Facebook video slugs are a common offender) sometimes
+    make the model fall into a repetition loop and emit a broken link such as
+    ``...%E5%B0%87%E6%96%AF%E6%96%AF%E6%96%AF...``. This function detects that
+    pattern and maps the broken URL back to the closest real search result.
+
+    Links that are not suspicious are left untouched. If a suspicious URL has no
+    plausible known replacement, only the citation label is kept so users never
+    get a dead/garbage link.
+    """
+    if not text or not search_results:
+        return text
+
+    known_urls = [
+        str(item.get("url") or "").strip()
+        for item in search_results
+        if isinstance(item, dict) and str(item.get("url") or "").strip()
+    ]
+    if not known_urls:
+        return text
+
+    known_norm = {url.rstrip("/").lower(): url for url in known_urls}
+
+    def _replace(match: re.Match) -> str:
+        label = match.group(1)
+        raw_url = match.group(2).strip()
+
+        # Exact URL from the search result: nothing to repair.
+        if raw_url.rstrip("/").lower() in known_norm:
+            return match.group(0)
+
+        decoded_url = _url_path_for_match(raw_url)
+        if not (_has_degenerate_repetition(raw_url) or _has_degenerate_repetition(decoded_url)):
+            return match.group(0)
+
+        try:
+            parsed = urllib.parse.urlsplit(raw_url)
+        except Exception:
+            return f"[{label}]"
+
+        candidates = []
+        for known_url in known_urls:
+            try:
+                known_parsed = urllib.parse.urlsplit(known_url)
+            except Exception:
+                continue
+            if known_parsed.netloc.lower() != parsed.netloc.lower():
+                continue
+            known_path = _url_path_for_match(known_url)
+            current_path = _url_path_for_match(raw_url)
+            prefix_len = 0
+            for a, b in zip(current_path, known_path):
+                if a != b:
+                    break
+                prefix_len += 1
+            if prefix_len >= 20:
+                candidates.append((prefix_len, known_url))
+
+        if candidates:
+            candidates.sort(key=lambda item: item[0], reverse=True)
+            return f"[{label}]({candidates[0][1]})"
+
+        # If there is only one known URL for this host, prefer it over a dead link.
+        host_matches = []
+        for known_url in known_urls:
+            try:
+                if urllib.parse.urlsplit(known_url).netloc.lower() == parsed.netloc.lower():
+                    host_matches.append(known_url)
+            except Exception:
+                continue
+        if len(host_matches) == 1:
+            return f"[{label}]({host_matches[0]})"
+
+        return f"[{label}]"
+
+    return _MARKDOWN_LINK_RE.sub(_replace, text)
+
+
+def sanitize_llm_output(
+    text: str, search_results: Optional[List[Dict[str, Any]]] = None
+) -> str:
     """
     Universal LLM output sanitizer.
     Protects markdown code blocks so programming examples containing <action>,
@@ -483,6 +596,7 @@ def sanitize_llm_output(text: str) -> str:
     2. Guardrail & Content Moderation leaks (User/Response Safety, Safety Assessment, etc.)
     3. Multi-turn role bleeding (model hallucinating next turn User:/Human:)
     4. Internal scratchpad & reflection tags (<scratchpad>, <internal>, etc.)
+    5. Degenerate/hallucinated URLs in Markdown citations (repetition loops)
     """
     if not text:
         return ""
@@ -540,6 +654,10 @@ def sanitize_llm_output(text: str) -> str:
 
     # 5. Strip stray internal scratchpad / reflection tags
     cleaned = re.sub(r'<\/?(?:scratchpad|internal|reflection|antThinking)>', '', cleaned, flags=re.IGNORECASE)
+
+    # 5.1 Repair hallucinated/repetitive URLs in Markdown citations. Code blocks
+    # are still placeholders here, so programming samples are never rewritten.
+    cleaned = _repair_markdown_links(cleaned, search_results)
 
     # 6. Restore preserved code blocks
     for idx, block in enumerate(code_blocks):
@@ -1256,7 +1374,9 @@ async def chat_stream(
                             "   - 引用格式为：[来源: 网站或机构名](对应网页完整URL)\n"
                             "   - 示例写法：\n"
                             "     “日本经产省官方调查预测，到 2030 年 IT 人才缺口最高可达 79 万人 [来源: 经济产业省](https://www.meti.go.jp/...)。而在实际招聘端，云架构师与 AI 工程师的求人倍率持续高居第一 [来源: doda](https://doda.jp/...)。”\n"
-                            "   - 链接中的网站/机构名请保持简短精炼，网址必须严格直接使用下方资料中提供的真实网址，严禁虚构任何链接。\n\n"
+                            "   - 链接中的网站/机构名请保持简短精炼，网址必须严格直接使用下方资料中提供的真实网址，严禁虚构任何链接。\n"
+                            "   - 网址必须逐字复制，严禁连续重复同一字符或同一段编码片段，严禁自行补全、改写或拼接网址。\n"
+                            "   - 若网址过长或包含大量 %XX 百分号编码、无法保证逐字完整复制，宁可只写 [来源: 网站或机构名]（不带链接），也绝不要输出损坏的网址。\n\n"
                             "【已检索到的实时参考资料列表】:"
                         )
                         for idx, r in enumerate(search_results, 1):
@@ -1538,7 +1658,7 @@ async def chat_stream(
                         max_tokens=1500
                     )
                     if recovered and recovered.strip():
-                        recovered_text = sanitize_llm_output(recovered).strip()
+                        recovered_text = sanitize_llm_output(recovered, search_results).strip()
                         recovered_text = _strip_thinking_blocks(recovered_text)
                         if recovered_text:
                             yield f"data: {json.dumps({'type': 'content', 'conversation_id': conv_id, 'delta': recovered_text}, ensure_ascii=False)}\n\n"
@@ -1600,7 +1720,7 @@ async def chat_stream(
         else:
             thinking_duration_ms = 0
         reply_created_at = datetime.now(timezone.utc)
-        assistant_content = sanitize_llm_output("".join(full_assistant_reply))
+        assistant_content = sanitize_llm_output("".join(full_assistant_reply), search_results)
 
         usage = getattr(provider, "last_usage", None) or {}
         prompt_tokens = usage.get("prompt_tokens")

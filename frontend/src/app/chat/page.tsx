@@ -675,8 +675,13 @@ export default function ChatPage({
       }
 
       const doneMeta = session.doneMeta;
+      // Prefer the server's sanitized final content when available. Streaming
+      // tokens are raw model output, so a long citation URL may be malformed or
+      // contain a repetition loop until the backend repairs it in the done event.
       let finalContent =
-        session.targetContent || session.displayedContent || doneMeta?.content || "";
+        (doneMeta?.content && doneMeta.content.trim())
+          ? doneMeta.content
+          : (session.targetContent || session.displayedContent || "");
 
       const finalThinkingMs =
         session.firstTokenTime && session.startTime

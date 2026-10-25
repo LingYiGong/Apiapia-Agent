@@ -193,6 +193,8 @@ export async function streamChatResponse(
       conversation_id: string;
       /** Server-assigned id of the persisted assistant row; powers regenerate/delete. */
       message_id?: string | null;
+      /** Sanitized final reply content; prefer this over raw streaming tokens. */
+      content?: string;
       model?: string;
       duration_ms?: number;
       thinking_duration_ms?: number;

@@ -213,7 +213,6 @@ export default {
       "{reason}。該訊息後續內容已移除，您可以重新發送或重新整理頁面。",
     networkReason: "網路異常",
     memoryTogglePersistFailed: "記憶開關未能儲存到伺服器，重新整理後會恢復原狀態",
-    syncModelsFailed: "同步模型失敗，請檢查後端 .env 設定",
   },
 
   recall: {

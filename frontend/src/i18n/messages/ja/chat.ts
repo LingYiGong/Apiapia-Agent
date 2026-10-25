@@ -215,7 +215,6 @@ export default {
       "{reason}。そのメッセージ以降のコンテンツは削除されました。再送信するか、ページを再読み込みして現在の状態を確認してください。",
     networkReason: "ネットワークエラー",
     memoryTogglePersistFailed: "記憶トグルを保存できませんでした。再読み込みすると元に戻ります",
-    syncModelsFailed: "モデルの同期に失敗しました。バックエンドの .env 設定を確認してください。",
   },
 
   recall: {

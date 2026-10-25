@@ -77,7 +77,7 @@ export default {
   },
   theme: {
     label: "外観",
-    system: "システムに合わせる",
+    system: "システム",
     light: "ライト",
     dark: "ダーク",
   },

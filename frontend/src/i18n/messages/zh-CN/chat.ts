@@ -229,7 +229,6 @@ export default {
       "{reason}。该消息后续内容已移除，您可以重新发送或刷新页面。",
     networkReason: "网络异常",
     memoryTogglePersistFailed: "记忆开关未能保存到服务器，刷新后会恢复原状态",
-    syncModelsFailed: "同步模型失败，请检查后台 .env 配置",
   },
 
   /** 本轮对话召回的记忆 */

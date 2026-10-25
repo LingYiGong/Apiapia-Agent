@@ -14,7 +14,6 @@ import {
   Trash2,
   MoreHorizontal,
   Edit2,
-  RefreshCw,
   PanelLeftOpen,
 } from "lucide-react";
 import {
@@ -52,8 +51,6 @@ export interface ChatHeaderBaseProps {
   currentModel: string;
   onModelChange: (model: string) => void;
   availableModels: ModelCatalogItem[];
-  onRefreshModels?: () => void;
-  isRefreshingModels?: boolean;
   onNewChat?: () => void;
   className?: string;
   isVocabMode?: boolean;
@@ -90,8 +87,6 @@ export const MobileChatHeader: React.FC<MobileChatHeaderProps> = ({
   currentModel,
   onModelChange,
   availableModels,
-  onRefreshModels,
-  isRefreshingModels = false,
   onToggleMemory,
   memoriesCount = 0,
   onNewChat,
@@ -134,32 +129,6 @@ export const MobileChatHeader: React.FC<MobileChatHeaderProps> = ({
         onLogoClick={onNewChat}
         right={
           <div className="flex shrink-0 items-center gap-1">
-            {onRefreshModels && (
-              <ActionTooltip
-                label={
-                  isRefreshingModels
-                    ? t("settings.sync.syncing")
-                    : t("settings.sync.tooltip", { scope: t("settings.modelGroup.language") })
-                }
-              >
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  disabled={isRefreshingModels}
-                  onClick={onRefreshModels}
-                  className="h-8 w-8 shrink-0 cursor-pointer rounded-full text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground active:scale-95"
-                  aria-label={t("settings.sync.sr", { scope: t("settings.modelGroup.language") })}
-                >
-                  <RefreshCw
-                    className={cn(
-                      "h-3.5 w-3.5",
-                      isRefreshingModels && "animate-spin text-primary"
-                    )}
-                  />
-                </Button>
-              </ActionTooltip>
-            )}
             {hasActiveMemories ? (
               <ActionTooltip label={t("chat.header.memoryCountTip", { count: memoriesCount })}>
                 <Button
@@ -316,8 +285,6 @@ export const DesktopChatHeader: React.FC<DesktopChatHeaderProps> = ({
   currentModel,
   onModelChange,
   availableModels,
-  onRefreshModels,
-  isRefreshingModels = false,
   activeConversation,
   onTogglePin,
   onRename,
@@ -389,32 +356,6 @@ export const DesktopChatHeader: React.FC<DesktopChatHeaderProps> = ({
               variant="compact"
               isVocabMode={isVocabMode}
             />
-            {onRefreshModels && (
-              <ActionTooltip
-                label={
-                  isRefreshingModels
-                    ? t("settings.sync.syncing")
-                    : t("settings.sync.tooltip", { scope: t("settings.modelGroup.language") })
-                }
-              >
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  disabled={isRefreshingModels}
-                  onClick={onRefreshModels}
-                  className="h-8 w-8 shrink-0 rounded-lg text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground active:scale-95"
-                  aria-label={t("settings.sync.sr", { scope: t("settings.modelGroup.language") })}
-                >
-                  <RefreshCw
-                    className={cn(
-                      "h-3.5 w-3.5",
-                      isRefreshingModels && "animate-spin text-primary"
-                    )}
-                  />
-                </Button>
-              </ActionTooltip>
-            )}
           </div>
         </div>
 

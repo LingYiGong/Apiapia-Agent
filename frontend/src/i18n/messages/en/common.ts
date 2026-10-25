@@ -78,7 +78,7 @@ export default {
   },
   theme: {
     label: "Appearance",
-    system: "Match system",
+    system: "System",
     light: "Light",
     dark: "Dark",
   },

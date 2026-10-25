@@ -78,7 +78,7 @@ export default {
   },
   theme: {
     label: "主題",
-    system: "跟隨系統",
+    system: "系統",
     light: "淺色",
     dark: "深色",
   },

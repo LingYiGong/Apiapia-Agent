@@ -14,7 +14,6 @@ import { MemoryView } from "@/components/memory/MemoryView";
 import { UsageView } from "@/components/usage/UsageView";
 import { SettingsView } from "@/components/settings/SettingsView";
 import { toast } from "sonner";
-import { notifyModelSyncResult } from "@/lib/feedback";
 import { useI18n } from "@/i18n";
 import { buildVocabTutorPrompt } from "@/config/personas";
 import { useRefreshOnResume } from "@/hooks/useRefreshOnResume";
@@ -532,22 +531,8 @@ export default function ChatPage({
     }
   };
 
-  const [isRefreshingModels, setIsRefreshingModels] = useState(false);
-
-  /**
-   * Pull every model catalog down.
-   *
-   * Returns the resulting per-family counts (or null on failure) so the sync
-   * handler can tell "nothing new" apart from "the list came back empty" — a
-   * distinction the response state alone cannot make, because both leave the
-   * picker unchanged from the user's point of view.
-   */
-  const loadConfiguredModels = async (): Promise<{
-    chat: number;
-    image: number;
-    video: number;
-  } | null> => {
-    setIsRefreshingModels(true);
+  /** Pull every model catalog down. */
+  const loadConfiguredModels = async (): Promise<void> => {
     try {
       const [res, settings, imageModelsRes, videoModelsRes] = await Promise.all([
         apiRequest<{ active_providers: string[]; total: number; models: ModelCatalogItem[]; default_model?: string }>(
@@ -606,50 +591,8 @@ export default function ChatPage({
           setCurrentModel(targetModel);
         }
       }
-      return {
-        chat: models.length,
-        image: imageModelsRes?.models?.length ?? 0,
-        video: videoModelsRes?.models?.length ?? 0,
-      };
     } catch (err) {
       console.error("Failed to load configured models:", err);
-      return null;
-    } finally {
-      setIsRefreshingModels(false);
-    }
-  };
-
-  const handleManualSyncModels = async () => {
-    setIsRefreshingModels(true);
-    try {
-      const target =
-        creationMode === "image"
-          ? { path: "/models/sync-images", scope: "image" as const, emptyKey: "image" as const }
-          : creationMode === "video"
-          ? { path: "/models/sync-videos", scope: "video" as const, emptyKey: "video" as const }
-          : { path: "/models/sync", scope: "language" as const, emptyKey: "chat" as const };
-
-      const syncRes = await apiRequest<{
-        success: boolean;
-        new_count: number;
-        new_models: ModelCatalogItem[];
-        message: string;
-      }>(target.path, { method: "POST" });
-
-      const counts = await loadConfiguredModels();
-
-      notifyModelSyncResult({
-        t,
-        scope: target.scope,
-        newCount: syncRes.new_count || 0,
-        message: syncRes.message,
-        emptyResult: counts !== null && counts[target.emptyKey] === 0,
-      });
-    } catch (err: any) {
-      console.error("Failed to sync models:", err);
-      toast.error(err.message || t("chat.errors.syncModelsFailed"));
-    } finally {
-      setIsRefreshingModels(false);
     }
   };
 
@@ -1885,8 +1828,6 @@ export default function ChatPage({
                 currentModel={activeModelId}
                 onModelChange={handleModelChange}
                 availableModels={activeModelCatalog}
-                onRefreshModels={handleManualSyncModels}
-                isRefreshingModels={isRefreshingModels}
                 onToggleMemory={handleToggleMemory}
                 memoriesCount={retrievedMemories.length}
                 onNewChat={handleNewChat}
@@ -1908,8 +1849,6 @@ export default function ChatPage({
                 currentModel={activeModelId}
                 onModelChange={handleModelChange}
                 availableModels={activeModelCatalog}
-                onRefreshModels={handleManualSyncModels}
-                isRefreshingModels={isRefreshingModels}
                 activeConversation={conversations.find((c) => c.id === activeId) || null}
                 onTogglePin={handleTogglePin}
                 onRename={handleRenameConversation}

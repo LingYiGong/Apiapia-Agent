@@ -8,7 +8,7 @@ import type { MessageKey } from "@/i18n";
 import { SegmentedControl, type SegmentedOption } from "@/components/common/SegmentedControl";
 import { cn } from "@/lib/utils";
 
-/** 外观三档（跟随系统 / 浅色 / 深色）分段控件 */
+/** 外观三档（系统 / 浅色 / 深色）分段控件 */
 
 /** 三档选项的唯一来源。ThemeToggle 与 ThemeSegments 共用。 */
 const THEME_OPTIONS: readonly { value: Theme; labelKey: MessageKey; icon: typeof Monitor; iconClassName?: string }[] = [

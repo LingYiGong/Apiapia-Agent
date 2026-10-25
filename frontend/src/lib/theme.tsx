@@ -46,7 +46,7 @@ const ThemeMetaSync: React.FC = () => {
 /**
  * shadcn/ui 标准主题方案：底层使用 next-themes（attribute="class"），
  * 对外保持本项目原有的 useTheme API（theme / resolvedTheme / setTheme）不变，
- * 存储键仍为 apiapia_theme，浅色/深色/跟随系统三档。
+ * 存储键仍为 apiapia_theme，浅色/深色/系统三档。
  */
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
   children,

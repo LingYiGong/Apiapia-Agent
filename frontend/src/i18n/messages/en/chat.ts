@@ -215,7 +215,6 @@ export default {
       "{reason}. Everything after that message has been deleted. Send it again or reload to see the current state.",
     networkReason: "network error",
     memoryTogglePersistFailed: "The memory toggle couldn't be saved; it will revert after a reload",
-    syncModelsFailed: "Model sync failed. Check the backend .env configuration.",
   },
 
   recall: {

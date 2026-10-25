@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.40.0-indigo?style=flat-square" alt="Version"></a>
+  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.41.0-indigo?style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
@@ -200,7 +200,28 @@ cat backup_xxx.sql | docker exec -i apiapia_postgres psql -U postgres -d apiapia
 
 ## 📜 版本發布與更新說明 (Release Notes)
 
-### 🚀 最新版本：v2.40.0 (2026-10-24)
+### 🚀 最新版本：v2.41.0 (2026-10-25)
+
+本版本聚焦於 **模型目錄刷新、記憶整理預設模型遷移與四語字典全量同步**。免費多模態旗艦由 Google Gemma 4 31B 切換為 NVIDIA Nemotron 3.5 Super VL（12B 啟用 MoE、原生多模態、長上下文），正常檔新增超低價高頻的 OpenAI GPT-6 Luna，聰明檔新增面向長程 agentic coding 的 Anthropic Claude Fable 5.1。記憶整理預設模型由 Gemma 4 遷移至 NVIDIA Nemotron 3 Ultra 550B，資料庫預設值與既有紀錄自動遷移；四語字典完成複核，清除 Gemma 4 殘留文案，並為每款新模型補齊在地化選型理由。
+
+#### 1. 模型目錄與檔位刷新
+- **免費多模態旗艦更換**：將 `google/gemma-4-31b-it:free` 全面替換為 `nvidia/nemotron-3.5-super-vl:free`（置頂入口、檔位清單與畫像規則同步更新），12B 啟用 MoE 原生多模態，零成本下提供更強的視覺與長文本能力。
+- **正常檔擴充至 6 款**：新增 `openai/gpt-6-luna`（約 $0.1/$0.5 每百萬 tokens），適合摘要、分類與批次處理；DeepSeek 端點更新為 `deepseek/deepseek-v4.1-flash-1017`。
+- **聰明檔擴充至 5 款**：新增 `anthropic/claude-fable-5.1`，面向自主知識工作與長程 agentic coding；GPT-6 Astra 端點更新為 `gpt-6-astra-pro`。
+- **歷史別名正規化 (`credentials.py`)**：將已下線的 `deepseek/deepseek-chat` 別名映射到 `deepseek-v4.1-flash-1017`，將 `google/gemini-2.0-flash-exp:free` 映射到 `nvidia/nemotron-3.5-super-vl:free`，確保已儲存的憑證繼續可用。
+
+#### 2. 記憶整理預設模型遷移
+- **預設模型切換為 Nemotron 3 Ultra**：同步修改 SQLAlchemy 模型、Pydantic Schema、資料庫初始化 SQL 與設定頁預設值，將 `consolidation_model` 從 Gemma 4 31B 遷移至 `nvidia/nemotron-3-ultra-550b-a55b:free`。
+- **存量資料自動遷移**：啟動時將仍指向 `openrouter/free` 的設定紀錄遷移到新預設值。
+- **備援鏈路與介面清理**：整理候選鏈路更新為 Nemotron 3 Ultra → Nemotron 3.5 Super VL → `openrouter/free`，並移除整理失敗彈窗中的 Gemma 4 快捷重試按鈕與設定頁的 Gemma 4 推薦卡片。
+
+#### 3. 四語國際化（i18n）同步
+- **清除失效文案**：從 `en` / `ja` / `zh-CN` / `zh-TW` 四語字典中移除已廢棄的 `tagFreeRecommended`、`descGemma4` 與 `retryRecommendTag` 鍵，確保任何語言都不再殘留 Gemma 4 文案。
+- **新模型理由在地化**：為 `nemotron35Vl`、`gpt6Luna`、`fable51` 在四語 `modelGuide.reason` 中補齊原生語言選型理由；四語種現已對齊同一組 14 款精選模型，鍵順序與佔位符保持一致。
+
+---
+
+### v2.40.0 (2026-10-24)
 
 本版本聚焦於 **全站前端樣式深度巡檢、像素級對齊修復、Tailwind CSS 配置加固、冗餘樣式／死程式碼瘦身以及 891 鍵四語國際化字典全量對齊**。排查並修復了 `tailwind.config.ts` 漏掃配置目錄導致圖示底色被 Purge 裁剪、`text-3xs` 未定義導致字號回退為 `16px`、串流游標 HSL 陰影語法錯誤以及滑桿拖曳縮放失效等問題；消除了用量大盤 KPI 卡片雙層分隔線錯位、桌面端聊天頂欄與記憶側欄 `5px` 高度錯位、記憶卡片底欄貼邊等對齊瑕疵；合併清理了約 70 行冗餘樣式與無用匯入，並將檔案預覽、記憶整理推薦卡片等殘留硬編碼文案全面納入四語強型別字典。
 

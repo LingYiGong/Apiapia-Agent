@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.40.0-indigo?style=flat-square" alt="Version"></a>
+  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.41.0-indigo?style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
@@ -201,7 +201,28 @@ cat backup_xxx.sql | docker exec -i apiapia_postgres psql -U postgres -d apiapia
 
 ## 📜 リリースノート (Release Notes)
 
-### 🚀 最新リリース：v2.40.0 (2026-10-24)
+### 🚀 最新リリース：v2.41.0 (2026-10-25)
+
+本バージョンは**モデルカタログの刷新、記憶整理の既定モデル移行、および 4 言語辞書の完全同期**に焦点を当てたアップデートです。無料マルチモーダルのフラッグシップを Google Gemma 4 31B から NVIDIA Nemotron 3.5 Super VL（12B アクティブ MoE、ネイティブ マルチモーダル、長コンテキスト）へ切り替え、標準枠には超低コスト・高頻度向けの OpenAI GPT-6 Luna を、最上位枠には長期的な agentic coding 向けの Anthropic Claude Fable 5.1 を追加しました。記憶整理の既定モデルは Gemma 4 から NVIDIA Nemotron 3 Ultra 550B へ移行し、データベースの既定値と既存レコードは自動的に移行されます。4 言語辞書を再監査し、Gemma 4 の残存文言を削除するとともに、新しい各モデルにローカライズされた選定理由を追加しました。
+
+#### 1. モデルカタログと枠の刷新
+- **無料マルチモーダル・フラッグシップの交代**：`google/gemma-4-31b-it:free` を `nvidia/nemotron-3.5-super-vl:free` に全面置換（ピン留め、枠定義、モデルガイドを同期更新）。12B アクティブの MoE でネイティブにマルチモーダル対応し、無料で視覚・長文処理能力を強化します。
+- **標準枠を 6 モデルへ拡充**：`openai/gpt-6-luna`（100万トークンあたり約 $0.1/$0.5）を追加し、要約・分類・バッチ処理に適合。DeepSeek のエンドポイントを `deepseek/deepseek-v4.1-flash-1017` に更新しました。
+- **最上位枠を 5 モデルへ拡充**：`anthropic/claude-fable-5.1` を追加し、自律的な知識作業と長期的な agentic coding に対応。GPT-6 Astra のエンドポイントを `gpt-6-astra-pro` に更新しました。
+- **旧エイリアスの正規化 (`credentials.py`)**：廃止された `deepseek/deepseek-chat` を `deepseek-v4.1-flash-1017` に、`google/gemini-2.0-flash-exp:free` を `nvidia/nemotron-3.5-super-vl:free` にマッピングし、保存済みの認証情報が引き続き解決されるようにしました。
+
+#### 2. 記憶整理の既定モデル移行
+- **既定モデルを Nemotron 3 Ultra へ変更**：SQLAlchemy モデル、Pydantic スキーマ、データベース初期化 SQL、設定画面の既定値を `consolidation_model` の Gemma 4 31B から `nvidia/nemotron-3-ultra-550b-a55b:free` へ同期して変更しました。
+- **既存レコードの自動移行**：起動時に `openrouter/free` を指す設定レコードを新しい既定値へ移行します。
+- **フォールバック経路と UI の整理**：整理候補を Nemotron 3 Ultra → Nemotron 3.5 Super VL → `openrouter/free` に更新し、整理失敗ダイアログの Gemma 4 クイック再試行ボタンと設定画面の Gemma 4 推奨カードを削除しました。
+
+#### 3. 4 言語 i18n の同期
+- **廃止文言の削除**：`en` / `ja` / `zh-CN` / `zh-TW` の 4 言語辞書から廃止された `tagFreeRecommended`、`descGemma4`、`retryRecommendTag` キーを削除し、どの言語にも Gemma 4 の残存文言が残らないようにしました。
+- **新モデル理由のローカライズ**：`nemotron35Vl`、`gpt6Luna`、`fable51` の `modelGuide.reason` を 4 言語すべてに追加；各ロケールは同一の 14 モデル分の選定理由を、同じキー順序とプレースホルダー整合性で保持します。
+
+---
+
+### v2.40.0 (2026-10-24)
 
 本バージョンは**フロントエンド全体のスタイル監査、ピクセル単位の整列修正、Tailwind CSS 設定の強化、不要なスタイル・デッドコードの削減、および 891 キーの 4 言語 i18n 辞書の完全同期**を実施したアップデートです。`tailwind.config.ts` のスキャンパス漏れによるアイコン配色の消失、未定義の `text-3xs` による `16px` フォールバック、ストリーミングカーソルの HSL シャドウ構文エラー、スライダーのドラッグ拡大アニメーション不具合を解消しました。また、利用量ダッシュボードの KPI カード二重ボーダーずれ、デスクトップのチャットヘッダーと記憶サイドバー間の `5px` の高さ不一致、記憶カードの余白不足などをピクセル単位で修正し、ファイルプレビューや記憶整理推奨カードなどのハードコード文言をすべて 4 言語辞書へ統合しました。
 

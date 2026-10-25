@@ -41,23 +41,25 @@ function guide(reasonKey: MessageKey, priceTier: PriceTier): ModelGuide {
   return { reasonKey, priceTier };
 }
 
-// 免费档 3 款
+// 免费档画像（推荐档 3 款）
 const NEMOTRON_ULTRA = guide("settings.modelGuide.reason.nemotronUltra", "standard");
-const GEMMA_4 = guide("settings.modelGuide.reason.gemma4", "standard");
+const NEMOTRON_35_VL = guide("settings.modelGuide.reason.nemotron35Vl", "budget");
 const FREE_ROUTER = guide("settings.modelGuide.reason.freeRouter", "free");
 
-// 正常档 5 款
+// 正常档 6 款
 const SONNET = guide("settings.modelGuide.reason.sonnet", "standard");
 const GPT_SOL = guide("settings.modelGuide.reason.gptSol61", "standard");
 const GEMINI_FLASH = guide("settings.modelGuide.reason.gemini38", "standard");
 const DEEPSEEK_FLASH = guide("settings.modelGuide.reason.deepseekFlash", "budget");
 const QWEN_MAX = guide("settings.modelGuide.reason.qwenMax", "standard");
+const GPT_LUNA = guide("settings.modelGuide.reason.gpt6Luna", "budget");
 
-// 聪明档 4 款
+// 聪明档 5 款
 const OPUS = guide("settings.modelGuide.reason.opus55", "premium");
 const GPT_ASTRA = guide("settings.modelGuide.reason.gptAstra", "premium");
 const GEMINI_ARGON = guide("settings.modelGuide.reason.geminiArgon", "premium");
 const KIMI_K3 = guide("settings.modelGuide.reason.kimiK3", "premium");
+const FABLE = guide("settings.modelGuide.reason.fable51", "premium");
 
 /**
  * 命中规则。顺序即匹配顺序：精确 id 先于正则。
@@ -68,15 +70,15 @@ const GUIDES: ReadonlyArray<{
   patterns?: readonly RegExp[];
   guide: ModelGuide;
 }> = [
-  // 「免费」档置顶的三个模型，顺序与 lib/models.ts 的 FEATURED_PIN_ORDER 保持一致。
+  // 「免费」档画像：推荐档 3 个。
   {
     ids: ["nvidia/nemotron-3-ultra-550b-a55b"],
     guide: NEMOTRON_ULTRA,
   },
   {
-    ids: ["google/gemma-4-31b-it", "google/gemma-4-26b-a4b-it"],
-    patterns: [/gemma-4/],
-    guide: GEMMA_4,
+    ids: ["nvidia/nemotron-3.5-super-vl"],
+    patterns: [/nemotron-3\.5-super-vl/],
+    guide: NEMOTRON_35_VL,
   },
   {
     ids: ["openrouter/free"],
@@ -100,7 +102,7 @@ const GUIDES: ReadonlyArray<{
     guide: GEMINI_FLASH,
   },
   {
-    ids: ["deepseek/deepseek-v4.1-flash"],
+    ids: ["deepseek/deepseek-v4.1-flash-1017"],
     patterns: [/deepseek-flash-latest/],
     guide: DEEPSEEK_FLASH,
   },
@@ -108,6 +110,11 @@ const GUIDES: ReadonlyArray<{
     ids: ["qwen/qwen3.8-max-0902", "qwen/qwen3.8-max"],
     patterns: [/qwen3\.8-max/],
     guide: QWEN_MAX,
+  },
+  {
+    ids: ["openai/gpt-6-luna"],
+    patterns: [/gpt-6-luna/, /gpt-luna-latest/],
+    guide: GPT_LUNA,
   },
 
   // 「聪明」档旗舰模型
@@ -130,6 +137,11 @@ const GUIDES: ReadonlyArray<{
     ids: ["moonshotai/kimi-k3.1", "moonshotai/kimi-k3"],
     patterns: [/kimi-latest/],
     guide: KIMI_K3,
+  },
+  {
+    ids: ["anthropic/claude-fable-5.1"],
+    patterns: [/claude-fable-5\.1/, /claude-fable-latest/],
+    guide: FABLE,
   },
 ];
 

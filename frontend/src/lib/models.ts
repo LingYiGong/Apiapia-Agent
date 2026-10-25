@@ -101,7 +101,7 @@ export type UnrankedModelOption = Omit<ModelOption, "rank">;
  */
 const FEATURED_PIN_ORDER: readonly string[] = [
   "nvidia/nemotron-3-ultra-550b-a55b:free",
-  "google/gemma-4-31b-it:free",
+  "nvidia/nemotron-3.5-super-vl:free",
   "openrouter/free",
 ];
 
@@ -165,7 +165,7 @@ export function toChatModelOptions(models: ModelCatalogItem[], isVocabMode = fal
     const isFree = isFreeModel(m);
     const base = getModelGuide(m.id);
     // 画像表里的 priceTier 写的是「这条线路付费时的档位」。同一个模型在目录里
-    // 往往同时有付费 id 和 `:free` id（gemma-4 / nemotron-3 / inkling 都是），
+    // 往往同时有付费 id 和 `:free` id（nemotron-3 / inkling 都是），
     // 不按实际条目覆盖的话，付费条目会被标成「免费」。
     const guide = base && isFree ? { ...base, priceTier: "free" as const } : base;
     return {

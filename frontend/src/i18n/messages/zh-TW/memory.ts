@@ -118,7 +118,6 @@ export default {
     substatus4: "模型正在輸出完整格式化方案，準備安全熔斷校驗…",
     errorTitle: "整理方案生成未完成",
     errorDesc: "當前模型未能在時限內返回結構化整理方案（可能由於公網免費節點佇列擁堵）。建議切換為更穩定的模型重試：",
-    retryRecommendTag: "推薦 · 免排隊",
     retryHeavyComputeTag: "120B 大算力",
     retryDefault: "使用當前預設模型重試",
     snapshotSafetyTitle: "無損快照保護：",

@@ -60,7 +60,7 @@ def _normalize_openrouter_model(model: str) -> str:
         "openai/gpt-4o": "openai/gpt-6.1-sol",
 
         # DeepSeek legacy -> current synced endpoints
-        "deepseek/deepseek-chat": "deepseek/deepseek-v4.1-flash",
+        "deepseek/deepseek-chat": "deepseek/deepseek-v4.1-flash-1017",
         "deepseek/deepseek-chat:free": "openrouter/free",
 
         # Google Gemini & Meta legacy -> current synced endpoints
@@ -68,7 +68,7 @@ def _normalize_openrouter_model(model: str) -> str:
         "google/gemini-pro-1.5": "google/gemini-3.8-flash",
         "google/gemini-1.5-flash": "google/gemini-3.8-flash",
         "google/gemini-2.0-flash": "google/gemini-3.8-flash",
-        "google/gemini-2.0-flash-exp:free": "google/gemma-4-31b-it:free",
+        "google/gemini-2.0-flash-exp:free": "nvidia/nemotron-3.5-super-vl:free",
         "meta-llama/llama-3.3-70b-instruct:free": "nvidia/nemotron-3-ultra-550b-a55b:free",
     }
     cleaned = (model or "").strip()

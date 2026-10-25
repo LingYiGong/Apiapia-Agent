@@ -75,9 +75,9 @@ async def init_db():
                     ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS video_model varchar(120);
                     ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS stt_model varchar(120);
                     ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS tts_model varchar(120);
-                    ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS consolidation_model varchar(120) DEFAULT 'google/gemma-4-31b-it:free';
-                    ALTER TABLE user_settings ALTER COLUMN consolidation_model SET DEFAULT 'google/gemma-4-31b-it:free';
-                    UPDATE user_settings SET consolidation_model = 'google/gemma-4-31b-it:free' WHERE consolidation_model = 'openrouter/free';
+                    ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS consolidation_model varchar(120) DEFAULT 'nvidia/nemotron-3-ultra-550b-a55b:free';
+                    ALTER TABLE user_settings ALTER COLUMN consolidation_model SET DEFAULT 'nvidia/nemotron-3-ultra-550b-a55b:free';
+                    UPDATE user_settings SET consolidation_model = 'nvidia/nemotron-3-ultra-550b-a55b:free' WHERE consolidation_model = 'openrouter/free';
                     ALTER TABLE user_settings ALTER COLUMN default_model DROP NOT NULL;
                     ALTER TABLE user_settings ALTER COLUMN default_model SET DEFAULT NULL;
                     UPDATE user_settings SET default_model = NULL WHERE default_model IN ('gpt-4o-mini', 'openrouter/free');

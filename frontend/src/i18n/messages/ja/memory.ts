@@ -118,7 +118,6 @@ export default {
     substatus4: "整形された計画を出力し、セーフティ検証を実行中…",
     errorTitle: "整理計画の生成が完了しませんでした",
     errorDesc: "モデルが制限時間内に構造化データを返せませんでした（無料ノードの混雑が原因の可能性があります）。安定したモデルに切り替えて再試行してください：",
-    retryRecommendTag: "推奨 · 待ち時間なし",
     retryHeavyComputeTag: "120B 大規模計算",
     retryDefault: "現在の既定モデルで再試行",
     snapshotSafetyTitle: "安心のスナップショット保護：",

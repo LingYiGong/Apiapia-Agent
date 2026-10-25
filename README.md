@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.40.0-indigo?style=flat-square" alt="Version"></a>
+  <a href="VERSION"><img src="https://img.shields.io/badge/version-v2.41.0-indigo?style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/Next.js-14%20(React%2018)-black?style=flat-square&logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi" alt="FastAPI">
@@ -225,7 +225,28 @@ cat backup_xxx.sql | docker exec -i apiapia_postgres psql -U postgres -d apiapia
 
 ## 📜 Releases & Changelog
 
-### 🚀 Latest Release: v2.40.0 (2026-10-24)
+### 🚀 Latest Release: v2.41.0 (2026-10-25)
+
+This release delivers a **model catalog refresh, memory-consolidation default migration, and full four-language i18n synchronization**. The free multimodal flagship moves from Google Gemma 4 31B to NVIDIA Nemotron 3.5 Super VL (12B-active MoE, native multimodality, long-context), the normal tier gains OpenAI GPT-6 Luna for ultra-low-cost high-volume work, and the smart tier gains Anthropic Claude Fable 5.1 for long-horizon agentic coding. Memory consolidation now defaults to NVIDIA Nemotron 3 Ultra 550B instead of Gemma 4, with database defaults and existing rows migrated automatically. All four dictionaries were re-audited so the retired Gemma 4 copy is gone and every new model carries a localized selection rationale.
+
+#### 1. Model Catalog & Tier Refresh
+- **Free Multimodal Flagship Replaced**: Swapped `google/gemma-4-31b-it:free` for `nvidia/nemotron-3.5-super-vl:free` across featured pins, tier definitions, and model guides — a 12B-active MoE with native multimodality, stronger vision and long-context handling at zero cost.
+- **Normal Tier Expanded to Six**: Added `openai/gpt-6-luna` (about $0.1/$0.5 per 1M tokens) for summaries, classification, and batch workloads; updated DeepSeek to the `deepseek/deepseek-v4.1-flash-1017` endpoint.
+- **Smart Tier Expanded to Five**: Added `anthropic/claude-fable-5.1` for autonomous knowledge work and long-horizon agentic coding; moved GPT-6 Astra to the `gpt-6-astra-pro` endpoint.
+- **Legacy Alias Normalization (`credentials.py`)**: Mapped the retired `deepseek/deepseek-chat` alias to `deepseek-v4.1-flash-1017` and `google/gemini-2.0-flash-exp:free` to `nvidia/nemotron-3.5-super-vl:free` so stored credentials keep resolving.
+
+#### 2. Memory Consolidation Default Migration
+- **Default Model Switched to Nemotron 3 Ultra**: Changed `consolidation_model` defaults in the SQLAlchemy model, Pydantic schema, database bootstrap SQL, and the settings UI from Gemma 4 31B to `nvidia/nemotron-3-ultra-550b-a55b:free`.
+- **Automatic Row Migration**: Existing settings rows still pointing at `openrouter/free` are migrated to the new default on startup.
+- **Fallback Chain & UI Cleanup**: Updated the consolidation fallback candidates to Nemotron 3 Ultra → Nemotron 3.5 Super VL → `openrouter/free`, and removed the obsolete Gemma 4 retry shortcut and recommended card from the dialog and settings page.
+
+#### 3. Four-Language i18n Synchronization
+- **Obsolete Copy Removed**: Dropped the retired `tagFreeRecommended`, `descGemma4`, and `retryRecommendTag` keys from `en`, `ja`, `zh-CN`, and `zh-TW` so no language exposes Gemma 4 remnants.
+- **New Model Rationales Localized**: Added native-language `modelGuide.reason` entries for `nemotron35Vl`, `gpt6Luna`, and `fable51` in all four dictionaries; each locale now carries the same 14 curated-model reasons with matching key order and placeholder parity.
+
+---
+
+### v2.40.0 (2026-10-24)
 
 This release delivers a **comprehensive frontend visual audit, pixel-level alignment fixes, Tailwind CSS purge & token hardening, dead-style pruning, and full 891-key four-language i18n synchronization**. We resolved missing Tailwind scan paths that purged dynamic navigation icon tints, fixed undefined font-size/blur utilities (`text-3xs`, `backdrop-blur-xs`) and invalid HSL shadow syntax, eliminated double-border KPI card misalignments and 5px header height mismatches between the chat toolbar and memory sidebar, streamlined inline message editing and redundant buttons, and localized every remaining hardcoded string across `zh-CN`, `zh-TW`, `en`, and `ja`.
 
@@ -604,7 +625,7 @@ This release introduces independent configuration for the **Memory Consolidation
 - **Universal Model Picker**: Reuses the native `<ModelSelect>` component with full search, categorisation, and custom model ID inputs.
 
 #### 2. Curated Recommendation Cards with One-Click Selection
-- **Synchronized OpenRouter Catalog**: Curated 11 cutting-edge models from the latest catalog (e.g. `openrouter/free`, `nvidia/nemotron-3-ultra-550b-a55b:free`, `google/gemma-4-31b-it:free`, `deepseek/deepseek-v4.1-flash`, `anthropic/claude-sonnet-5.5`).
+- **Synchronized OpenRouter Catalog**: Curated 11 cutting-edge models from the latest catalog (e.g. `openrouter/free`, `nvidia/nemotron-3-ultra-550b-a55b:free`, `nvidia/nemotron-3.5-super-vl:free`, `deepseek/deepseek-v4.1-flash-1017`, `anthropic/claude-sonnet-5.5`).
 - **One-Click Quick Selection**: Card-style recommendations with detailed reasoning for memory summarization and click-to-select capability.
 
 #### 3. Real-Time Stage State Machine for Memory Consolidation

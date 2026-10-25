@@ -12,7 +12,7 @@ class UserSetting(Base):
     user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False, index=True)
     default_model = Column(String(100), default=None, nullable=True)
     memory_model = Column(String(100), default="openai/gpt-4o-mini", nullable=True)
-    consolidation_model = Column(String(120), default="google/gemma-4-31b-it:free", nullable=True)
+    consolidation_model = Column(String(120), default="nvidia/nemotron-3-ultra-550b-a55b:free", nullable=True)
     image_model = Column(String(120), default=None, nullable=True)
     video_model = Column(String(120), default=None, nullable=True)
     stt_model = Column(String(120), default=None, nullable=True)

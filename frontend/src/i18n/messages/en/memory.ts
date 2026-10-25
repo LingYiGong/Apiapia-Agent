@@ -119,7 +119,6 @@ export default {
     substatus4: "Generating structured plan and performing circuit breaker validation…",
     errorTitle: "Consolidation Plan Incomplete",
     errorDesc: "The model did not return a structured plan within the time limit (possibly due to public queue congestion). Try switching to a more stable model:",
-    retryRecommendTag: "Recommended · Fast",
     retryHeavyComputeTag: "120B MoE",
     retryDefault: "Retry with default model",
     snapshotSafetyTitle: "Zero-Risk Snapshot Protection:",

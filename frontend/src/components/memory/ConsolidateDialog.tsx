@@ -375,21 +375,6 @@ export function ConsolidateDialog({
                   type="button"
                   size="sm"
                   variant="outline"
-                  onClick={() => onRetry("google/gemma-4-31b-it:free")}
-                  className="w-full justify-between h-9 rounded-xl border-border/50 bg-surface-2/60 text-xs font-medium hover:bg-surface-3 transition-colors text-left px-3"
-                >
-                  <div className="flex items-center min-w-0">
-                    <Sparkles className="h-3.5 w-3.5 text-primary mr-2 shrink-0" />
-                    <span className="truncate">Google Gemma 4 31B (Free)</span>
-                  </div>
-                  <span className="text-2xs px-1.5 py-0.5 rounded bg-primary/10 text-primary shrink-0 ml-2">
-                    {t("memory.consolidation.retryRecommendTag")}
-                  </span>
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
                   onClick={() => onRetry("nvidia/nemotron-3-ultra-550b-a55b:free")}
                   className="w-full justify-between h-9 rounded-xl border-border/50 bg-surface-2/60 text-xs font-medium hover:bg-surface-3 transition-colors text-left px-3"
                 >

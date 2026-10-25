@@ -90,13 +90,6 @@ interface RecommendedConsolidationModel {
 
 const RECOMMENDED_CONSOLIDATION_MODELS: RecommendedConsolidationModel[] = [
   {
-    id: "google/gemma-4-31b-it:free",
-    name: "Google Gemma 4 31B (Free)",
-    tagKey: "settings.memoryGroup.consolidationPresets.tagFreeRecommended",
-    isFree: true,
-    descKey: "settings.memoryGroup.consolidationPresets.descGemma4",
-  },
-  {
     id: "nvidia/nemotron-3-ultra-550b-a55b:free",
     name: "NVIDIA Nemotron 3 Ultra (Free)",
     tagKey: "settings.memoryGroup.consolidationPresets.tagFreeUltra",
@@ -104,7 +97,7 @@ const RECOMMENDED_CONSOLIDATION_MODELS: RecommendedConsolidationModel[] = [
     descKey: "settings.memoryGroup.consolidationPresets.descNemotronUltra",
   },
   {
-    id: "deepseek/deepseek-v4.1-flash",
+    id: "deepseek/deepseek-v4.1-flash-1017",
     name: "DeepSeek V4.1 Flash",
     tagKey: "settings.memoryGroup.consolidationPresets.tagBestValue",
     isFree: false,
@@ -155,7 +148,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const [defaultModel, setDefaultModel] = useState<string>("");
   const [memoryModel, setMemoryModel] = useState("openai/gpt-4o-mini");
-  const [consolidationModel, setConsolidationModel] = useState("google/gemma-4-31b-it:free");
+  const [consolidationModel, setConsolidationModel] = useState("nvidia/nemotron-3-ultra-550b-a55b:free");
   const [imageModel, setImageModel] = useState<string | null>(null);
   const [videoModel, setVideoModel] = useState<string | null>(null);
   const [sttModel, setSttModel] = useState<string | null>(null);
@@ -376,7 +369,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         const cModel =
           settingsRes.consolidation_model && settingsRes.consolidation_model !== "openrouter/free"
             ? settingsRes.consolidation_model
-            : "google/gemma-4-31b-it:free";
+            : "nvidia/nemotron-3-ultra-550b-a55b:free";
         // Mirror the chat model contract: an absent selection falls back to the
         // zero-cost default rather than staying empty.
         const freeImage =

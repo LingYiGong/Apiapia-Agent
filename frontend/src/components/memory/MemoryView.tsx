@@ -452,19 +452,19 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
           于是搜索栏比它过滤的那份列表窄一截，左右边缘对不齐。现在不再自行限宽，
           直接铺满内容列 —— 宽度由 ViewShell 单一决定。 */}
       <Panel tone="bare" className="flex flex-wrap items-center justify-between gap-2">
-        <form onSubmit={handleSearch} className="flex w-full items-center gap-2">
+        <form onSubmit={handleSearch} className="flex w-full items-center gap-1.5 sm:gap-2">
           <div className="relative min-w-0 flex-1">
             <Label htmlFor="memory-search" className="sr-only">
               {t("memory.search.label")}
             </Label>
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="pointer-events-none absolute left-2.5 sm:left-3 top-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               id="memory-search"
               type="search"
               placeholder={t("memory.search.placeholder")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-10 rounded-xl border-border/40 bg-surface-3/50 pl-9 pr-9 text-sm focus-visible:bg-background focus-visible:ring-1 focus-visible:ring-ring"
+              className="h-9 sm:h-10 rounded-xl border-border/40 bg-surface-3/50 pl-8 sm:pl-9 pr-8 sm:pr-9 text-xs sm:text-sm focus-visible:bg-background focus-visible:ring-1 focus-visible:ring-ring"
             />
             {searchQuery && (
               <button
@@ -483,7 +483,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
               type="submit"
               variant="secondary"
               size="icon"
-              className="h-10 w-10 shrink-0 cursor-pointer rounded-xl border border-border/40 bg-surface-3/60 text-foreground transition-colors hover:bg-surface-3 active:scale-95"
+              className="hidden sm:inline-flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 cursor-pointer rounded-xl border border-border/40 bg-surface-3/60 text-foreground transition-colors hover:bg-surface-3 active:scale-95"
             >
               <Search className="h-4 w-4" />
               <span className="sr-only">{t("memory.search.submit")}</span>
@@ -497,7 +497,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
               disabled={loadingMemories || isExporting}
               variant="outline"
               size="icon"
-              className="h-10 w-10 shrink-0 cursor-pointer rounded-xl border-primary/40 bg-primary/10 text-primary transition-colors hover:bg-primary/20 active:scale-95"
+              className="h-9 w-9 sm:h-10 sm:w-10 shrink-0 cursor-pointer rounded-xl border-primary/40 bg-primary/10 text-primary transition-colors hover:bg-primary/20 active:scale-95"
             >
               <Sparkles className="h-4 w-4" />
               <span className="sr-only">{t("memory.consolidation.btnSr")}</span>
@@ -515,7 +515,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
                 disabled={loadingMemories || isExporting}
                 variant="outline"
                 size="icon"
-                className="h-10 w-10 shrink-0 cursor-pointer rounded-xl border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 transition-colors hover:bg-amber-500/20 active:scale-95"
+                className="h-9 w-9 sm:h-10 sm:w-10 shrink-0 cursor-pointer rounded-xl border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 transition-colors hover:bg-amber-500/20 active:scale-95"
               >
                 <History className="h-4 w-4" />
                 <span className="sr-only">{t("memory.rollback.btnSr")}</span>
@@ -530,7 +530,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
               disabled={isExporting}
               variant="outline"
               size="icon"
-              className="h-10 w-10 shrink-0 cursor-pointer rounded-xl border-border/50 bg-surface-3/30 text-foreground transition-colors hover:bg-surface-3 active:scale-95"
+              className="h-9 w-9 sm:h-10 sm:w-10 shrink-0 cursor-pointer rounded-xl border-border/50 bg-surface-3/30 text-foreground transition-colors hover:bg-surface-3 active:scale-95"
             >
               <Download className="h-4 w-4" />
               <span className="sr-only">{t("memory.export.sr")}</span>

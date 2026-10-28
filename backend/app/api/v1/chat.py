@@ -1099,6 +1099,17 @@ async def chat_stream(
         start_time = time.time()
         first_token_time = None
         provider = None
+        token_iter = None
+        next_token_task = None
+
+        stream_window = ""
+        suppressed = False
+        in_thinking = False
+        has_seen_thinking = False
+        has_emitted_body_text = False
+        thinking_start_time = None
+        thinking_end_time = None
+        suppress_buf = ""
 
         search_results = []
         search_answer: Optional[str] = None
@@ -1243,11 +1254,13 @@ async def chat_stream(
                     })
 
                     try:
+                        vid_image_url = parsed_images[0]["data_url"] if parsed_images else None
                         vid_res = await video_gen_service.generate_video(
                             video_prompt,
                             model=selected_video_model,
                             aspect_ratio=video_ratio,
                             free_only=False,
+                            image_url=vid_image_url,
                         )
                         vid_bytes = vid_res["bytes"]
                         vid_provider = vid_res.get("provider", "openrouter")

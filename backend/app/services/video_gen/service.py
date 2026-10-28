@@ -186,6 +186,7 @@ class VideoGenerationService:
         free_only: bool = False,
         poll_interval: float = 3.0,
         max_wait_seconds: float = 300.0,
+        image_url: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Full workflow: Submit job -> Poll until completed -> Download video bytes -> Return result dict.
@@ -228,19 +229,36 @@ class VideoGenerationService:
                     final_aspect_ratio = sup_ratios[0]
 
         submit_url = f"{self.openrouter_base}/videos"
-        payload = {
+        payload: Dict[str, Any] = {
             "model": target_model,
             "prompt": prompt,
             "aspect_ratio": final_aspect_ratio,
             "duration": final_duration,
         }
+        if image_url:
+            payload["frame_images"] = [
+                {
+                    "type": "image_url",
+                    "image_url": {"url": image_url},
+                    "frame_type": "first_frame",
+                }
+            ]
 
         logger.info(
-            "Submitting video generation to OpenRouter: model=%s, prompt='%s', aspect_ratio=%s, duration=%s",
-            target_model, prompt, final_aspect_ratio, final_duration
+            "Submitting video generation to OpenRouter: model=%s, prompt='%s', aspect_ratio=%s, duration=%s, has_image=%s",
+            target_model, prompt, final_aspect_ratio, final_duration, bool(image_url)
         )
         async with httpx.AsyncClient(timeout=30.0) as client:
             res = await client.post(submit_url, headers=headers, json=payload)
+            if res.status_code not in (200, 201, 202) and "frame_images" in payload:
+                # If model or endpoint does not support frame_images / image input, retry text-only
+                logger.warning(
+                    "Video task with frame_images returned status %s (%s). Retrying text-only...",
+                    res.status_code, res.text
+                )
+                payload.pop("frame_images", None)
+                res = await client.post(submit_url, headers=headers, json=payload)
+
             if res.status_code not in (200, 201, 202):
                 raise RuntimeError(f"OpenRouter 视频任务提交失败 ({res.status_code}): {res.text}")
             res_data = res.json()

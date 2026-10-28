@@ -1,7 +1,59 @@
+import logging
 from typing import AsyncGenerator, List, Dict, Any, Optional
 from openai import AsyncOpenAI
 from app.services.llm.base import LLMProvider
 from app.core.config import settings
+from app.services.catalog import is_model_multimodal
+
+logger = logging.getLogger(__name__)
+
+
+def strip_image_parts_from_messages(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Sanitize messages payload by replacing multimodal image_url items
+    with a textual placeholder, allowing text-only models to process the
+    conversation without triggering 404/400 'Filter by Image Support' errors.
+    """
+    sanitized = []
+    for msg in messages:
+        content = msg.get("content")
+        if isinstance(content, list):
+            text_parts = []
+            for item in content:
+                if isinstance(item, dict):
+                    if item.get("type") == "text":
+                        text_parts.append(item.get("text", ""))
+                    elif item.get("type") == "image_url":
+                        text_parts.append("[附图: 图片]")
+                elif isinstance(item, str):
+                    text_parts.append(item)
+            sanitized.append({**msg, "content": "".join(text_parts).strip() or " "})
+        else:
+            sanitized.append(msg)
+    return sanitized
+
+
+def is_image_unsupported_error(err: Exception) -> bool:
+    """
+    Detect whether an API error was caused by submitting image/multimodal
+    inputs to a text-only model or endpoint lacking image support.
+    """
+    err_str = str(err)
+    if hasattr(err, "response") and getattr(err.response, "text", None):
+        err_str += " " + err.response.text
+    err_lower = err_str.lower()
+    return any(
+        k in err_lower
+        for k in [
+            "no endpoints found that support image input",
+            "filter by image support",
+            "support image input",
+            "does not support image",
+            "does not support vision",
+            "image_url is not supported",
+            "unsupported modality",
+        ]
+    )
 
 
 class OpenAIProvider(LLMProvider):
@@ -64,24 +116,10 @@ class OpenAIProvider(LLMProvider):
                 if "max_completion_tokens" not in create_kwargs and mt is not None:
                     create_kwargs["max_completion_tokens"] = mt
 
-        # If model is text-only (e.g. DeepSeek, o1-mini, o3-mini), strip multimodal image_url parts
-        is_text_only = any(k in model_lower for k in ["deepseek", "o1-mini", "o3-mini"])
-        if is_text_only:
-            sanitized_messages = []
-            for msg in prepared_messages:
-                content = msg.get("content")
-                if isinstance(content, list):
-                    text_parts = []
-                    for item in content:
-                        if isinstance(item, dict):
-                            if item.get("type") == "text":
-                                text_parts.append(item.get("text", ""))
-                            elif item.get("type") == "image_url":
-                                text_parts.append("[附图: 图片]")
-                    sanitized_messages.append({**msg, "content": "".join(text_parts).strip() or " "})
-                else:
-                    sanitized_messages.append(msg)
-            create_kwargs["messages"] = sanitized_messages
+        # If model does not support image input, strip multimodal image_url parts proactively
+        if not is_model_multimodal(model):
+            create_kwargs["messages"] = strip_image_parts_from_messages(prepared_messages)
+
 
         # OpenAI o1/o3 models do not accept standard 'temperature', and instead accept reasoning_effort
         if not is_openai_reasoning:
@@ -96,11 +134,35 @@ class OpenAIProvider(LLMProvider):
         self.last_usage = None
         self.last_finish_reason = None
         self.last_model = None
+
         try:
             response = await self.client.chat.completions.create(**create_kwargs)
-        except Exception:
-            create_kwargs.pop("stream_options", None)
-            response = await self.client.chat.completions.create(**create_kwargs)
+        except Exception as e:
+            if is_image_unsupported_error(e):
+                logger.warning(
+                    "Model %s failed with image support error (%s). Stripping images and retrying...",
+                    model, e
+                )
+                create_kwargs["messages"] = strip_image_parts_from_messages(create_kwargs.get("messages", []))
+                try:
+                    response = await self.client.chat.completions.create(**create_kwargs)
+                except Exception:
+                    create_kwargs.pop("stream_options", None)
+                    response = await self.client.chat.completions.create(**create_kwargs)
+            else:
+                create_kwargs.pop("stream_options", None)
+                try:
+                    response = await self.client.chat.completions.create(**create_kwargs)
+                except Exception as retry_err:
+                    if is_image_unsupported_error(retry_err):
+                        logger.warning(
+                            "Model %s failed with image support error on second try (%s). Retrying with text-only...",
+                            model, retry_err
+                        )
+                        create_kwargs["messages"] = strip_image_parts_from_messages(create_kwargs.get("messages", []))
+                        response = await self.client.chat.completions.create(**create_kwargs)
+                    else:
+                        raise
 
         if stream:
             in_thinking = False
@@ -200,23 +262,10 @@ class OpenAIProvider(LLMProvider):
                 if "max_completion_tokens" not in create_kwargs and mt is not None:
                     create_kwargs["max_completion_tokens"] = mt
 
-        is_text_only = any(k in model_lower for k in ["deepseek", "o1-mini", "o3-mini"])
-        if is_text_only:
-            sanitized_messages = []
-            for msg in prepared_messages:
-                content = msg.get("content")
-                if isinstance(content, list):
-                    text_parts = []
-                    for item in content:
-                        if isinstance(item, dict):
-                            if item.get("type") == "text":
-                                text_parts.append(item.get("text", ""))
-                            elif item.get("type") == "image_url":
-                                text_parts.append("[附图: 图片]")
-                    sanitized_messages.append({**msg, "content": "".join(text_parts).strip() or " "})
-                else:
-                    sanitized_messages.append(msg)
-            create_kwargs["messages"] = sanitized_messages
+        # If model does not support image input, strip multimodal image_url parts proactively
+        if not is_model_multimodal(model):
+            create_kwargs["messages"] = strip_image_parts_from_messages(prepared_messages)
+
 
         if not is_openai_reasoning:
             create_kwargs["temperature"] = temperature
@@ -224,7 +273,18 @@ class OpenAIProvider(LLMProvider):
             if "reasoning_effort" in kwargs and kwargs["reasoning_effort"]:
                 create_kwargs["reasoning_effort"] = kwargs["reasoning_effort"]
 
-        response = await self.client.chat.completions.create(**create_kwargs)
+        try:
+            response = await self.client.chat.completions.create(**create_kwargs)
+        except Exception as e:
+            if is_image_unsupported_error(e):
+                logger.warning(
+                    "Model %s failed with image support error in complete() (%s). Stripping images and retrying...",
+                    model, e
+                )
+                create_kwargs["messages"] = strip_image_parts_from_messages(create_kwargs.get("messages", []))
+                response = await self.client.chat.completions.create(**create_kwargs)
+            else:
+                raise
         if getattr(response, "model", None):
             self.last_model = response.model
         if hasattr(response, "usage") and response.usage:

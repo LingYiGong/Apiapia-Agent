@@ -120,6 +120,53 @@ def save_stored_models(models: List[Dict[str, Any]]) -> None:
         _store_cache["models"] = []
 
 
+def is_model_multimodal(model_id: Optional[str]) -> bool:
+    """
+    Determine whether a model supports multimodal (image) input.
+    Checks the synced catalog first for exact metadata, and falls back to heuristics.
+    """
+    if not model_id:
+        return False
+
+    mid = model_id.strip()
+    mid_lower = mid.lower()
+
+    # 1. Known explicit text-only indicators (never multimodal)
+    if any(k in mid_lower for k in [
+        "o1-mini", "o3-mini", "o1-preview",
+        "deepseek-chat", "deepseek-coder", "deepseek-r1",
+        "embed", "moderation", "tts", "whisper", "dall-e",
+    ]):
+        return False
+
+    # 2. Check synced catalog metadata
+    stored = load_stored_models()
+    for m in stored:
+        if m.get("id") == mid:
+            is_multi = m.get("is_multimodal")
+            if is_multi is not None:
+                return bool(is_multi)
+            break
+
+    # 3. Known multimodal identifiers
+    if any(k in mid_lower for k in [
+        "4o", "vision", "-vl", "_vl", "vl-", "vl:",
+        "pixtral", "llava", "minicpm-v", "internvl", "cogvlm",
+    ]):
+        return True
+
+    if "gemini" in mid_lower:
+        return True
+
+    if "claude-3" in mid_lower or "claude-3-5" in mid_lower or "claude-3.5" in mid_lower:
+        return True
+
+    if mid_lower in ("o1", "openai/o1"):
+        return True
+
+    return False
+
+
 # --- Live API Provider Fetchers for Chat Models ---
 
 
@@ -178,7 +225,7 @@ async def fetch_openai_models_from_api(api_key: str, base_url: str = "https://ap
                             "name": f"{mid} (OpenAI)",
                             "provider": "openai",
                             "description": "OpenAI 官方直连模型",
-                            "is_multimodal": "4o" in mid or "vision" in mid or "o1" in mid or "o3" in mid,
+                            "is_multimodal": "4o" in mid or "vision" in mid or ("o1" in mid and "mini" not in mid and "preview" not in mid) or ("o3" in mid and "mini" not in mid),
                         })
                 models.sort(key=lambda x: x["id"], reverse=True)
             else:
@@ -211,7 +258,8 @@ async def fetch_openrouter_models_from_api(api_key: Optional[str] = None) -> Lis
                             and item.get("pricing", {}).get("completion") in ("0", 0, "0.0")
                         )
                     )
-                    is_multimodal = (
+                    is_text_only_explicit = any(k in mid.lower() for k in ["o1-mini", "o3-mini", "o1-preview", "deepseek-r1", "deepseek-chat"])
+                    is_multimodal = not is_text_only_explicit and (
                         "image" in str(item.get("architecture", {}))
                         or any(k in mid.lower() for k in ["vision", "-vl", "4o", "gemini", "claude-3", "pixtral", "llava", "minicpm-v"])
                     )

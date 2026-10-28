@@ -200,6 +200,8 @@ interface ChatAreaProps {
   onSelectVocabLang?: (lang: string) => void;
   siblingInfoMap?: Record<string, { current: number; total: number; siblingIds: string[] }>;
   onSwitchBranch?: (targetMessageId: string) => void;
+  /** 新加入了图片附件时调用，由上层确认当前模型支持多模态（不支持则自动切换并提示） */
+  onRequireMultimodalModel?: () => void;
 }
 
 export const ChatArea: React.FC<ChatAreaProps> = ({
@@ -230,6 +232,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   onSelectVocabLang,
   siblingInfoMap,
   onSwitchBranch,
+  onRequireMultimodalModel,
 }) => {
   const { t, fmt, locale } = useI18n();
   const isTouchPrimary = useIsTouchPrimary();
@@ -458,6 +461,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         });
       }
       setAttachments((prev) => [...prev, ...newAttachments]);
+      // 文档会被后端解析成文本，只有图片需要模型具备视觉能力
+      if (newAttachments.some((a) => a.type === "image")) {
+        onRequireMultimodalModel?.();
+      }
     } catch (err) {
       console.error("Error processing attachments:", err);
     } finally {

@@ -33,6 +33,8 @@ export default {
     lightboxHint: "按 Esc 或點擊遮罩空白處關閉",
     lightboxHintTouch: "雙指可縮放，點擊空白處關閉",
     pastedAsAttachment: "檢測到長文字/程式碼，已自動折疊為附件卡片，保持輸入框清爽",
+    autoSwitchMultimodal: "{from} 不支援圖片辨識，已自動切換至多模態模型：{model}",
+    noMultimodalModel: "目前模型不支援圖片辨識，且沒有可用的多模態模型，圖片可能無法被辨識",
   },
 
   creation: {

@@ -33,6 +33,8 @@ export default {
     lightboxHint: "Press Esc or click outside to close",
     lightboxHintTouch: "Pinch to zoom, tap outside to close",
     pastedAsAttachment: "Large text/code detected and collapsed into an attachment card",
+    autoSwitchMultimodal: "{from} can't read images. Switched to a multimodal model: {model}",
+    noMultimodalModel: "The current model can't read images and no multimodal model is available, so images may be ignored",
   },
 
   creation: {

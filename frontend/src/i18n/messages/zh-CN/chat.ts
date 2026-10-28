@@ -38,6 +38,8 @@ export default {
     lightboxHint: "按 Esc 或点击遮罩空白区域关闭",
     lightboxHintTouch: "双指可缩放，点击空白处关闭",
     pastedAsAttachment: "检测到长文本/代码，已自动折叠为附件卡片，输入框保持清爽",
+    autoSwitchMultimodal: "{from} 不支持图片识别，已自动切换至多模态模型：{model}",
+    noMultimodalModel: "当前模型不支持图片识别，且没有可用的多模态模型，图片可能无法被识别",
   },
 
   /** 「+」创作菜单 */

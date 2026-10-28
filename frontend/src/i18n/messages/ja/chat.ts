@@ -33,6 +33,8 @@ export default {
     lightboxHint: "Esc を押すか、オーバーレイの余白をクリックして閉じます",
     lightboxHintTouch: "ピンチで拡大縮小、画像の外をクリックして閉じます",
     pastedAsAttachment: "長いテキスト/コードが検出されたため、添付カードに自動折りたたみされました",
+    autoSwitchMultimodal: "{from} は画像認識に対応していないため、マルチモーダルモデルに自動で切り替えました：{model}",
+    noMultimodalModel: "現在のモデルは画像認識に対応しておらず、利用できるマルチモーダルモデルもないため、画像が認識されない可能性があります",
   },
 
   creation: {

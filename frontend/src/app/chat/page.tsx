@@ -37,6 +37,7 @@ import {
 } from "@/types";
 import { parseMobileTab, NAV_ITEMS, type MobileTab } from "@/config/navigation";
 import { isBelowMd } from "@/lib/mediaQuery";
+import { isMultimodalModel, toChatModelOptions } from "@/lib/models";
 
 interface ConversationInputState {
   isTranslateMode: boolean;
@@ -243,6 +244,12 @@ export default function ChatPage({
 
   const creationModeRef = useRef(creationMode);
   creationModeRef.current = creationMode;
+
+  const currentModelRef = useRef(currentModel);
+  currentModelRef.current = currentModel;
+
+  const availableModelsRef = useRef(availableModels);
+  availableModelsRef.current = availableModels;
 
   const handleToggleTranslateMode = (enabled: boolean) => {
     setIsTranslateMode(enabled);
@@ -498,6 +505,51 @@ export default function ChatPage({
         console.error("Failed to update conversation model in DB:", err);
       }
     }
+  };
+
+  /**
+   * 上传图片后确保当前对话模型能看图，不能看就自动换一个多模态模型并提示。
+   *
+   * - 只看图片：文档类附件由后端解析成文本塞进提示词，纯文本模型也能读。
+   * - 只管对话模式：绘图 / 视频模式下附件是参考图，用的是绘图 / 视频模型，
+   *   handleModelChange 在这两种模式下改的也不是对话模型。
+   * - 选哪个：与当前模型同为免费 / 付费的多模态模型优先，不因为传了张图就把
+   *   用户悄悄切到付费线路；同档里优先用户的默认模型，其余按选择器的展示顺序。
+   *
+   * 由 ChatArea 在图片处理完成后调用，此时离触发时的渲染已隔了几次 await，
+   * 所以模式 / 模型 / 目录都从 ref 读，避免拿到旧闭包里的值。
+   */
+  const handleRequireMultimodalModel = () => {
+    if (creationModeRef.current !== "chat") return;
+    const catalog = availableModelsRef.current;
+    if (catalog.length === 0) return;
+
+    const activeModel = currentModelRef.current;
+    if (!activeModel) return;
+    const options = toChatModelOptions(catalog, isTranslateModeRef.current);
+    const current = options.find((o) => o.id === activeModel);
+    const currentSupportsImages = current
+      ? current.isMultimodal
+      : isMultimodalModel({ id: activeModel, name: activeModel });
+    if (currentSupportsImages) return;
+
+    const candidates = options.filter((o) => o.isMultimodal);
+    if (candidates.length === 0) {
+      toast.error(t("chat.composer.noMultimodalModel"));
+      return;
+    }
+    const currentIsFree = current?.isFree ?? false;
+    const sameTier = candidates.filter((o) => o.isFree === currentIsFree);
+    const pool = sameTier.length > 0 ? sameTier : candidates;
+    const target = pool.find((o) => o.id === defaultModelRef.current) ?? pool[0];
+
+    void handleModelChange(target.id);
+    toast.info(
+      t("chat.composer.autoSwitchMultimodal", {
+        from: current?.name || activeModel,
+        model: target.name || target.id,
+      })
+    );
   };
 
   const [loadingConversations, setLoadingConversations] = useState(true);
@@ -1884,6 +1936,7 @@ export default function ChatPage({
                 onSelectVocabLang={handleSelectVocabLang}
                 siblingInfoMap={siblingInfoMap}
                 onSwitchBranch={handleSwitchBranch}
+                onRequireMultimodalModel={handleRequireMultimodalModel}
               />
             </div>
           );

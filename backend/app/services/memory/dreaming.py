@@ -12,6 +12,7 @@ importance scoring) used by extraction.py, so no duplicate memories are created.
 import json
 import logging
 import asyncio
+import contextvars
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 
@@ -154,14 +155,17 @@ def run_dreaming_task(
         "dreamed_at": datetime.now(timezone.utc).isoformat(),
     }
 
-    count = upsert_facts_to_memory(
+    saved_summaries = upsert_facts_to_memory(
         user_id=user_id,
         raw_facts=summaries,
         metadata=meta_base,
         memory_model=resolved_model,
         min_importance=DREAM_IMPORTANCE_THRESHOLD,
     )
-    logger.info("Dreaming complete for user %s conv %s: %d summaries processed", user_id, conv_id, count)
+    logger.info(
+        "Dreaming complete for user %s conv %s: %d summaries processed",
+        user_id, conv_id, len(saved_summaries),
+    )
 
 
 # ── Public API ─────────────────────────────────────────────────────────────────
@@ -192,9 +196,11 @@ async def schedule_dreaming(
         "Scheduling dreaming for user %s conv %s (total_messages=%d)",
         user_id, conv_id, total_message_count,
     )
+    ctx = contextvars.copy_context()
     loop = asyncio.get_running_loop()
     loop.run_in_executor(
         None,
+        ctx.run,
         run_dreaming_task,
         user_id,
         conv_id,

@@ -98,7 +98,7 @@ export interface Message {
   thinking_duration_ms?: number;
   ttft_ms?: number;
   suggested_questions?: string[];
-  memory_updated?: string[];
+  memory_updated?: string[] | string | null;
   created_at?: string;
 }
 

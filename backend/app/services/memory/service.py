@@ -166,6 +166,9 @@ class MemoryService:
                 norm["created_at"] = meta["created_at"]
             normalized.append(norm)
 
+        from app.services.memory.retrieval import invalidate_profile_cache
+        invalidate_profile_cache(user_id)
+
         return normalized
 
     @staticmethod
@@ -455,6 +458,9 @@ class MemoryService:
             except TypeError:
                 result = memory.update(memory_id=memory_id, data=data)
 
+        from app.services.memory.retrieval import invalidate_profile_cache
+        invalidate_profile_cache(user_id)
+
         logger.info("Successfully updated memory %s for user %s", memory_id, user_id)
         return result
 
@@ -466,6 +472,10 @@ class MemoryService:
 
         memory = self._ensure_memory()
         memory.delete(memory_id=memory_id)
+
+        from app.services.memory.retrieval import invalidate_profile_cache
+        invalidate_profile_cache(user_id)
+
         return True
 
 

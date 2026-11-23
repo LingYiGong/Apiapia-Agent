@@ -1280,16 +1280,34 @@ export default function ChatPage({
               if (data?.facts && data.facts.length > 0) {
                 session.memoryUpdated = data.facts;
                 if (isSessionActive(session)) {
+                  const targetMsgId = session.doneMeta?.message_id;
                   setMessages((prev) => {
-                    for (let i = prev.length - 1; i >= 0; i--) {
-                      if (prev[i]?.role === "assistant") {
-                        const next = prev.slice();
-                        next[i] = { ...prev[i], memory_updated: data.facts };
+                    const next = prev.slice();
+                    if (targetMsgId) {
+                      const exactIdx = next.findIndex((m) => m?.id === targetMsgId);
+                      if (exactIdx !== -1) {
+                        next[exactIdx] = { ...next[exactIdx], memory_updated: data.facts };
+                        return next;
+                      }
+                    }
+                    for (let i = next.length - 1; i >= 0; i--) {
+                      if (next[i]?.role === "assistant") {
+                        next[i] = { ...next[i], memory_updated: data.facts };
                         return next;
                       }
                     }
                     return prev;
                   });
+                  const targetConvId = data.conversation_id || session.conversationId;
+                  if (targetConvId) {
+                    void apiRequest<unknown[]>(`/conversations/${targetConvId}/memories`)
+                      .then((mems) => {
+                        if (Array.isArray(mems) && activeIdRef.current === targetConvId) {
+                          setRetrievedMemories(mems);
+                        }
+                      })
+                      .catch(() => {});
+                  }
                 }
                 toast.success(t("chat.memory.updated") || "🧠 记忆已更新", {
                   description: data.facts.join("；"),

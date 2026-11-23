@@ -1,9 +1,10 @@
 import json
 import math
+import re
 import time
 import logging
 from datetime import datetime, timezone
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Optional, Tuple
 
 from app.services.memory.service import memory_service
 from app.services.prompt.localized import text
@@ -33,6 +34,29 @@ MAX_RELEVANT_ITEMS = 5
 # Cache for user profile memories to avoid redundant full-table queries per chat turn
 _profile_cache: Dict[str, Tuple[float, List[Dict[str, Any]]]] = {}
 PROFILE_CACHE_TTL = 60.0  # seconds
+
+_MEMORY_TAG_ESCAPE_RE = re.compile(
+    r"<\s*/?\s*(?:user_memory|stable_profile|relevant_memories)\b[^>]*>",
+    re.IGNORECASE,
+)
+_PROMPT_OVERRIDE_RE = re.compile(
+    r"(?i)(ignore (?:all )?previous instructions|system override|you are now|disregard the rules above)"
+)
+
+
+def invalidate_profile_cache(user_id: Optional[str] = None) -> None:
+    """Invalidate cached profile memories for a specific user or all users."""
+    if user_id is None:
+        _profile_cache.clear()
+    else:
+        _profile_cache.pop(user_id, None)
+
+
+def _sanitize_memory_line(mem_text: str) -> str:
+    """Escape XML boundary tags and neutralize instruction-override attempts in recalled memory."""
+    cleaned = _MEMORY_TAG_ESCAPE_RE.sub("", mem_text)
+    cleaned = _PROMPT_OVERRIDE_RE.sub(r"[FILTERED_MEMORY_TEXT: \1]", cleaned)
+    return cleaned.strip()
 
 
 def _get_cached_profile_memories(user_id: str) -> List[Dict[str, Any]]:
@@ -336,7 +360,10 @@ def retrieve_relevant_memories(
         if memory_id:
             seen_ids.add(memory_id)
         mem_text = mem_text.strip()[:1200]
-        line = f"- {mem_text}"
+        safe_mem_text = _sanitize_memory_line(mem_text)
+        if not safe_mem_text:
+            continue
+        line = f"- {safe_mem_text}"
         is_profile = meta.get("type") == "profile"
         if is_profile and profile_count >= MAX_PROFILE_ITEMS:
             continue

@@ -64,6 +64,7 @@ async def init_db():
                     ALTER TABLE messages ADD COLUMN IF NOT EXISTS generated_videos text;
                     ALTER TABLE messages ADD COLUMN IF NOT EXISTS user_attachments text;
                     ALTER TABLE messages ADD COLUMN IF NOT EXISTS tool_invocations text;
+                    ALTER TABLE messages ADD COLUMN IF NOT EXISTS memory_updated text;
                     ALTER TABLE messages ADD COLUMN IF NOT EXISTS thinking_duration_ms integer DEFAULT 0;
                     ALTER TABLE messages ADD COLUMN IF NOT EXISTS finish_reason varchar(20) DEFAULT 'stop';
                     ALTER TABLE messages ADD COLUMN IF NOT EXISTS search_query varchar(255);

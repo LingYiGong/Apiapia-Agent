@@ -56,6 +56,8 @@ class Message(Base):
     user_attachments = Column(Text, nullable=True)
     # JSON array of tool invocations, so the tool-call cards survive a reload.
     tool_invocations = Column(Text, nullable=True)
+    # JSON array of memory strings extracted/updated during this turn.
+    memory_updated = Column(Text, nullable=True)
     # Time to first token in ms; kept separately from duration_ms so the UI can
     # show how long the model "thought" before answering.
     thinking_duration_ms = Column(Integer, nullable=True, default=0)

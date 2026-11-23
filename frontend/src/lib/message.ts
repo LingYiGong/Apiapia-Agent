@@ -39,6 +39,15 @@ function toGeneratedVideos(raw: unknown): GeneratedVideo[] | undefined {
   return undefined;
 }
 
+function toStringArray(raw: unknown): string[] | undefined {
+  const parsed = parseJsonColumn(raw);
+  if (!Array.isArray(parsed)) return undefined;
+  const items = parsed
+    .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    .map((item) => item.trim());
+  return items.length > 0 ? items : undefined;
+}
+
 function toAttachments(raw: unknown): AttachmentItem[] | undefined {
   const parsed = parseJsonColumn(raw);
   if (Array.isArray(parsed) && parsed.length > 0) {
@@ -72,7 +81,15 @@ function toAttachments(raw: unknown): AttachmentItem[] | undefined {
  * 解析失败只警告不抛：一条坏消息不该让整个会话打不开。
  */
 export function hydrateMessage(msg: Message): Message {
-  if (!msg.generated_images && !msg.generated_videos && !msg.tool_invocations && !msg.user_attachments) return msg;
+  if (
+    !msg.generated_images &&
+    !msg.generated_videos &&
+    !msg.tool_invocations &&
+    !msg.user_attachments &&
+    !msg.memory_updated
+  ) {
+    return msg;
+  }
 
   const next: Message = { ...msg };
 
@@ -92,6 +109,9 @@ export function hydrateMessage(msg: Message): Message {
   if (!next.toolInvocations && msg.tool_invocations) {
     const tools = toToolInvocations(msg.tool_invocations);
     if (tools) next.toolInvocations = tools;
+  }
+  if (msg.memory_updated != null) {
+    next.memory_updated = toStringArray(msg.memory_updated);
   }
 
   return next;

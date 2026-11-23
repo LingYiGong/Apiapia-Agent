@@ -22,6 +22,7 @@ class MessageResponse(MessageBase):
     # JSON metadata for uploaded attachments
     user_attachments: Optional[str] = None
     tool_invocations: Optional[str] = None
+    memory_updated: Optional[str] = None
     thinking_duration_ms: Optional[int] = 0
     finish_reason: Optional[str] = "stop"
     search_query: Optional[str] = None

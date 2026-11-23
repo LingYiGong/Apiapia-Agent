@@ -170,7 +170,7 @@ async def check_consolidation_snapshot_status(
     current_user: User = Depends(get_current_user)
 ):
     """Check if a rollback snapshot is available for the current user."""
-    status_info = get_snapshot_status(user_id=current_user.id)
+    status_info = await asyncio.to_thread(get_snapshot_status, user_id=current_user.id)
     return ConsolidationSnapshotStatus(**status_info)
 
 
@@ -179,7 +179,9 @@ async def get_memory(
     memory_id: str,
     current_user: User = Depends(get_current_user)
 ):
-    memory = memory_service.get_memory(user_id=current_user.id, memory_id=memory_id)
+    memory = await asyncio.to_thread(
+        memory_service.get_memory, user_id=current_user.id, memory_id=memory_id
+    )
     if not memory:
         raise ApiError(status_code=status.HTTP_404_NOT_FOUND, code="MEMORY_NOT_FOUND")
     return memory
@@ -193,11 +195,12 @@ async def update_memory(
 ):
     """Correct or update an existing memory."""
     try:
-        updated = memory_service.update_memory(
+        updated = await asyncio.to_thread(
+            memory_service.update_memory,
             user_id=current_user.id,
             memory_id=memory_id,
             data=memory_in.data,
-            metadata=memory_in.metadata
+            metadata=memory_in.metadata,
         )
         return {"status": "success", "result": updated}
     except ValueError as e:
@@ -211,7 +214,9 @@ async def delete_memory(
 ):
     """Delete a specific memory."""
     try:
-        memory_service.delete_memory(user_id=current_user.id, memory_id=memory_id)
+        await asyncio.to_thread(
+            memory_service.delete_memory, user_id=current_user.id, memory_id=memory_id
+        )
         return None
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))

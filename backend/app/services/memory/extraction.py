@@ -348,6 +348,17 @@ def _decide_dedup(
     return decision, merged
 
 
+def _safe_importance(val: Any, default: int = 3) -> int:
+    """Safely parse importance score into [1, 5], tolerating string/float LLM outputs."""
+    if val is None or isinstance(val, bool):
+        return default
+    try:
+        num = int(round(float(str(val).strip())))
+        return max(1, min(5, num))
+    except (TypeError, ValueError):
+        return default
+
+
 # ── Shared helper: add a single vetted fact string to Mem0 ────────────────────
 
 def _add_single_fact(
@@ -356,7 +367,7 @@ def _add_single_fact(
     importance: int,
     meta_base: Dict[str, Any],
     memory_model: str,
-):
+) -> bool:
     """Add a single pre-vetted fact string to Mem0 with importance in metadata."""
     if "type" not in meta_base:
         meta_base = {
@@ -380,8 +391,10 @@ def _add_single_fact(
             "Stored new memory for user %s (importance=%d): '%s'",
             user_id, importance, fact_text[:70],
         )
+        return True
     except Exception as e:
         logger.warning("Failed to add memory for user %s: %s", user_id, e)
+        return False
 
 
 # ── Shared Fact Dedup & Upsert Pipeline ──────────────────────────────────────
@@ -392,26 +405,26 @@ def upsert_facts_to_memory(
     metadata: Optional[Dict[str, Any]] = None,
     memory_model: Optional[str] = None,
     min_importance: int = IMPORTANCE_THRESHOLD,
-) -> int:
+) -> List[str]:
     """
     Dedup and upsert a list of candidate facts/summaries with importance scores into Mem0.
     Shared pipeline used by both single-turn smart extraction and macro-level dreaming.
-    Returns the count of successfully processed facts.
+    Returns the list of fact texts that were actually persisted or merged.
     """
     if not raw_facts:
-        return 0
+        return []
 
     resolved_model = memory_model or "gpt-4o-mini"
     important_facts = [
         f for f in raw_facts
-        if isinstance(f.get("importance"), (int, float)) and f["importance"] >= min_importance
+        if isinstance(f, dict) and _safe_importance(f.get("importance"), default=0) >= min_importance
     ]
     logger.info(
         "user %s: %d/%d facts passed importance filter (threshold=%d)",
         user_id, len(important_facts), len(raw_facts), min_importance,
     )
     if not important_facts:
-        return 0
+        return []
 
     meta_base = (metadata or {}).copy()
     if "evidence" not in meta_base:
@@ -423,11 +436,11 @@ def upsert_facts_to_memory(
         )[:2000]
     else:
         meta_base.pop("source_messages", None)
-    processed_count = 0
+    saved_facts: List[str] = []
 
     for fact in important_facts:
-        fact_text = (fact.get("text") or "").strip()
-        importance = int(fact.get("importance", 3))
+        fact_text = str(fact.get("text") or fact.get("fact") or fact.get("memory") or "").strip()
+        importance = _safe_importance(fact.get("importance"), default=3)
         if not fact_text:
             continue
 
@@ -460,7 +473,7 @@ def upsert_facts_to_memory(
                 continue
 
             if decision in ("KEEP_NEW", "MERGE") and existing_id:
-                final_text = merged_text if decision == "MERGE" else fact_text
+                final_text = (merged_text if decision == "MERGE" else fact_text).strip() or fact_text
                 try:
                     memory_service.update_memory(
                         user_id=user_id,
@@ -473,7 +486,7 @@ def upsert_facts_to_memory(
                         },
                     )
                     logger.info("Updated memory %s for user %s (%s)", existing_id, user_id, decision)
-                    processed_count += 1
+                    saved_facts.append(final_text)
                     continue
                 except Exception as e:
                     logger.warning(
@@ -481,13 +494,13 @@ def upsert_facts_to_memory(
                         existing_id, decision, e,
                     )
 
-            _add_single_fact(user_id, fact_text, importance, meta_base, resolved_model)
-            processed_count += 1
+            if _add_single_fact(user_id, fact_text, importance, meta_base, resolved_model):
+                saved_facts.append(fact_text)
         else:
-            _add_single_fact(user_id, fact_text, importance, meta_base, resolved_model)
-            processed_count += 1
+            if _add_single_fact(user_id, fact_text, importance, meta_base, resolved_model):
+                saved_facts.append(fact_text)
 
-    return processed_count
+    return saved_facts
 
 
 # ── Core smart extraction task ────────────────────────────────────────────────
@@ -497,7 +510,7 @@ def smart_extract_memories_task(
     messages: List[Dict[str, str]],
     metadata: Optional[Dict[str, Any]] = None,
     memory_model: Optional[str] = None,
-):
+) -> List[str]:
     """
     4-step smart memory extraction pipeline:
     1. LLM extracts facts from the conversation WITH importance scores (Phase 1)
@@ -505,27 +518,26 @@ def smart_extract_memories_task(
     """
     if not memory_service.is_configured():
         logger.debug("Skipping smart extraction for user %s: no API key configured.", user_id)
-        return
+        return []
 
     resolved_model = memory_model or "gpt-4o-mini"
     sanitized = sanitize_messages_for_memory(messages)
     if not sanitized:
         logger.info("No content after sanitizing for user %s — skipping extraction.", user_id)
-        return
+        return []
 
     facts = _extract_facts_with_importance(sanitized, memory_model=resolved_model)
     if not facts:
         logger.info("No facts extracted for user %s.", user_id)
-        return
+        return []
 
-    count = upsert_facts_to_memory(
+    return upsert_facts_to_memory(
         user_id=user_id,
         raw_facts=facts,
         metadata=metadata,
         memory_model=resolved_model,
         min_importance=IMPORTANCE_THRESHOLD,
     )
-    return [str(f.get("fact")) for f in facts if f.get("fact")] if count else []
 
 
 # ── Message sanitization (unchanged from v1) ──────────────────────────────────
@@ -568,9 +580,8 @@ async def schedule_memory_extraction(
     messages: List[Dict[str, str]],
     metadata: Optional[Dict[str, Any]] = None,
     memory_model: Optional[str] = None,
-):
-    """Run extraction on the executor so the caller's event loop keeps moving."""
-    loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(
-        None, smart_extract_memories_task, user_id, messages, metadata, memory_model
+) -> List[str]:
+    """Run extraction on a worker thread while preserving the caller's contextvars."""
+    return await asyncio.to_thread(
+        smart_extract_memories_task, user_id, messages, metadata, memory_model
     )

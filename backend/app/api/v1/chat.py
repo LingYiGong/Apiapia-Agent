@@ -1825,10 +1825,13 @@ async def chat_stream(
             and not error_text
         )
 
-        # Start title generation and follow-up suggestion tasks concurrently with DB reply persistence
+        # Start title generation, follow-up suggestions, and memory extraction tasks concurrently with DB reply persistence
         user_for_title = _prepare_user_text_for_title(chat_req.message, parsed_docs, parsed_images)
         title_task: Optional[asyncio.Task] = None
         suggestions_task: Optional[asyncio.Task] = None
+        memory_task: Optional[asyncio.Task] = None
+        assistant_message_id: Optional[str] = None
+        assistant_saved_event = asyncio.Event()
 
         if is_successful_turn and should_generate_title:
             clean_assistant_for_title = _prepare_assistant_text_for_title(
@@ -1875,8 +1878,60 @@ async def chat_stream(
                 )
             )
 
+        if is_successful_turn and use_memory:
+            clean_assistant = _strip_thinking_blocks(assistant_content)
+            if not clean_assistant:
+                clean_assistant = assistant_content[:2000]
+
+            user_content_for_memory = chat_req.message.strip() if chat_req.message else (
+                memory_text("uploaded_file").format(name=parsed_docs[0]['name']) if parsed_docs else memory_text("uploaded_image")
+            )
+            extraction_messages = []
+            # Provide preceding turn context for multi-turn pronoun & topic grounding
+            if recent_msgs and len(recent_msgs) >= 2:
+                for pm in recent_msgs[-2:]:
+                    pm_role = getattr(pm, "role", None) or (pm.get("role") if isinstance(pm, dict) else "user")
+                    pm_content = getattr(pm, "content", None) or (pm.get("content") if isinstance(pm, dict) else "")
+                    if pm_content and pm_role in ("user", "assistant"):
+                        cleaned_pm = _strip_thinking_blocks(str(pm_content))
+                        if cleaned_pm:
+                            extraction_messages.append({"role": pm_role, "content": cleaned_pm[:600]})
+
+            extraction_messages.extend([
+                {"role": "user", "content": user_content_for_memory},
+                {"role": "assistant", "content": clean_assistant}
+            ])
+            memory_model_to_use = getattr(user_settings, "memory_model", None) or "openai/gpt-4o-mini"
+
+            async def _run_and_persist_memory() -> List[str]:
+                try:
+                    facts = await schedule_memory_extraction(
+                        user_id=user_id,
+                        messages=extraction_messages,
+                        metadata={
+                            "conversation_id": conv_id,
+                            "source_messages": extraction_messages,
+                        },
+                        memory_model=memory_model_to_use,
+                    )
+                    if facts:
+                        await assistant_saved_event.wait()
+                        if assistant_message_id:
+                            async with AsyncSessionLocal() as mem_db:
+                                m_rec = await mem_db.get(Message, assistant_message_id)
+                                if m_rec:
+                                    m_rec.memory_updated = json.dumps(facts, ensure_ascii=False)
+                                    await mem_db.commit()
+                    return facts or []
+                except Exception as mem_err:
+                    logger.debug("Memory extraction background task skipped/failed: %s", mem_err)
+                    return []
+
+            memory_task = asyncio.create_task(_run_and_persist_memory())
+            _background_persist_tasks.add(memory_task)
+            memory_task.add_done_callback(_background_persist_tasks.discard)
+
         # Persist assistant reply before emitting done payload
-        assistant_message_id = None
         if assistant_content.strip():
             if finish_reason == "abort":
                 # Current ASGI request task is cancelled. Running DB operations directly
@@ -1889,6 +1944,7 @@ async def chat_stream(
                 persist_task.add_done_callback(_background_persist_tasks.discard)
             else:
                 assistant_message_id = await _save_assistant_reply()
+        assistant_saved_event.set()
 
         # Signal completion with complete metadata (only emit done if stream finished without unrecoverable error)
         done_payload = {
@@ -1944,48 +2000,21 @@ async def chat_stream(
                 except Exception as sug_err:
                     logger.warning("Failed to generate follow-up suggestions: %s", sug_err)
 
-            # Schedule memory extraction in background if enabled and not aborted
+            # Await memory extraction result (shielded so timeout or client disconnect never cancels persistence)
             if use_memory:
-                clean_assistant = _strip_thinking_blocks(assistant_content)
-                if not clean_assistant:
-                    clean_assistant = assistant_content[:2000]
-
-                user_content_for_memory = chat_req.message.strip() if chat_req.message else (
-                    memory_text("uploaded_file").format(name=parsed_docs[0]['name']) if parsed_docs else memory_text("uploaded_image")
-                )
-                extraction_messages = []
-                # Provide preceding turn context for multi-turn pronoun & topic grounding
-                if recent_msgs and len(recent_msgs) >= 2:
-                    for pm in recent_msgs[-2:]:
-                        pm_role = getattr(pm, "role", None) or (pm.get("role") if isinstance(pm, dict) else "user")
-                        pm_content = getattr(pm, "content", None) or (pm.get("content") if isinstance(pm, dict) else "")
-                        if pm_content and pm_role in ("user", "assistant"):
-                            cleaned_pm = _strip_thinking_blocks(str(pm_content))
-                            if cleaned_pm:
-                                extraction_messages.append({"role": pm_role, "content": cleaned_pm[:600]})
-
-                extraction_messages.extend([
-                    {"role": "user", "content": user_content_for_memory},
-                    {"role": "assistant", "content": clean_assistant}
-                ])
-                memory_model_to_use = getattr(user_settings, "memory_model", None) or "openai/gpt-4o-mini"
-                try:
-                    extracted_facts = await asyncio.wait_for(
-                        schedule_memory_extraction(
-                            user_id=user_id,
-                            messages=extraction_messages,
-                            metadata={
-                                "conversation_id": conv_id,
-                                "source_messages": extraction_messages,
-                            },
-                            memory_model=memory_model_to_use
-                        ),
-                        timeout=3.0
-                    )
-                    if extracted_facts and yield_allowed:
-                        yield f"data: {json.dumps({'type': 'memory_updated', 'conversation_id': conv_id, 'facts': extracted_facts}, ensure_ascii=False)}\n\n"
-                except Exception as mem_extract_err:
-                    logger.debug("Memory extraction inline wait skipped/failed: %s", mem_extract_err)
+                if memory_task is not None and yield_allowed:
+                    try:
+                        extracted_facts = await asyncio.wait_for(
+                            asyncio.shield(memory_task),
+                            timeout=15.0,
+                        )
+                        if extracted_facts and yield_allowed:
+                            yield f"data: {json.dumps({'type': 'memory_updated', 'conversation_id': conv_id, 'facts': extracted_facts}, ensure_ascii=False)}\n\n"
+                    except (asyncio.CancelledError, GeneratorExit):
+                        yield_allowed = False
+                        was_cancelled = True
+                    except Exception as mem_extract_err:
+                        logger.debug("Memory extraction inline wait skipped/failed: %s", mem_extract_err)
 
                 # Trigger dreaming summarization if message interval reached
                 try:
